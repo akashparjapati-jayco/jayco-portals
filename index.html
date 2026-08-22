@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Jayco Engineering — Staff Portals</title>
+<style>
+  :root{
+    --bg:#F5F6F8;
+    --ink:#0B1829; --ink-soft:#5B6B82; --ink-faint:#9AA6B8;
+    --card:#ffffff; --card-border:rgba(11,24,41,0.08);
+    --navy:#0B1829; --navy-deep:#08111d; --navy-glow:rgba(11,24,41,0.35);
+    --orange:#F97316; --orange-deep:#C2570A; --orange-glow:rgba(249,115,22,0.4);
+    --blue:#2563EB;
+    --glass:rgba(255,255,255,0.55); --glass-border:rgba(255,255,255,0.6);
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{
+    margin:0;font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","Segoe UI",Roboto,Inter,Helvetica,Arial,sans-serif;
+    background:var(--bg);color:var(--ink);position:relative;overflow-x:hidden;
+    -webkit-font-smoothing:antialiased;
+  }
+
+  /* ---------- ambient background lighting ---------- */
+  .ambient{position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden;}
+  .orb{position:absolute;border-radius:50%;filter:blur(70px);opacity:.45;}
+  .orb.o1{width:520px;height:520px;top:-180px;left:-140px;background:radial-gradient(circle,var(--navy) 0%,transparent 70%);opacity:.16;}
+  .orb.o2{width:460px;height:460px;top:120px;right:-160px;background:radial-gradient(circle,var(--orange) 0%,transparent 70%);opacity:.22;}
+  .orb.o3{width:380px;height:380px;bottom:-160px;left:30%;background:radial-gradient(circle,var(--blue) 0%,transparent 70%);opacity:.14;}
+  .grain{position:absolute;inset:0;background:radial-gradient(circle at 50% 0%,rgba(255,255,255,.5),transparent 60%);}
+
+  .wrap{position:relative;z-index:1;max-width:1000px;margin:0 auto;padding:64px 24px 0;}
+
+  /* ---------- nav ---------- */
+  nav{display:flex;align-items:center;justify-content:space-between;margin-bottom:64px;}
+  .logo{display:flex;align-items:center;gap:10px;font-size:14.5px;font-weight:700;color:var(--ink);letter-spacing:-.2px;}
+  .logo .dot{width:9px;height:9px;border-radius:50%;background:linear-gradient(135deg,var(--navy),var(--orange));box-shadow:0 0 12px var(--orange-glow);}
+
+  /* ---------- hero ---------- */
+  .hero{text-align:center;margin-bottom:64px;}
+  .kicker{display:inline-flex;align-items:center;gap:7px;font-size:11px;letter-spacing:2.5px;font-weight:700;color:var(--ink-soft);
+    text-transform:uppercase;padding:7px 16px;background:var(--glass);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);
+    border:1px solid var(--glass-border);border-radius:100px;margin-bottom:26px;box-shadow:0 1px 2px rgba(11,24,41,.04);}
+  .kicker .pulse{width:6px;height:6px;border-radius:50%;background:var(--orange);box-shadow:0 0 8px var(--orange-glow);}
+  .hero h1{margin:0 0 16px;font-size:42px;font-weight:700;color:var(--ink);letter-spacing:-1.2px;line-height:1.12;}
+  .hero h1 span{color:var(--ink-faint);font-weight:600;}
+  .hero p{margin:0 auto;max-width:480px;font-size:15px;color:var(--ink-soft);line-height:1.7;font-weight:400;}
+
+  /* ---------- card grid ---------- */
+  .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:20px;margin-bottom:28px;}
+  @media(max-width:860px){.grid{grid-template-columns:1fr;}}
+  .card{
+    border-radius:26px;padding:32px;text-decoration:none;
+    display:flex;flex-direction:column;justify-content:space-between;
+    transition:transform .35s cubic-bezier(.22,1,.36,1),box-shadow .35s cubic-bezier(.22,1,.36,1);
+    position:relative;overflow:hidden;min-height:260px;
+  }
+  .card:hover{transform:translateY(-6px);}
+
+  .card.neutral{
+    background:linear-gradient(180deg,rgba(255,255,255,.92),rgba(255,255,255,.68));
+    border:1px solid var(--card-border);
+    box-shadow:0 1px 2px rgba(11,24,41,.04),0 24px 48px -24px rgba(11,24,41,.12);
+    backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
+  }
+  .card.neutral:hover{box-shadow:0 1px 2px rgba(11,24,41,.04),0 32px 60px -22px rgba(11,24,41,.18);}
+
+  .card.glow{color:#fff;}
+  .card.glow.navy{background:linear-gradient(155deg,#16283F 0%,var(--navy-deep) 100%);
+    box-shadow:0 30px 60px -20px var(--navy-glow),inset 0 1px 0 rgba(255,255,255,.12);}
+  .card.glow.navy:hover{box-shadow:0 40px 80px -18px var(--navy-glow),inset 0 1px 0 rgba(255,255,255,.16);}
+  .card.glow.orange{background:linear-gradient(155deg,#FB923C 0%,var(--orange-deep) 100%);
+    box-shadow:0 30px 60px -20px var(--orange-glow),inset 0 1px 0 rgba(255,255,255,.25);}
+  .card.glow.orange:hover{box-shadow:0 40px 80px -18px var(--orange-glow),inset 0 1px 0 rgba(255,255,255,.3);}
+  .card.glow::after{content:"";position:absolute;top:-40%;right:-20%;width:70%;height:70%;
+    background:radial-gradient(circle,rgba(255,255,255,.22),transparent 70%);pointer-events:none;}
+
+  .icon-box{width:48px;height:48px;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:22px;margin-bottom:20px;}
+  .card.neutral .icon-box{background:rgba(37,99,235,0.08);}
+  .card.glow .icon-box{background:rgba(255,255,255,.18);backdrop-filter:blur(6px);border:1px solid rgba(255,255,255,.25);}
+
+  .card h3{margin:0 0 10px;font-size:18px;font-weight:650;line-height:1.35;letter-spacing:-.3px;}
+  .card.neutral h3{color:var(--ink);}
+  .card p{margin:0;font-size:13.5px;line-height:1.65;font-weight:400;}
+  .card.neutral p{color:var(--ink-soft);}
+  .card.glow p{color:rgba(255,255,255,.88);}
+
+  .card-bottom{margin-top:24px;display:flex;align-items:center;justify-content:space-between;position:relative;z-index:1;}
+  .tag{font-size:10px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;padding:5px 10px;border-radius:7px;}
+  .card.neutral .tag{color:var(--navy);background:rgba(37,99,235,0.08);}
+  .card.glow .tag{color:#fff;background:rgba(255,255,255,.2);}
+
+  .open-btn{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:650;
+    padding:10px 18px;border-radius:100px;transition:.2s ease;}
+  .card.neutral .open-btn{color:#fff;background:var(--ink);}
+  .card.neutral .open-btn:hover{background:var(--blue);box-shadow:0 8px 20px -6px rgba(37,99,235,.4);}
+  .card.glow .open-btn{color:var(--ink);background:rgba(255,255,255,.92);}
+  .card.glow .open-btn:hover{background:#fff;transform:translateY(-1px);}
+
+  /* ---------- footer ---------- */
+  footer{margin-top:48px;padding:36px 8px 44px;text-align:center;position:relative;z-index:1;}
+  footer .rule{width:40px;height:3px;border-radius:2px;background:linear-gradient(90deg,var(--navy),var(--orange));margin:0 auto 20px;}
+  footer .name{font-size:14px;font-weight:700;color:var(--ink);}
+  footer .role{font-size:11.5px;color:var(--ink-soft);margin-top:4px;}
+  footer .phone{font-size:11.5px;color:var(--ink-soft);margin-top:6px;}
+  footer .phone a{color:var(--blue);text-decoration:none;font-weight:600;}
+  footer .fine{font-size:10.5px;color:var(--ink-faint);margin-top:14px;}
+</style>
+</head>
+<body>
+
+<div class="ambient">
+  <div class="orb o1"></div>
+  <div class="orb o2"></div>
+  <div class="orb o3"></div>
+  <div class="grain"></div>
+</div>
+
+<div class="wrap">
+
+  <nav>
+    <div class="logo"><span class="dot"></span> Jayco Engineering</div>
+  </nav>
+
+  <div class="hero">
+    <span class="kicker"><span class="pulse"></span> Staff Portals</span>
+    <h1>Everything you run, <span>in one place</span></h1>
+    <p>Production, purchase orders, and customer accounts — each portal runs on its own, signed in separately with your staff password.</p>
+  </div>
+
+  <div class="grid">
+
+    <div class="card glow navy">
+      <div>
+        <div class="icon-box">🏭</div>
+        <h3>Production Management</h3>
+        <p>Production floor tracking, vendor management, and operation flow — from raw material to despatch.</p>
+      </div>
+      <div class="card-bottom">
+        <span class="tag">Internal</span>
+        <a class="open-btn" href="production.html">Open Portal →</a>
+      </div>
+    </div>
+
+    <div class="card neutral">
+      <div>
+        <div class="icon-box">📋</div>
+        <h3>PO Management</h3>
+        <p>Track customer purchase orders, despatches, pending quantities, and reports — customer and item master included.</p>
+      </div>
+      <div class="card-bottom">
+        <span class="tag">Internal</span>
+        <a class="open-btn" href="po-management.html">Open Portal →</a>
+      </div>
+    </div>
+
+    <div class="card glow orange">
+      <div>
+        <div class="icon-box">👥</div>
+        <h3>Customer Portal</h3>
+        <p>Customer invoicing, receivables, payments, and due-date tracking in one place.</p>
+      </div>
+      <div class="card-bottom">
+        <span class="tag">Internal</span>
+        <a class="open-btn" href="customer-portal.html">Open Portal →</a>
+      </div>
+    </div>
+
+  </div>
+
+  <footer>
+    <div class="rule"></div>
+    <div class="name">Concept &amp; Developed by CA Amit N. Lakhtariya</div>
+    <div class="role">Designated Partner, Pradip B. Gandhi &amp; Co. LLP · Chartered Accountants · M. No. ICAI 117820</div>
+    <div class="phone"><a href="tel:+919376139815">+91 9376139815</a></div>
+    <div class="fine">Each portal signs in independently — use your staff password for that portal.</div>
+  </footer>
+
+</div>
+</body>
+</html>
