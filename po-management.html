@@ -1,0 +1,2096 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Jayco PO Management</title>
+
+<!-- Firebase (compat build — simplest for a single-file app) -->
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
+<!-- SheetJS for the one-time Excel import -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+<style>
+:root{
+  --navy-950:#0b1a2b;
+  --navy-900:#0f2942;
+  --navy-800:#15375a;
+  --navy-700:#1c4a73;
+  --blue-600:#2f6fed;
+  --blue-500:#4a86ff;
+  --blue-100:#e8f0ff;
+  --bg:#f4f7fb;
+  --panel:#ffffff;
+  --border:#dde5ef;
+  --text:#132339;
+  --text-dim:#5b6b82;
+  --green:#1a9e63;
+  --green-bg:#e7f8ef;
+  --amber:#b8790a;
+  --amber-bg:#fdf3e0;
+  --red:#c8372f;
+  --red-bg:#fbe9e8;
+  --radius:10px;
+  --shadow:0 1px 2px rgba(15,41,66,.06), 0 8px 24px -12px rgba(15,41,66,.12);
+}
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;background:var(--bg);color:var(--text);
+  font-family:"Segoe UI",Inter,-apple-system,BlinkMacSystemFont,Arial,sans-serif;}
+body{display:flex;min-height:100vh;}
+
+/* ---------- Sidebar ---------- */
+#sidebar{
+  width:220px;flex:0 0 220px;background:linear-gradient(180deg,var(--navy-950),var(--navy-900));
+  color:#cfe0f5;display:flex;flex-direction:column;position:sticky;top:0;height:100vh;
+}
+#sidebar .brand{padding:20px 18px 14px;border-bottom:1px solid rgba(255,255,255,.08);}
+#sidebar .brand .name{font-size:16px;font-weight:700;color:#fff;letter-spacing:.2px;}
+#sidebar .brand .sub{font-size:11px;color:#8fa8c6;margin-top:2px;}
+#sidebar nav{padding:12px 10px;flex:1;overflow-y:auto;}
+#sidebar .nav-item{
+  display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:8px;
+  font-size:13.5px;cursor:pointer;color:#c3d5ec;margin-bottom:2px;user-select:none;
+}
+#sidebar .nav-item:hover{background:rgba(255,255,255,.06);color:#fff;}
+#sidebar .nav-item.active{background:var(--blue-600);color:#fff;}
+#sidebar .nav-icon{width:16px;text-align:center;font-size:14px;}
+#sidebar .status{padding:12px 16px;font-size:11px;color:#7f97b7;border-top:1px solid rgba(255,255,255,.08);}
+#sidebar .status.ok{color:#7fe0ab;}
+#sidebar .status.err{color:#ff9d92;}
+
+/* ---------- Main ---------- */
+#main{flex:1;min-width:0;padding:26px 32px 60px;}
+.page{display:none;}
+.page.active{display:block;}
+.page-head{display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:10px;}
+.page-head h1{font-size:20px;margin:0;font-weight:700;color:var(--navy-900);}
+.page-head p{margin:4px 0 0;color:var(--text-dim);font-size:13px;}
+
+.btn{
+  border:none;border-radius:8px;padding:9px 16px;font-size:13px;font-weight:600;cursor:pointer;
+  display:inline-flex;align-items:center;gap:6px;
+}
+.btn-primary{background:var(--blue-600);color:#fff;}
+.btn-primary:hover{background:#2559c9;}
+.btn-secondary{background:#fff;color:var(--navy-800);border:1px solid var(--border);}
+.btn-secondary:hover{background:#f0f4f9;}
+.btn-danger{background:var(--red-bg);color:var(--red);}
+.btn-ghost{background:transparent;color:var(--blue-600);padding:4px 8px;font-weight:600;}
+
+.card{background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);}
+.card-pad{padding:18px 20px;}
+
+/* KPI cards */
+.kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:14px;margin-bottom:22px;}
+.kpi{padding:16px 18px;}
+.kpi .label{font-size:11.5px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.4px;font-weight:600;}
+.kpi .value{font-size:26px;font-weight:700;color:var(--navy-900);margin-top:6px;}
+.kpi .foot{font-size:11.5px;color:var(--text-dim);margin-top:4px;}
+.kpi.exclusive{border-left:3px solid var(--blue-600);}
+
+/* Forms */
+label{display:block;font-size:12px;font-weight:600;color:var(--navy-800);margin-bottom:4px;}
+input,select,textarea{
+  width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:7px;font-size:13px;
+  background:#fff;color:var(--text);font-family:inherit;
+}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--blue-500);box-shadow:0 0 0 3px var(--blue-100);}
+.field{margin-bottom:14px;}
+.field-row{display:grid;gap:12px;}
+.g2{grid-template-columns:1fr 1fr;}
+.g3{grid-template-columns:1fr 1fr 1fr;}
+.g4{grid-template-columns:1fr 1fr 1fr 1fr;}
+.hint{font-size:11px;color:var(--text-dim);margin-top:3px;}
+.checkbox-row{display:flex;align-items:center;gap:8px;}
+.checkbox-row input{width:auto;}
+
+/* Item rows in PO form */
+#itemRows{display:flex;flex-direction:column;gap:8px;margin:10px 0;}
+.item-row{display:grid;grid-template-columns:1.4fr 1.6fr 1fr .9fr auto;gap:8px;align-items:end;
+  background:#f8fafd;border:1px solid var(--border);border-radius:8px;padding:10px;}
+.item-row label{font-size:10.5px;margin-bottom:3px;}
+.remove-row{background:var(--red-bg);color:var(--red);border:none;border-radius:7px;height:34px;width:34px;cursor:pointer;font-weight:700;}
+
+/* Tables */
+table{width:100%;border-collapse:collapse;font-size:12.8px;}
+th{text-align:left;padding:9px 10px;background:#f3f6fb;color:var(--navy-800);font-weight:700;
+  font-size:11.5px;text-transform:uppercase;letter-spacing:.3px;border-bottom:1px solid var(--border);white-space:nowrap;}
+td{padding:9px 10px;border-bottom:1px solid #eef2f7;vertical-align:middle;}
+tr:hover td{background:#f9fbfd;}
+.table-wrap{overflow-x:auto;}
+.badge{display:inline-block;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:700;}
+.badge-pending{background:var(--amber-bg);color:var(--amber);}
+.badge-partial{background:var(--blue-100);color:var(--blue-600);}
+.badge-done{background:var(--green-bg);color:var(--green);}
+.badge-exclusive{background:var(--navy-900);color:#fff;font-size:9.5px;padding:2px 7px;margin-left:6px;}
+
+.toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px;}
+.toolbar input,.toolbar select{width:auto;min-width:160px;}
+.tabs{display:flex;gap:4px;margin-bottom:16px;border-bottom:1px solid var(--border);}
+.tab{padding:9px 16px;font-size:13px;font-weight:600;color:var(--text-dim);cursor:pointer;border-bottom:2px solid transparent;}
+.tab.active{color:var(--blue-600);border-bottom-color:var(--blue-600);}
+
+.empty{padding:40px 20px;text-align:center;color:var(--text-dim);font-size:13px;}
+.empty .big{font-size:28px;margin-bottom:8px;}
+
+.toast{position:fixed;bottom:22px;right:22px;background:var(--navy-900);color:#fff;padding:12px 18px;
+  border-radius:9px;font-size:13px;box-shadow:var(--shadow);z-index:999;display:none;max-width:340px;}
+.toast.show{display:block;}
+.toast.error{background:var(--red);}
+.toast.success{background:var(--green);}
+
+.modal-bg{position:fixed;inset:0;background:rgba(11,26,43,.45);display:none;align-items:center;justify-content:center;z-index:900;}
+.modal-bg.show{display:flex;}
+.modal{background:#fff;border-radius:12px;padding:22px 24px;width:420px;max-width:90vw;box-shadow:var(--shadow);}
+.modal h3{margin:0 0 14px;font-size:15px;}
+
+.setup-box{background:#fff8e8;border:1px solid #f0d38a;border-radius:10px;padding:18px 20px;margin-bottom:20px;font-size:13px;line-height:1.6;}
+.setup-box code{background:#fff;border:1px solid #e6d8ab;padding:1px 6px;border-radius:5px;font-size:12px;}
+
+.pill-toggle{display:inline-flex;border:1px solid var(--border);border-radius:8px;overflow:hidden;}
+.pill-toggle button{border:none;background:#fff;padding:7px 14px;font-size:12.5px;font-weight:600;cursor:pointer;color:var(--text-dim);}
+.pill-toggle button.active{background:var(--blue-600);color:#fff;}
+
+.spinner{display:inline-block;width:14px;height:14px;border:2px solid rgba(255,255,255,.4);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg);}}
+.text-right{text-align:right;}
+.mono{font-variant-numeric:tabular-nums;}
+.qty-input{width:90px;padding:6px 8px;}
+tr.row-disabled td{color:var(--text-dim);}
+tr.row-checked td{background:var(--blue-100);}
+tr.clickable{cursor:pointer;}
+tr.clickable:hover td{background:var(--blue-100)!important;}
+.modal-wide{width:960px;max-width:95vw;}
+.kpi.clickable{cursor:pointer;}
+.kpi.clickable:hover{box-shadow:0 2px 4px rgba(15,41,66,.1), 0 12px 28px -12px rgba(15,41,66,.22);}
+.age-box{cursor:default;}
+.age-box.has-data{cursor:pointer;}
+.age-box.has-data:hover{filter:brightness(0.97);}
+</style>
+</head>
+<body>
+
+<div id="loginScreen" style="position:fixed;inset:0;background:linear-gradient(160deg,var(--navy-950),var(--navy-900));
+  display:flex;align-items:center;justify-content:center;z-index:2000;">
+  <div style="background:#fff;border-radius:14px;padding:36px 34px;width:340px;max-width:90vw;box-shadow:0 20px 60px rgba(0,0,0,.35);">
+    <div style="text-align:center;margin-bottom:22px;">
+      <div style="font-size:18px;font-weight:700;color:var(--navy-900);">Jayco Engineering</div>
+      <div style="font-size:12.5px;color:var(--text-dim);margin-top:2px;">PO Management — staff sign in</div>
+    </div>
+    <div class="field">
+      <label>Password</label>
+      <input type="password" id="loginPassword" placeholder="Staff password" autocomplete="current-password"/>
+    </div>
+    <button class="btn btn-primary" id="loginBtn" style="width:100%;margin-top:6px;">Sign in</button>
+    <div id="loginError" style="color:var(--red);font-size:12.5px;margin-top:10px;text-align:center;display:none;"></div>
+    <div id="loginStatus" style="color:var(--text-dim);font-size:12px;margin-top:14px;text-align:center;"></div>
+  </div>
+</div>
+
+<div id="sidebar">
+  <div class="brand">
+    <a href="index.html" style="text-decoration:none;color:inherit;display:flex;align-items:center;gap:8px;">
+      <span style="font-size:15px;">🏠</span>
+      <div>
+        <div class="name">Jayco Engineering</div>
+        <div class="sub">PO Management</div>
+      </div>
+    </a>
+  </div>
+  <nav id="navList"></nav>
+  <div class="status" id="connStatus">Connecting to database…</div>
+  <div style="padding:0 16px 14px;">
+    <button class="btn btn-secondary" id="logoutBtn" style="width:100%;font-size:12px;padding:7px 0;">Log out</button>
+  </div>
+</div>
+
+<div id="main">
+
+  <!-- ============ DASHBOARD ============ -->
+  <section class="page" id="page-dashboard">
+    <div class="page-head">
+      <div>
+        <h1>Dashboard</h1>
+        <p>Live snapshot of every PO in the system. Click any number to drill in.</p>
+      </div>
+      <div class="pill-toggle" id="dashScope">
+        <button data-scope="all" class="active">All customers</button>
+        <button data-scope="exclusive">Exclusive only</button>
+      </div>
+    </div>
+    <div class="kpi-grid" id="kpiGrid"></div>
+
+    <div class="card card-pad" style="margin-bottom:18px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+        <strong style="font-size:14px;">Pending by age</strong>
+        <span class="hint">Click a bucket to see those lines</span>
+      </div>
+      <div id="agingWidget" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;"></div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1.3fr 1fr;gap:18px;margin-bottom:18px;">
+      <div class="card card-pad">
+        <strong style="font-size:14px;">Items with the highest pending quantity</strong>
+        <div class="table-wrap" style="margin-top:10px;"><table id="topPendingTable"></table></div>
+      </div>
+      <div class="card card-pad">
+        <strong style="font-size:14px;">Top customers by pending quantity</strong>
+        <div class="table-wrap" style="margin-top:10px;"><table id="topCustomersTable"></table></div>
+      </div>
+    </div>
+
+    <div class="card card-pad">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+        <strong style="font-size:14px;">Oldest open PO lines</strong>
+        <span class="hint">Ordered longest ago and still not fully despatched</span>
+      </div>
+      <div class="table-wrap"><table id="oldestOpenTable"></table></div>
+    </div>
+  </section>
+
+  <!-- ============ NEW PO ============ -->
+  <section class="page" id="page-newpo">
+    <div class="page-head">
+      <div><h1>New Purchase Order</h1><p>Enter the PO once — every line item's pending quantity is tracked automatically from here on.</p></div>
+    </div>
+    <div class="card card-pad" style="max-width:900px;">
+      <div class="field-row g3">
+        <div class="field">
+          <label>Customer</label>
+          <input list="customerList" id="poCustomer" placeholder="Start typing or add new…" autocomplete="off"/>
+          <datalist id="customerList"></datalist>
+          <datalist id="itemMasterList"></datalist>
+          <div class="hint" id="exclusiveHint"></div>
+        </div>
+        <div class="field">
+          <label>PO Number</label>
+          <input id="poNumber" placeholder="e.g. VKS/2025-26/014"/>
+        </div>
+        <div class="field">
+          <label>PO Date</label>
+          <input type="date" id="poDate"/>
+        </div>
+      </div>
+      <div class="field-row g2">
+        <div class="field">
+          <label>Material (optional, applies to all lines by default)</label>
+          <input id="poMaterial" placeholder="e.g. CAST IRON"/>
+        </div>
+        <div class="field">
+          <label>Delivery remark (optional)</label>
+          <input id="poDeliveryRemark" placeholder="e.g. 8 weeks from PO date"/>
+        </div>
+      </div>
+
+      <label style="margin-top:6px;">Item lines</label>
+      <div id="itemRows"></div>
+      <button class="btn btn-secondary" id="addItemRowBtn" type="button">+ Add item</button>
+
+      <div style="margin-top:20px;display:flex;gap:10px;">
+        <button class="btn btn-primary" id="savePoBtn">Save purchase order</button>
+        <span id="poSaveStatus" class="hint"></span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ DESPATCH ENTRY ============ -->
+  <section class="page" id="page-despatch">
+    <div class="page-head">
+      <div><h1>Record a Despatch</h1><p>Pick a customer, then tick off every item that's going out in this despatch.</p></div>
+    </div>
+    <div class="card card-pad">
+      <div class="field-row g2" style="max-width:640px;">
+        <div class="field">
+          <label>Customer</label>
+          <input list="despatchCustomerList" id="despatchCustomer" placeholder="Start typing a customer…" autocomplete="off"/>
+          <datalist id="despatchCustomerList"></datalist>
+        </div>
+        <div class="field">
+          <label>PO number (optional — leave blank to show all open POs for this customer)</label>
+          <input id="despatchPoFilter" placeholder="e.g. VKS/2025-26/014"/>
+        </div>
+      </div>
+
+      <div id="despatchItemsWrap" style="display:none;">
+        <div class="table-wrap" style="margin-top:6px;">
+          <table id="despatchItemsTable"></table>
+        </div>
+
+        <div class="field-row g3" style="max-width:760px;margin-top:18px;border-top:1px solid var(--border);padding-top:16px;">
+          <div class="field">
+            <label>Despatch date <span class="hint">(applies to every ticked line)</span></label>
+            <input type="date" id="despatchDate"/>
+          </div>
+          <div class="field">
+            <label>Invoice number <span class="hint">(applies to every ticked line)</span></label>
+            <input id="despatchInvoice" placeholder="e.g. 128/25-26"/>
+          </div>
+          <div class="field" style="display:flex;align-items:flex-end;">
+            <button class="btn btn-primary" id="saveDespatchBtn" style="width:100%;">Save despatch</button>
+          </div>
+        </div>
+        <div id="despatchSaveStatus" class="hint" style="margin-top:8px;"></div>
+      </div>
+      <div id="despatchEmptyState" class="empty" style="display:none;">No open PO lines for this customer.</div>
+    </div>
+  </section>
+
+  <!-- ============ PO REGISTER ============ -->
+  <section class="page" id="page-register">
+    <div class="page-head">
+      <div><h1>PO Register</h1><p>Every PO line item and its live status.</p></div>
+    </div>
+    <div class="toolbar">
+      <input id="regSearch" placeholder="Search customer / PO no / item…"/>
+      <select id="regStatus">
+        <option value="">All statuses</option>
+        <option value="open">Open (Pending + Partial)</option>
+        <option value="Pending">Pending</option>
+        <option value="Partial">Partially despatched</option>
+        <option value="Completed">Completed</option>
+      </select>
+      <select id="regExclusive">
+        <option value="">All customers</option>
+        <option value="yes">Exclusive only</option>
+        <option value="no">Standard only</option>
+      </select>
+      <span class="hint" id="regCount"></span>
+    </div>
+    <div class="card"><div class="table-wrap"><table id="regTable"></table></div></div>
+  </section>
+
+  <!-- ============ REPORTS ============ -->
+  <section class="page" id="page-reports">
+    <div class="page-head">
+      <div><h1>Reports</h1><p>Search across customer, item, PO and invoice at once. Click any row to drill in.</p></div>
+    </div>
+    <div class="tabs" id="reportTabs">
+      <div class="tab active" data-tab="itemwise">Itemwise pending</div>
+      <div class="tab" data-tab="customerwise">Customer-wise pending</div>
+      <div class="tab" data-tab="aging">Aging analysis</div>
+      <div class="tab" data-tab="despatchreg">Despatch register</div>
+      <div class="tab" data-tab="trend">Monthly trend</div>
+    </div>
+    <div class="toolbar" id="reportToolbar">
+      <input id="reportSearch" placeholder="Search customer / item / PO / invoice…" style="min-width:250px;"/>
+      <select id="reportExclusive">
+        <option value="">All customers</option>
+        <option value="yes">Exclusive only</option>
+        <option value="no">Standard only</option>
+      </select>
+      <span id="reportDateRangeWrap" style="display:none;gap:8px;align-items:center;">
+        <input type="date" id="reportDateFrom" style="width:auto;"/>
+        <span class="hint">to</span>
+        <input type="date" id="reportDateTo" style="width:auto;"/>
+      </span>
+      <button class="btn btn-secondary" id="exportReportBtn">Export to Excel</button>
+      <span class="hint" id="reportRowCount" style="margin-left:auto;"></span>
+    </div>
+    <div class="card"><div class="table-wrap"><table id="reportTable"></table></div></div>
+  </section>
+
+  <!-- ============ CUSTOMERS ============ -->
+  <section class="page" id="page-customers">
+    <div class="page-head">
+      <div><h1>Customers</h1><p>Mark a customer as "exclusive" to track them separately, the way STC is tracked today.</p></div>
+    </div>
+    <div class="toolbar">
+      <input id="custSearch" placeholder="Search customer, item, or PO no…"/>
+      <button class="btn btn-primary" id="addCustBtn">+ Add customer</button>
+    </div>
+    <div class="card"><div class="table-wrap"><table id="custTable"></table></div></div>
+  </section>
+
+  <!-- ============ ITEMS ============ -->
+  <section class="page" id="page-items">
+    <div class="page-head">
+      <div><h1>Items</h1><p>The standard item list — New PO entry suggests from this, so codes stay consistent (e.g. "SN 512", not "SN512" or "sn 512").</p></div>
+    </div>
+    <div class="toolbar">
+      <input id="itemSearch" placeholder="Search item code, description, or material…"/>
+      <button class="btn btn-primary" id="addItemMasterBtn">+ Add item</button>
+      <span class="hint" id="itemCount" style="margin-left:auto;"></span>
+    </div>
+    <div class="card"><div class="table-wrap"><table id="itemMasterTable"></table></div></div>
+  </section>
+
+  <!-- ============ IMPORT ============ -->
+  <section class="page" id="page-import">
+    <div class="page-head">
+      <div><h1>Import Masters &amp; Opening Balances</h1><p>One-time setup from your standardized workbook. Safe to re-run — existing customers, items, and PO lines are skipped, not duplicated.</p></div>
+    </div>
+    <div class="card card-pad" style="max-width:760px;">
+      <p style="font-size:13px;line-height:1.6;color:var(--text-dim);">
+        Upload your standardized workbook (e.g. <strong>Jayco_App_Import_Final.xlsx</strong>). This reads three sheets:
+        <code>Customer Master</code>, <code>Item Master</code>, and <code>Open POs</code> — each with a title row, a
+        subtitle row, then a header row before the data starts. Customers and items are created first, then every
+        Open POs line is imported as-is (Ordered / Despatched / Pending taken directly from that sheet — your own
+        numbers, not recalculated) as an opening balance to start tracking from.
+      </p>
+      <input type="file" id="importFile" accept=".xlsx,.xls" style="margin:14px 0;"/>
+      <div id="importPreview"></div>
+      <button class="btn btn-primary" id="runImportBtn" style="display:none;margin-top:14px;">Import into database</button>
+      <div id="importLog" style="margin-top:14px;font-size:12.5px;color:var(--text-dim);white-space:pre-line;"></div>
+    </div>
+  </section>
+
+  <!-- ============ SETTINGS / SETUP ============ -->
+  <section class="page" id="page-setup">
+    <div class="page-head"><div><h1>Firebase Setup</h1><p>Do this once — takes about 10 minutes, now including login.</p></div></div>
+    <div class="setup-box">
+      <strong>Step 1 — Create the project</strong><br/>
+      Go to <code>console.firebase.google.com</code> → <strong>Add project</strong> → name it e.g.
+      <code>jayco-po-management</code> → you can skip Google Analytics → <strong>Create project</strong>.<br/><br/>
+
+      <strong>Step 2 — Create the database</strong><br/>
+      In the left menu open <strong>Build → Firestore Database</strong> → <strong>Create database</strong> →
+      choose a location close to you (e.g. <code>asia-south1</code>) → start in <strong>production mode</strong>.<br/><br/>
+
+      <strong>Step 3 — Set security rules</strong><br/>
+      In the Firestore <strong>Rules</strong> tab, paste the rules shown below and click <strong>Publish</strong>.
+      These require a signed-in user for every read and write — no login, no data, even if someone finds the URL.<br/><br/>
+
+      <strong>Step 4 — Register a web app</strong><br/>
+      Project settings (gear icon) → scroll to <strong>Your apps</strong> → click the <code>&lt;/&gt;</code> web icon →
+      name it anything → <strong>Register app</strong>. Firebase shows you a <code>firebaseConfig</code> object —
+      copy the whole thing.<br/><br/>
+
+      <strong>Step 5 — Paste it into this file</strong><br/>
+      Open <code>jayco_po_management.html</code> in a text editor, find <code>const firebaseConfig = {…}</code>
+      near the top of the script, and replace it with what you copied.<br/><br/>
+
+      <strong>Step 6 — Turn on Email/Password sign-in</strong><br/>
+      In the left menu, <strong>Build → Authentication → Get started</strong> → under Sign-in method, enable
+      <strong>Email/Password</strong> → Save.<br/><br/>
+
+      <strong>Step 7 — Create the one shared staff account</strong><br/>
+      Still in Authentication, go to the <strong>Users</strong> tab → <strong>Add user</strong>. For the email,
+      use exactly <code id="staffEmailDisplay">staff@jayco-po-management.local</code> (this isn't a real inbox —
+      it's just the login ID everyone will share). Set whatever password your team should use — that's the
+      password staff will type on the sign-in screen. Save, re-upload the file to GitHub Pages, and reload.
+    </div>
+    <div class="card card-pad">
+      <strong style="font-size:13px;">Firestore security rules to paste</strong>
+      <pre style="background:#0f2942;color:#cfe0f5;padding:14px;border-radius:8px;font-size:12px;overflow-x:auto;margin-top:10px;">rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} {
+      allow read, write: if request.auth != null;
+    }
+  }
+}</pre>
+      <p class="hint">Everyone on staff signs in with the same email/password (Step 7). If you ever want individual
+      named logins instead of one shared account, that's a small follow-up — just ask.</p>
+    </div>
+  </section>
+
+  <footer style="text-align:center;padding:36px 8px 20px;margin-top:12px;">
+    <div style="width:40px;height:3px;border-radius:2px;background:linear-gradient(90deg,var(--blue-600),var(--navy-800));margin:0 auto 16px;"></div>
+    <div style="font-size:13px;font-weight:700;color:var(--navy-900);">Concept &amp; Developed by CA Amit N. Lakhtariya</div>
+    <div style="font-size:11px;color:var(--text-dim);margin-top:3px;">M. No. ICAI 117820 &nbsp;·&nbsp;
+      <a href="tel:+919376139815" style="color:var(--blue-600);text-decoration:none;font-weight:600;">+91 9376139815</a></div>
+  </footer>
+
+</div>
+
+<div class="toast" id="toast"></div>
+
+<div class="modal-bg" id="itemMasterModalBg">
+  <div class="modal">
+    <h3 id="itemMasterModalTitle">Add item</h3>
+    <div class="field">
+      <label>Item code (standard format, e.g. "SN 512")</label>
+      <input id="itemMasterModalCode"/>
+      <div class="hint" id="itemMasterModalHint"></div>
+    </div>
+    <div class="field">
+      <label>Description</label>
+      <input id="itemMasterModalDesc"/>
+    </div>
+    <div class="field">
+      <label>Material</label>
+      <input id="itemMasterModalMat"/>
+    </div>
+    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:10px;">
+      <button class="btn btn-secondary" id="itemMasterModalCancel">Cancel</button>
+      <button class="btn btn-primary" id="itemMasterModalSave">Save</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-bg" id="custModalBg">
+  <div class="modal">
+    <h3 id="custModalTitle">Add customer</h3>
+    <div class="field">
+      <label>Customer name</label>
+      <input id="custModalName"/>
+    </div>
+    <div class="field checkbox-row">
+      <input type="checkbox" id="custModalExclusive"/>
+      <label style="margin:0;">Track as exclusive customer (like STC)</label>
+    </div>
+    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:10px;">
+      <button class="btn btn-secondary" id="custModalCancel">Cancel</button>
+      <button class="btn btn-primary" id="custModalSave">Save</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-bg" id="poItemModalBg">
+  <div class="modal">
+    <h3>Edit PO line</h3>
+    <div class="hint" id="poItemModalMeta" style="margin-bottom:12px;"></div>
+    <div class="field">
+      <label>Item code</label>
+      <input id="poItemModalCode"/>
+    </div>
+    <div class="field">
+      <label>Description</label>
+      <input id="poItemModalDesc"/>
+    </div>
+    <div class="field-row g2">
+      <div class="field"><label>Material</label><input id="poItemModalMat"/></div>
+      <div class="field"><label>Delivery remark</label><input id="poItemModalRemark"/></div>
+    </div>
+    <div class="field">
+      <label>Ordered qty</label>
+      <input type="number" min="0" id="poItemModalQty"/>
+      <div class="hint" id="poItemModalQtyHint"></div>
+    </div>
+    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:10px;">
+      <button class="btn btn-secondary" id="poItemModalCancel">Cancel</button>
+      <button class="btn btn-primary" id="poItemModalSave">Save changes</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-bg" id="despatchModalBg">
+  <div class="modal">
+    <h3>Edit despatch</h3>
+    <div class="hint" id="despatchModalMeta" style="margin-bottom:12px;"></div>
+    <div class="field">
+      <label>Qty despatched</label>
+      <input type="number" min="1" id="despatchModalQty"/>
+    </div>
+    <div class="field">
+      <label>Despatch date</label>
+      <input type="date" id="despatchModalDate"/>
+    </div>
+    <div class="field">
+      <label>Invoice number</label>
+      <input id="despatchModalInvoice"/>
+    </div>
+    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:10px;">
+      <button class="btn btn-secondary" id="despatchModalCancel">Cancel</button>
+      <button class="btn btn-primary" id="despatchModalSave">Save changes</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-bg" id="lineListModalBg">
+  <div class="modal modal-wide">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:16px;">
+      <div>
+        <h3 id="lineListModalTitle" style="margin-bottom:2px;"></h3>
+        <div class="hint" id="lineListModalSubtitle"></div>
+      </div>
+      <button class="btn btn-secondary" id="lineListModalClose">Close</button>
+    </div>
+    <div class="table-wrap" style="margin-top:14px;max-height:60vh;overflow-y:auto;">
+      <table id="lineListModalTable"></table>
+    </div>
+  </div>
+</div>
+
+<div class="modal-bg" id="despHistModalBg">
+  <div class="modal modal-wide">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:16px;">
+      <div>
+        <h3 id="despHistModalTitle" style="margin-bottom:2px;"></h3>
+        <div class="hint" id="despHistModalSubtitle"></div>
+      </div>
+      <button class="btn btn-secondary" id="despHistModalClose">Close</button>
+    </div>
+    <div class="table-wrap" style="margin-top:14px;max-height:55vh;overflow-y:auto;">
+      <table id="despHistModalTable"></table>
+    </div>
+  </div>
+</div>
+
+<script>
+/* =====================================================================
+   FIREBASE CONFIG — replace with your own project's config.
+   See the "Firebase Setup" tab in this app for step-by-step instructions.
+   ===================================================================== */
+const firebaseConfig = {
+  apiKey: "AIzaSyCV_iL9c59t4f70ZCF-moqPbGzUH6Yv-iA",
+  authDomain: "jayco-po-management.firebaseapp.com",
+  projectId: "jayco-po-management",
+  storageBucket: "jayco-po-management.firebasestorage.app",
+  messagingSenderId: "116018254897",
+  appId: "1:116018254897:web:63b37aed6fa5ccef8b7110"
+};
+
+let db = null;
+let firebaseReady = false;
+// One shared staff account for this portal — created once in Firebase Console → Authentication → Users.
+// Everyone signs in with the same password; the email below is just an identifier, not a real inbox.
+const STAFF_EMAIL = "staff@jayco-po-management.local";
+
+function initFirebase(){
+  try{
+    if(firebaseConfig.apiKey === "REPLACE_ME"){
+      setConn(false, "Not configured — open the Firebase Setup tab");
+      document.getElementById('loginStatus').textContent = 'Firebase not configured yet — see the Setup tab after signing in is enabled.';
+      return;
+    }
+    firebase.initializeApp(firebaseConfig);
+    firebase.auth().onAuthStateChanged(user=>{
+      if(user){
+        document.getElementById('loginScreen').style.display = 'none';
+        db = firebase.firestore();
+        db.collection("customers").limit(1).get().then(()=>{
+          firebaseReady = true;
+          setConn(true, "Connected");
+          loadAll();
+        }).catch(err=>{
+          setConn(false, "Connection error — check config / rules");
+          console.error(err);
+        });
+      } else {
+        document.getElementById('loginScreen').style.display = 'flex';
+        firebaseReady = false;
+      }
+    });
+  }catch(e){
+    setConn(false, "Invalid config");
+    console.error(e);
+  }
+}
+document.getElementById('loginBtn').onclick = doLogin;
+document.getElementById('loginPassword').addEventListener('keydown', e=>{ if(e.key==='Enter') doLogin(); });
+function doLogin(){
+  if(firebaseConfig.apiKey === "REPLACE_ME"){
+    document.getElementById('loginError').textContent = 'Firebase isn\'t configured on this deployment yet.';
+    document.getElementById('loginError').style.display = 'block';
+    return;
+  }
+  const pwd = document.getElementById('loginPassword').value;
+  const errEl = document.getElementById('loginError');
+  const btn = document.getElementById('loginBtn');
+  if(!pwd){ errEl.textContent = 'Enter the staff password.'; errEl.style.display='block'; return; }
+  errEl.style.display = 'none';
+  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Signing in…';
+  firebase.auth().signInWithEmailAndPassword(STAFF_EMAIL, pwd)
+    .catch(err=>{
+      errEl.textContent = (err.code==='auth/wrong-password' || err.code==='auth/invalid-credential' || err.code==='auth/user-not-found')
+        ? 'Incorrect password.' : 'Sign-in error: ' + err.message;
+      errEl.style.display = 'block';
+    })
+    .finally(()=>{ btn.disabled = false; btn.textContent = 'Sign in'; });
+}
+function doLogout(){
+  firebase.auth().signOut();
+  document.getElementById('loginPassword').value = '';
+}
+function setConn(ok, msg){
+  const el = document.getElementById('connStatus');
+  el.textContent = msg;
+  el.className = 'status ' + (ok ? 'ok' : 'err');
+}
+
+/* ---------------- Navigation ---------------- */
+const NAV = [
+  {id:'dashboard', icon:'◆', label:'Dashboard'},
+  {id:'newpo', icon:'＋', label:'New PO'},
+  {id:'despatch', icon:'▶', label:'Record Despatch'},
+  {id:'register', icon:'☰', label:'PO Register'},
+  {id:'reports', icon:'▤', label:'Reports'},
+  {id:'customers', icon:'◐', label:'Customers'},
+  {id:'items', icon:'▧', label:'Items'},
+  {id:'import', icon:'⇪', label:'Import Masters'},
+  {id:'setup', icon:'⚙', label:'Firebase Setup'},
+];
+const navList = document.getElementById('navList');
+NAV.forEach(n=>{
+  const d = document.createElement('div');
+  d.className = 'nav-item' + (n.id==='dashboard' ? ' active' : '');
+  d.dataset.page = n.id;
+  d.innerHTML = `<span class="nav-icon">${n.icon}</span><span>${n.label}</span>`;
+  d.onclick = ()=> showPage(n.id);
+  navList.appendChild(d);
+});
+function showPage(id){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(p=>p.classList.remove('active'));
+  document.getElementById('page-'+id).classList.add('active');
+  document.querySelector(`.nav-item[data-page="${id}"]`).classList.add('active');
+  if(id==='register') renderRegister();
+  if(id==='reports') renderReport();
+  if(id==='customers') renderCustomers();
+  if(id==='items') renderItemMaster();
+  if(id==='dashboard') renderDashboard();
+}
+
+/* ---------------- Toast ---------------- */
+function toast(msg, type){
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast show' + (type ? ' '+type : '');
+  clearTimeout(t._timer);
+  t._timer = setTimeout(()=> t.classList.remove('show'), 3200);
+}
+
+/* ---------------- In-memory caches (kept in sync via onSnapshot) ---------------- */
+let CUSTOMERS = [];   // {id, name, isExclusive}
+let ITEMS = [];        // {id, itemCode, description, material}
+let PO_ITEMS = [];    // {id, poId, poNo, poDate, customerId, customerName, isExclusive, itemCode, itemDescription, material, deliveryRemark, orderedQty, despatchedQty, pendingQty, status}
+let PO_HEADERS = [];  // {id, poNo, poDate, customerId, customerName, isExclusive}
+
+function loadAll(){
+  db.collection("customers").onSnapshot(snap=>{
+    CUSTOMERS = snap.docs.map(d=>({id:d.id, ...d.data()}));
+    refreshCustomerDatalist();
+    refreshDespatchCustomerList();
+    if(document.getElementById('page-customers').classList.contains('active')) renderCustomers();
+  });
+  db.collection("items").orderBy("itemCode").onSnapshot(snap=>{
+    ITEMS = snap.docs.map(d=>({id:d.id, ...d.data()}));
+    refreshItemDatalist();
+    if(document.getElementById('page-items').classList.contains('active')) renderItemMaster();
+  });
+  db.collection("poItems").orderBy("createdAt","desc").onSnapshot(snap=>{
+    PO_ITEMS = snap.docs.map(d=>({id:d.id, ...d.data()}));
+    renderDashboard();
+    refreshDespatchCustomerList();
+    if(document.getElementById('page-register').classList.contains('active')) renderRegister();
+    if(document.getElementById('page-reports').classList.contains('active')) renderReport();
+    // don't clobber an in-progress despatch selection — only auto-refresh the table if nothing's ticked yet
+    if(document.getElementById('page-despatch').classList.contains('active') && !document.querySelector('.desp-check:checked')){
+      renderDespatchItemsTable();
+    }
+  });
+  db.collection("purchaseOrders").orderBy("createdAt","desc").onSnapshot(snap=>{
+    PO_HEADERS = snap.docs.map(d=>({id:d.id, ...d.data()}));
+  });
+}
+
+function statusFor(item){
+  if(item.despatchedQty <= 0) return 'Pending';
+  if(item.pendingQty <= 0) return 'Completed';
+  return 'Partial';
+}
+function badgeFor(status){
+  const cls = status==='Completed' ? 'badge-done' : status==='Partial' ? 'badge-partial' : 'badge-pending';
+  return `<span class="badge ${cls}">${status}</span>`;
+}
+function fmtDate(v){
+  if(!v) return '—';
+  const d = v.toDate ? v.toDate() : new Date(v);
+  if(isNaN(d)) return '—';
+  return d.toLocaleDateString('en-GB', {day:'2-digit', month:'short', year:'numeric'});
+}
+
+/* ---------------- Dashboard ---------------- */
+let dashScope = 'all';
+document.getElementById('dashScope').addEventListener('click', e=>{
+  if(e.target.tagName !== 'BUTTON') return;
+  dashScope = e.target.dataset.scope;
+  document.querySelectorAll('#dashScope button').forEach(b=>b.classList.toggle('active', b===e.target));
+  renderDashboard();
+});
+
+function scopedItems(){
+  if(dashScope === 'exclusive') return PO_ITEMS.filter(i=>i.isExclusive);
+  return PO_ITEMS;
+}
+
+function renderDashboard(){
+  const items = scopedItems();
+  const openItems = items.filter(i=>i.pendingQty > 0);
+  const totalPending = openItems.reduce((s,i)=>s+i.pendingQty,0);
+  const openPoCount = new Set(openItems.map(i=>i.poId)).size;
+  const customerCount = new Set(items.map(i=>i.customerId)).size;
+  const completedCount = items.filter(i=>i.pendingQty<=0 && i.orderedQty>0).length;
+  const exclVal = dashScope === 'exclusive' ? 'yes' : '';
+
+  const kpis = [
+    {label:'Open PO lines', value: openItems.length, foot: `${openPoCount} distinct PO numbers`,
+      onClick: ()=> goToRegisterFiltered('open', exclVal)},
+    {label:'Total pending quantity', value: totalPending.toLocaleString('en-IN'), foot:'across all open lines',
+      onClick: ()=> goToReportTab('itemwise', exclVal)},
+    {label:'Customers with open POs', value: customerCount, foot:'',
+      onClick: ()=> goToReportTab('customerwise', exclVal)},
+    {label:'Fully despatched lines', value: completedCount, foot:'',
+      onClick: ()=> goToRegisterFiltered('Completed', exclVal)},
+  ];
+  document.getElementById('kpiGrid').innerHTML = kpis.map((k,idx)=>`
+    <div class="card kpi clickable" data-kpi-idx="${idx}"><div class="label">${k.label}</div><div class="value">${k.value}</div><div class="foot">${k.foot}</div></div>
+  `).join('');
+  document.querySelectorAll('#kpiGrid [data-kpi-idx]').forEach(el=>{
+    el.onclick = ()=> kpis[+el.dataset.kpiIdx].onClick();
+  });
+
+  renderAgingWidget(openItems);
+
+  // Top pending items (grouped by customer+item)
+  const byKey = {};
+  openItems.forEach(i=>{
+    const key = i.customerName+'||'+i.itemCode;
+    if(!byKey[key]) byKey[key] = {customer:i.customerName, item:i.itemCode, pending:0, isExclusive:i.isExclusive, lines:[]};
+    byKey[key].pending += i.pendingQty;
+    byKey[key].lines.push(i);
+  });
+  const top = Object.values(byKey).sort((a,b)=>b.pending-a.pending).slice(0,10);
+  document.getElementById('topPendingTable').innerHTML =
+    `<tr><th>Customer</th><th>Item</th><th class="text-right">Pending qty</th></tr>` +
+    (top.length ? top.map((t,idx)=>`<tr class="clickable" data-top-idx="${idx}"><td>${esc(t.customer)}${t.isExclusive?'<span class="badge badge-exclusive">EXCLUSIVE</span>':''}</td><td>${esc(t.item)}</td><td class="text-right mono">${t.pending}</td></tr>`).join('')
+    : `<tr><td colspan="3"><div class="empty">No open PO lines yet.</div></td></tr>`);
+  document.querySelectorAll('#topPendingTable tr[data-top-idx]').forEach(tr=>{
+    tr.onclick = ()=>{
+      const t = top[+tr.dataset.topIdx];
+      openLineListModal(`${t.item} — ${t.customer}`, `${t.lines.length} PO line(s) · ${t.pending} pending`, t.lines);
+    };
+  });
+
+  // Top customers by pending qty
+  const byCust = {};
+  openItems.forEach(i=>{
+    if(!byCust[i.customerName]) byCust[i.customerName] = {customer:i.customerName, pending:0, isExclusive:i.isExclusive, lines:[]};
+    byCust[i.customerName].pending += i.pendingQty;
+    byCust[i.customerName].lines.push(i);
+  });
+  const topCust = Object.values(byCust).sort((a,b)=>b.pending-a.pending).slice(0,10);
+  document.getElementById('topCustomersTable').innerHTML =
+    `<tr><th>Customer</th><th class="text-right">Pending qty</th></tr>` +
+    (topCust.length ? topCust.map((c,idx)=>`<tr class="clickable" data-tc-idx="${idx}"><td>${esc(c.customer)}${c.isExclusive?'<span class="badge badge-exclusive">EXCL</span>':''}</td><td class="text-right mono">${c.pending}</td></tr>`).join('')
+    : `<tr><td colspan="2"><div class="empty">No open PO lines yet.</div></td></tr>`);
+  document.querySelectorAll('#topCustomersTable tr[data-tc-idx]').forEach(tr=>{
+    tr.onclick = ()=>{
+      const c = topCust[+tr.dataset.tcIdx];
+      openLineListModal(`Customer: ${c.customer}`, `${c.lines.length} open line(s) · ${c.pending} total pending`, c.lines);
+    };
+  });
+
+  const oldest = openItems.slice().sort((a,b)=>{
+    const da = a.poDate && a.poDate.toDate ? a.poDate.toDate() : new Date(a.poDate||0);
+    const db_ = b.poDate && b.poDate.toDate ? b.poDate.toDate() : new Date(b.poDate||0);
+    return da - db_;
+  }).slice(0,10);
+  document.getElementById('oldestOpenTable').innerHTML =
+    `<tr><th>PO Date</th><th>Customer</th><th>PO No</th><th>Item</th><th class="text-right">Pending</th></tr>` +
+    (oldest.length ? oldest.map((i,idx)=>`<tr class="clickable" data-oldest-idx="${idx}"><td>${fmtDate(i.poDate)}</td><td>${esc(i.customerName)}</td><td>${esc(i.poNo)}</td><td>${esc(i.itemCode)}</td><td class="text-right mono">${i.pendingQty}</td></tr>`).join('')
+    : `<tr><td colspan="5"><div class="empty">No open PO lines yet.</div></td></tr>`);
+  document.querySelectorAll('#oldestOpenTable tr[data-oldest-idx]').forEach(tr=>{
+    tr.onclick = ()=> openDespatchHistoryModal(oldest[+tr.dataset.oldestIdx]);
+  });
+}
+
+function renderAgingWidget(openItems){
+  const now = new Date();
+  const buckets = [
+    {label:'0–30 days', min:0, max:30, color:'var(--green)', bg:'var(--green-bg)'},
+    {label:'31–60 days', min:31, max:60, color:'var(--blue-600)', bg:'var(--blue-100)'},
+    {label:'61–90 days', min:61, max:90, color:'var(--amber)', bg:'var(--amber-bg)'},
+    {label:'90+ days — follow up', min:91, max:Infinity, color:'var(--red)', bg:'var(--red-bg)'},
+  ].map(b=>({...b, lines:[], pending:0}));
+  openItems.forEach(i=>{
+    const d = i.poDate && i.poDate.toDate ? i.poDate.toDate() : new Date(i.poDate||0);
+    const days = isNaN(d) ? 0 : Math.floor((now - d) / 86400000);
+    const b = buckets.find(b=> days>=b.min && days<=b.max) || buckets[buckets.length-1];
+    b.lines.push(i); b.pending += i.pendingQty;
+  });
+  document.getElementById('agingWidget').innerHTML = buckets.map((b,idx)=>`
+    <div class="card age-box${b.lines.length?' has-data':''}" style="padding:14px 16px;background:${b.bg};border:none;" data-age-idx="${idx}">
+      <div style="font-size:11px;font-weight:700;color:${b.color};text-transform:uppercase;letter-spacing:.3px;">${b.label}</div>
+      <div style="font-size:22px;font-weight:700;color:var(--navy-900);margin-top:4px;">${b.pending}</div>
+      <div style="font-size:11.5px;color:var(--text-dim);margin-top:2px;">${b.lines.length} line(s)</div>
+    </div>`).join('');
+  document.querySelectorAll('#agingWidget [data-age-idx]').forEach(el=>{
+    el.onclick = ()=>{
+      const b = buckets[+el.dataset.ageIdx];
+      if(!b.lines.length) return;
+      openLineListModal(`Aging: ${b.label}`, `${b.lines.length} open line(s) · ${b.pending} total pending`, b.lines);
+    };
+  });
+}
+
+function goToRegisterFiltered(status, exclusiveVal){
+  showPage('register');
+  document.getElementById('regSearch').value = '';
+  document.getElementById('regStatus').value = status;
+  document.getElementById('regExclusive').value = exclusiveVal;
+  renderRegister();
+}
+function goToReportTab(tab, exclusiveVal){
+  currentReportTab = tab;
+  document.querySelectorAll('#reportTabs .tab').forEach(t=>t.classList.toggle('active', t.dataset.tab===tab));
+  document.getElementById('reportDateRangeWrap').style.display = tab==='despatchreg' ? 'flex' : 'none';
+  document.getElementById('reportSearch').value = '';
+  document.getElementById('reportExclusive').value = exclusiveVal;
+  showPage('reports');
+}
+
+/* ---------------- New PO ---------------- */
+function refreshCustomerDatalist(){
+  document.getElementById('customerList').innerHTML =
+    CUSTOMERS.map(c=>`<option value="${esc(c.name)}"></option>`).join('');
+}
+document.getElementById('poCustomer').addEventListener('input', e=>{
+  const match = CUSTOMERS.find(c=>c.name.toLowerCase() === e.target.value.trim().toLowerCase());
+  const hint = document.getElementById('exclusiveHint');
+  if(match && match.isExclusive){
+    hint.textContent = '★ Tracked as an exclusive customer.';
+  } else if(e.target.value.trim() && !match){
+    hint.textContent = 'New customer — will be created when you save.';
+  } else {
+    hint.textContent = '';
+  }
+});
+
+let itemRowCount = 0;
+function addItemRow(prefill){
+  itemRowCount++;
+  const id = 'row'+itemRowCount;
+  const wrap = document.createElement('div');
+  wrap.className = 'item-row';
+  wrap.id = id;
+  wrap.innerHTML = `
+    <div><label>Item code</label><input class="ri-code" list="itemMasterList" placeholder="e.g. SN 512" autocomplete="off" value="${prefill&&prefill.code?esc(prefill.code):''}"/>
+      <div class="hint ri-code-hint"></div></div>
+    <div><label>Description (optional)</label><input class="ri-desc" value="${prefill&&prefill.desc?esc(prefill.desc):''}"/></div>
+    <div><label>Ordered qty</label><input type="number" min="1" class="ri-qty" value="${prefill&&prefill.qty?prefill.qty:''}"/></div>
+    <div><label>Material</label><input class="ri-mat" placeholder="(uses header)" /></div>
+    <button type="button" class="remove-row" title="Remove line">×</button>
+  `;
+  wrap.querySelector('.remove-row').onclick = ()=> wrap.remove();
+  const codeInput = wrap.querySelector('.ri-code');
+  const hint = wrap.querySelector('.ri-code-hint');
+  codeInput.addEventListener('blur', ()=>{
+    const norm = normalizeItemCode(codeInput.value);
+    if(!norm) return;
+    codeInput.value = norm;
+    const exact = closestItemMatch(norm);
+    if(exact){
+      hint.textContent = '✓ Known item' + (exact.description ? ' — '+exact.description : '');
+      if(exact.description && !wrap.querySelector('.ri-desc').value) wrap.querySelector('.ri-desc').value = exact.description;
+      if(exact.material && !wrap.querySelector('.ri-mat').value) wrap.querySelector('.ri-mat').value = exact.material;
+    } else {
+      const near = ITEMS.find(i => i.itemCode.replace(/\s+/g,'') === norm.replace(/\s+/g,''));
+      hint.textContent = near ? `Did you mean "${near.itemCode}"? Not in the Item Master otherwise — will be used as typed.`
+                               : 'New item — not in the Item Master yet, will be used as typed.';
+    }
+  });
+  document.getElementById('itemRows').appendChild(wrap);
+}
+document.getElementById('addItemRowBtn').onclick = ()=> addItemRow();
+addItemRow(); // start with one row
+
+document.getElementById('savePoBtn').onclick = async ()=>{
+  if(!requireDb()) return;
+  const customerName = document.getElementById('poCustomer').value.trim();
+  const poNo = document.getElementById('poNumber').value.trim();
+  const poDateVal = document.getElementById('poDate').value;
+  const material = document.getElementById('poMaterial').value.trim();
+  const deliveryRemark = document.getElementById('poDeliveryRemark').value.trim();
+  const rows = Array.from(document.querySelectorAll('.item-row'));
+
+  if(!customerName || !poNo || !poDateVal){
+    toast('Customer, PO number and date are required.', 'error'); return;
+  }
+  const items = rows.map(r=>({
+    code: r.querySelector('.ri-code').value.trim(),
+    desc: r.querySelector('.ri-desc').value.trim(),
+    qty: parseFloat(r.querySelector('.ri-qty').value),
+    mat: r.querySelector('.ri-mat').value.trim() || material,
+  })).filter(i=>i.code && i.qty > 0);
+
+  if(items.length === 0){
+    toast('Add at least one item line with a code and quantity.', 'error'); return;
+  }
+
+  const btn = document.getElementById('savePoBtn');
+  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Saving…';
+  try{
+    const customer = await getOrCreateCustomer(customerName);
+    const poDate = firebase.firestore.Timestamp.fromDate(new Date(poDateVal));
+    const poRef = await db.collection('purchaseOrders').add({
+      poNo, poDate, customerId: customer.id, customerName: customer.name,
+      isExclusive: !!customer.isExclusive, deliveryRemark,
+      createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+    });
+    const batch = db.batch();
+    items.forEach(it=>{
+      const ref = db.collection('poItems').doc();
+      batch.set(ref, {
+        poId: poRef.id, poNo, poDate, customerId: customer.id, customerName: customer.name,
+        isExclusive: !!customer.isExclusive, itemCode: it.code, itemDescription: it.desc,
+        material: it.mat, deliveryRemark, orderedQty: it.qty, despatchedQty: 0, pendingQty: it.qty,
+        status: 'Pending', createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+      });
+    });
+    await batch.commit();
+    toast(`Saved PO ${poNo} with ${items.length} item line(s).`, 'success');
+    document.getElementById('poCustomer').value = '';
+    document.getElementById('poNumber').value = '';
+    document.getElementById('poDate').value = '';
+    document.getElementById('poMaterial').value = '';
+    document.getElementById('poDeliveryRemark').value = '';
+    document.getElementById('itemRows').innerHTML = '';
+    itemRowCount = 0;
+    addItemRow();
+  }catch(e){
+    console.error(e);
+    toast('Could not save PO — see console for details.', 'error');
+  }finally{
+    btn.disabled = false; btn.textContent = 'Save purchase order';
+  }
+};
+
+async function getOrCreateCustomer(name){
+  const existing = CUSTOMERS.find(c=>c.name.toLowerCase() === name.toLowerCase());
+  if(existing) return existing;
+  const ref = await db.collection('customers').add({
+    name, isExclusive:false, createdAt: firebase.firestore.FieldValue.serverTimestamp()
+  });
+  return {id:ref.id, name, isExclusive:false};
+}
+
+/* ---------------- Despatch entry ---------------- */
+function refreshDespatchCustomerList(){
+  // only customers that actually have at least one open line are worth listing here
+  const openCustomerIds = new Set(PO_ITEMS.filter(i=>i.pendingQty>0).map(i=>i.customerId));
+  const names = CUSTOMERS.filter(c=>openCustomerIds.has(c.id)).map(c=>c.name).sort();
+  document.getElementById('despatchCustomerList').innerHTML =
+    names.map(n=>`<option value="${esc(n)}"></option>`).join('');
+}
+document.getElementById('despatchCustomer').addEventListener('input', renderDespatchItemsTable);
+document.getElementById('despatchPoFilter').addEventListener('input', renderDespatchItemsTable);
+
+function renderDespatchItemsTable(){
+  const custName = document.getElementById('despatchCustomer').value.trim().toLowerCase();
+  const poFilter = document.getElementById('despatchPoFilter').value.trim().toLowerCase();
+  const wrap = document.getElementById('despatchItemsWrap');
+  const empty = document.getElementById('despatchEmptyState');
+  if(!custName){ wrap.style.display='none'; empty.style.display='none'; return; }
+
+  const match = CUSTOMERS.find(c=>c.name.toLowerCase()===custName);
+  let rows = PO_ITEMS.filter(i=>
+    i.pendingQty > 0 &&
+    i.customerName.toLowerCase() === custName &&
+    (!poFilter || i.poNo.toLowerCase().includes(poFilter))
+  ).sort((a,b)=> a.poNo.localeCompare(b.poNo) || a.itemCode.localeCompare(b.itemCode));
+
+  if(!rows.length){
+    wrap.style.display='none';
+    empty.style.display='block';
+    empty.textContent = match ? 'No open PO lines for this customer.' : 'No customer matches that name yet — pick one from the list.';
+    return;
+  }
+  empty.style.display='none';
+  wrap.style.display='block';
+
+  document.getElementById('despatchItemsTable').innerHTML =
+    `<tr><th></th><th>PO No</th><th>Item</th><th>Description</th>
+     <th class="text-right">Ordered</th><th class="text-right">Despatched</th><th class="text-right">Pending</th>
+     <th>Qty to despatch</th></tr>` +
+    rows.map(i=>`
+      <tr data-po-item="${i.id}">
+        <td><input type="checkbox" class="desp-check" data-id="${i.id}"/></td>
+        <td>${esc(i.poNo)}</td><td>${esc(i.itemCode)}</td><td>${esc(i.itemDescription||'—')}</td>
+        <td class="text-right mono">${i.orderedQty}</td>
+        <td class="text-right mono">${i.despatchedQty}</td>
+        <td class="text-right mono">${i.pendingQty}</td>
+        <td><input type="number" min="1" max="${i.pendingQty}" class="desp-qty qty-input" data-id="${i.id}" placeholder="0" disabled/></td>
+      </tr>`).join('');
+
+  document.getElementById('despatchDate').value = document.getElementById('despatchDate').value || new Date().toISOString().slice(0,10);
+
+  document.querySelectorAll('.desp-check').forEach(cb=>{
+    cb.onchange = ()=>{
+      const row = cb.closest('tr');
+      const qtyInput = row.querySelector('.desp-qty');
+      qtyInput.disabled = !cb.checked;
+      row.classList.toggle('row-checked', cb.checked);
+      if(cb.checked && !qtyInput.value){
+        qtyInput.value = qtyInput.max; // default to full pending qty, editable
+        qtyInput.focus(); qtyInput.select();
+      }
+    };
+  });
+}
+
+document.getElementById('saveDespatchBtn').onclick = async ()=>{
+  if(!requireDb()) return;
+  const dateVal = document.getElementById('despatchDate').value;
+  const invoice = document.getElementById('despatchInvoice').value.trim();
+  if(!dateVal){ toast('Enter a despatch date.', 'error'); return; }
+
+  const checked = Array.from(document.querySelectorAll('.desp-check:checked'));
+  if(!checked.length){ toast('Tick at least one item to despatch.', 'error'); return; }
+
+  const lines = [];
+  for(const cb of checked){
+    const id = cb.dataset.id;
+    const item = PO_ITEMS.find(i=>i.id===id);
+    const qtyInput = document.querySelector(`.desp-qty[data-id="${id}"]`);
+    const qty = parseFloat(qtyInput.value);
+    if(!item || !qty || qty <= 0){
+      toast(`Enter a valid quantity for ${item ? item.itemCode : 'a ticked line'}.`, 'error');
+      return;
+    }
+    if(qty > item.pendingQty){
+      if(!confirm(`${item.itemCode}: ${qty} is more than the pending qty (${item.pendingQty}). Save anyway?`)) return;
+    }
+    lines.push({item, qty});
+  }
+
+  const btn = document.getElementById('saveDespatchBtn');
+  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Saving…';
+  const statusEl = document.getElementById('despatchSaveStatus');
+  const despatchDate = firebase.firestore.Timestamp.fromDate(new Date(dateVal));
+  let saved = 0;
+  try{
+    for(const {item, qty} of lines){
+      await db.runTransaction(async tx=>{
+        const itemRef = db.collection('poItems').doc(item.id);
+        const itemSnap = await tx.get(itemRef);
+        if(!itemSnap.exists) return;
+        const data = itemSnap.data();
+        const newDespatched = (data.despatchedQty||0) + qty;
+        const newPending = data.orderedQty - newDespatched;
+        const despatchRef = db.collection('despatches').doc();
+        tx.set(despatchRef, {
+          poItemId: item.id, poId: data.poId, poNo: data.poNo,
+          customerId: data.customerId, customerName: data.customerName, isExclusive: !!data.isExclusive,
+          itemCode: data.itemCode, qtyDespatched: qty, despatchDate, invoiceNumber: invoice,
+          createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+        });
+        tx.update(itemRef, {
+          despatchedQty: newDespatched, pendingQty: newPending,
+          status: newPending<=0 ? 'Completed' : 'Partial',
+        });
+      });
+      saved++;
+      statusEl.textContent = `Saved ${saved} of ${lines.length}…`;
+    }
+    toast(`Despatch recorded for ${saved} item(s).`, 'success');
+    document.getElementById('despatchInvoice').value = '';
+    statusEl.textContent = '';
+    renderDespatchItemsTable(); // refresh with updated pending qtys, unticked
+  }catch(e){
+    console.error(e);
+    toast('Could not save one or more lines — see console.', 'error');
+  }finally{
+    btn.disabled = false; btn.textContent = 'Save despatch';
+  }
+};
+
+/* ---------------- PO Register ---------------- */
+['regSearch','regStatus','regExclusive'].forEach(id=>{
+  document.getElementById(id).addEventListener('input', renderRegister);
+  document.getElementById(id).addEventListener('change', renderRegister);
+});
+function renderRegister(){
+  const q = document.getElementById('regSearch').value.trim().toLowerCase();
+  const statusFilter = document.getElementById('regStatus').value;
+  const exclFilter = document.getElementById('regExclusive').value;
+  let rows = PO_ITEMS.filter(i=>{
+    if(q && !(i.customerName.toLowerCase().includes(q) || i.poNo.toLowerCase().includes(q) || i.itemCode.toLowerCase().includes(q))) return false;
+    if(statusFilter === 'open'){ if(statusFor(i) === 'Completed') return false; }
+    else if(statusFilter && statusFor(i) !== statusFilter) return false;
+    if(exclFilter === 'yes' && !i.isExclusive) return false;
+    if(exclFilter === 'no' && i.isExclusive) return false;
+    return true;
+  });
+  document.getElementById('regCount').textContent = `${rows.length} line(s)`;
+  document.getElementById('regTable').innerHTML =
+    `<tr><th>PO Date</th><th>Customer</th><th>PO No</th><th>Item</th><th>Material</th>
+     <th class="text-right">Ordered</th><th class="text-right">Despatched</th><th class="text-right">Pending</th><th>Status</th><th></th></tr>` +
+    (rows.length ? rows.map(i=>`
+      <tr class="clickable" data-reg-row="${i.id}">
+        <td>${fmtDate(i.poDate)}</td>
+        <td>${esc(i.customerName)}${i.isExclusive?'<span class="badge badge-exclusive">EXCL</span>':''}</td>
+        <td>${esc(i.poNo)}</td><td>${esc(i.itemCode)}</td><td>${esc(i.material||'—')}</td>
+        <td class="text-right mono">${i.orderedQty}</td>
+        <td class="text-right mono">${i.despatchedQty}</td>
+        <td class="text-right mono">${i.pendingQty}</td>
+        <td>${badgeFor(statusFor(i))}</td>
+        <td style="white-space:nowrap;">
+          <button class="btn btn-ghost" data-edit-item="${i.id}">Edit</button>
+          <button class="btn btn-ghost" data-del-item="${i.id}" style="color:var(--red);">Delete</button>
+        </td>
+      </tr>`).join('') : `<tr><td colspan="10"><div class="empty"><div class="big">📋</div>No PO lines match your filters.</div></td></tr>`);
+
+  document.querySelectorAll('#regTable tr[data-reg-row]').forEach(tr=>{
+    tr.onclick = (e)=>{
+      if(e.target.closest('button')) return;
+      const item = PO_ITEMS.find(x=>x.id===tr.dataset.regRow);
+      if(item) openDespatchHistoryModal(item);
+    };
+  });
+  document.querySelectorAll('#regTable button[data-edit-item]').forEach(b=>{
+    b.onclick = (e)=>{ e.stopPropagation(); openPoItemModal(b.dataset.editItem); };
+  });
+  document.querySelectorAll('#regTable button[data-del-item]').forEach(b=>{
+    b.onclick = (e)=>{ e.stopPropagation(); deletePoItem(b.dataset.delItem); };
+  });
+}
+
+/* ---- PO line edit ---- */
+let editingPoItemId = null;
+function openPoItemModal(id){
+  const item = PO_ITEMS.find(i=>i.id===id);
+  if(!item) return;
+  editingPoItemId = id;
+  document.getElementById('poItemModalMeta').textContent = `${item.customerName} — PO ${item.poNo}`;
+  document.getElementById('poItemModalCode').value = item.itemCode;
+  document.getElementById('poItemModalDesc').value = item.itemDescription || '';
+  document.getElementById('poItemModalMat').value = item.material || '';
+  document.getElementById('poItemModalRemark').value = item.deliveryRemark || '';
+  document.getElementById('poItemModalQty').value = item.orderedQty;
+  document.getElementById('poItemModalQtyHint').textContent = `Already despatched: ${item.despatchedQty}. Ordered qty can't go below that.`;
+  document.getElementById('poItemModalBg').classList.add('show');
+}
+document.getElementById('poItemModalCancel').onclick = ()=>{
+  document.getElementById('poItemModalBg').classList.remove('show'); editingPoItemId = null;
+};
+document.getElementById('poItemModalSave').onclick = async ()=>{
+  if(!requireDb() || !editingPoItemId) return;
+  const item = PO_ITEMS.find(i=>i.id===editingPoItemId);
+  if(!item) return;
+  const itemCode = document.getElementById('poItemModalCode').value.trim();
+  const orderedQty = parseFloat(document.getElementById('poItemModalQty').value);
+  if(!itemCode || !orderedQty || orderedQty < 0){ toast('Enter a valid item code and ordered quantity.', 'error'); return; }
+  if(orderedQty < item.despatchedQty){
+    toast(`Ordered qty can't be less than the ${item.despatchedQty} already despatched.`, 'error'); return;
+  }
+  try{
+    await db.collection('poItems').doc(editingPoItemId).update({
+      itemCode, itemDescription: document.getElementById('poItemModalDesc').value.trim(),
+      material: document.getElementById('poItemModalMat').value.trim(),
+      deliveryRemark: document.getElementById('poItemModalRemark').value.trim(),
+      orderedQty, pendingQty: orderedQty - item.despatchedQty,
+      status: (orderedQty - item.despatchedQty) <= 0 ? 'Completed' : (item.despatchedQty>0 ? 'Partial' : 'Pending'),
+    });
+    toast('PO line updated.', 'success');
+    document.getElementById('poItemModalBg').classList.remove('show');
+    editingPoItemId = null;
+  }catch(e){
+    console.error(e); toast('Could not save changes.', 'error');
+  }
+};
+async function deletePoItem(id){
+  if(!requireDb()) return;
+  const item = PO_ITEMS.find(i=>i.id===id);
+  if(!item) return;
+  const msg = item.despatchedQty > 0
+    ? `Delete this PO line for ${item.customerName} (${item.itemCode})? It has ${item.despatchedQty} unit(s) already despatched — those despatch records will be deleted too. This can't be undone.`
+    : `Delete this PO line for ${item.customerName} (${item.itemCode})? This can't be undone.`;
+  if(!confirm(msg)) return;
+  try{
+    const despSnap = await db.collection('despatches').where('poItemId','==',id).get();
+    const batch = db.batch();
+    despSnap.docs.forEach(d=> batch.delete(d.ref));
+    batch.delete(db.collection('poItems').doc(id));
+    await batch.commit();
+    toast('PO line deleted.', 'success');
+  }catch(e){
+    console.error(e); toast('Could not delete — see console.', 'error');
+  }
+}
+
+/* ---------------- Reports ---------------- */
+let currentReportTab = 'itemwise';
+document.getElementById('reportTabs').addEventListener('click', e=>{
+  if(!e.target.classList.contains('tab')) return;
+  currentReportTab = e.target.dataset.tab;
+  document.querySelectorAll('#reportTabs .tab').forEach(t=>t.classList.toggle('active', t===e.target));
+  document.getElementById('reportDateRangeWrap').style.display = currentReportTab==='despatchreg' ? 'flex' : 'none';
+  renderReport();
+});
+document.getElementById('reportExclusive').addEventListener('change', renderReport);
+document.getElementById('reportSearch').addEventListener('input', debounce(renderReport, 200));
+document.getElementById('reportDateFrom').addEventListener('change', renderReport);
+document.getElementById('reportDateTo').addEventListener('change', renderReport);
+
+function debounce(fn, ms){
+  let t;
+  return (...args)=>{ clearTimeout(t); t = setTimeout(()=>fn(...args), ms); };
+}
+function matchText(hay, q){ return String(hay||'').toLowerCase().includes(q); }
+
+function reportScopedItems(){
+  const f = document.getElementById('reportExclusive').value;
+  return PO_ITEMS.filter(i=>{
+    if(f==='yes') return i.isExclusive;
+    if(f==='no') return !i.isExclusive;
+    return true;
+  });
+}
+
+let lastReportData = {headers:[], rows:[]};
+
+function renderReport(){
+  const q = document.getElementById('reportSearch').value.trim().toLowerCase();
+  const items = reportScopedItems();
+  if(currentReportTab === 'itemwise') renderItemwiseReport(items, q);
+  else if(currentReportTab === 'customerwise') renderCustomerwiseReport(items, q);
+  else if(currentReportTab === 'aging') renderAgingReport(items, q);
+  else if(currentReportTab === 'trend') renderTrendReport();
+  else renderDespatchRegisterReport(q);
+}
+
+function renderItemwiseReport(items, q){
+  const filtered = items.filter(i=> !q || matchText(i.customerName,q) || matchText(i.itemCode,q) || matchText(i.itemDescription,q) || matchText(i.poNo,q));
+  const byItem = {};
+  filtered.filter(i=>i.pendingQty>0).forEach(i=>{
+    const key = i.itemCode;
+    if(!byItem[key]) byItem[key] = {item:i.itemCode, pending:0, customers:new Set(), lines:[]};
+    byItem[key].pending += i.pendingQty;
+    byItem[key].customers.add(i.customerName);
+    byItem[key].lines.push(i);
+  });
+  const rows = Object.values(byItem).sort((a,b)=>b.pending-a.pending);
+  document.getElementById('reportRowCount').textContent = `${rows.length} item(s)`;
+  lastReportData = {
+    headers:['Item','Pending Qty','# Customers','Customers'],
+    rows: rows.map(r=>[r.item, r.pending, r.customers.size, [...r.customers].join(', ')]),
+  };
+  document.getElementById('reportTable').innerHTML =
+    `<tr><th>Item</th><th class="text-right">Pending Qty</th><th class="text-right"># Customers</th><th>Customers</th></tr>` +
+    (rows.length ? rows.map((r,idx)=>`
+      <tr class="clickable" data-item-idx="${idx}">
+        <td>${esc(r.item)}</td><td class="text-right mono">${r.pending}</td>
+        <td class="text-right mono">${r.customers.size}</td>
+        <td>${esc([...r.customers].slice(0,4).join(', '))}${r.customers.size>4?` +${r.customers.size-4} more`:''}</td>
+      </tr>`).join('') : `<tr><td colspan="4"><div class="empty">No matching pending items.</div></td></tr>`);
+  document.querySelectorAll('#reportTable tr[data-item-idx]').forEach(tr=>{
+    tr.onclick = ()=>{
+      const r = rows[+tr.dataset.itemIdx];
+      openLineListModal(`Item: ${r.item}`, `${r.lines.length} open PO line(s) · ${r.pending} total pending · ${r.customers.size} customer(s)`, r.lines);
+    };
+  });
+}
+
+function renderCustomerwiseReport(items, q){
+  const matchingCustomers = new Set();
+  items.forEach(i=>{
+    if(!q || matchText(i.customerName,q) || matchText(i.itemCode,q) || matchText(i.poNo,q)) matchingCustomers.add(i.customerName);
+  });
+  const byCust = {};
+  items.forEach(i=>{
+    if(!matchingCustomers.has(i.customerName)) return;
+    const key = i.customerName;
+    if(!byCust[key]) byCust[key] = {customer:i.customerName, isExclusive:i.isExclusive, openLines:0, pending:0, ordered:0, despatched:0, allLines:[]};
+    byCust[key].ordered += i.orderedQty;
+    byCust[key].despatched += i.despatchedQty;
+    byCust[key].allLines.push(i);
+    if(i.pendingQty>0){ byCust[key].openLines += 1; byCust[key].pending += i.pendingQty; }
+  });
+  const rows = Object.values(byCust).sort((a,b)=>b.pending-a.pending);
+  document.getElementById('reportRowCount').textContent = `${rows.length} customer(s)`;
+  lastReportData = {
+    headers:['Customer','Open Lines','Total Ordered','Total Despatched','Total Pending','Fulfillment %'],
+    rows: rows.map(r=>[r.customer+(r.isExclusive?' (Exclusive)':''), r.openLines, r.ordered, r.despatched, r.pending, r.ordered? Math.round(r.despatched/r.ordered*100)+'%' : '—']),
+  };
+  document.getElementById('reportTable').innerHTML =
+    `<tr><th>Customer</th><th class="text-right">Open Lines</th><th class="text-right">Ordered</th><th class="text-right">Despatched</th><th class="text-right">Pending</th><th class="text-right">Fulfillment</th></tr>` +
+    (rows.length ? rows.map((r,idx)=>`
+      <tr class="clickable" data-cust-idx="${idx}">
+        <td>${esc(r.customer)}${r.isExclusive?'<span class="badge badge-exclusive">EXCL</span>':''}</td>
+        <td class="text-right mono">${r.openLines}</td>
+        <td class="text-right mono">${r.ordered}</td>
+        <td class="text-right mono">${r.despatched}</td>
+        <td class="text-right mono">${r.pending}</td>
+        <td class="text-right mono">${r.ordered? Math.round(r.despatched/r.ordered*100)+'%':'—'}</td>
+      </tr>`).join('') : `<tr><td colspan="6"><div class="empty">No matching customers.</div></td></tr>`);
+  document.querySelectorAll('#reportTable tr[data-cust-idx]').forEach(tr=>{
+    tr.onclick = ()=>{
+      const r = rows[+tr.dataset.custIdx];
+      const openLines = r.allLines.filter(i=>i.pendingQty>0);
+      openLineListModal(`Customer: ${r.customer}`, `${r.openLines} open line(s) · ${r.pending} pending · ${r.ordered? Math.round(r.despatched/r.ordered*100):0}% fulfilled overall`, openLines);
+    };
+  });
+}
+
+function renderAgingReport(items, q){
+  const filtered = items.filter(i=> i.pendingQty>0 && (!q || matchText(i.customerName,q) || matchText(i.itemCode,q) || matchText(i.poNo,q)));
+  const now = new Date();
+  const buckets = [
+    {label:'0–30 days', min:0, max:30, lines:[], pending:0},
+    {label:'31–60 days', min:31, max:60, lines:[], pending:0},
+    {label:'61–90 days', min:61, max:90, lines:[], pending:0},
+    {label:'90+ days', min:91, max:Infinity, lines:[], pending:0},
+  ];
+  filtered.forEach(i=>{
+    const d = i.poDate && i.poDate.toDate ? i.poDate.toDate() : new Date(i.poDate||0);
+    const days = isNaN(d) ? 0 : Math.floor((now - d) / 86400000);
+    const b = buckets.find(b=> days>=b.min && days<=b.max) || buckets[buckets.length-1];
+    b.lines.push(i); b.pending += i.pendingQty;
+  });
+  document.getElementById('reportRowCount').textContent = `${filtered.length} open line(s)`;
+  lastReportData = {
+    headers:['Age Bucket','Open Lines','Total Pending Qty'],
+    rows: buckets.map(b=>[b.label, b.lines.length, b.pending]),
+  };
+  document.getElementById('reportTable').innerHTML =
+    `<tr><th>Age (since PO date)</th><th class="text-right">Open Lines</th><th class="text-right">Pending Qty</th><th></th></tr>` +
+    buckets.map((b,idx)=>`
+      <tr class="clickable" data-bucket-idx="${idx}">
+        <td><strong>${b.label}</strong>${idx===3 && b.lines.length ? ' <span class="badge badge-pending" style="margin-left:6px;">Follow up</span>' : ''}</td>
+        <td class="text-right mono">${b.lines.length}</td>
+        <td class="text-right mono">${b.pending}</td>
+        <td class="hint">${b.lines.length ? 'Click to view lines →' : ''}</td>
+      </tr>`).join('');
+  document.querySelectorAll('#reportTable tr[data-bucket-idx]').forEach(tr=>{
+    tr.onclick = ()=>{
+      const b = buckets[+tr.dataset.bucketIdx];
+      if(!b.lines.length) return;
+      openLineListModal(`Aging: ${b.label}`, `${b.lines.length} open line(s) · ${b.pending} total pending`, b.lines);
+    };
+  });
+}
+
+function renderDespatchRegisterReport(q){
+  document.getElementById('reportTable').innerHTML = `<tr><td><div class="empty">Loading…</div></td></tr>`;
+  const f = document.getElementById('reportExclusive').value;
+  const dateFrom = document.getElementById('reportDateFrom').value;
+  const dateTo = document.getElementById('reportDateTo').value;
+  db.collection('despatches').get().then(snap=>{
+    let despatches = snap.docs.map(d=>({id:d.id, ...d.data()}));
+    if(f==='yes') despatches = despatches.filter(d=>d.isExclusive);
+    if(f==='no') despatches = despatches.filter(d=>!d.isExclusive);
+    if(q) despatches = despatches.filter(d=> matchText(d.customerName,q)||matchText(d.itemCode,q)||matchText(d.poNo,q)||matchText(d.invoiceNumber,q));
+    if(dateFrom){
+      const from = new Date(dateFrom);
+      despatches = despatches.filter(d=>{
+        const dt = d.despatchDate && d.despatchDate.toDate ? d.despatchDate.toDate() : new Date(d.despatchDate);
+        return dt >= from;
+      });
+    }
+    if(dateTo){
+      const to = new Date(dateTo); to.setHours(23,59,59,999);
+      despatches = despatches.filter(d=>{
+        const dt = d.despatchDate && d.despatchDate.toDate ? d.despatchDate.toDate() : new Date(d.despatchDate);
+        return dt <= to;
+      });
+    }
+    despatches.sort((a,b)=>{
+      const da = a.despatchDate && a.despatchDate.toDate ? a.despatchDate.toDate() : new Date(a.despatchDate||0);
+      const db_ = b.despatchDate && b.despatchDate.toDate ? b.despatchDate.toDate() : new Date(b.despatchDate||0);
+      return db_ - da;
+    });
+    document.getElementById('reportRowCount').textContent = `${despatches.length} despatch(es)`;
+    lastReportData = {
+      headers: ['Date','Customer','PO No','Item','Qty Despatched','Invoice No'],
+      rows: despatches.map(d=>[fmtDate(d.despatchDate), d.customerName, d.poNo, d.itemCode, d.qtyDespatched, d.invoiceNumber||'—']),
+    };
+    paintDespatchRegister(despatches);
+  }).catch(e=>{
+    console.error(e);
+    document.getElementById('reportTable').innerHTML = `<tr><td><div class="empty">Could not load despatches — see console.</div></td></tr>`;
+  });
+}
+function paintDespatchRegister(despatches){
+  document.getElementById('reportTable').innerHTML =
+    `<tr><th>Date</th><th>Customer</th><th>PO No</th><th>Item</th><th class="text-right">Qty Despatched</th><th>Invoice No</th><th></th></tr>` +
+    (despatches.length ? despatches.map(d=>`
+      <tr class="clickable" data-desp-row="${d.id}">
+        <td>${fmtDate(d.despatchDate)}</td><td>${esc(d.customerName)}</td><td>${esc(d.poNo)}</td>
+        <td>${esc(d.itemCode)}</td><td class="text-right mono">${d.qtyDespatched}</td><td>${esc(d.invoiceNumber||'—')}</td>
+        <td style="white-space:nowrap;">
+          <button class="btn btn-ghost" data-edit-desp="${d.id}">Edit</button>
+          <button class="btn btn-ghost" data-del-desp="${d.id}" style="color:var(--red);">Delete</button>
+        </td>
+      </tr>`).join('') : `<tr><td colspan="7"><div class="empty">No despatches match.</div></td></tr>`);
+  document.querySelectorAll('#reportTable tr[data-desp-row]').forEach(tr=>{
+    tr.onclick = (e)=>{
+      if(e.target.closest('button')) return;
+      const d = despatches.find(x=>x.id===tr.dataset.despRow);
+      const item = PO_ITEMS.find(i=>i.id===d.poItemId);
+      if(item) openDespatchHistoryModal(item);
+      else toast('The related PO line was deleted, so full history is unavailable.', 'error');
+    };
+  });
+  document.querySelectorAll('#reportTable button[data-edit-desp]').forEach(b=>{
+    b.onclick = (e)=>{ e.stopPropagation(); openDespatchModal(despatches.find(x=>x.id===b.dataset.editDesp)); };
+  });
+  document.querySelectorAll('#reportTable button[data-del-desp]').forEach(b=>{
+    b.onclick = (e)=>{ e.stopPropagation(); deleteDespatch(despatches.find(x=>x.id===b.dataset.delDesp)); };
+  });
+}
+
+function renderTrendReport(){
+  document.getElementById('reportTable').innerHTML = `<tr><td><div class="empty">Loading…</div></td></tr>`;
+  const f = document.getElementById('reportExclusive').value;
+  Promise.all([ db.collection('poItems').get(), db.collection('despatches').get() ]).then(([itemsSnap, despSnap])=>{
+    let items = itemsSnap.docs.map(d=>d.data());
+    let desp = despSnap.docs.map(d=>d.data());
+    if(f==='yes'){ items = items.filter(i=>i.isExclusive); desp = desp.filter(d=>d.isExclusive); }
+    if(f==='no'){ items = items.filter(i=>!i.isExclusive); desp = desp.filter(d=>!d.isExclusive); }
+    const months = {};
+    const monthKey = d => d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
+    items.forEach(i=>{
+      const d = i.poDate && i.poDate.toDate ? i.poDate.toDate() : new Date(i.poDate||0);
+      if(isNaN(d)) return;
+      const k = monthKey(d);
+      if(!months[k]) months[k] = {ordered:0, despatched:0, poCount:0, despCount:0};
+      months[k].ordered += i.orderedQty; months[k].poCount++;
+    });
+    desp.forEach(x=>{
+      const d = x.despatchDate && x.despatchDate.toDate ? x.despatchDate.toDate() : new Date(x.despatchDate||0);
+      if(isNaN(d)) return;
+      const k = monthKey(d);
+      if(!months[k]) months[k] = {ordered:0, despatched:0, poCount:0, despCount:0};
+      months[k].despatched += x.qtyDespatched; months[k].despCount++;
+    });
+    const keys = Object.keys(months).sort().slice(-18);
+    const maxVal = Math.max(1, ...keys.map(k=>Math.max(months[k].ordered, months[k].despatched)));
+    document.getElementById('reportRowCount').textContent = `${keys.length} month(s)`;
+    lastReportData = {
+      headers:['Month','PO Lines Raised','Qty Ordered','Despatches','Qty Despatched'],
+      rows: keys.map(k=>[k, months[k].poCount, months[k].ordered, months[k].despCount, months[k].despatched]),
+    };
+    document.getElementById('reportTable').innerHTML =
+      `<tr><th>Month</th><th class="text-right">PO Lines</th><th class="text-right">Qty Ordered</th><th class="text-right">Despatches</th><th class="text-right">Qty Despatched</th><th style="width:200px;">Ordered (blue) vs Despatched (green)</th></tr>` +
+      (keys.length ? keys.map(k=>{
+        const m = months[k];
+        const wOrdered = Math.round(m.ordered/maxVal*100);
+        const wDesp = Math.round(m.despatched/maxVal*100);
+        return `<tr>
+          <td>${k}</td><td class="text-right mono">${m.poCount}</td><td class="text-right mono">${m.ordered}</td>
+          <td class="text-right mono">${m.despCount}</td><td class="text-right mono">${m.despatched}</td>
+          <td>
+            <div style="background:var(--blue-100);border-radius:4px;height:8px;margin-bottom:3px;"><div style="background:var(--blue-600);height:8px;border-radius:4px;width:${wOrdered}%;"></div></div>
+            <div style="background:var(--green-bg);border-radius:4px;height:8px;"><div style="background:var(--green);height:8px;border-radius:4px;width:${wDesp}%;"></div></div>
+          </td>
+        </tr>`;
+      }).join('') : `<tr><td colspan="6"><div class="empty">Not enough data yet.</div></td></tr>`);
+  }).catch(e=>{
+    console.error(e);
+    document.getElementById('reportTable').innerHTML = `<tr><td><div class="empty">Could not load trend data — see console.</div></td></tr>`;
+  });
+}
+
+/* ---- Drill-down modals (shared across Dashboard + Reports) ---- */
+function openLineListModal(title, subtitle, rows){
+  document.getElementById('lineListModalTitle').textContent = title;
+  document.getElementById('lineListModalSubtitle').textContent = subtitle || '';
+  document.getElementById('lineListModalTable').innerHTML =
+    `<tr><th>PO Date</th><th>Customer</th><th>PO No</th><th>Item</th><th>Material</th>
+     <th class="text-right">Ordered</th><th class="text-right">Despatched</th><th class="text-right">Pending</th><th>Status</th></tr>` +
+    (rows.length ? rows.map(i=>`
+      <tr class="clickable" data-drill="${i.id}">
+        <td>${fmtDate(i.poDate)}</td>
+        <td>${esc(i.customerName)}${i.isExclusive?'<span class="badge badge-exclusive">EXCL</span>':''}</td>
+        <td>${esc(i.poNo)}</td><td>${esc(i.itemCode)}</td><td>${esc(i.material||'—')}</td>
+        <td class="text-right mono">${i.orderedQty}</td>
+        <td class="text-right mono">${i.despatchedQty}</td>
+        <td class="text-right mono">${i.pendingQty}</td>
+        <td>${badgeFor(statusFor(i))}</td>
+      </tr>`).join('') : `<tr><td colspan="9"><div class="empty">No lines.</div></td></tr>`);
+  document.querySelectorAll('#lineListModalTable tr[data-drill]').forEach(tr=>{
+    tr.onclick = ()=>{
+      const item = PO_ITEMS.find(i=>i.id===tr.dataset.drill);
+      if(item) openDespatchHistoryModal(item);
+    };
+  });
+  document.getElementById('lineListModalBg').classList.add('show');
+}
+document.getElementById('lineListModalClose').onclick = ()=> document.getElementById('lineListModalBg').classList.remove('show');
+
+async function openDespatchHistoryModal(item){
+  document.getElementById('despHistModalTitle').textContent = `${item.customerName} — PO ${item.poNo} — ${item.itemCode}`;
+  document.getElementById('despHistModalSubtitle').textContent =
+    `Ordered ${item.orderedQty} · Despatched ${item.despatchedQty} · Pending ${item.pendingQty}${item.material?` · ${item.material}`:''}`;
+  document.getElementById('despHistModalTable').innerHTML = `<tr><td><div class="empty">Loading…</div></td></tr>`;
+  document.getElementById('despHistModalBg').classList.add('show');
+  if(!requireDb()) return;
+  try{
+    const snap = await db.collection('despatches').where('poItemId','==',item.id).get();
+    let rows = snap.docs.map(d=>({id:d.id, ...d.data()}));
+    rows.sort((a,b)=>{
+      const da = a.despatchDate && a.despatchDate.toDate ? a.despatchDate.toDate() : new Date(a.despatchDate||0);
+      const db_ = b.despatchDate && b.despatchDate.toDate ? b.despatchDate.toDate() : new Date(b.despatchDate||0);
+      return db_ - da;
+    });
+    document.getElementById('despHistModalTable').innerHTML =
+      `<tr><th>Date</th><th class="text-right">Qty</th><th>Invoice No</th></tr>` +
+      (rows.length ? rows.map(d=>`<tr><td>${fmtDate(d.despatchDate)}</td><td class="text-right mono">${d.qtyDespatched}</td><td>${esc(d.invoiceNumber||'—')}</td></tr>`).join('')
+      : `<tr><td colspan="3"><div class="empty">No despatches recorded against this line yet.</div></td></tr>`);
+  }catch(e){
+    console.error(e);
+    document.getElementById('despHistModalTable').innerHTML = `<tr><td><div class="empty">Could not load despatch history — see console.</div></td></tr>`;
+  }
+}
+document.getElementById('despHistModalClose').onclick = ()=> document.getElementById('despHistModalBg').classList.remove('show');
+
+let editingDespatch = null;
+function openDespatchModal(d){
+  editingDespatch = d;
+  document.getElementById('despatchModalMeta').textContent = `${d.customerName} — PO ${d.poNo} — ${d.itemCode}`;
+  document.getElementById('despatchModalQty').value = d.qtyDespatched;
+  const dt = d.despatchDate && d.despatchDate.toDate ? d.despatchDate.toDate() : new Date(d.despatchDate);
+  document.getElementById('despatchModalDate').value = isNaN(dt) ? '' : dt.toISOString().slice(0,10);
+  document.getElementById('despatchModalInvoice').value = d.invoiceNumber || '';
+  document.getElementById('despatchModalBg').classList.add('show');
+}
+document.getElementById('despatchModalCancel').onclick = ()=>{
+  document.getElementById('despatchModalBg').classList.remove('show'); editingDespatch = null;
+};
+document.getElementById('despatchModalSave').onclick = async ()=>{
+  if(!requireDb() || !editingDespatch) return;
+  const newQty = parseFloat(document.getElementById('despatchModalQty').value);
+  const dateVal = document.getElementById('despatchModalDate').value;
+  const invoice = document.getElementById('despatchModalInvoice').value.trim();
+  if(!newQty || newQty <= 0 || !dateVal){ toast('Enter a valid quantity and date.', 'error'); return; }
+  try{
+    await db.runTransaction(async tx=>{
+      const itemRef = db.collection('poItems').doc(editingDespatch.poItemId);
+      const itemSnap = await tx.get(itemRef);
+      const despRef = db.collection('despatches').doc(editingDespatch.id);
+      const delta = newQty - editingDespatch.qtyDespatched;
+      if(itemSnap.exists){
+        const data = itemSnap.data();
+        const newDespatched = (data.despatchedQty||0) + delta;
+        const newPending = data.orderedQty - newDespatched;
+        tx.update(itemRef, {
+          despatchedQty: newDespatched, pendingQty: newPending,
+          status: newPending<=0 ? 'Completed' : (newDespatched>0 ? 'Partial' : 'Pending'),
+        });
+      }
+      tx.update(despRef, {
+        qtyDespatched: newQty, invoiceNumber: invoice,
+        despatchDate: firebase.firestore.Timestamp.fromDate(new Date(dateVal)),
+      });
+    });
+    toast('Despatch updated.', 'success');
+    document.getElementById('despatchModalBg').classList.remove('show');
+    editingDespatch = null;
+    renderReport();
+  }catch(e){
+    console.error(e); toast('Could not save changes — see console.', 'error');
+  }
+};
+async function deleteDespatch(d){
+  if(!requireDb()) return;
+  if(!confirm(`Delete this despatch of ${d.qtyDespatched} unit(s) for ${d.itemCode} (PO ${d.poNo})? The quantity will be added back to pending. This can't be undone.`)) return;
+  try{
+    await db.runTransaction(async tx=>{
+      const itemRef = db.collection('poItems').doc(d.poItemId);
+      const itemSnap = await tx.get(itemRef);
+      const despRef = db.collection('despatches').doc(d.id);
+      if(itemSnap.exists){
+        const data = itemSnap.data();
+        const newDespatched = (data.despatchedQty||0) - d.qtyDespatched;
+        const newPending = data.orderedQty - newDespatched;
+        tx.update(itemRef, {
+          despatchedQty: newDespatched, pendingQty: newPending,
+          status: newPending<=0 ? 'Completed' : (newDespatched>0 ? 'Partial' : 'Pending'),
+        });
+      }
+      tx.delete(despRef);
+    });
+    toast('Despatch deleted.', 'success');
+    renderReport();
+  }catch(e){
+    console.error(e); toast('Could not delete — see console.', 'error');
+  }
+}
+
+document.getElementById('exportReportBtn').onclick = ()=>{
+  const {headers, rows} = lastReportData;
+  if(!rows.length){ toast('Nothing to export.', 'error'); return; }
+  const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, currentReportTab.slice(0,30));
+  XLSX.writeFile(wb, `Jayco_${currentReportTab}_${new Date().toISOString().slice(0,10)}.xlsx`);
+};
+
+/* ---------------- Customers ---------------- */
+document.getElementById('custSearch').addEventListener('input', renderCustomers);
+function renderCustomers(){
+  const q = document.getElementById('custSearch').value.trim().toLowerCase();
+  const matchingIds = new Set();
+  CUSTOMERS.forEach(c=>{
+    if(!q || matchText(c.name,q)) matchingIds.add(c.id);
+  });
+  if(q){
+    PO_ITEMS.forEach(i=>{
+      if(matchText(i.itemCode,q) || matchText(i.poNo,q) || matchText(i.itemDescription,q)) matchingIds.add(i.customerId);
+    });
+  }
+  const list = CUSTOMERS.filter(c=>matchingIds.has(c.id)).sort((a,b)=>a.name.localeCompare(b.name));
+  document.getElementById('custTable').innerHTML =
+    `<tr><th>Customer</th><th>Tracking</th><th class="text-right">Open PO lines</th><th class="text-right">Total pending</th><th></th></tr>` +
+    (list.length ? list.map(c=>{
+      const lines = PO_ITEMS.filter(i=>i.customerId===c.id);
+      const openLines = lines.filter(i=>i.pendingQty>0);
+      const pending = openLines.reduce((s,i)=>s+i.pendingQty,0);
+      return `
+      <tr class="clickable" data-cust-row="${c.id}">
+        <td>${esc(c.name)}</td>
+        <td>${c.isExclusive ? '<span class="badge badge-exclusive" style="margin-left:0;">EXCLUSIVE</span>' : 'Standard'}</td>
+        <td class="text-right mono">${openLines.length}</td>
+        <td class="text-right mono">${pending}</td>
+        <td style="white-space:nowrap;">
+          <button class="btn btn-ghost" data-edit-cust="${c.id}">Edit</button>
+          <button class="btn btn-ghost" data-del-cust="${c.id}" style="color:var(--red);">Delete</button>
+        </td>
+      </tr>`;
+    }).join('') : `<tr><td colspan="5"><div class="empty">No customers match.</div></td></tr>`);
+  document.querySelectorAll('#custTable tr[data-cust-row]').forEach(tr=>{
+    tr.onclick = (e)=>{
+      if(e.target.closest('button')) return;
+      const c = CUSTOMERS.find(x=>x.id===tr.dataset.custRow);
+      const openLines = PO_ITEMS.filter(i=>i.customerId===c.id && i.pendingQty>0);
+      openLineListModal(`Customer: ${c.name}`, `${openLines.length} open line(s)${c.isExclusive?' · Exclusive customer':''}`, openLines);
+    };
+  });
+  document.querySelectorAll('#custTable button[data-edit-cust]').forEach(b=>{
+    b.onclick = (e)=>{ e.stopPropagation(); openCustModal(CUSTOMERS.find(c=>c.id===b.dataset.editCust)); };
+  });
+  document.querySelectorAll('#custTable button[data-del-cust]').forEach(b=>{
+    b.onclick = (e)=>{ e.stopPropagation(); deleteCustomer(b.dataset.delCust); };
+  });
+}
+document.getElementById('addCustBtn').onclick = ()=> openCustModal(null);
+
+let editingCustomerId = null;
+function openCustModal(existing){
+  editingCustomerId = existing ? existing.id : null;
+  document.getElementById('custModalTitle').textContent = existing ? 'Edit customer' : 'Add customer';
+  document.getElementById('custModalName').value = existing ? existing.name : '';
+  document.getElementById('custModalExclusive').checked = existing ? !!existing.isExclusive : false;
+  document.getElementById('custModalBg').classList.add('show');
+}
+document.getElementById('custModalCancel').onclick = ()=>{
+  document.getElementById('custModalBg').classList.remove('show'); editingCustomerId = null;
+};
+document.getElementById('custModalSave').onclick = async ()=>{
+  const name = document.getElementById('custModalName').value.trim();
+  const isExclusive = document.getElementById('custModalExclusive').checked;
+  if(!name){ toast('Enter a name.', 'error'); return; }
+  const dup = CUSTOMERS.find(c=>c.name.toLowerCase()===name.toLowerCase() && c.id!==editingCustomerId);
+  if(dup){ toast('Another customer already has that name.', 'error'); return; }
+  try{
+    if(editingCustomerId){
+      await db.collection('customers').doc(editingCustomerId).update({name, isExclusive});
+      // keep denormalized fields on their PO lines and despatches in sync
+      const [itemsSnap, despSnap] = await Promise.all([
+        db.collection('poItems').where('customerId','==',editingCustomerId).get(),
+        db.collection('despatches').where('customerId','==',editingCustomerId).get(),
+      ]);
+      const batch = db.batch();
+      itemsSnap.docs.forEach(d=> batch.update(d.ref, {customerName:name, isExclusive}));
+      despSnap.docs.forEach(d=> batch.update(d.ref, {customerName:name, isExclusive}));
+      if(!itemsSnap.empty || !despSnap.empty) await batch.commit();
+      toast('Customer updated.', 'success');
+    } else {
+      await db.collection('customers').add({
+        name, isExclusive, createdAt: firebase.firestore.FieldValue.serverTimestamp()
+      });
+      toast('Customer added.', 'success');
+    }
+    document.getElementById('custModalBg').classList.remove('show');
+    editingCustomerId = null;
+  }catch(e){
+    console.error(e); toast('Could not save — see console.', 'error');
+  }
+};
+async function deleteCustomer(id){
+  if(!requireDb()) return;
+  const c = CUSTOMERS.find(x=>x.id===id);
+  if(!c) return;
+  const lineCount = PO_ITEMS.filter(i=>i.customerId===id).length;
+  if(lineCount > 0){
+    toast(`Can't delete ${c.name} — they still have ${lineCount} PO line(s). Delete those first.`, 'error');
+    return;
+  }
+  if(!confirm(`Delete customer "${c.name}"? This can't be undone.`)) return;
+  try{
+    await db.collection('customers').doc(id).delete();
+    toast('Customer deleted.', 'success');
+  }catch(e){
+    console.error(e); toast('Could not delete — see console.', 'error');
+  }
+}
+
+/* ---------------- Items (master list) ---------------- */
+function normalizeItemCode(raw){
+  let s = String(raw||'').trim().toUpperCase().replace(/\s+/g,' ');
+  if(!s) return '';
+  if(!s.includes(' ')){
+    const m = s.match(/^([A-Z]+)([\d/.].*)$/);
+    if(m) s = m[1] + ' ' + m[2];
+  }
+  return s;
+}
+function refreshItemDatalist(){
+  document.getElementById('itemMasterList') && (document.getElementById('itemMasterList').innerHTML =
+    ITEMS.map(i=>`<option value="${esc(i.itemCode)}"></option>`).join(''));
+}
+function closestItemMatch(code){
+  if(!code) return null;
+  const upper = code.toUpperCase();
+  return ITEMS.find(i=>i.itemCode.toUpperCase()===upper) || null;
+}
+
+document.getElementById('itemSearch').addEventListener('input', renderItemMaster);
+function renderItemMaster(){
+  const q = document.getElementById('itemSearch').value.trim().toLowerCase();
+  const list = ITEMS.filter(i =>
+    !q || matchText(i.itemCode,q) || matchText(i.description,q) || matchText(i.material,q)
+  ).sort((a,b)=>a.itemCode.localeCompare(b.itemCode));
+  document.getElementById('itemCount').textContent = `${list.length} item(s)`;
+  document.getElementById('itemMasterTable').innerHTML =
+    `<tr><th>Item Code</th><th>Description</th><th>Material</th><th class="text-right">Open PO lines</th><th></th></tr>` +
+    (list.length ? list.map(i=>{
+      const lineCount = PO_ITEMS.filter(p=>p.itemCode===i.itemCode && p.pendingQty>0).length;
+      return `<tr>
+        <td><strong>${esc(i.itemCode)}</strong></td><td>${esc(i.description||'—')}</td><td>${esc(i.material||'—')}</td>
+        <td class="text-right mono">${lineCount}</td>
+        <td style="white-space:nowrap;">
+          <button class="btn btn-ghost" data-edit-im="${i.id}">Edit</button>
+          <button class="btn btn-ghost" data-del-im="${i.id}" style="color:var(--red);">Delete</button>
+        </td>
+      </tr>`;
+    }).join('') : `<tr><td colspan="5"><div class="empty">No items match — or your Item Master is empty, run Import Masters first.</div></td></tr>`);
+  document.querySelectorAll('#itemMasterTable button[data-edit-im]').forEach(b=>{
+    b.onclick = ()=> openItemMasterModal(ITEMS.find(i=>i.id===b.dataset.editIm));
+  });
+  document.querySelectorAll('#itemMasterTable button[data-del-im]').forEach(b=>{
+    b.onclick = ()=> deleteItemMaster(b.dataset.delIm);
+  });
+}
+document.getElementById('addItemMasterBtn').onclick = ()=> openItemMasterModal(null);
+
+let editingItemMasterId = null;
+function openItemMasterModal(existing){
+  editingItemMasterId = existing ? existing.id : null;
+  document.getElementById('itemMasterModalTitle').textContent = existing ? 'Edit item' : 'Add item';
+  document.getElementById('itemMasterModalCode').value = existing ? existing.itemCode : '';
+  document.getElementById('itemMasterModalDesc').value = existing ? (existing.description||'') : '';
+  document.getElementById('itemMasterModalMat').value = existing ? (existing.material||'') : '';
+  document.getElementById('itemMasterModalHint').textContent = '';
+  document.getElementById('itemMasterModalBg').classList.add('show');
+}
+document.getElementById('itemMasterModalCancel').onclick = ()=>{
+  document.getElementById('itemMasterModalBg').classList.remove('show'); editingItemMasterId = null;
+};
+document.getElementById('itemMasterModalCode').addEventListener('blur', e=>{
+  const norm = normalizeItemCode(e.target.value);
+  if(norm && norm !== e.target.value) e.target.value = norm;
+  const hint = document.getElementById('itemMasterModalHint');
+  const dup = ITEMS.find(i=>i.itemCode===norm && i.id!==editingItemMasterId);
+  hint.textContent = dup ? `An item "${norm}" already exists.` : '';
+});
+document.getElementById('itemMasterModalSave').onclick = async ()=>{
+  if(!requireDb()) return;
+  const itemCode = normalizeItemCode(document.getElementById('itemMasterModalCode').value);
+  if(!itemCode){ toast('Enter an item code.', 'error'); return; }
+  const dup = ITEMS.find(i=>i.itemCode===itemCode && i.id!==editingItemMasterId);
+  if(dup){ toast(`"${itemCode}" already exists in the Item Master.`, 'error'); return; }
+  const description = document.getElementById('itemMasterModalDesc').value.trim();
+  const material = document.getElementById('itemMasterModalMat').value.trim();
+  try{
+    if(editingItemMasterId){
+      await db.collection('items').doc(editingItemMasterId).update({itemCode, description, material});
+      toast('Item updated.', 'success');
+    } else {
+      await db.collection('items').add({itemCode, description, material, createdAt: firebase.firestore.FieldValue.serverTimestamp()});
+      toast('Item added.', 'success');
+    }
+    document.getElementById('itemMasterModalBg').classList.remove('show');
+    editingItemMasterId = null;
+  }catch(e){
+    console.error(e); toast('Could not save — see console.', 'error');
+  }
+};
+async function deleteItemMaster(id){
+  if(!requireDb()) return;
+  const it = ITEMS.find(i=>i.id===id);
+  if(!it) return;
+  if(!confirm(`Delete "${it.itemCode}" from the Item Master? Existing PO lines using this code are unaffected — this only removes it from the suggestion list.`)) return;
+  try{
+    await db.collection('items').doc(id).delete();
+    toast('Item deleted.', 'success');
+  }catch(e){
+    console.error(e); toast('Could not delete — see console.', 'error');
+  }
+}
+
+/* ---------------- Import from Excel ---------------- */
+let parsedImport = null;
+document.getElementById('importFile').addEventListener('change', async e=>{
+  const file = e.target.files[0];
+  if(!file) return;
+  const buf = await file.arrayBuffer();
+  const wb = XLSX.read(buf, {type:'array', cellDates:true});
+  parsedImport = buildImportPlan(wb);
+  renderImportPreview(parsedImport);
+});
+
+// Our generated sheets always have: row1=title, row2=subtitle, row3=blank, row4=headers, row5+=data
+function sheetRows(wb, name){
+  if(!wb.Sheets[name]) return [];
+  const aoa = XLSX.utils.sheet_to_json(wb.Sheets[name], {header:1, raw:false, dateNF:'yyyy-mm-dd', defval:''});
+  return aoa.slice(4); // skip title/subtitle/blank/header rows
+}
+
+function buildImportPlan(wb){
+  const errors = [];
+  if(!wb.Sheets['Customer Master']) errors.push('Sheet "Customer Master" not found.');
+  if(!wb.Sheets['Item Master']) errors.push('Sheet "Item Master" not found.');
+  if(!wb.Sheets['Open POs']) errors.push('Sheet "Open POs" not found.');
+  if(errors.length) return {errors};
+
+  // Customer Master: Customer Name | Exclusive Tracking | PO Line Count
+  const customers = sheetRows(wb, 'Customer Master')
+    .filter(r=>r[0])
+    .map(r=>({ name: String(r[0]).trim(), isExclusive: String(r[1]||'').trim().toLowerCase()==='yes' }));
+
+  // Item Master: Item Code | Description | Material | Times Used
+  const items = sheetRows(wb, 'Item Master')
+    .filter(r=>r[0])
+    .map(r=>({ itemCode: String(r[0]).trim(), description: String(r[1]||'').trim(), material: String(r[2]||'').trim() }));
+
+  // Open POs: PO No | PO Date | Customer | Item Code | Description | Material | Ordered Qty | Despatched Qty | Pending Qty
+  const openPOs = sheetRows(wb, 'Open POs')
+    .filter(r=>r[0] && r[3])
+    .map(r=>({
+      poNo: String(r[0]).trim(), poDate: r[1], customerName: String(r[2]||'').trim(),
+      itemCode: String(r[3]).trim(), itemDescription: String(r[4]||'').trim(), material: String(r[5]||'').trim(),
+      orderedQty: parseFloat(r[6])||0, despatchedQty: parseFloat(r[7])||0, pendingQty: parseFloat(r[8])||0,
+    }))
+    .filter(r=>r.pendingQty > 0);
+
+  return {errors, customers, items, openPOs};
+}
+
+function renderImportPreview(plan){
+  const el = document.getElementById('importPreview');
+  if(plan.errors.length){
+    el.innerHTML = `<div class="empty">${plan.errors.join('<br/>')}</div>`;
+    document.getElementById('runImportBtn').style.display = 'none';
+    return;
+  }
+  el.innerHTML = `
+    <div class="card card-pad" style="background:#f8fafd;">
+      <p style="font-size:13px;margin:0 0 6px;">
+        <strong>${plan.customers.length}</strong> customers, <strong>${plan.items.length}</strong> item master entries,
+        <strong>${plan.openPOs.length}</strong> open PO line(s) as opening balances
+        (${plan.openPOs.reduce((s,r)=>s+r.pendingQty,0).toLocaleString('en-IN')} total pending qty).</p>
+      <p class="hint" style="margin:0;">Ordered / Despatched / Pending are taken exactly as they appear in your Open POs sheet — nothing recalculated.</p>
+    </div>`;
+  document.getElementById('runImportBtn').style.display = 'inline-flex';
+}
+
+document.getElementById('runImportBtn').onclick = async ()=>{
+  if(!requireDb() || !parsedImport) return;
+  const btn = document.getElementById('runImportBtn');
+  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Importing…';
+  const log = document.getElementById('importLog');
+  log.textContent = '';
+  try{
+    // 1) Customers — create any that don't already exist; update isExclusive if it's now true
+    let custImported = 0, custSkipped = 0;
+    for(let i=0;i<plan_customers().length;i+=400){
+      const chunk = plan_customers().slice(i, i+400);
+      const batch = db.batch();
+      for(const c of chunk){
+        const existing = CUSTOMERS.find(x=>x.name.toLowerCase()===c.name.toLowerCase());
+        if(existing){
+          custSkipped++;
+          if(c.isExclusive && !existing.isExclusive) batch.update(db.collection('customers').doc(existing.id), {isExclusive:true});
+          continue;
+        }
+        batch.set(db.collection('customers').doc(), {name:c.name, isExclusive:c.isExclusive, createdAt: firebase.firestore.FieldValue.serverTimestamp()});
+        custImported++;
+      }
+      await batch.commit();
+    }
+    log.textContent = `Customers: ${custImported} added, ${custSkipped} already existed…`;
+
+    // re-read customers fresh so we have ids for the PO import step below
+    const custSnap = await db.collection('customers').get();
+    const customerByName = {};
+    custSnap.docs.forEach(d=>{ customerByName[d.data().name.toLowerCase()] = {id:d.id, ...d.data()}; });
+
+    // 2) Items master
+    let itemImported = 0, itemSkipped = 0;
+    const existingItemSnap = await db.collection('items').get();
+    const existingItemCodes = new Set(existingItemSnap.docs.map(d=>d.data().itemCode));
+    for(let i=0;i<parsedImport.items.length;i+=400){
+      const chunk = parsedImport.items.slice(i, i+400);
+      const batch = db.batch();
+      for(const it of chunk){
+        if(existingItemCodes.has(it.itemCode)){ itemSkipped++; continue; }
+        batch.set(db.collection('items').doc(), {itemCode:it.itemCode, description:it.description, material:it.material, createdAt: firebase.firestore.FieldValue.serverTimestamp()});
+        existingItemCodes.add(it.itemCode);
+        itemImported++;
+      }
+      await batch.commit();
+    }
+    log.textContent += `\nItems: ${itemImported} added, ${itemSkipped} already existed…`;
+
+    // 3) Open POs as opening balances
+    let poImported = 0, poSkipped = 0;
+    for(let i=0;i<parsedImport.openPOs.length;i+=400){
+      const chunk = parsedImport.openPOs.slice(i, i+400);
+      const batch = db.batch();
+      for(const r of chunk){
+        let cust = customerByName[r.customerName.toLowerCase()];
+        if(!cust){
+          const newRef = db.collection('customers').doc();
+          batch.set(newRef, {name:r.customerName, isExclusive:false, createdAt: firebase.firestore.FieldValue.serverTimestamp()});
+          cust = {id:newRef.id, name:r.customerName, isExclusive:false};
+          customerByName[r.customerName.toLowerCase()] = cust;
+        }
+        const dup = PO_ITEMS.some(x=>x.poNo===r.poNo && x.itemCode===r.itemCode && x.customerId===cust.id);
+        if(dup){ poSkipped++; continue; }
+        const poDate = r.poDate ? firebase.firestore.Timestamp.fromDate(new Date(r.poDate)) : firebase.firestore.Timestamp.now();
+        batch.set(db.collection('poItems').doc(), {
+          poId: 'opening_'+r.poNo+'_'+cust.id, poNo: r.poNo, poDate,
+          customerId: cust.id, customerName: cust.name, isExclusive: !!cust.isExclusive,
+          itemCode: r.itemCode, itemDescription: r.itemDescription, material: r.material, deliveryRemark: '',
+          orderedQty: r.orderedQty, despatchedQty: r.despatchedQty, pendingQty: r.pendingQty,
+          status: r.pendingQty<=0 ? 'Completed' : (r.despatchedQty>0 ? 'Partial' : 'Pending'),
+          createdAt: firebase.firestore.FieldValue.serverTimestamp(), openingBalance: true,
+        });
+        poImported++;
+      }
+      await batch.commit();
+      log.textContent = log.textContent.split('\nOpen POs:')[0] + `\nOpen POs: imported ${poImported} of ${parsedImport.openPOs.length}…`;
+    }
+    log.textContent = `Done.\nCustomers: ${custImported} added, ${custSkipped} already existed.\nItems: ${itemImported} added, ${itemSkipped} already existed.\nOpen POs: ${poImported} imported as opening balances, ${poSkipped} already existed.`;
+    toast('Import complete.', 'success');
+  }catch(e){
+    console.error(e);
+    log.textContent = 'Import failed — see browser console for details.';
+    toast('Import failed.', 'error');
+  }finally{
+    btn.disabled = false; btn.textContent = 'Import into database';
+  }
+};
+function plan_customers(){ return parsedImport ? parsedImport.customers : []; }
+
+/* ---------------- Utilities ---------------- */
+function esc(s){
+  return String(s??'').replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+}
+function requireDb(){
+  if(!firebaseReady){ toast('Not connected to the database yet — check the Firebase Setup tab.', 'error'); return false; }
+  return true;
+}
+
+/* ---------------- Init ---------------- */
+document.getElementById('poDate').valueAsDate = new Date();
+document.getElementById('logoutBtn').onclick = doLogout;
+initFirebase();
+</script>
+</body>
+</html>
