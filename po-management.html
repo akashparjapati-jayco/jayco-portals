@@ -113,6 +113,16 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:var(--blue-500
 .item-row label{font-size:10.5px;margin-bottom:3px;}
 .remove-row{background:var(--red-bg);color:var(--red);border:none;border-radius:7px;height:34px;width:34px;cursor:pointer;font-weight:700;}
 
+/* Attachment rows (PO + Despatch forms) */
+#poAttachRows,#despAttachRows{display:flex;flex-direction:column;gap:8px;margin:10px 0;}
+.attach-row{display:grid;grid-template-columns:1fr 2fr auto;gap:8px;align-items:end;
+  background:#f8fafd;border:1px solid var(--border);border-radius:8px;padding:10px;}
+.attach-row label{font-size:10.5px;margin-bottom:3px;}
+.attach-link-list{display:flex;flex-direction:column;gap:6px;}
+.attach-link-list a{color:var(--blue-600);text-decoration:none;font-weight:600;}
+.attach-link-list a:hover{text-decoration:underline;}
+.attach-chip{background:var(--blue-100);color:var(--blue-600);border:none;border-radius:20px;padding:3px 10px;font-size:11.5px;font-weight:700;cursor:pointer;white-space:nowrap;}
+
 /* Tables */
 table{width:100%;border-collapse:collapse;font-size:12.8px;}
 th{text-align:left;padding:9px 10px;background:#f3f6fb;color:var(--navy-800);font-weight:700;
@@ -288,6 +298,10 @@ tr.clickable:hover td{background:var(--blue-100)!important;}
       <div id="itemRows"></div>
       <button class="btn btn-secondary" id="addItemRowBtn" type="button">+ Add item</button>
 
+      <label style="margin-top:20px;">Attachments (optional) <span class="hint" style="display:inline;">— e.g. OneDrive links to Design, Drawing, PO Copy…</span></label>
+      <div id="poAttachRows"></div>
+      <button class="btn btn-secondary" id="addPoAttachRowBtn" type="button">+ Add attachment</button>
+
       <div style="margin-top:20px;display:flex;gap:10px;">
         <button class="btn btn-primary" id="savePoBtn">Save purchase order</button>
         <span id="poSaveStatus" class="hint"></span>
@@ -331,6 +345,11 @@ tr.clickable:hover td{background:var(--blue-100)!important;}
             <button class="btn btn-primary" id="saveDespatchBtn" style="width:100%;">Save despatch</button>
           </div>
         </div>
+
+        <label>Attachments (optional) <span class="hint" style="display:inline;">— e.g. OneDrive links to Design, Drawing, Invoice copy… applies to every ticked line</span></label>
+        <div id="despAttachRows"></div>
+        <button class="btn btn-secondary" id="addDespAttachRowBtn" type="button">+ Add attachment</button>
+
         <div id="despatchSaveStatus" class="hint" style="margin-top:8px;"></div>
       </div>
       <div id="despatchEmptyState" class="empty" style="display:none;">No open PO lines for this customer.</div>
@@ -356,6 +375,7 @@ tr.clickable:hover td{background:var(--blue-100)!important;}
         <option value="yes">Exclusive only</option>
         <option value="no">Standard only</option>
       </select>
+      <button class="btn btn-secondary" id="exportRegisterBtn">Export to Excel</button>
       <span class="hint" id="regCount"></span>
     </div>
     <div class="card"><div class="table-wrap"><table id="regTable"></table></div></div>
@@ -399,6 +419,7 @@ tr.clickable:hover td{background:var(--blue-100)!important;}
     <div class="toolbar">
       <input id="custSearch" placeholder="Search customer, item, or PO no…"/>
       <button class="btn btn-primary" id="addCustBtn">+ Add customer</button>
+      <button class="btn btn-secondary" id="exportCustomersBtn">Export to Excel</button>
     </div>
     <div class="card"><div class="table-wrap"><table id="custTable"></table></div></div>
   </section>
@@ -411,6 +432,7 @@ tr.clickable:hover td{background:var(--blue-100)!important;}
     <div class="toolbar">
       <input id="itemSearch" placeholder="Search item code, description, or material…"/>
       <button class="btn btn-primary" id="addItemMasterBtn">+ Add item</button>
+      <button class="btn btn-secondary" id="exportItemsBtn">Export to Excel</button>
       <span class="hint" id="itemCount" style="margin-left:auto;"></span>
     </div>
     <div class="card"><div class="table-wrap"><table id="itemMasterTable"></table></div></div>
@@ -615,6 +637,16 @@ service cloud.firestore {
     </div>
     <div class="table-wrap" style="margin-top:14px;max-height:55vh;overflow-y:auto;">
       <table id="despHistModalTable"></table>
+    </div>
+  </div>
+</div>
+
+<div class="modal-bg" id="attachViewModalBg">
+  <div class="modal">
+    <h3 id="attachViewModalTitle">Attachments</h3>
+    <div class="attach-link-list" id="attachViewModalList" style="margin-top:12px;"></div>
+    <div style="display:flex;justify-content:flex-end;margin-top:16px;">
+      <button class="btn btn-secondary" id="attachViewModalClose">Close</button>
     </div>
   </div>
 </div>
@@ -988,6 +1020,27 @@ function addItemRow(prefill){
 document.getElementById('addItemRowBtn').onclick = ()=> addItemRow();
 addItemRow(); // start with one row
 
+/* Attachments (OneDrive/file links) — shared row builder for PO + Despatch forms */
+function addAttachRow(containerId, prefill){
+  const wrap = document.createElement('div');
+  wrap.className = 'attach-row';
+  wrap.innerHTML = `
+    <div><label>Description</label><input class="at-desc" placeholder="e.g. Design" value="${prefill&&prefill.description?esc(prefill.description):''}"/></div>
+    <div><label>OneDrive / file link</label><input class="at-url" placeholder="https://…" value="${prefill&&prefill.url?esc(prefill.url):''}"/></div>
+    <button type="button" class="remove-row" title="Remove attachment">×</button>
+  `;
+  wrap.querySelector('.remove-row').onclick = ()=> wrap.remove();
+  document.getElementById(containerId).appendChild(wrap);
+}
+function collectAttachRows(containerId){
+  return Array.from(document.querySelectorAll(`#${containerId} .attach-row`)).map(r=>({
+    description: r.querySelector('.at-desc').value.trim(),
+    url: r.querySelector('.at-url').value.trim(),
+  })).filter(a=>a.url);
+}
+document.getElementById('addPoAttachRowBtn').onclick = ()=> addAttachRow('poAttachRows');
+document.getElementById('addDespAttachRowBtn').onclick = ()=> addAttachRow('despAttachRows');
+
 document.getElementById('savePoBtn').onclick = async ()=>{
   if(!requireDb()) return;
   const customerName = document.getElementById('poCustomer').value.trim();
@@ -1010,6 +1063,7 @@ document.getElementById('savePoBtn').onclick = async ()=>{
   if(items.length === 0){
     toast('Add at least one item line with a code and quantity.', 'error'); return;
   }
+  const attachments = collectAttachRows('poAttachRows');
 
   const btn = document.getElementById('savePoBtn');
   btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Saving…';
@@ -1018,7 +1072,7 @@ document.getElementById('savePoBtn').onclick = async ()=>{
     const poDate = firebase.firestore.Timestamp.fromDate(new Date(poDateVal));
     const poRef = await db.collection('purchaseOrders').add({
       poNo, poDate, customerId: customer.id, customerName: customer.name,
-      isExclusive: !!customer.isExclusive, deliveryRemark,
+      isExclusive: !!customer.isExclusive, deliveryRemark, attachments,
       createdAt: firebase.firestore.FieldValue.serverTimestamp(),
     });
     const batch = db.batch();
@@ -1041,6 +1095,7 @@ document.getElementById('savePoBtn').onclick = async ()=>{
     document.getElementById('itemRows').innerHTML = '';
     itemRowCount = 0;
     addItemRow();
+    document.getElementById('poAttachRows').innerHTML = '';
   }catch(e){
     console.error(e);
     toast('Could not save PO — see console for details.', 'error');
@@ -1147,6 +1202,7 @@ document.getElementById('saveDespatchBtn').onclick = async ()=>{
     lines.push({item, qty});
   }
 
+  const attachments = collectAttachRows('despAttachRows');
   const btn = document.getElementById('saveDespatchBtn');
   btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Saving…';
   const statusEl = document.getElementById('despatchSaveStatus');
@@ -1165,7 +1221,7 @@ document.getElementById('saveDespatchBtn').onclick = async ()=>{
         tx.set(despatchRef, {
           poItemId: item.id, poId: data.poId, poNo: data.poNo,
           customerId: data.customerId, customerName: data.customerName, isExclusive: !!data.isExclusive,
-          itemCode: data.itemCode, qtyDespatched: qty, despatchDate, invoiceNumber: invoice,
+          itemCode: data.itemCode, qtyDespatched: qty, despatchDate, invoiceNumber: invoice, attachments,
           createdAt: firebase.firestore.FieldValue.serverTimestamp(),
         });
         tx.update(itemRef, {
@@ -1178,6 +1234,7 @@ document.getElementById('saveDespatchBtn').onclick = async ()=>{
     }
     toast(`Despatch recorded for ${saved} item(s).`, 'success');
     document.getElementById('despatchInvoice').value = '';
+    document.getElementById('despAttachRows').innerHTML = '';
     statusEl.textContent = '';
     renderDespatchItemsTable(); // refresh with updated pending qtys, unticked
   }catch(e){
@@ -1193,6 +1250,7 @@ document.getElementById('saveDespatchBtn').onclick = async ()=>{
   document.getElementById(id).addEventListener('input', renderRegister);
   document.getElementById(id).addEventListener('change', renderRegister);
 });
+let lastRegisterRows = [];
 function renderRegister(){
   const q = document.getElementById('regSearch').value.trim().toLowerCase();
   const statusFilter = document.getElementById('regStatus').value;
@@ -1205,11 +1263,14 @@ function renderRegister(){
     if(exclFilter === 'no' && i.isExclusive) return false;
     return true;
   });
+  lastRegisterRows = rows;
   document.getElementById('regCount').textContent = `${rows.length} line(s)`;
   document.getElementById('regTable').innerHTML =
     `<tr><th>PO Date</th><th>Customer</th><th>PO No</th><th>Item</th><th>Material</th>
-     <th class="text-right">Ordered</th><th class="text-right">Despatched</th><th class="text-right">Pending</th><th>Status</th><th></th></tr>` +
-    (rows.length ? rows.map(i=>`
+     <th class="text-right">Ordered</th><th class="text-right">Despatched</th><th class="text-right">Pending</th><th>Status</th><th>Files</th><th></th></tr>` +
+    (rows.length ? rows.map(i=>{
+      const header = PO_HEADERS.find(h=>h.id===i.poId);
+      return `
       <tr class="clickable" data-reg-row="${i.id}">
         <td>${fmtDate(i.poDate)}</td>
         <td>${esc(i.customerName)}${i.isExclusive?'<span class="badge badge-exclusive">EXCL</span>':''}</td>
@@ -1218,11 +1279,13 @@ function renderRegister(){
         <td class="text-right mono">${i.despatchedQty}</td>
         <td class="text-right mono">${i.pendingQty}</td>
         <td>${badgeFor(statusFor(i))}</td>
+        <td>${attachChip(header && header.attachments)}</td>
         <td style="white-space:nowrap;">
           <button class="btn btn-ghost" data-edit-item="${i.id}">Edit</button>
           <button class="btn btn-ghost" data-del-item="${i.id}" style="color:var(--red);">Delete</button>
         </td>
-      </tr>`).join('') : `<tr><td colspan="10"><div class="empty"><div class="big">📋</div>No PO lines match your filters.</div></td></tr>`);
+      </tr>`;
+    }).join('') : `<tr><td colspan="11"><div class="empty"><div class="big">📋</div>No PO lines match your filters.</div></td></tr>`);
 
   document.querySelectorAll('#regTable tr[data-reg-row]').forEach(tr=>{
     tr.onclick = (e)=>{
@@ -1238,6 +1301,15 @@ function renderRegister(){
     b.onclick = (e)=>{ e.stopPropagation(); deletePoItem(b.dataset.delItem); };
   });
 }
+document.getElementById('exportRegisterBtn').onclick = ()=>{
+  const headers = ['PO Date','Customer','PO No','Item','Material','Ordered','Despatched','Pending','Status','Attachments'];
+  const rows = lastRegisterRows.map(i=>{
+    const header = PO_HEADERS.find(h=>h.id===i.poId);
+    const files = (header && header.attachments || []).map(a=>`${a.description || 'Attachment'}: ${a.url}`).join(' | ');
+    return [fmtDate(i.poDate), i.customerName, i.poNo, i.itemCode, i.material||'', i.orderedQty, i.despatchedQty, i.pendingQty, statusFor(i), files];
+  });
+  exportRowsToExcel(headers, rows, 'PO_Register');
+};
 
 /* ---- PO line edit ---- */
 let editingPoItemId = null;
@@ -1485,8 +1557,9 @@ function renderDespatchRegisterReport(q){
     });
     document.getElementById('reportRowCount').textContent = `${despatches.length} despatch(es)`;
     lastReportData = {
-      headers: ['Date','Customer','PO No','Item','Qty Despatched','Invoice No'],
-      rows: despatches.map(d=>[fmtDate(d.despatchDate), d.customerName, d.poNo, d.itemCode, d.qtyDespatched, d.invoiceNumber||'—']),
+      headers: ['Date','Customer','PO No','Item','Qty Despatched','Invoice No','Attachments'],
+      rows: despatches.map(d=>[fmtDate(d.despatchDate), d.customerName, d.poNo, d.itemCode, d.qtyDespatched, d.invoiceNumber||'—',
+        (d.attachments||[]).map(a=>`${a.description || 'Attachment'}: ${a.url}`).join(' | ')]),
     };
     paintDespatchRegister(despatches);
   }).catch(e=>{
@@ -1496,16 +1569,17 @@ function renderDespatchRegisterReport(q){
 }
 function paintDespatchRegister(despatches){
   document.getElementById('reportTable').innerHTML =
-    `<tr><th>Date</th><th>Customer</th><th>PO No</th><th>Item</th><th class="text-right">Qty Despatched</th><th>Invoice No</th><th></th></tr>` +
+    `<tr><th>Date</th><th>Customer</th><th>PO No</th><th>Item</th><th class="text-right">Qty Despatched</th><th>Invoice No</th><th>Files</th><th></th></tr>` +
     (despatches.length ? despatches.map(d=>`
       <tr class="clickable" data-desp-row="${d.id}">
         <td>${fmtDate(d.despatchDate)}</td><td>${esc(d.customerName)}</td><td>${esc(d.poNo)}</td>
         <td>${esc(d.itemCode)}</td><td class="text-right mono">${d.qtyDespatched}</td><td>${esc(d.invoiceNumber||'—')}</td>
+        <td>${attachChip(d.attachments)}</td>
         <td style="white-space:nowrap;">
           <button class="btn btn-ghost" data-edit-desp="${d.id}">Edit</button>
           <button class="btn btn-ghost" data-del-desp="${d.id}" style="color:var(--red);">Delete</button>
         </td>
-      </tr>`).join('') : `<tr><td colspan="7"><div class="empty">No despatches match.</div></td></tr>`);
+      </tr>`).join('') : `<tr><td colspan="8"><div class="empty">No despatches match.</div></td></tr>`);
   document.querySelectorAll('#reportTable tr[data-desp-row]').forEach(tr=>{
     tr.onclick = (e)=>{
       if(e.target.closest('button')) return;
@@ -1618,9 +1692,9 @@ async function openDespatchHistoryModal(item){
       return db_ - da;
     });
     document.getElementById('despHistModalTable').innerHTML =
-      `<tr><th>Date</th><th class="text-right">Qty</th><th>Invoice No</th></tr>` +
-      (rows.length ? rows.map(d=>`<tr><td>${fmtDate(d.despatchDate)}</td><td class="text-right mono">${d.qtyDespatched}</td><td>${esc(d.invoiceNumber||'—')}</td></tr>`).join('')
-      : `<tr><td colspan="3"><div class="empty">No despatches recorded against this line yet.</div></td></tr>`);
+      `<tr><th>Date</th><th class="text-right">Qty</th><th>Invoice No</th><th>Files</th></tr>` +
+      (rows.length ? rows.map(d=>`<tr><td>${fmtDate(d.despatchDate)}</td><td class="text-right mono">${d.qtyDespatched}</td><td>${esc(d.invoiceNumber||'—')}</td><td>${attachChip(d.attachments)}</td></tr>`).join('')
+      : `<tr><td colspan="4"><div class="empty">No despatches recorded against this line yet.</div></td></tr>`);
   }catch(e){
     console.error(e);
     document.getElementById('despHistModalTable').innerHTML = `<tr><td><div class="empty">Could not load despatch history — see console.</div></td></tr>`;
@@ -1703,15 +1777,12 @@ async function deleteDespatch(d){
 
 document.getElementById('exportReportBtn').onclick = ()=>{
   const {headers, rows} = lastReportData;
-  if(!rows.length){ toast('Nothing to export.', 'error'); return; }
-  const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, currentReportTab.slice(0,30));
-  XLSX.writeFile(wb, `Jayco_${currentReportTab}_${new Date().toISOString().slice(0,10)}.xlsx`);
+  exportRowsToExcel(headers, rows, currentReportTab);
 };
 
 /* ---------------- Customers ---------------- */
 document.getElementById('custSearch').addEventListener('input', renderCustomers);
+let lastCustomersList = [];
 function renderCustomers(){
   const q = document.getElementById('custSearch').value.trim().toLowerCase();
   const matchingIds = new Set();
@@ -1724,6 +1795,7 @@ function renderCustomers(){
     });
   }
   const list = CUSTOMERS.filter(c=>matchingIds.has(c.id)).sort((a,b)=>a.name.localeCompare(b.name));
+  lastCustomersList = list;
   document.getElementById('custTable').innerHTML =
     `<tr><th>Customer</th><th>Tracking</th><th class="text-right">Open PO lines</th><th class="text-right">Total pending</th><th></th></tr>` +
     (list.length ? list.map(c=>{
@@ -1758,6 +1830,15 @@ function renderCustomers(){
   });
 }
 document.getElementById('addCustBtn').onclick = ()=> openCustModal(null);
+document.getElementById('exportCustomersBtn').onclick = ()=>{
+  const headers = ['Customer','Tracking','Open PO lines','Total pending'];
+  const rows = lastCustomersList.map(c=>{
+    const openLines = PO_ITEMS.filter(i=>i.customerId===c.id && i.pendingQty>0);
+    const pending = openLines.reduce((s,i)=>s+i.pendingQty,0);
+    return [c.name, c.isExclusive ? 'Exclusive' : 'Standard', openLines.length, pending];
+  });
+  exportRowsToExcel(headers, rows, 'Customers');
+};
 
 let editingCustomerId = null;
 function openCustModal(existing){
@@ -1840,11 +1921,13 @@ function closestItemMatch(code){
 }
 
 document.getElementById('itemSearch').addEventListener('input', renderItemMaster);
+let lastItemMasterList = [];
 function renderItemMaster(){
   const q = document.getElementById('itemSearch').value.trim().toLowerCase();
   const list = ITEMS.filter(i =>
     !q || matchText(i.itemCode,q) || matchText(i.description,q) || matchText(i.material,q)
   ).sort((a,b)=>a.itemCode.localeCompare(b.itemCode));
+  lastItemMasterList = list;
   document.getElementById('itemCount').textContent = `${list.length} item(s)`;
   document.getElementById('itemMasterTable').innerHTML =
     `<tr><th>Item Code</th><th>Description</th><th>Material</th><th class="text-right">Open PO lines</th><th></th></tr>` +
@@ -1867,6 +1950,14 @@ function renderItemMaster(){
   });
 }
 document.getElementById('addItemMasterBtn').onclick = ()=> openItemMasterModal(null);
+document.getElementById('exportItemsBtn').onclick = ()=>{
+  const headers = ['Item Code','Description','Material','Open PO lines'];
+  const rows = lastItemMasterList.map(i=>{
+    const lineCount = PO_ITEMS.filter(p=>p.itemCode===i.itemCode && p.pendingQty>0).length;
+    return [i.itemCode, i.description||'', i.material||'', lineCount];
+  });
+  exportRowsToExcel(headers, rows, 'Items');
+};
 
 let editingItemMasterId = null;
 function openItemMasterModal(existing){
@@ -2082,6 +2173,35 @@ function plan_customers(){ return parsedImport ? parsedImport.customers : []; }
 function esc(s){
   return String(s??'').replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 }
+/* ---------------- Attachments (view) ---------------- */
+let ATTACH_CACHE = [];
+function attachChip(list){
+  if(!list || !list.length) return '—';
+  ATTACH_CACHE.push(list);
+  const idx = ATTACH_CACHE.length - 1;
+  return `<button type="button" class="attach-chip" data-attach-idx="${idx}">📎 ${list.length}</button>`;
+}
+function openAttachViewModal(list){
+  document.getElementById('attachViewModalList').innerHTML = (list||[]).map(a=>
+    `<div><a href="${esc(a.url)}" target="_blank" rel="noopener">${esc(a.description || a.url)}</a></div>`
+  ).join('') || '<div class="hint">No attachments.</div>';
+  document.getElementById('attachViewModalBg').classList.add('show');
+}
+document.addEventListener('click', e=>{
+  const b = e.target.closest('[data-attach-idx]');
+  if(b) openAttachViewModal(ATTACH_CACHE[+b.dataset.attachIdx]);
+});
+document.getElementById('attachViewModalClose').onclick = ()=> document.getElementById('attachViewModalBg').classList.remove('show');
+
+/* ---------------- Excel export (general helper — usable for any table/report) ---------------- */
+function exportRowsToExcel(headers, rows, filenamePrefix){
+  if(!rows.length){ toast('Nothing to export.', 'error'); return; }
+  const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, filenamePrefix.slice(0,30));
+  XLSX.writeFile(wb, `Jayco_${filenamePrefix}_${new Date().toISOString().slice(0,10)}.xlsx`);
+}
+
 function requireDb(){
   if(!firebaseReady){ toast('Not connected to the database yet — check the Firebase Setup tab.', 'error'); return false; }
   return true;
