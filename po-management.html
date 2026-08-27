@@ -313,7 +313,7 @@ tr.clickable:hover td{background:var(--blue-100)!important;}
       <div><h1>Record a Despatch</h1><p>Pick a customer, then tick off every item that's going out in this despatch.</p></div>
     </div>
     <div class="card card-pad">
-      <div class="field-row g2" style="max-width:640px;">
+      <div class="field-row g3" style="max-width:960px;">
         <div class="field">
           <label>Customer</label>
           <input list="despatchCustomerList" id="despatchCustomer" placeholder="Start typing a customer…" autocomplete="off"/>
@@ -322,6 +322,10 @@ tr.clickable:hover td{background:var(--blue-100)!important;}
         <div class="field">
           <label>PO number (optional — leave blank to show all open POs for this customer)</label>
           <input id="despatchPoFilter" placeholder="e.g. VKS/2025-26/014"/>
+        </div>
+        <div class="field">
+          <label>Search item (optional — code or description)</label>
+          <input id="despatchItemFilter" placeholder="e.g. SN 511"/>
         </div>
       </div>
 
@@ -1121,10 +1125,12 @@ function refreshDespatchCustomerList(){
 }
 document.getElementById('despatchCustomer').addEventListener('input', renderDespatchItemsTable);
 document.getElementById('despatchPoFilter').addEventListener('input', renderDespatchItemsTable);
+document.getElementById('despatchItemFilter').addEventListener('input', renderDespatchItemsTable);
 
 function renderDespatchItemsTable(){
   const custName = document.getElementById('despatchCustomer').value.trim().toLowerCase();
   const poFilter = document.getElementById('despatchPoFilter').value.trim().toLowerCase();
+  const itemFilter = document.getElementById('despatchItemFilter').value.trim().toLowerCase();
   const wrap = document.getElementById('despatchItemsWrap');
   const empty = document.getElementById('despatchEmptyState');
   if(!custName){ wrap.style.display='none'; empty.style.display='none'; return; }
@@ -1133,13 +1139,14 @@ function renderDespatchItemsTable(){
   let rows = PO_ITEMS.filter(i=>
     i.pendingQty > 0 &&
     i.customerName.toLowerCase() === custName &&
-    (!poFilter || i.poNo.toLowerCase().includes(poFilter))
+    (!poFilter || i.poNo.toLowerCase().includes(poFilter)) &&
+    (!itemFilter || i.itemCode.toLowerCase().includes(itemFilter) || (i.itemDescription||'').toLowerCase().includes(itemFilter))
   ).sort((a,b)=> a.poNo.localeCompare(b.poNo) || a.itemCode.localeCompare(b.itemCode));
 
   if(!rows.length){
     wrap.style.display='none';
     empty.style.display='block';
-    empty.textContent = match ? 'No open PO lines for this customer.' : 'No customer matches that name yet — pick one from the list.';
+    empty.textContent = match ? (itemFilter || poFilter ? 'No open PO lines match those filters.' : 'No open PO lines for this customer.') : 'No customer matches that name yet — pick one from the list.';
     return;
   }
   empty.style.display='none';
