@@ -1231,6 +1231,12 @@ function renderBills(filter='') {
   // Compute net positions including advance credit
   const netPos = _computeBillNetPositions();
 
+  // Flag bill numbers that appear more than once across ALL bills (not just the
+  // filtered/visible list) — invoice numbers should be unique; a repeat usually
+  // means a duplicate entry.
+  const billNoCounts = {};
+  S.bills.forEach(b => { billNoCounts[b.billNo] = (billNoCounts[b.billNo]||0) + 1; });
+
   return `
 <div class="card">
   <div class="card-header">
@@ -1255,10 +1261,12 @@ function renderBills(filter='') {
             const hasAdvanceContrib = pos.paid > pos.allocPaid + 0.005;  // advance topped up this bill
             let atts = [];
             try { atts = b.attachments ? JSON.parse(b.attachments) : []; } catch(e) { atts = []; }
+            const isDupNo = billNoCounts[b.billNo] > 1;
             return `<tr>
               <td>
                 <strong>${b.billNo}</strong>
                 ${atts.length>0?`<span title="${atts.length} attachment(s)" style="cursor:pointer;margin-left:6px;font-size:12px" onclick="showAttachments('${b.billId}')">📎${atts.length>1?atts.length:''}</span>`:''}
+                ${isDupNo?`<span class="badge badge-overdue" title="This bill no. is used on ${billNoCounts[b.billNo]} bills — check for a duplicate entry" style="margin-left:6px">⚠ DUP</span>`:''}
               </td>
               <td>${fmtDate(b.billDate)}</td>
               <td>
