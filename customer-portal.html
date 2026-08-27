@@ -790,6 +790,8 @@ function renderPage(page) {
 // ── FORMAT ───────────────────────────────────────────────────
 const fmt = (n) => '₹' + parseFloat(n||0).toLocaleString('en-IN', {minimumFractionDigits:2, maximumFractionDigits:2});
 const fmtDate = (d) => { if (!d) return '—'; const dt = new Date(d); return isNaN(dt)?d:dt.toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'}); };
+// Leading number in a bill no like "512/26-27" → 512, for numeric (not lexical) sorting.
+const billNoNum = (no) => parseInt(String(no||'').match(/\d+/)?.[0] || '0', 10);
 const today = () => new Date().toISOString().split('T')[0];
 const ageDays = (d) => Math.floor((new Date() - new Date(d)) / 86400000);
 // Days past due date — negative means not yet due (upcoming)
@@ -1223,7 +1225,7 @@ function _computeBillNetPositions() {
 }
 
 function renderBills(filter='') {
-  let list = [...S.bills].sort((a,b)=>new Date(b.billDate)-new Date(a.billDate));
+  let list = [...S.bills].sort((a,b)=>billNoNum(b.billNo)-billNoNum(a.billNo));
   if(filter) list=list.filter(b=>customerName(b.custId).toLowerCase().includes(filter.toLowerCase())||b.billNo.toLowerCase().includes(filter.toLowerCase()));
 
   // Compute net positions including advance credit
