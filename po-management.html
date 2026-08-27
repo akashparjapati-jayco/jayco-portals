@@ -1215,7 +1215,7 @@ document.getElementById('saveDespatchBtn').onclick = async ()=>{
   let saved = 0;
   try{
     for(const {item, qty} of lines){
-      await db.runTransaction(async tx=>{
+      await withTimeout(db.runTransaction(async tx=>{
         const itemRef = db.collection('poItems').doc(item.id);
         const itemSnap = await tx.get(itemRef);
         if(!itemSnap.exists) return;
@@ -1233,7 +1233,7 @@ document.getElementById('saveDespatchBtn').onclick = async ()=>{
           despatchedQty: newDespatched, pendingQty: newPending,
           status: newPending<=0 ? 'Completed' : 'Partial',
         });
-      });
+      }), 20000, `Saving ${item.itemCode} is taking too long — check your connection and try again.`);
       saved++;
       statusEl.textContent = `Saved ${saved} of ${lines.length}…`;
     }
@@ -1244,7 +1244,9 @@ document.getElementById('saveDespatchBtn').onclick = async ()=>{
     renderDespatchItemsTable(); // refresh with updated pending qtys, unticked
   }catch(e){
     console.error(e);
-    toast('Could not save one or more lines — see console.', 'error');
+    toast(saved > 0 ? `Saved ${saved} of ${lines.length} — then failed: ${e.message}` : `Could not save — ${e.message}`, 'error');
+    statusEl.textContent = '';
+    if(saved > 0) renderDespatchItemsTable(); // refresh so already-saved lines don't look stale/still-ticked
   }finally{
     btn.disabled = false; btn.textContent = 'Save despatch';
   }
@@ -2210,6 +2212,15 @@ function exportRowsToExcel(headers, rows, filenamePrefix){
 function requireDb(){
   if(!firebaseReady){ toast('Not connected to the database yet — check the Firebase Setup tab.', 'error'); return false; }
   return true;
+}
+// Firestore transactions can hang indefinitely on a network hiccup (the SDK
+// has no built-in timeout on tx.get()), which otherwise leaves buttons stuck
+// on "Saving…" forever with no error. Races the given promise against a timer.
+function withTimeout(promise, ms, message){
+  return new Promise((resolve, reject)=>{
+    const timer = setTimeout(()=> reject(new Error(message || `Timed out after ${ms/1000}s — check your connection and try again.`)), ms);
+    promise.then(v=>{ clearTimeout(timer); resolve(v); }, e=>{ clearTimeout(timer); reject(e); });
+  });
 }
 
 /* ---------------- Init ---------------- */
