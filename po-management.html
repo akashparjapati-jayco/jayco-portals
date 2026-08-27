@@ -1264,7 +1264,7 @@ function renderRegister(){
   lastRegisterRows = rows;
   document.getElementById('regCount').textContent = `${rows.length} line(s)`;
   document.getElementById('regTable').innerHTML =
-    `<tr><th>PO Date</th><th>Customer</th><th>PO No</th><th>Item</th><th>Material</th>
+    `<tr><th>PO Date</th><th>Customer</th><th>PO No</th><th>Item</th><th>Description</th><th>Material</th>
      <th class="text-right">Ordered</th><th class="text-right">Despatched</th><th class="text-right">Pending</th><th>Status</th><th>Files</th><th></th></tr>` +
     (rows.length ? rows.map(i=>{
       const header = PO_HEADERS.find(h=>h.id===i.poId);
@@ -1272,7 +1272,7 @@ function renderRegister(){
       <tr class="clickable" data-reg-row="${i.id}">
         <td>${fmtDate(i.poDate)}</td>
         <td>${esc(i.customerName)}${i.isExclusive?'<span class="badge badge-exclusive">EXCL</span>':''}</td>
-        <td>${esc(i.poNo)}</td><td>${esc(i.itemCode)}</td><td>${esc(i.material||'—')}</td>
+        <td>${esc(i.poNo)}</td><td>${esc(i.itemCode)}</td><td>${esc(i.itemDescription||'—')}</td><td>${esc(i.material||'—')}</td>
         <td class="text-right mono">${i.orderedQty}</td>
         <td class="text-right mono">${i.despatchedQty}</td>
         <td class="text-right mono">${i.pendingQty}</td>
@@ -1283,7 +1283,7 @@ function renderRegister(){
           <button class="btn btn-ghost" data-del-item="${i.id}" style="color:var(--red);">Delete</button>
         </td>
       </tr>`;
-    }).join('') : `<tr><td colspan="11"><div class="empty"><div class="big">📋</div>No PO lines match your filters.</div></td></tr>`);
+    }).join('') : `<tr><td colspan="12"><div class="empty"><div class="big">📋</div>No PO lines match your filters.</div></td></tr>`);
 
   document.querySelectorAll('#regTable tr[data-reg-row]').forEach(tr=>{
     tr.onclick = (e)=>{
@@ -1300,11 +1300,11 @@ function renderRegister(){
   });
 }
 document.getElementById('exportRegisterBtn').onclick = ()=>{
-  const headers = ['PO Date','Customer','PO No','Item','Material','Ordered','Despatched','Pending','Status','Attachments'];
+  const headers = ['PO Date','Customer','PO No','Item','Description','Material','Ordered','Despatched','Pending','Status','Attachments'];
   const rows = lastRegisterRows.map(i=>{
     const header = PO_HEADERS.find(h=>h.id===i.poId);
     const files = (header && header.attachments || []).map(a=>`${a.description || 'Attachment'}: ${a.url}`).join(' | ');
-    return [fmtDate(i.poDate), i.customerName, i.poNo, i.itemCode, i.material||'', i.orderedQty, i.despatchedQty, i.pendingQty, statusFor(i), files];
+    return [fmtDate(i.poDate), i.customerName, i.poNo, i.itemCode, i.itemDescription||'', i.material||'', i.orderedQty, i.despatchedQty, i.pendingQty, statusFor(i), files];
   });
   exportRowsToExcel(headers, rows, 'PO_Register');
 };
