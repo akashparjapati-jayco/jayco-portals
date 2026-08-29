@@ -3779,14 +3779,20 @@ function ExcelImport({
       color: "var(--text-dim)",
       margin: "2px 0 0"
     }
-  }, "Import bills and payments from Excel")), React.createElement("div", {
+  }, "Import vendors, bills, and payments from Excel")), React.createElement("div", {
     style: {
       display: "grid",
-      gridTemplateColumns: "1fr 1fr",
+      gridTemplateColumns: "1fr 1fr 1fr",
       gap: "20px",
       marginBottom: "20px"
     }
   }, React.createElement(ImportDropZone, {
+    title: "📥 Import Vendors",
+    subtitle: "From Excel / CSV",
+    kind: "vendors",
+    vendors: vendors,
+    onRefresh: onRefresh
+  }), React.createElement(ImportDropZone, {
     title: "📥 Import Bills",
     subtitle: "From Excel / CSV",
     onFile: rows => null,
@@ -3807,10 +3813,21 @@ function ExcelImport({
   }, "ℹ️ Import Guide"), React.createElement("div", {
     style: {
       display: "grid",
-      gridTemplateColumns: "1fr 1fr",
+      gridTemplateColumns: "1fr 1fr 1fr",
       gap: "24px"
     }
   }, React.createElement("div", null, React.createElement("h4", {
+    style: {
+      marginBottom: "10px"
+    }
+  }, "Vendors columns"), React.createElement("ul", {
+    style: {
+      fontSize: "13px",
+      color: "var(--text-dim)",
+      paddingLeft: "18px",
+      lineHeight: "1.9"
+    }
+  }, React.createElement("li", null, React.createElement("strong", null, "Vendor Name"), " — required, must be unique"), React.createElement("li", null, React.createElement("strong", null, "GSTIN"), " — optional"), React.createElement("li", null, React.createElement("strong", null, "Contact Person"), " — optional"), React.createElement("li", null, React.createElement("strong", null, "Phone"), " / ", React.createElement("strong", null, "Email"), " — optional"), React.createElement("li", null, React.createElement("strong", null, "Credit Days"), " / ", React.createElement("strong", null, "Credit Limit"), " — optional"), React.createElement("li", null, React.createElement("strong", null, "Opening Balance"), " — optional"))), React.createElement("div", null, React.createElement("h4", {
     style: {
       marginBottom: "10px"
     }
@@ -3883,7 +3900,38 @@ function ImportDropZone({
     setStatus("");
     const foundErrors = [];
     let successCount = 0;
-    if (kind === "bills") {
+    if (kind === "vendors") {
+      const createdNames = new Set();
+      for (let i = 0; i < rows.length; i++) {
+        const r = rows[i];
+        const vendorName = String(r["Vendor Name"] || r.Vendor || r.vendor || "").trim();
+        if (!vendorName) {
+          foundErrors.push("Row " + (i + 2) + ": missing vendor name, skipped");
+          continue;
+        }
+        const key = vendorName.toLowerCase();
+        if (vendorByName[key] || createdNames.has(key)) {
+          foundErrors.push("Row " + (i + 2) + ": \"" + vendorName + "\" already exists, skipped");
+          continue;
+        }
+        try {
+          await createVendor({
+            name: vendorName,
+            gstin: r.GSTIN || r.Gstin || r.gstin || "",
+            contactPerson: r["Contact Person"] || r.contactPerson || "",
+            phone: r.Phone || r.phone || "",
+            email: r.Email || r.email || "",
+            creditDays: r["Credit Days"] || r.creditDays || 0,
+            creditLimit: r["Credit Limit"] || r.creditLimit || 0,
+            openingBalance: r["Opening Balance"] || r.openingBalance || 0
+          });
+          createdNames.add(key);
+          successCount++;
+        } catch (err) {
+          foundErrors.push("Row " + (i + 2) + " (" + vendorName + "): " + err.message);
+        }
+      }
+    } else if (kind === "bills") {
       for (let i = 0; i < rows.length; i++) {
         const r = rows[i];
         const vendorName = String(r["Vendor Name"] || r.Vendor || r.vendor || "").trim();
