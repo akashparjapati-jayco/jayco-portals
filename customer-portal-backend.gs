@@ -186,11 +186,14 @@ function saveCustomer(d) {
   const idx = headers.indexOf('custId');
   if (d.custId) {
     for (let i = 1; i < rows.length; i++) {
-      if (rows[i][idx] === d.custId) {
+      if (String(rows[i][idx]) === String(d.custId)) {
         headers.forEach((h, c) => { if (d[h] !== undefined) sh.getRange(i+1, c+1).setValue(d[h]); });
         return { custId: d.custId };
       }
     }
+    // Same class of bug as saveBill: fail loudly instead of silently
+    // falling through to create a duplicate customer.
+    throw new Error('Customer not found (custId ' + d.custId + ') — nothing was saved.');
   }
   const custId = genId('CUST');
   sh.appendRow([custId, d.name, d.gstin||'', d.phone||'', d.email||'', d.address||'',
@@ -228,13 +231,19 @@ function saveBill(d) {
   if (d.billId) {
     // UPDATE existing bill — re-run FIFO for this customer after update
     for (let i = 1; i < rows.length; i++) {
-      if (rows[i][idx] === d.billId) {
+      if (String(rows[i][idx]) === String(d.billId)) {
         const payload = { ...d, dueDate };
         headers.forEach((h, c) => { if (payload[h] !== undefined) sh.getRange(i+1, c+1).setValue(payload[h]); });
         _fullReAllocate(d.custId);
         return { billId: d.billId };
       }
     }
+    // billId was supplied but no row matched it — fail loudly instead of
+    // silently falling through to INSERT below, which used to create a
+    // duplicate bill with the update's data while leaving the real bill
+    // untouched (e.g. an attachment added here would vanish on reload,
+    // since it was written to a phantom row instead of the real one).
+    throw new Error('Bill not found (billId ' + d.billId + ') — nothing was saved. The bill may have been deleted, or its row edited directly in the sheet.');
   }
 
   // INSERT new bill
