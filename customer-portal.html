@@ -2353,7 +2353,7 @@ async function quickAddAttachment(billId){
     b.attachments = JSON.stringify(atts);
     toast('Attachment added', 'success');
     showAttachments(billId);
-    if(S.currentPage==='bills') render();
+    if(S.currentPage==='bills') renderPage('bills');
   }catch(e){
     toast('Could not save — ' + e.message, 'error');
   }finally{
