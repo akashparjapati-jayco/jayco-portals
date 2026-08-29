@@ -1,0 +1,4224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>JAYCO Vendor Payments</title>
+
+<!-- ============================================================
+     FIREBASE CONFIG — replace the values below with YOUR project's
+     config from Firebase Console > Project Settings > Your apps.
+     See the setup guide provided separately for step-by-step instructions.
+     ============================================================ -->
+<script>
+  window.FIREBASE_CONFIG = {
+    apiKey: "AIzaSyBtKqp1SAPmYwgP6TVigauIdgrwsyQE1Vw",
+    authDomain: "jayco-vendor-payments.firebaseapp.com",
+    projectId: "jayco-vendor-payments",
+    storageBucket: "jayco-vendor-payments.firebasestorage.app",
+    messagingSenderId: "759807683867",
+    appId: "1:759807683867:web:e41463756cff4de593b7be"
+  };
+  // Set your own PIN here — this locks the app on first load.
+  // NOTE: this is a soft lock only (see setup guide) — not real security.
+  window.APP_PIN = "1947";
+</script>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Comic+Neue:wght@400;700&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+
+<!-- React (CDN, no build step) -->
+<script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<!-- SheetJS, for reading .xlsx/.xls/.csv files in the Excel Import tool -->
+<script src="https://unpkg.com/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
+<!-- Firebase (CDN, classic "compat" SDK — plain <script> tags, no import/export
+     anywhere, no ES modules at all). This is the version of the SDK Firebase
+     ships specifically for pages like this one with no build step. -->
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script>
+  var __fbApp = firebase.initializeApp(window.FIREBASE_CONFIG);
+  var __fbDb = firebase.firestore();
+
+  // Thin wrapper matching the modular-SDK function names the app code below
+  // expects, built on top of the compat/classic API loaded above.
+  window.__firebase = {
+    db: __fbDb,
+    collection: function (db, path) { return db.collection(path); },
+    // doc() is called two ways in this app:
+    //   doc(db, "collectionName", id)   -> db.collection(name).doc(id)
+    //   doc(collectionRef)              -> collectionRef.doc()  (auto-generated id)
+    doc: function (dbOrColRef, path, id) {
+      if (path !== undefined) {
+        return dbOrColRef.collection(path).doc(id);
+      }
+      return dbOrColRef.doc();
+    },
+    addDoc: function (colRef, data) { return colRef.add(data); },
+    updateDoc: function (docRef, data) { return docRef.update(data); },
+    deleteDoc: function (docRef) { return docRef.delete(); },
+    getDocs: function (q) { return q.get(); },
+    query: function (colRef) {
+      var args = Array.prototype.slice.call(arguments, 1);
+      var result = colRef;
+      args.forEach(function (fn) { result = fn(result); });
+      return result;
+    },
+    where: function (field, op, value) {
+      return function (q) { return q.where(field, op, value); };
+    },
+    orderBy: function (field) {
+      return function (q) { return q.orderBy(field); };
+    },
+    runTransaction: function (db, updateFn) {
+      return db.runTransaction(function (rawTx) {
+        // Wrap tx.get() so the returned snapshot's `exists` works whether the
+        // caller does `snap.exists` (compat/v8 style) or `snap.exists()`
+        // (modular-SDK style) — this app's code uses the latter.
+        //
+        // IMPORTANT: build a plain object here, not Object.create(snap).
+        // Firestore's real DocumentSnapshot defines `exists` as a getter on
+        // its prototype, so Object.create(snap) inherits that getter — and
+        // assigning patched.exists = fn then silently fails (accessor
+        // property with no setter), leaving patched.exists as the boolean
+        // instead of a callable function. A plain object avoids that entirely.
+        var wrappedTx = {
+          get: function (ref) {
+            return rawTx.get(ref).then(function (snap) {
+              var existsValue = snap.exists;
+              var dataValue = snap.data();
+              return {
+                id: snap.id,
+                exists: function () { return existsValue; },
+                data: function () { return dataValue; }
+              };
+            });
+          },
+          set: function (ref, data) { return rawTx.set(ref, data); },
+          update: function (ref, data) { return rawTx.update(ref, data); },
+          delete: function (ref) { return rawTx.delete(ref); },
+        };
+        return updateFn(wrappedTx);
+      });
+    },
+    serverTimestamp: function () { return firebase.firestore.FieldValue.serverTimestamp(); },
+  };
+  window.__firebaseReady = true;
+  window.dispatchEvent(new Event("firebase-ready"));
+</script>
+
+<style>
+  :root {
+    --bg: #f7f7f8;
+    --bg-panel: #ffffff;
+    --bg-panel-2: #f3f1f0;
+    --border: #e5dedc;
+    --brand-red: #e5322d;
+    --accent-orange: #e5322d;
+    --accent-yellow: #b8860b;
+    --accent-green: #00a152;
+    --accent-red: #b0203e;
+    --accent-blue: #1a56db;
+    --accent-purple: #7c4dff;
+    --text: #1c1918;
+    --text-dim: #6b6260;
+    --text-faint: #a89f9c;
+    --radius: 10px;
+    --font-body: 'Comic Neue', 'Segoe UI', sans-serif;
+    --font-mono: 'JetBrains Mono', monospace;
+  }
+  * { box-sizing: border-box; }
+  html, body, #root { height: 100%; }
+  body { margin: 0; background: var(--bg); color: var(--text); font-family: var(--font-body); -webkit-font-smoothing: antialiased; }
+  button, input, select, textarea { font-family: var(--font-body); }
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 6px; }
+  a { color: var(--accent-blue); }
+  table { width: 100%; border-collapse: collapse; }
+  th, td { text-align: left; }
+  @media (prefers-reduced-motion: reduce) {
+    * { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+  }
+</style>
+</head>
+<body>
+<div id="root">
+  <div style="display:flex;align-items:center;justify-content:center;height:100vh;color:#9aa0ab;font-family:sans-serif;">
+    Loading JAYCO Vendor Payments…
+  </div>
+</div>
+
+<script>
+const {
+  useState,
+  useEffect,
+  useMemo,
+  useCallback
+} = React;
+function round2(n) {
+  return Math.round((n + Number.EPSILON) * 100) / 100;
+}
+function allocatePaymentFIFO(paymentAmount, openInvoices) {
+  const sorted = [...openInvoices].sort((a, b) => new Date(a.invoiceDate) - new Date(b.invoiceDate));
+  let remaining = round2(paymentAmount);
+  const allocations = [];
+  for (const inv of sorted) {
+    if (remaining <= 0) break;
+    const outstanding = round2(inv.amount - (inv.amountPaid || 0));
+    if (outstanding <= 0) continue;
+    const applied = Math.min(outstanding, remaining);
+    remaining = round2(remaining - applied);
+    const newPaidTotal = round2((inv.amountPaid || 0) + applied);
+    const newStatus = newPaidTotal >= inv.amount ? "paid" : "partial";
+    allocations.push({
+      invoiceId: inv.id,
+      invoiceNo: inv.invoiceNo,
+      amountApplied: applied,
+      newStatus
+    });
+  }
+  return {
+    allocations,
+    unallocatedAmount: round2(remaining)
+  };
+}
+function applyAdvanceToNewInvoice(invoiceAmount, availableAdvance) {
+  const applied = round2(Math.min(invoiceAmount, availableAdvance));
+  return {
+    appliedFromAdvance: applied,
+    remainingAdvance: round2(availableAdvance - applied),
+    invoiceOutstanding: round2(invoiceAmount - applied)
+  };
+}
+function daysPastDue(dueDate, today = new Date()) {
+  const due = new Date(dueDate);
+  const t = new Date(today);
+  due.setHours(0, 0, 0, 0);
+  t.setHours(0, 0, 0, 0);
+  return Math.round((t - due) / (1000 * 60 * 60 * 24));
+}
+function ageingBucket(dueDate, today = new Date()) {
+  const dpd = daysPastDue(dueDate, today);
+  if (dpd <= 0) return "not_due";
+  if (dpd <= 30) return "0_30";
+  if (dpd <= 60) return "31_60";
+  if (dpd <= 90) return "61_90";
+  return "90_plus";
+}
+function fb() {
+  return window.__firebase;
+}
+async function listVendors() {
+  const {
+    db,
+    collection,
+    getDocs,
+    query,
+    orderBy
+  } = fb();
+  const snap = await getDocs(query(collection(db, "vendors"), orderBy("name")));
+  return snap.docs.map(d => ({
+    id: d.id,
+    ...d.data()
+  }));
+}
+async function createVendor(vendor) {
+  const {
+    db,
+    collection,
+    addDoc,
+    serverTimestamp
+  } = fb();
+  return addDoc(collection(db, "vendors"), {
+    name: vendor.name,
+    gstin: vendor.gstin || "",
+    contactPerson: vendor.contactPerson || "",
+    phone: vendor.phone || "",
+    email: vendor.email || "",
+    creditDays: Number(vendor.creditDays) || 0,
+    creditLimit: Number(vendor.creditLimit) || 0,
+    openingBalance: round2(vendor.openingBalance || 0),
+    advanceBalance: 0,
+    createdAt: serverTimestamp()
+  });
+}
+async function updateVendor(vendorId, patch) {
+  const {
+    db,
+    doc,
+    updateDoc
+  } = fb();
+  return updateDoc(doc(db, "vendors", vendorId), patch);
+}
+async function deleteVendor(vendorId) {
+  const {
+    db,
+    doc,
+    deleteDoc
+  } = fb();
+  return deleteDoc(doc(db, "vendors", vendorId));
+}
+async function listAllInvoices() {
+  const {
+    db,
+    collection,
+    getDocs
+  } = fb();
+  const snap = await getDocs(collection(db, "invoices"));
+  return snap.docs.map(d => ({
+    id: d.id,
+    ...d.data()
+  }));
+}
+async function createInvoice(invoice) {
+  const {
+    db,
+    doc,
+    collection,
+    runTransaction,
+    serverTimestamp
+  } = fb();
+  return runTransaction(db, async tx => {
+    const vendorRef = doc(db, "vendors", invoice.vendorId);
+    const vendorSnap = await tx.get(vendorRef);
+    if (!vendorSnap.exists()) throw new Error("Vendor not found");
+    const vendor = vendorSnap.data();
+    const advance = round2(vendor.advanceBalance || 0);
+    const {
+      appliedFromAdvance,
+      remainingAdvance
+    } = applyAdvanceToNewInvoice(invoice.amount, advance);
+    const invoiceRef = doc(collection(db, "invoices"));
+    tx.set(invoiceRef, {
+      vendorId: invoice.vendorId,
+      invoiceNo: invoice.invoiceNo,
+      invoiceDate: invoice.invoiceDate,
+      dueDate: invoice.dueDate,
+      amount: round2(invoice.amount),
+      amountPaid: appliedFromAdvance,
+      status: appliedFromAdvance >= invoice.amount ? "paid" : appliedFromAdvance > 0 ? "partial" : "open",
+      attachmentLink: invoice.attachmentLink || "",
+      notes: invoice.notes || "",
+      createdAt: serverTimestamp()
+    });
+    if (appliedFromAdvance > 0) {
+      tx.update(vendorRef, {
+        advanceBalance: remainingAdvance
+      });
+      const paymentRef = doc(collection(db, "payments"));
+      tx.set(paymentRef, {
+        vendorId: invoice.vendorId,
+        paymentDate: invoice.invoiceDate,
+        amount: appliedFromAdvance,
+        mode: "advance_adjustment",
+        reference: `Auto-applied from advance to ${invoice.invoiceNo}`,
+        isAdvance: false,
+        allocations: [{
+          invoiceId: invoiceRef.id,
+          invoiceNo: invoice.invoiceNo,
+          amountApplied: appliedFromAdvance
+        }],
+        unallocatedAmount: 0,
+        createdAt: serverTimestamp()
+      });
+    }
+    return invoiceRef.id;
+  });
+}
+async function updateInvoice(invoiceId, patch) {
+  const {
+    db,
+    doc,
+    updateDoc
+  } = fb();
+  return updateDoc(doc(db, "invoices", invoiceId), patch);
+}
+async function deleteInvoice(invoiceId) {
+  const {
+    db,
+    doc,
+    deleteDoc
+  } = fb();
+  return deleteDoc(doc(db, "invoices", invoiceId));
+}
+async function listAllPayments() {
+  const {
+    db,
+    collection,
+    getDocs
+  } = fb();
+  const snap = await getDocs(collection(db, "payments"));
+  return snap.docs.map(d => ({
+    id: d.id,
+    ...d.data()
+  }));
+}
+async function recordPayment({
+  vendorId,
+  amount,
+  paymentDate,
+  mode,
+  reference,
+  isAdvance = false
+}) {
+  const {
+    db,
+    doc,
+    collection,
+    getDocs,
+    query,
+    where,
+    runTransaction,
+    serverTimestamp
+  } = fb();
+  return runTransaction(db, async tx => {
+    const vendorRef = doc(db, "vendors", vendorId);
+    const vendorSnap = await tx.get(vendorRef);
+    if (!vendorSnap.exists()) throw new Error("Vendor not found");
+    const vendor = vendorSnap.data();
+    let allocations = [];
+    let unallocatedAmount = round2(amount);
+    let invoiceUpdates = [];
+    if (!isAdvance) {
+      const invSnap = await getDocs(query(collection(db, "invoices"), where("vendorId", "==", vendorId), where("status", "in", ["open", "partial"])));
+      const openInvoices = invSnap.docs.map(d => ({
+        id: d.id,
+        ...d.data()
+      }));
+      const result = allocatePaymentFIFO(amount, openInvoices);
+      allocations = result.allocations;
+      unallocatedAmount = result.unallocatedAmount;
+      invoiceUpdates = allocations.map(a => {
+        const inv = openInvoices.find(i => i.id === a.invoiceId);
+        return {
+          ref: doc(db, "invoices", a.invoiceId),
+          newAmountPaid: round2((inv.amountPaid || 0) + a.amountApplied),
+          newStatus: a.newStatus
+        };
+      });
+    }
+    for (const u of invoiceUpdates) {
+      tx.update(u.ref, {
+        amountPaid: u.newAmountPaid,
+        status: u.newStatus
+      });
+    }
+    if (unallocatedAmount > 0) {
+      tx.update(vendorRef, {
+        advanceBalance: round2((vendor.advanceBalance || 0) + unallocatedAmount)
+      });
+    }
+    const paymentRef = doc(collection(db, "payments"));
+    tx.set(paymentRef, {
+      vendorId,
+      paymentDate,
+      amount: round2(amount),
+      mode,
+      reference: reference || "",
+      isAdvance,
+      allocations,
+      unallocatedAmount,
+      createdAt: serverTimestamp()
+    });
+    return {
+      paymentId: paymentRef.id,
+      allocations,
+      unallocatedAmount
+    };
+  });
+}
+async function deletePayment(payment) {
+  const {
+    db,
+    doc,
+    runTransaction
+  } = fb();
+  return runTransaction(db, async tx => {
+    const paymentRef = doc(db, "payments", payment.id);
+    const paymentSnap = await tx.get(paymentRef);
+    if (!paymentSnap.exists()) throw new Error("Payment not found");
+    const p = paymentSnap.data();
+    const vendorRef = doc(db, "vendors", p.vendorId);
+    const vendorSnap = await tx.get(vendorRef);
+    if (!vendorSnap.exists()) throw new Error("Vendor not found");
+    const vendor = vendorSnap.data();
+    const newAdvanceBalance = round2((vendor.advanceBalance || 0) - (p.unallocatedAmount || 0));
+    if (newAdvanceBalance < 0) {
+      throw new Error("Can't delete: this payment's advance credit has already been used on a later bill. Reverse or edit that bill first.");
+    }
+    const invoiceReads = [];
+    for (const alloc of p.allocations || []) {
+      const invRef = doc(db, "invoices", alloc.invoiceId);
+      const invSnap = await tx.get(invRef);
+      if (invSnap.exists()) {
+        invoiceReads.push({
+          ref: invRef,
+          data: invSnap.data(),
+          alloc
+        });
+      }
+    }
+    const invoiceUpdates = invoiceReads.map(({
+      ref,
+      data,
+      alloc
+    }) => {
+      const newAmountPaid = round2((data.amountPaid || 0) - alloc.amountApplied);
+      if (newAmountPaid < -0.01) {
+        throw new Error("Can't delete: " + alloc.invoiceNo + " has since received other payments that depend on this one. Reverse those first.");
+      }
+      const safeAmountPaid = Math.max(0, newAmountPaid);
+      const newStatus = safeAmountPaid <= 0 ? "open" : safeAmountPaid >= data.amount ? "paid" : "partial";
+      return {
+        ref,
+        amountPaid: safeAmountPaid,
+        status: newStatus
+      };
+    });
+    for (const u of invoiceUpdates) {
+      tx.update(u.ref, {
+        amountPaid: u.amountPaid,
+        status: u.status
+      });
+    }
+    if ((p.unallocatedAmount || 0) > 0) {
+      tx.update(vendorRef, {
+        advanceBalance: newAdvanceBalance
+      });
+    }
+    tx.delete(paymentRef);
+  });
+}
+function fmtINR(n) {
+  const num = Number(n || 0);
+  return num.toLocaleString("en-IN", {
+    style: "currency",
+    currency: "INR",
+    maximumFractionDigits: 0
+  });
+}
+function fmtDate(d) {
+  if (!d) return "—";
+  return new Date(d).toLocaleDateString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric"
+  });
+}
+function statusColor(status) {
+  if (status === "paid") return "var(--accent-green)";
+  if (status === "partial") return "var(--accent-yellow)";
+  return "var(--accent-red)";
+}
+const inputStyle = {
+  width: "100%",
+  padding: "10px 12px",
+  borderRadius: "8px",
+  border: "1px solid var(--border)",
+  background: "var(--bg-panel-2)",
+  color: "var(--text)",
+  fontSize: "14px",
+  outline: "none"
+};
+function Card({
+  children,
+  style,
+  onClick
+}) {
+  return React.createElement("div", {
+    onClick: onClick,
+    style: {
+      background: "var(--bg-panel)",
+      border: "1px solid var(--border)",
+      borderRadius: "var(--radius)",
+      padding: "20px",
+      boxShadow: "0 1px 2px rgba(28,25,24,0.04), 0 1px 8px rgba(28,25,24,0.03)",
+      ...style
+    }
+  }, children);
+}
+function StatCard({
+  label,
+  value,
+  sub,
+  color = "var(--accent-blue)"
+}) {
+  return React.createElement(Card, {
+    style: {
+      position: "relative",
+      overflow: "hidden"
+    }
+  }, React.createElement("div", {
+    style: {
+      position: "absolute",
+      top: 0,
+      left: 0,
+      width: "6px",
+      height: "100%",
+      background: color
+    }
+  }), React.createElement("div", {
+    style: {
+      paddingLeft: "10px"
+    }
+  }, React.createElement("div", {
+    style: {
+      color: "var(--text-dim)",
+      fontSize: "13px",
+      fontWeight: 700
+    }
+  }, label), React.createElement("div", {
+    style: {
+      fontFamily: "var(--font-mono)",
+      fontSize: "28px",
+      fontWeight: 700,
+      marginTop: "6px"
+    }
+  }, value), sub && React.createElement("div", {
+    style: {
+      color: "var(--text-faint)",
+      fontSize: "12px",
+      marginTop: "4px"
+    }
+  }, sub)));
+}
+function Button({
+  children,
+  onClick,
+  variant = "primary",
+  type = "button",
+  disabled,
+  style,
+  full
+}) {
+  const variants = {
+    primary: {
+      background: "var(--accent-orange)",
+      color: "#fff"
+    },
+    secondary: {
+      background: "var(--bg-panel-2)",
+      color: "var(--text)",
+      border: "1px solid var(--border)"
+    },
+    success: {
+      background: "var(--accent-green)",
+      color: "#08150d"
+    },
+    danger: {
+      background: "var(--accent-red)",
+      color: "#fff"
+    }
+  };
+  return React.createElement("button", {
+    type: type,
+    onClick: onClick,
+    disabled: disabled,
+    style: {
+      padding: "10px 18px",
+      borderRadius: "8px",
+      border: "none",
+      fontWeight: 700,
+      fontSize: "14px",
+      cursor: disabled ? "not-allowed" : "pointer",
+      opacity: disabled ? 0.5 : 1,
+      width: full ? "100%" : "auto",
+      ...variants[variant],
+      ...style
+    }
+  }, children);
+}
+function Badge({
+  children,
+  color = "var(--accent-blue)"
+}) {
+  return React.createElement("span", {
+    style: {
+      display: "inline-block",
+      padding: "3px 10px",
+      borderRadius: "999px",
+      fontSize: "12px",
+      fontWeight: 700,
+      background: color + "22",
+      color,
+      border: "1px solid " + color + "55",
+      whiteSpace: "nowrap"
+    }
+  }, children);
+}
+function Field({
+  label,
+  children
+}) {
+  return React.createElement("label", {
+    style: {
+      display: "block",
+      marginBottom: "14px"
+    }
+  }, React.createElement("div", {
+    style: {
+      fontSize: "13px",
+      fontWeight: 700,
+      color: "var(--text-dim)",
+      marginBottom: "6px"
+    }
+  }, label), children);
+}
+function Modal({
+  title,
+  onClose,
+  children,
+  width = "520px"
+}) {
+  return React.createElement("div", {
+    onClick: onClose,
+    style: {
+      position: "fixed",
+      inset: 0,
+      background: "rgba(0,0,0,0.6)",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      zIndex: 100,
+      padding: "16px"
+    }
+  }, React.createElement("div", {
+    onClick: e => e.stopPropagation(),
+    style: {
+      background: "var(--bg-panel)",
+      border: "1px solid var(--border)",
+      borderRadius: "var(--radius)",
+      width,
+      maxWidth: "100%",
+      maxHeight: "90vh",
+      overflowY: "auto",
+      padding: "22px"
+    }
+  }, React.createElement("div", {
+    style: {
+      display: "flex",
+      justifyContent: "space-between",
+      alignItems: "center",
+      marginBottom: "16px"
+    }
+  }, React.createElement("h3", {
+    style: {
+      margin: 0,
+      fontSize: "18px"
+    }
+  }, title), React.createElement("button", {
+    onClick: onClose,
+    style: {
+      background: "transparent",
+      border: "none",
+      color: "var(--text-dim)",
+      cursor: "pointer",
+      fontSize: "18px"
+    }
+  }, "✕")), children));
+}
+function PinGate({
+  children
+}) {
+  const REQUIRED_PIN = window.APP_PIN || "";
+  const [unlocked, setUnlocked] = useState(() => sessionStorage.getItem("jayco_unlocked") === "true" || !REQUIRED_PIN);
+  const [pin, setPin] = useState("");
+  const [error, setError] = useState(false);
+  if (unlocked) return children;
+  function handleSubmit(e) {
+    e.preventDefault();
+    if (pin === REQUIRED_PIN) {
+      sessionStorage.setItem("jayco_unlocked", "true");
+      setUnlocked(true);
+    } else {
+      setError(true);
+      setPin("");
+    }
+  }
+  return React.createElement("div", {
+    style: {
+      height: "100vh",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center"
+    }
+  }, React.createElement("form", {
+    onSubmit: handleSubmit,
+    style: {
+      background: "var(--bg-panel)",
+      border: "1px solid var(--border)",
+      borderRadius: "var(--radius)",
+      padding: "36px",
+      width: "320px",
+      textAlign: "center"
+    }
+  }, React.createElement("img", {
+    src: "data:image/svg+xml;base64,PHN2ZyB2ZXJzaW9uPSIxLjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyIKIHdpZHRoPSIxMDAlIiBoZWlnaHQ9IjEwMCUiIHZpZXdCb3g9IjAgMCAyNzYyLjAwMDAwMCA0OTguMDAwMDAwIgogcHJlc2VydmVBc3BlY3RSYXRpbz0ieE1pZFlNaWQgbWVldCI+CjxnIHRyYW5zZm9ybT0idHJhbnNsYXRlKDAuMDAwMDAwLDQ5OC4wMDAwMDApIHNjYWxlKDAuMTAwMDAwLC0wLjEwMDAwMCkiCmZpbGw9IiNlNTMyMmQiIHN0cm9rZT0ibm9uZSI+CjxwYXRoIGQ9Ik0yMzczNCA0OTUwIGMtNjYgLTUgLTEzOSAtMTMgLTE2MiAtMTkgLTIyIC02IC00NCAtMTAgLTQ5IC05IC00IDIKLTMzIC0zIC02MyAtOSAtMTMwIC0yOSAtMjA2IC00NSAtMjI3IC00OCAtMTMgLTEgLTI4IC03IC0zNSAtMTIgLTcgLTUgLTQwCi0xOCAtNzMgLTI3IC0zMyAtMTAgLTkzIC0zMSAtMTMyIC00NyAtNDAgLTE2IC04MCAtMjkgLTg4IC0yOSAtOSAwIC0xOCAtNwotMjEgLTE1IC00IC04IC0xMiAtMTUgLTE5IC0xNSAtMjQgMCAtMTQwIC01OSAtMjI1IC0xMTUgLTQ3IC0zMCAtOTcgLTYwIC0xMTIKLTY2IC0xNiAtNiAtMjggLTE1IC0yOCAtMTkgMCAtNCAtMTkgLTE5IC00MiAtMzMgLTUxIC0zMCAtMTI1IC05MCAtMjI3IC0xODQKLTEyNCAtMTE0IC0xNDcgLTEzOCAtMTU0IC0xNTYgLTQgLTExIC0xMiAtMTUgLTE4IC0xMSAtNyA0IC05IDMgLTYgLTMgNCAtNgotNCAtMjIgLTE4IC0zNyAtMTQgLTE1IC01MSAtNTkgLTgyIC05OSAtMzIgLTQwIC02NCAtNzggLTcwIC04NSAtNyAtNyAtMTMKLTE3IC0xMyAtMjIgMCAtNSAtMTMgLTIzIC0zMCAtNDEgLTE2IC0xOCAtMjcgLTM1IC0yNSAtMzcgNSAtNSAtMzQgLTYzIC01MAotNzQgLTUgLTQgLTYgLTggLTIgLTggNSAwIC0xIC0xNiAtMTMgLTM1IC0xMiAtMjAgLTM1IC02MiAtNTAgLTk0IC0xNiAtMzMKLTMzIC02MiAtMzkgLTY1IC01IC00IC0xMiAtMTkgLTE2IC0zNiAtMyAtMTYgLTE3IC01MSAtMjkgLTc3IC0xMyAtMjYgLTI3Ci01OSAtMzAgLTczIC00IC0xNCAtMTYgLTQ3IC0yNiAtNzUgLTEwIC0yNyAtMjQgLTcwIC0zMCAtOTUgLTcgLTI1IC0xOSAtNjMKLTI2IC04NSAtMTIgLTM0IC0yNyAtMTE1IC01OCAtMzAwIC0zIC0xNiAtMTAgLTkzIC0xNyAtMTcwIC05IC0xMTYgLTggLTE3MiA1Ci0zMjUgOSAtMTAyIDIzIC0yMjUgMzIgLTI3NSA4IC00OSAxNyAtMTAzIDE5IC0xMTggMyAtMTUgOSAtMzYgMTUgLTQ3IDUgLTEwCjE1IC00MiAyMSAtNzIgNSAtMjkgMTQgLTYzIDIwIC03NSAxMCAtMjUgMTQgLTM1IDU0IC0xMzggMTUgLTM4IDM0IC04NCA0MQotMTAyIDggLTE3IDE0IC0zNiAxNCAtNDIgMCAtNyA5IC0yNSAyMSAtNDAgMTIgLTE2IDIyIC00MCAyMiAtNTQgMSAtMTQgNSAtMjMKMTAgLTIwIDQgMiAxNCAtMTIgMjMgLTMzIDkgLTIxIDI3IC01MiA0MCAtNjkgMTMgLTE4IDI0IC0zNSAyNCAtMzggMCAtNCAyMwotMzkgNTAgLTc5IDI4IC00MCA0OCAtNzkgNDUgLTg2IC0zIC03IC0xIC0xMSAzIC04IDUgMyAxNyAtNSAyNyAtMTcgMTEgLTEyCjE4IC0yMiAxNiAtMjIgLTUgMCAxMDcgLTEyMyAxOTcgLTIxNiA1MSAtNTIgODkgLTk5IDg1IC0xMDMgLTUgLTQgLTEgLTYgNyAtNAo4IDIgMTQgLTIgMTMgLTggLTEgLTcgMTAgLTE4IDI2IC0yNSAzNSAtMTcgMTAxIC03NSAxMDEgLTg4IDAgLTYgNiAtOCAxNCAtNQo3IDMgMjMgLTYgMzMgLTIwIDExIC0xNCAyMiAtMjMgMjUgLTIxIDIgMyAyMSAtMTAgNDEgLTI5IDIwIC0xOSAzNyAtMzEgMzcKLTI3IDAgMyA0IDIgOCAtNCA4IC0xMSAyOSAtMjUgODIgLTU0IDE5IC0xMCA0NiAtMjggNTkgLTQwIDEzIC0xMiAzMiAtMjEgNDEKLTIxIDEwIDAgMjMgLTYgMjkgLTE0IDcgLTggMjMgLTE3IDM2IC0yMCAxNCAtNCA0MSAtMTcgNjEgLTMxIDIwIC0xNCA0MyAtMjUKNTEgLTI1IDcgMCAyMSAtNCAzMSAtOSA0NyAtMjUgMjIzIC05MCAzMDIgLTExMiAyNSAtNiA2NCAtMTggODcgLTI1IDI0IC04IDg5Ci0yMSAxNDUgLTMwIDU3IC04IDEyNiAtMjAgMTUzIC0yNiAyOSAtNSAxNzAgLTggMzM1IC02IDMyOSA1IDQ2MiAyMSA2NjUgODQKMjggOSA2NiAyMCA4NSAyNiAxOSA1IDQ0IDEzIDU1IDE3IDExIDUgMzMgMTQgNTAgMjAgMTYgNyA1NiAyMiA5MCAzMyAzMyAxMgo2OSAyNyA4MCAzNCAxMSA4IDMwIDE0IDQyIDE0IDEzIDAgMjIgMyAyMCA4IC0xIDQgMSA3IDQgNyAzIDAgMTMgOCAyMyAxOCAxMAo5IDIyIDE1IDI3IDEyIDUgLTQgOSAtMiA5IDMgMCA0IDE3IDE1IDM3IDIzIDIxIDggNTcgMjkgODAgNDYgNDYgMzUgNjMgNDEgNjMKMjEgMCAtOSAzIC04IDkgMiA2IDggOCAxNyA1IDIxIC01IDkgMTA2IDg5IDEyMyA4OSA3IDAgMTMgNCAxMyA5IDAgNSA5IDEzIDIwCjE2IDExIDQgMTggMTEgMTUgMTYgLTQgNSAtMiA5IDMgOSA1IDAgMjUgMTUgNDQgMzMgMTkgMTcgNTYgNTAgODIgNzIgMjcgMjIKNTggNTEgNzAgNjQgMTEgMTMgNDEgNDQgNjYgNzAgMjUgMjUgNjggNzMgOTYgMTA2IDYzIDc2IDg2IDEwNCA5OSAxMTkgNiA2IDE2CjIzIDI0IDM4IDggMTUgMTkgMjUgMjQgMjEgNiAtMyA3IC0yIDQgNCAtMyA1IDUgMjIgMTkgMzggMTMgMTUgMjQgMzMgMjQgNDAgMAo3IDkgMjAgMjAgMzAgMTEgMTAgMjAgMjYgMjAgMzYgMCAxMCA2IDIyIDE0IDI2IDggNCAyMSAyNSAzMCA0NiA4IDIxIDIwIDM2CjI2IDMyIDYgLTMgNyAwIDQgOSAtMyA5IC0xIDE2IDUgMTYgNyAwIDExIDYgOSAxMyAtMSA2IDcgMzIgMTkgNTcgMTIgMjUgMjcKNTcgMzIgNzMgNiAxNSAxNiAyNyAyMiAyNyA2IDAgOCA3IDUgMTYgLTQgOSAwIDI2IDcgMzggNyAxMiAxOSA0MCAyNyA2NCA3IDIzCjE3IDQyIDIyIDQyIDUgMCA3IDQgNCA5IC0zIDQgMyAzNyAxNCA3MiA0MyAxNDggNTIgMTgwIDYyIDI0MSA1IDM0IDE0IDg4IDE5CjExOCAyNSAxNjEgMzMgMzQ2IDIxIDUzNSAtNyAxMDQgLTE3IDIxMCAtMjMgMjM1IC01IDI1IC0xMiA2MSAtMTQgODAgLTIgMTkKLTExIDYwIC0yMCA5MCAtOSAzMCAtMjcgOTMgLTQwIDE0MCAtMzIgMTE2IC03NSAyMjggLTEyOCAzMzUgLTI0IDUwIC01MyAxMDgKLTYzIDEzMCAtMTAgMjIgLTM4IDcyIC02MyAxMTAgLTI2IDM5IC01NyA5MiAtNzEgMTE4IC0xMyAyNyAtMzIgNTQgLTQyIDYyCi0xMSA3IC0xOCAxOCAtMTYgMjYgMiA3IC0yIDEzIC05IDE0IC03IDAgLTI0IDE2IC0zOCAzNSAtMzggNTIgLTk1IDExOCAtMTM1CjE1NiAtMTkgMTkgLTI5IDM0IC0yMiAzNCA3IDAgMTAgNSA3IDEwIC00IDYgLTExIDggLTE2IDQgLTYgLTMgLTM4IDIwIC03MSA1MgotMzQgMzMgLTgwIDc3IC0xMDMgMTAwIC0yMyAyMiAtNTggNTEgLTc4IDYzIC0yMSAxMiAtMzcgMjcgLTM3IDMyIDAgNiAtNCA4Ci05IDUgLTQgLTMgLTI4IDEyIC01MSAzNCAtMjQgMjIgLTQ5IDQwIC01NyA0MCAtNyAwIC0xMyAzIC0xMyA4IDAgNCAtMjIgMTcKLTUwIDMwIC0yNyAxMyAtNTAgMjcgLTUwIDMyIDAgNiAtNyAxMCAtMTUgMTAgLTggMCAtMTUgNSAtMTUgMTEgMCA1IC00IDggLTkKNSAtNSAtNCAtMTEgLTIgLTEzIDMgLTEgNCAtNDggMjkgLTEwMyA1NSAtNTUgMjYgLTEwOCA1MSAtMTE4IDU3IC0xNiA4IC0xMjQKNTIgLTEzNyA1NCAtMzUgNyAtOTAgMzAgLTkwIDM3IDAgNSAtOCA4IC0xNyA3IC0yMiAtMyAtMTA0IDE5IC0xMjAgMzMgLTcgNQotMTcgNyAtMjIgMyAtNiAtMyAtMjggLTIgLTQ4IDQgLTg2IDIyIC0yNTkgNTEgLTMzMyA1NSAtMjAzIDEyIC0yODkgMTMgLTM5Ngo2eiBtMzE0IC0yMjIgYzI4IC0xMSA1MyAtMjQgNTMgLTI5IDEgLTUgMiAtMTQgMyAtMjEgMCAtNyAxNCAtMTMgMjkgLTEzIDM0Ci0yIDUxIC0yMyAzNSAtNDIgLTggLTExIC03IC0xMiA3IC03IDE0IDYgMTYgNCAxMCAtNiAtNSAtOCAtNCAtMTEgMyAtNiAxMyA4CjQ0IC0zNiA2NCAtOTQgNDYgLTEzMCAyMyAtMjU1IC02OCAtMzY2IC0zNyAtNDUgLTEyNyAtOTkgLTE1MCAtOTAgLTEwIDQgLTEzCjIgLTggLTYgNSAtOCAyIC05IC0xMCAtNSAtOSA0IC0xNSAzIC0xMiAtMiA5IC0xNCAtMjEgLTIxIC05NSAtMjEgLTQyIDAgLTgxCjYgLTk4IDE1IC0xNiA4IC0zMSAxMiAtMzMgOSAtMyAtMiAtMTYgNiAtMjkgMjAgLTEyIDEzIC0yOSAyMiAtMzYgMTkgLTE3IC03Ci01NSAyNiAtNDYgNDAgMyA1IDIgNyAtNCA0IC0xMCAtNyAtNjAgNDIgLTY1IDY0IC0yIDggLTYgMTcgLTExIDIwIC00IDMgLTE3CjMyIC0yOCA2NSAtMTYgNDYgLTIwIDcyIC0xNSAxMTkgOCA3NSAxMyAxMTAgMTUgMTEwIDIgMCA0IDggNiAxOCA0IDIwIDI2IDU2CjU4IDk0IDQzIDUyIDU4IDY0IDcwIDU3IDcgLTQgOSAtMyA0IDEgLTE0IDE3IDgwIDY0IDE0NSA3MyA3NyAxMSAxMzcgNSAyMDYKLTIweiBtLTk5NSAtMjQzIGM4IC04IDI3IC0xNiA0MSAtMTkgMjggLTUgOTYgLTQzIDEwOCAtNjAgNCAtNiA0IC0xNCAyIC0xOAotMyAtNCAwIC04IDYgLTggNiAwIDggLTUgNCAtMTIgLTQgLTYgLTMgLTggMyAtNSAxOCAxMSA1MCAtMzYgNzcgLTExMiAyMyAtNjIKMjUgLTgzIDIwIC0xNDAgLTggLTgzIC0yOSAtMTQ1IC02MyAtMTkxIC00NiAtNjEgLTU5IC03MyAtNzkgLTY4IC0xMyA0IC0xOSAxCi0xOCAtMTAgMSAtMTcgLTUwIC01MCAtNzkgLTUxIC0xMiAtMSAtMjYgLTYgLTMzIC0xMyAtMTUgLTE1IC0xMjcgLTE5IC0xNzIKLTYgLTExMyAzMiAtMTkwIDkyIC0yNDggMTkyIC0xMiAyMSAtMjAgNDEgLTE3IDQ0IDMgMyAwIDExIC02IDE4IC01IDcgLTEyIDQyCi0xNSA3OSAtNCA2NiA2IDExOCAzOSAxOTUgMTkgNDQgNzUgMTAyIDkxIDkzIDYgLTMgOCAtMyA0IDIgLTEzIDE0IDExIDQzIDQyCjUwIDE2IDQgMzAgMTEgMzAgMTUgMCAxMSA3MCAzMSA4MiAyNCA0IC0zIDggMCA4IDUgMCAxOCAxNTYgMTQgMTczIC00eiBtMTkwMQo5IGM5IC0zIDEzIC0xMSA5IC0xNyAtMyAtNSAtMSAtNyA1IC0zIDEwIDYgODAgLTIxIDkyIC0zNSAzIC00IDE0IC05IDI2IC0xMwozOSAtMTIgMTI4IC0xNDcgMTM2IC0yMDcgMiAtMTMgNyAtMzAgMTIgLTM3IDE1IC0yNSAtMTUgLTE4MSAtNDYgLTIzMiAtMjIKLTM3IC04MyAtMTAwIC05NiAtMTAwIC02IDAgLTEyIC01IC0xMiAtMTEgMCAtNiAtNyAtOCAtMTYgLTUgLTkgMyAtMTIgMiAtOQotNCA4IC0xMyAtNjIgLTQzIC04MSAtMzYgLTggMyAtMTMgMCAtMTEgLTcgMyAtMTYgLTgyIC0yNCAtMTU4IC0xNCAtMzYgNCAtNzQKMTcgLTk3IDMyIC0yMSAxNCAtNDUgMjUgLTUzIDI1IC05IDAgLTE0IDQgLTExIDkgMyA0IC02IDEzIC0yMSAyMCAtMTQgNiAtMjMKMTQgLTIwIDE3IDMgMyAtMTAgMjAgLTI4IDM4IC0xOCAxOCAtMzYgNDggLTQwIDY3IC00IDE5IC0xMyAzNyAtMTkgNDEgLTE2IDExCi0xNCAxOTUgMyAyMzUgNyAxOCAxNyAzMSAyMSAyOCA1IC0zIDYgNCAzIDE0IC0zIDEzIDEzIDM3IDU0IDgwIDMzIDM0IDY2IDYxCjc0IDYxIDggMCAyNSA3IDM3IDE2IDEyIDggMjcgMTIgMzQgOCA2IC00IDggLTMgNCA0IC0zIDYgNiAxNSAyMSAyMCAzMSAxMgoxNjIgMTUgMTg3IDZ6IG0tMjU5NiAtNzExIGMyOCAtOCA1MiAtMTkgNTIgLTI0IDAgLTUgNyAtOSAxNiAtOSAxMSAwIDE0IC01CjEwIC0xNiAtNiAtMTUgLTQgLTE1IDExIC0zIDE1IDEyIDE2IDEyIDEwIC0zIC00IC0xMSAtMiAtMTUgNyAtMTIgMzIgMTIgMTMxCi0xMjkgMTQxIC0yMDIgMTYgLTExMyAxNCAtMTQwIC0xNiAtMjE0IC0xNyAtNDEgLTM2IC04MCAtNDQgLTg2IC04IC02IC0xNQotMTUgLTE1IC0yMCAtMSAtMTIgLTgwIC03MCAtOTEgLTY2IC01IDEgLTkgLTIgLTkgLTggMCAtNSAtNiAtMTAgLTE0IC0xMCAtOAowIC0xNiAtNSAtMTggLTExIC02IC0xNyAtNzggLTMyIC0xNTMgLTMzIC01OCAwIC04MiA1IC0xNDUgMzMgLTc5IDM1IC0xNDQgODcKLTEzNiAxMDggMyA3IDAgMTIgLTYgMTAgLTEyIC0yIC00OCA2MCAtNjcgMTIwIC0yOCA4NSA1IDI0OSA2MSAzMDYgMTYgMTUgMjgKMzEgMjggMzUgMCAxNCA0NiA1MyA1MyA0NSA0IC0zIDcgLTIgNyAzIDAgMTQgNTggNDYgNzAgMzkgNiAtMyAxMCAtMiAxMCAzIDAKMjggMTU1IDM5IDIzOCAxNXogbTMyODggNyBjMjcgLTYgNTYgLTE4IDY2IC0yNyA5IC04IDIxIC0xMiAyNiAtOSAxMiA3IDM0Ci0xOCAyNCAtMjggLTQgLTQgLTIgLTcgMyAtNiAyNiA2IDQzIC0zIDY1IC0zMiAxMyAtMTcgMjMgLTM3IDIzIC00NCAwIC03IDUKLTEyIDEwIC0xMSAxOCAzIDUzIC03MSA2NiAtMTM5IDE1IC04NCAwIC0xODAgLTMyIC0yMDcgLTEyIC0xMCAtMTYgLTE2IC05Ci0xMiAxMCA2IDExIDMgMyAtMTEgLTUgLTExIC0xMiAtMjcgLTE1IC0zNiAtMyAtOSAtMTUgLTIyIC0yNyAtMjggLTEyIC03IC0xOQotOCAtMTUgLTIgMyA2IDIgMTMgLTMgMTYgLTEwIDcgLTkgLTEzIDIgLTMwIDQgLTcgLTIyIC0yOSAtNjUgLTU3IC01NSAtMzUKLTg5IC00OSAtMTQwIC01NyAtNjggLTEyIC0xNDMgLTYgLTE1NCAxMSAtMyA1IC0xNyA5IC0zMiA5IC0yNSAwIC0xMzAgNTkKLTEwNyA2MCA2IDAgMyA2IC02IDEzIC05IDcgLTE3IDE3IC0xNyAyMiAtMSA2IC01IDEwIC0xMCAxMCAtNCAwIC0xOCAxMCAtMzAKMjEgLTE2IDE1IC0yMSAyOSAtMTggNDggMyAxNSAxIDI0IC01IDIxIC01IC00IC02IC0xMiAtMyAtMTggNSAtOSA0IC05IC01IC0xCi0zMyAzMSAtNTQgMjEyIC0yOSAyNTcgNyAxMiAxMiAyNyAxMyAzMiA2IDY1IDE1OSAyMjIgMTk1IDIwMCA2IC00IDkgLTEgOCA2Ci02IDI4IDEzOCA0NyAyMTggMjl6IG0tMTU1NyAtMTQ5IGMxOSAtNiAzOCAtOCA0MiAtNSAxMCA2IDcwIC0xMSAxMTIgLTMyIDE2Ci04IDQwIC0xNCA1MyAtMTQgMTMgMCAyNCAtNSAyNCAtMTEgMCAtNSA0IC04IDkgLTUgMTIgOCA2NyAtMjAgMTE2IC01OCAyMQotMTcgMzYgLTI1IDMyIC0xOCAtNSA2IC00IDEyIDIgMTIgNiAwIDExIC00IDExIC05IDAgLTUgMTMgLTE0IDI4IC0xOSAxNiAtNQo0NSAtMjQgNjQgLTQxIDIwIC0xNyA0MCAtMzEgNDUgLTMxIDExIDAgNDggLTQyIDQ4IC01NSAwIC01IDkgLTEwIDIwIC0xMCAxMwowIDE5IC02IDE3IC0xNSAtMiAtOCAwIC0xMiA0IC03IDkgOSA1NCAtMzIgNTQgLTUwIDAgLTcgNiAtMTMgMTMgLTEzIDYgMCAyNwotMjMgNDYgLTUwIDE5IC0yOCAzNyAtNTAgNDEgLTUwIDQgMCAxMyAtMTMgMjAgLTMwIDcgLTE2IDE2IC0zMCAyMSAtMzAgNSAwIDkKLTYgOSAtMTQgMCAtNyA3IC0xOSAxNSAtMjYgOCAtNyAxNSAtMjEgMTUgLTMwIDAgLTEwIDMgLTIwIDggLTIyIDEyIC01IDU0Ci05OCA1NiAtMTIzIDAgLTEzIDQgLTIxIDggLTE5IDkgNiA0MCAtMTA0IDMzIC0xMTYgLTMgLTYgLTIgLTEwIDMgLTEwIDUgMCAxNQotNDcgMjIgLTEwNSAxNSAtMTI0IDggLTMzMyAtMTQgLTQxNSAtMzYgLTEzMiAtNTYgLTE5NCAtNjcgLTIwMCAtNiAtNCAtMTAgLTkKLTggLTExIDQgLTggLTE0IC01NCAtMjYgLTY5IC04IC04IC0xNSAtMTkgLTE2IC0yNSAtNCAtMjIgLTMzIC03NSAtNDEgLTc1IC00CjAgLTggLTYgLTggLTE0IDAgLTggLTEzIC0yNSAtMjkgLTM4IC0xNiAtMTQgLTMxIC0zMyAtMzUgLTQ0IC02IC0yMCAtMTEwCi0xMjkgLTE2NyAtMTc3IC0xOSAtMTUgLTUwIC00MCAtNjkgLTU2IC00NyAtMzggLTE0NSAtOTIgLTE1NCAtODQgLTMgMyAtNiAxCi02IC01IDAgLTI2IC0yMzEgLTEwNSAtMzcwIC0xMjYgLTU5IC05IC0yNzEgLTcgLTMzNSAzIC0xNDMgMjIgLTM1MCA5NSAtMzkzCjEzOCAtNyA3IC0xOSAxMyAtMjYgMTMgLTcgMCAtMjIgOCAtMzQgMTcgLTM0IDMwIC01OCA0NyAtNzggNjAgLTEwIDYgLTE4IDE1Ci0xNyAyMCAxIDUgLTcgMTAgLTE4IDEwIC0yMiAyIC04MSA1NyAtOTIgODYgLTMgOSAtMTIgMTcgLTIwIDE3IC03IDAgLTI2IDE4Ci00MyA0MCAtMTYgMjIgLTMyIDQwIC0zNiA0MCAtNSAwIC04IDcgLTggMTUgMCA5IC03IDE4IC0xNSAyMSAtOCA0IC0xNSAxMQotMTUgMTggMCA2IC0xMiAyNSAtMjYgNDEgLTI4IDMzIC02NSAxMDYgLTY3IDEzNSAwIDEwIC02IDE2IC0xMiAxNCAtOSAtNCAtNDUKNzUgLTUxIDExMSAtMSA2IC04IDM3IC0xNyA3MCAtNDUgMTc5IC00OSAyMDggLTQ0IDMzNSA2IDEzNCAxMyAxODIgNDYgMzAyIDIxCjc4IDc0IDIwMyA5MCAyMTMgNSAzIDEyIDE5IDE2IDM2IDQgMTcgMTMgMzMgMjEgMzYgOCAzIDE0IDkgMTQgMTUgMCA1IDYgMTUKMTMgMjMgMjggMzAgNDcgNTYgNDcgNjUgMCA1IDIwIDMwIDQ1IDU2IDI1IDI1IDQ1IDUwIDQ1IDU2IDAgNiAyIDkgNSA2IDMgLTIKMjggMTcgNTUgNDQgMzAgMjkgNTYgNDYgNjMgNDIgNyAtNCA5IC0zIDQgMSAtMTAgMTIgMjIgNDUgMzggMzkgNyAtMyAxNiAwIDIxCjcgNCA4IDMgMTAgLTQgNSAtNyAtNCAtMTIgLTUgLTEyIC0yIDAgNCAxNDMgODcgMTY1IDk1IDUgMiAyNCA5IDQwIDE2IDM3IDE2CjE1NyA1OSAyMDggNzUgMjEgNyA0OCAxMCA2MCA3IDEyIC0zIDM4IDEgNTcgOSA0MCAxNSAyNzIgMTIgMzI5IC01eiBtLTE5NjgKLTgyNSBjNjUgLTI2IDE0OSAtOTEgMTQ5IC0xMTQgMCAtOCAzIC0xMiA2IC05IDQgMyAxNCAtNCAyNCAtMTYgMzAgLTQwIDUyCi0xMTEgNTcgLTE4NyA0IC02MSAxIC04NiAtMTcgLTEzMiAtMTIgLTMyIC0yNiAtNTggLTMyIC01OCAtNSAwIC04IC02IC01IC0xNAo3IC0xNyAtMTE0IC0xMzIgLTE1NyAtMTUwIC04MCAtMzMgLTI1MCAtNDYgLTIzMiAtMTcgMyA0IC01IDcgLTE3IDYgLTI2IC0zCi05NyAzMSAtOTcgNDYgMCA2IC01IDcgLTExIDMgLTE0IC04IC04MCA1NiAtNzIgNzAgMyA2IDMgOCAtMiA0IC0xNCAtMTMgLTYwCjU1IC00OSA3NCA0IDcgMyA4IC00IDQgLTExIC02IC0xNyA2IC0xMyAyNyAxIDQgLTMgMTYgLTkgMjcgLTggMTYgLTEyIDc0IC0xMAoxNzUgMSAzNSA0OSAxMTkgOTggMTcwIDI2IDI3IDQ5IDUwIDUyIDUwIDMgMCAxNyA5IDMyIDE5IDc0IDQ5IDIxOSA1OSAzMDkgMjJ6Cm0zODIxIDMgYzcwIC0yMyAxNTIgLTc4IDE1NiAtMTA1IDIgLTEwIDkgLTIzIDE0IC0yOSA4IC03IDkgLTYgNCAzIC00IDYgLTUKMTIgLTMgMTIgMTggMCA1OSAtMTAwIDcxIC0xNzMgMTYgLTkxIDE0IC0xMDggLTI3IC0xOTcgLTExIC0yNSAtMjEgLTQ4IC0yMQotNTEgLTIgLTE0IC00MiAtNTkgLTUzIC01OSAtNyAwIC0xOSAtMTAgLTI3IC0yMyAtMTQgLTIwIC02NSAtNTcgLTgzIC01OSAtMTEKLTEgLTM0IC04IC01OCAtMTggLTQwIC0xNyAtMTEwIC0yMCAtMTY0IC05IC01NyAxMyAtMTA0IDM2IC05NyA0OCAyIDMgLTcgNwotMjAgNyAtMzIgMiAtMTA3IDgwIC0xNDIgMTQ4IC0yNCA0NiAtMjYgNjIgLTI3IDE1OSAwIDc5IDQgMTEwIDEzIDExNiA4IDUgMTMKMTEgMTMgMTUgLTMgMjMgMCAzNiA5IDMxIDYgLTMgMTAgMiAxMCAxMiAwIDEwIDcgMjkgMTYgNDIgMTMgMTggMTggMjAgMjUgMTAKNiAtMTAgOCAtNiA3IDExIC0yIDE4IDIgMjUgMTQgMjQgMTAgLTEgMTYgMiAxMyA2IC03IDEyIDQ5IDUwIDExMSA3NSA3MSAyOQoxNjggMzAgMjQ2IDR6IG0tMzU5MyAtOTUxIGM2NCAtMjAgMTAyIC0zOSAxMDggLTU0IDMgLTggOCAtMTIgMTIgLTEwIDQgMyAxNgotNiAyNiAtMTkgMTEgLTE0IDM0IC00MCA1MSAtNTkgMzkgLTQ1IDYzIC0xMjEgNjUgLTIxMSAxIC01NyAtNCAtODQgLTI5IC0xNDUKLTE2IC00MSAtMzUgLTc0IC00MSAtNzIgLTYgMSAtMTUgLTYgLTE4IC0xNSAtMTAgLTI1IC03MyAtODMgLTEwMyAtOTUgLTYxCi0yNCAtMTU0IC00NSAtMTg5IC00MyAtNDMgNCAtMTI5IDMxIC0xNDkgNDggLTggNiAtMjEgMTIgLTMxIDEzIC0zMiA1IC0xMTkKMTE0IC0xNDcgMTg1IC0yNCA2MCAtMjYgNzcgLTIxIDE0MCAzIDQwIDEwIDc2IDE2IDgyIDUgNSA3IDE1IDUgMjIgLTMgNyAtMQoxNiA1IDIwIDYgMyAxMSAxMyAxMSAyMSAwIDI0IDU2IDg4IDcwIDc5IDUgLTMgNyAxIDQgOSAtNCAxMCAzIDIwIDIwIDI3IDE0IDcKMjMgMTUgMjEgMTkgLTMgNSAyIDExIDExIDE0IDEwIDQgMTMgMiA4IC03IC00IC02IDQgLTEgMTggMTMgMTQgMTMgNDMgMjkgNjQKMzYgNTEgMTYgMTY4IDE3IDIxMyAyeiBtMzMyMiAxIGMxOSAtNyA0MiAtMTkgNTIgLTI3IDkgLTggMTcgLTEyIDE3IC04IDAgNCA5CjIgMjEgLTQgMTEgLTcgMTggLTE4IDE1IC0yNSAtMyAtOSAwIC0xMiA5IC05IDEyIDUgNDAgLTE5IDgyIC03MCA3IC04IDI1IC00MQozOSAtNzMgMzUgLTc5IDM3IC0yMDAgMyAtMjcxIC0xMyAtMjYgLTI3IC01MCAtMzMgLTU0IC03IC01IC03IC04IC0xIC04IDYgMAoxIC03IC05IC0xNSAtMTEgLTggLTE2IC0xNSAtMTAgLTE1IDUgMCAtOCAtMTYgLTI5IC0zNSAtMjEgLTE5IC00MSAtMzUgLTQ0Ci0zNSAtNCAwIC0xNSAtNyAtMjUgLTE3IC0xNCAtMTMgLTE4IC0xMyAtMTggLTIgLTEgMTAgLTQgMTAgLTE0IC0zIC0zMyAtNDQKLTE2MCAtNjggLTIyMSAtNDIgLTIwIDggLTQwIDEyIC00NSA5IC01IC0zIC0xOCAzIC0yOSAxNCAtMTEgMTEgLTIyIDE3IC0yNQoxNCAtNiAtNiAtNjEgMjYgLTk1IDU2IC0zNSAzMCAtNTQgNzEgLTQxIDg3IDkgMTAgNiAxMSAtOSA3IC0xNyAtNCAtMjQgMiAtMzYKMzEgLTI4IDY3IC0zMiAyNjggLTUgMjUxIDUgLTMgMTIgMCAxNiA2IDQgOCAzIDkgLTQgNSAtNyAtNCAtMTIgLTUgLTEyIC0xIDAKMTUgMzAgNzIgNDcgOTAgMTAgMTEgMjIgMjcgMjUgMzYgNyAxOSAxMTAgODkgMTMyIDg5IDggMCAxOCA1IDIxIDExIDQgNiAxMiA4CjE5IDYgNiAtMiAyMCAtMSAzMSA0IDMwIDEyIDEzOCAxMCAxNzYgLTJ6IG0tMjU5OCAtNzExIGMzNSAtMTIgNTYgLTI2IDUzIC0zMwotMiAtNiAyIC0xMiAxMCAtMTIgNyAwIDEwIDUgNyAxMCAtMyA2IC0xIDcgNSAzIDcgLTQgMTIgLTE0IDEyIC0yMiAwIC04IDQKLTEyIDEwIC05IDExIDcgNjcgLTQ1IDk0IC04OCAyNyAtNDQgNTQgLTEzOSA1NCAtMTkzIDAgLTU0IC0yNSAtMTU0IC0zOCAtMTU0Ci00IDAgLTEwIC0xMCAtMTQgLTIzIC02IC0yNiAtODAgLTExMCAtODkgLTEwMSAtMyAzIC0xMSAtNCAtMTcgLTE2IC02IC0xMgotMTQgLTE5IC0xNyAtMTYgLTMgMyAtMTEgLTEgLTE3IC05IC02IC05IC0yNSAtMTYgLTQzIC0xOCAtMTcgLTEgLTI5IC01IC0yNwotOCA3IC0xMyAtMjggLTE5IC0xMDEgLTE5IC03NyAwIC0xNzIgMjcgLTE5NSA1NSAtNyA4IC0xNiAxMyAtMjAgMTAgLTUgLTMKLTEyIDAgLTE2IDYgLTUgOCAtMiAxMCA3IDUgOCAtNCA1IC0xIC01IDggLTEwIDggLTIyIDEzIC0yNiAxMSAtMTAgLTYgLTU2IDU0Ci03MiA5MiAtNTEgMTI2IC02MCAxOTUgLTMyIDI2OCA4IDIyIDE2IDQ2IDE4IDU0IDEgOCAxMCAxOSAyMCAyNiAxMCA3IDE3IDE2CjE3IDE5IC0zIDIyIDEgMjcgMTMgMjMgMTAgLTQgMTMgLTEgOSA4IC01IDE2IDM0IDY1IDUzIDY1IDUgMCAxOSA4IDMwIDE5IDExCjEwIDM4IDI0IDYwIDMyIDIxIDcgNDIgMTYgNDcgMTkgNCA0IDQwIDcgODAgOCA1MiAxIDg4IC00IDEzMCAtMjB6IG0xOTE4IDEKYzI5IC0xMSA2NSAtMzAgNzkgLTQyIDE1IC0xMiA0MiAtMzMgNTkgLTQ3IDMxIC0yNSA1MSAtNTYgMjggLTQ1IC02IDQgMCAtMwoxNiAtMTUgMTUgLTEyIDI3IC0zMCAyNyAtNDAgMCAtOSA3IC0zNSAxNiAtNTYgMjAgLTQ4IDE5IC0xNTAgLTEgLTIxMiAtMzEKLTkwIC0xMjQgLTE5OCAtMTUwIC0xNzQgLTUgNCAtNCAxIDAgLTcgNiAtMTEgNCAtMTMgLTggLTggLTEwIDQgLTE0IDIgLTEyIC02CjMgLTcgLTE0IC0yMSAtMzcgLTMyIC0zNCAtMTYgLTYyIC0yMCAtMTQ3IC0yMCAtOTUgMSAtMTExIDMgLTE1NiAyOCAtNzQgMzkKLTE3NiAxNDMgLTE1OCAxNjEgMyAzIDIgNiAtNCA2IC0xOSAwIC00MyA5MSAtNDMgMTU5IDAgNzEgMjIgMTYwIDQzIDE3MyA2IDQKMTMgMTIgMTMgMTggMSA1IDIgMTQgMyAxOSAyIDE0IDY0IDcxIDc3IDcxIDcgMCAyNSAxMiAzOSAyOCAxNCAxNSAyOSAyNyAzMwoyOCA0IDAgMTggNSAzMiAxMSAxNCA2IDMyIDEzIDQwIDE2IDM4IDE0IDE2MSA2IDIxMSAtMTR6IG0tOTgyIC0yNTEgYzc2IC0yNAoxMDQgLTQyIDE2MSAtOTkgODEgLTg0IDEwNCAtMTQ3IDk4IC0yNzEgLTQgLTc2IC0xMCAtMTAyIC0zMSAtMTQwIC0zMCAtNTcKLTg5IC0xMjggLTEwNSAtMTI4IC03IDAgLTEyIC00IC0xMiAtOCAwIC0xMSAtODIgLTUxIC0xMDcgLTU0IC0xIDAgLTIzIC02Ci00OCAtMTQgLTUwIC0xNCAtMTAwIC0xMCAtMTI2IDEzIC05IDcgLTI0IDExIC0zMyA3IC0xOSAtNyAtNzYgMTQgLTc2IDI4IDAgNQotNCA3IC05IDQgLTEyIC04IC02MyAzMyAtNTYgNDUgNCA1IC0yIDYgLTEyIDIgLTEwIC0zIC0xNSAtMiAtMTEgMiA1IDUgLTEgMTQKLTExIDIyIC0xMSA3IC0zMyA0MSAtNTAgNzYgLTU1IDExMiAtNTMgMjQxIDUgMzQyIDQzIDc1IDE0OCAxNTcgMjI0IDE3NSA1MwoxMiAxNTkgMTIgMTk5IC0yeiBNMjM2MzcgNDE2OSBjNyAtNyAxNSAtMTAgMTggLTcgMyAzIC0yIDkgLTEyIDEyIC0xNCA2IC0xNQo1IC02IC01eiBNMjUxMzAgMTAwNiBjMCAtMiA4IC0xMCAxOCAtMTcgMTUgLTEzIDE2IC0xMiAzIDQgLTEzIDE2IC0yMSAyMSAtMjEKMTN6IE0yNDExNyA4MjkgYzcgLTcgMTUgLTEwIDE4IC03IDMgMyAtMiA5IC0xMiAxMiAtMTQgNiAtMTUgNSAtNiAtNXogTTI2Nzg1CjQ4MTYgYy0yMzMgLTU0IC00MDkgLTIxMyAtNDc4IC00MzEgLTMxIC05OCAtMzEgLTI1MiAwIC0zNTAgNjIgLTE5NSAyMTMgLTM0OAo0MDcgLTQxMiA3MCAtMjMgOTggLTI3IDIwMSAtMjcgMTAzIDAgMTMxIDQgMjAxIDI3IDI3MCA4OSA0NDggMzQ2IDQzMSA2MjIKLTIwIDMyMCAtMjgwIDU2OCAtNjA3IDU4MSAtNTkgMiAtMTE4IC0yIC0xNTUgLTEweiBtMjQxIC00NyBjMzIgLTUgMTAwIC0zMAoxNTAgLTU0IDMyNiAtMTU3IDQyMyAtNTYxIDIwNSAtODUwIC03MyAtOTcgLTIxMyAtMTg0IC0zMzkgLTIxMSAtMzAxIC02MwotNTg4IDEwMSAtNjg4IDM5NiAtMjggODMgLTI2IDI0MyA0IDMzMiA1MSAxNDcgMTU1IDI2NCAyOTcgMzMzIDEyNyA2MiAyMzcgNzgKMzcxIDU0eiBNMjY2MzggNDU1MCBjLTIgLTE0IC0yIC0xNzEgMCAtMzUwIGwzIC0zMjUgNTcgNSA1NyA1IDMgMTUzIDMgMTUyIDYyCjAgYzcxIDAgMTA5IC04IDEwMSAtMjEgLTMgLTUgMiAtOSAxMSAtOSA4IDAgMTkgLTggMjIgLTE3IDQgLTEwIDkgLTIwIDEyIC0yMwoxMCAtOCAxMjUgLTE4MyAxNDAgLTIxMiAxNCAtMjYgMTggLTI4IDgzIC0yOCA1NCAwIDY4IDMgNjggMTUgMCA4IC00IDE1IC0xMAoxNSAtNSAwIC0xMCA3IC0xMCAxNSAwIDggLTQgMTUgLTEwIDE1IC01IDAgLTEwIDQgLTEwIDkgMCAyMyAtNzggMTQwIC0xMjcKMTkwIC0yOSAzMCAtNTAgNTcgLTQ4IDYyIDMgNCAxOSAxMCAzNiAxNCA0NiAxMCA5NSA0NiAxMDggODAgNyAxNyAxNyAzOCAyMgo0NyAyNCA0NSAwIDExOSAtNTggMTc1IC01MCA0OSAtNjcgNTIgLTM0MCA1NiBsLTE3MSAyIC00IC0yNXogbTM4OSAtNzAgYzU0Ci0xOSA4NiAtMTAzIDUzIC0xNDMgLTU0IC02NiAtNDEgLTYyIC0xODYgLTY1IGwtMTM0IC00IDAgMTExIDAgMTExIDExOSAwIGM2NQowIDEzMSAtNSAxNDggLTEweiBNMTExMTUgNDQ5MiBjLTMzNCAtMSAtNTgzIC02IC01ODggLTExIC0xNSAtMTUgLTIwIC0xNDY0Ci02IC0xNTMxIDcgLTMwIDEzIC02MiAxNCAtNzAgMSAtOCAxMCAtMzMgMTkgLTU1IDEwIC0yMiAyNCAtNTYgMzEgLTc2IDcgLTIwCjE4IC00NSAyMyAtNTUgNiAtMTEgMjIgLTQ0IDM2IC03NSAyNSAtNTcgODQgLTE1MiAxMTEgLTE4MCA4IC05IDE1IC0yMyAxNQotMzIgMCAtOSA2IC0yMCAxMyAtMjQgNiAtNCAzMCAtMzAgNTIgLTU4IDIyIC0yNyA3MCAtNzggMTA3IC0xMTMgNDYgLTQ0IDY1Ci02OSA2MSAtODAgLTMgLTEyIC0yIC0xMyA0IC01IDEyIDE3IDU3IC0xMyA0OSAtMzQgLTMgLTggLTIgLTEyIDMgLTggNSAzIDIyCjAgMzggLTYgMjYgLTEwIDI3IC0xMSAxMCAtMjQgLTE2IC0xMSAtMTYgLTEzIC0yIC0xOSA5IC0zIDEzIC0yIDEwIDMgLTMgNSAtMQoxMiA0IDE2IDEzIDcgOTMgLTQ0IDg2IC01NiAtMyAtNCAwIC0xMSA2IC0xNSA4IC00IDkgLTMgNSA0IC00IDcgLTIgMTIgMyAxMgo2IDAgMTEgLTQgMTEgLTEwIDAgLTUgOCAtMTAgMTggLTEwIDEwIDAgMjMgLTUgMjkgLTExIDE3IC0xNyAxNjcgLTY4IDI2OCAtOTEKODkgLTIxIDEwOSAtMjEgMTU4MCAtMjUgMTUzMSAtNCAxNzk5IDEgMTg4NSAzMyA4IDMgMjkgOCA0NSAxMSAxNyAzIDUzIDE1IDgwCjI4IDI4IDEyIDY2IDI4IDg1IDM2IDE5IDcgNDUgMjIgNTcgMzQgMTMgMTEgNDQgMzEgNzAgNDUgNDYgMjQgNjUgMzkgMTQyIDEwOQoxOSAxNyAzNyAzMSA0MSAzMSA0IDAgMTIgMTIgMTggMjYgOCAxNiAxNyAyMiAyNSAxOCA2IC00IDkgLTMgNCAxIC00IDUgNiAyMgoyMiAzOSAxNSAxNyA0NSA1NiA2NSA4NiA0NiA3MSA1NiA4MSA2NSA3NiA0IC0zIDUgOCAzIDI1IC0zIDE3IDAgMjkgNyAyOSA2IDAKMTAgMyA5IDggMCA0IDYgMjQgMTUgNDQgOSAyMCAyOSA3NiA0NCAxMjUgbDI4IDg4IDAgODcwIDAgODcwIC01ODkgMCAtNTg4IDAKLTMgLTU0NSAtMyAtNTQ1IC0yNiAtNzkgYy0xNSAtNDMgLTM2IC05MCAtNDYgLTEwNCAtMTEgLTEzIC0yMCAtMzAgLTIwIC0zNgotMSAtNDggLTI0OSAtMjcwIC0yODEgLTI1MCAtNyA0IC05IDMgLTYgLTMgNCAtNiAtMyAtMTQgLTE2IC0xNyAtMTIgLTQgLTQ3Ci0xNSAtNzcgLTI0IC01MCAtMTYgLTEzOSAtMTcgLTEwMjAgLTE3IC05MzEgMCAtOTY3IDEgLTEwMjUgMjAgLTU1IDE4IC0xMTgKNTYgLTE3MSAxMDQgLTEyIDExIC0yNCAxOCAtMjcgMTUgLTIgLTIgLTEwIDMgLTE4IDEzIC0xMiAxNSAtMTIgMTYgMSA5IDggLTUKMiA0IC0xMyAyMCAtNjIgNjQgLTEwNyAxMTkgLTEyMSAxNDggLTUwIDEwOSAtNjUgMTQ3IC03NSAxOTUgLTggMzcgLTExIDIxNwotMTEgNTc5IDEgMjg4IDAgNTI1IC0yIDUyNiAtMiAwIC0yNjQgMCAtNTgzIC0yeiBNMjUwMCA0NDc1IGMwIC01IC0xIC01OTMgLTEKLTEzMDUgMCAtOTk3IC0zIC0xMzA3IC0xMiAtMTM0OCAtNyAtMjkgLTE1IC01MSAtMTcgLTQ4IC0zIDIgLTYgLTYgLTYgLTE5IC0yCi0yNiAtNTEgLTEzMiAtNjUgLTE0MSAtNSAtMyAtNyAtMTAgLTQgLTE1IDYgLTggLTggLTEzIC0yNyAtMTAgLTQgMCAtNSAtNiAtMgotMTQgNSAtMTEgMSAtMTQgLTEyIC05IC0xNCA0IC0xNiAzIC01IC00IDExIC04IDEwIC0xNCAtNCAtMzYgLTkgLTE0IC0yMiAtMjMKLTI4IC0xOSAtNSAzIC03IDEgLTQgLTQgNCAtNiAtMTggLTMxIC00OSAtNTcgLTU0IC00NCAtODMgLTU5IC02OCAtMzQgNCA3IDMKOCAtNCA0IC02IC00IC05IC0xMiAtNiAtMTkgNSAtMTMgLTgxIC02MyAtMTIxIC03MCAtMTEgLTIgLTM4IC0xMiAtNjAgLTIyCi0yMiAtMTAgLTYyIC0xOSAtOTAgLTIxIC0yNyAtMSAtNDcwIC0zIC05ODIgLTMgbC05MzMgLTEgMCAtNTIwIDAgLTUyMCAxMzA4CjMgYzk5NSAyIDEzMjQgNiAxMzc3IDE1IDM5IDcgNzkgMTQgOTAgMTUgMTEgMSAyNiA4IDMzIDE0IDEzIDEyIDQ2IDE4IDg1IDE1CjEwIC0xIDE2IDIgMTMgNyAtMyA1IDYgMTQgMjIgMjAgNDEgMTcgMTM0IDcxIDE2NCA5NyAxNiAxMiAzNyAyNSA0OCAyOSAxMSAzCjIwIDExIDIwIDE2IDAgNSAzIDggOCA3IDQgLTIgMTggNiAzMSAxNyA0NSAzNyAxNDYgMTI4IDE4MCAxNjEgMTggMTkgMzcgMzEKNDIgMjggNSAtMyA2IDEgMyA5IC0zIDggNiAyMyAyMSAzNSAxNCAxMSAyNiAyMyAyNiAyNiAtMSAxNiAxMiAzNSAyMCAzMCA1IC0zCjggLTIgNyAzIC0zIDExIDUyIDkzIDYzIDkzIDUgMCA4IDYgNiAxMyAtMSA2IDQgMTEgMTEgOSA4IC0xIDExIDEgOCA2IC01IDkKNDcgMTI0IDY4IDE1MSA2IDggMTYgMzIgMjIgNTUgNyAyMyAyMSA3MyAzMyAxMTIgMjAgNzIgMjAgNzkgMjAgMTY0OCAwIDg2NyAzCjE1ODEgNiAxNTg2IDMgNSAtNCAxMiAtMTcgMTUgLTQ0IDEwIC0xMjE4IDEwIC0xMjE4IDB6IE00MzAzIDQ0NzcgYy0zIC00IC02Ci0yNDQgLTYgLTUzMyAtMiAtNDYzIDAgLTUyMyAxMyAtNTE3IDIyIDEyIDM5MjEgMTAgMzk0NSAtMSAxMSAtNSAzMSAtMTAgNDUKLTExIDE0IC0xIDM0IC01IDQ1IC05IDExIC00IDMyIC0xMiA0OCAtMTggMTUgLTYgMjcgLTE0IDI3IC0xOSAwIC01IDcgLTkgMTUKLTkgOCAwIDI0IC05IDM1IC0yMCAxMSAtMTEgMjIgLTIwIDI1IC0yMCAxOSAtMSAzMyAtMTQgMjggLTI2IC0zIC05IDIgLTE0IDE0Ci0xNCAxOSAwIDUzIC0yOCA1MyAtNDQgMCAtNSAxMSAtMTYgMjQgLTI3IDMwIC0yMyA5MCAtMTQ5IDEwNSAtMjE3IDExIC01MSAxNgotNDEyIDYgLTQxMiAtMiAwIC0zMyAyOCAtNjggNjMgLTc5IDc3IC0xNDggMTM3IC0xNTggMTM3IC01IDAgLTQ1IDE4IC05MSA0MAotNDYgMjIgLTk1IDQwIC0xMTAgNDAgLTE1IDAgLTM4IDQgLTUzIDEwIC0xNyA2IC02MzMgMTAgLTE3NDAgMTAgbC0xNzE0IDAKLTc4IC0yNiBjLTQzIC0xNSAtOTQgLTM4IC0xMTQgLTUwIC0yMCAtMTMgLTQwIC0yMCAtNDUgLTE2IC00IDQgLTQgMiAwIC01IDMKLTcgLTIgLTE0IC0xMyAtMTggLTI1IC04IC0xMDEgLTc3IC0xMDEgLTkyIDAgLTYgLTExIC0xOCAtMjUgLTI3IC0xNCAtOSAtMjUKLTIzIC0yNSAtMzEgMCAtOCAtNyAtMTUgLTE2IC0xNSAtOCAwIC0xMiAtNSAtOSAtMTEgNCAtNiAtMiAtMjAgLTEzIC0zMiAtMTIKLTEyIC0yMSAtMjYgLTIwIC0zMCAxIC0xNiAtMjUgLTY3IC0zMiAtNjIgLTQgMiAtNyAtOSAtOCAtMjQgMCAtMTYgLTkgLTYwCi0xOCAtOTggLTE3IC02MiAtMTggLTEyOSAtMTYgLTgyMSAxIC00MTQgNCAtNzY1IDcgLTc4MCAxOSAtODcgMjkgLTEyMiA1MgotMTY5IDE0IC0yOSAyOSAtNTMgMzQgLTUzIDUgMCAxMSAtMTAgMTQgLTIzIDMgLTEyIDI0IC0zOCA0NSAtNTYgMjIgLTE4IDM3Ci0zNyAzNCAtNDIgLTMgLTUgMiAtOSAxMCAtOSA4IDAgMjAgLTkgMjYgLTIxIDcgLTExIDE0IC0xOCAxNyAtMTUgMyAzIDE4IC0zCjMzIC0xNCAxNiAtMTEgMzIgLTIwIDM4IC0yMCA1IDAgMTkgLTkgMzIgLTIwIDEzIC0xMSAzMSAtMjAgNDIgLTIwIDEwIDAgMjYKLTQgMzYgLTEwIDY2IC0zNiAxMDYgLTM3IDE5MDcgLTM2IGwxNzUwIDIgNjUgMjQgYzM2IDEzIDcwIDI2IDc1IDMwIDEzIDkgNjcKMjQgNzggMjEgNSAtMSA2IDMgMyA4IC0zIDQgMjUgMzMgNjMgNjIgMzggMzAgNzcgNjggODcgODQgbDE5IDMwIDMgLTEyNiAzCi0xMjcgMzAgLTQgYzUxIC04IDEyMjQgLTIgMTIzNiA1IDkgNiAxMiAzNjEgMTIgMTQzNSAxIDE0NTggLTIgMTU4MCAtMzkgMTY3NwotNSAxNCAtNiAyNSAtMyAyNSA0IDAgMiA1IC01IDEyIC03IDcgLTEyIDE5IC0xMiAyNyAtMSA5IC05IDM0IC0yMCA1NiAtMTEgMjIKLTE5IDQ4IC0yMCA1NyAwIDkgLTQgMTkgLTEwIDIzIC0xMCA2IC04NSAxNTUgLTg1IDE2OSAwIDUgLTExIDIyIC0yNSAzNyAtNDEKNDQgLTQ3IDU0IC00NSA3NiAxIDE0IC0zIDE5IC0xMiAxNiAtNyAtMyAtMTcgNiAtMjMgMjEgLTUgMTQgLTEzIDI2IC0xOCAyNgotOSAwIC00OCA2MiAtNDQgNzIgMSA1IC0xIDcgLTYgNiAtMTAgLTQgLTIxOCAyMDMgLTIxNCAyMTQgMSA1IC0yIDcgLTYgNCAtNQotMyAtMjEgNSAtMzUgMTggLTE1IDE0IC0zNiAyNyAtNDcgMzEgLTExIDMgLTIwIDEzIC0yMCAyMSAwIDggLTEwIDE0IC0yNSAxNAotMTMgMCAtMjkgOCAtMzQgMTggLTYgOSAtMTEgMTMgLTExIDcgMCAtNSAtNCAtNSAtOCAyIC05IDE0IC0xNjEgOTMgLTE4MCA5MwotOCAwIC0yNiA2IC00MCAxNCAtMzEgMTcgLTExMiA0MiAtMTY4IDUzIC01MyAxMCAtNDU0NSAyMCAtNDU1MSAxMHogbTM5MzUKLTI2NTQgYzIzIC04IDQyIC0yMCA0MiAtMjUgMCAtNSA1IC02IDExIC0zIDE0IDkgNTAgLTI1IDQyIC0zOSAtNCAtNyAtMSAtNyA3CjEgMTQgMTMgMjEgOSA3MyAtNDQgNDQgLTQzIDU3IC02MCA1NyAtNzMgMCAtNiAtNiAtOCAtMTIgLTUgLTcgNCAtNiAwIDMgLTcgOQotNyAxOSAtMjcgMjMgLTQ0IDkgLTM5IC04IC0xMTUgLTI4IC0xMzAgLTkgLTYgLTEzIC0xMyAtMTAgLTE2IDEwIC0xMCAtNjUKLTgwIC03NyAtNzIgLTcgNCAtMTAgMyAtNyAtMiA1IC04IC0yMyAtNDMgLTI5IC0zNiAtMiAxIC0xNSAtNiAtMzAgLTE1IC0yNgotMTcgLTEwMyAtMTggLTEzMTAgLTIxIC0xMzY2IC0yIC0xMjkyIC01IC0xMzY5IDQxIC00MyAyNiAtOTAgODkgLTc5IDEwNyAzIDUKMCAxMiAtNiAxNiAtOCA1IC0xMCAyIC01IC03IDQgLTggMSAtNiAtNyA0IC0xOSAyMyAtMzEgMTA2IC0yMiAxNDggMTAgNDUgNDIKMTE0IDYwIDEyOSA4IDcgMTUgMTggMTUgMjUgMCAxNSAxOSAzMiA0MCAzNyA4IDIgMTcgNiAyMCA5IDMgMyAxOSAxMyAzNSAyMgoyNyAxNSAxNDkgMTYgMTI3NSAxNiAxMTIzIDEgMTI0OSAtMSAxMjg4IC0xNnogTTE5MTUwIDQ0ODAgYy0xOTk5IC02IC0xODQwCi0xIC0xOTcyIC01OSAtMjcgLTExIC00OCAtMTggLTQ4IC0xNCAwIDMgLTYgMCAtMTMgLTYgLTggLTYgLTE3IC04IC0yMCAtNCAtNAozIC03IDEgLTcgLTYgMCAtNiAtMTEgLTE2IC0yNCAtMjEgLTEzIC01IC01NyAtMzAgLTk3IC01NiAtNDEgLTI2IC03NSAtNDYKLTc3IC00NSAtMiAyIC03IC0xIC0xMCAtNSAtNCAtNCAtMSAtNCA3IDEgOCA1IDEyIDQgOCAtMSAtMyAtNSAtMjIgLTE4IC00MgotMjkgLTM0IC0xNyAtMjYwIC0yMzMgLTI5NSAtMjgwIC04IC0xMSAtMzIgLTQyIC01MyAtNjggLTIxIC0yNiAtMzUgLTQ3IC0zMAotNDcgNCAwIDAgLTUgLTEwIC0xMSAtOSAtNiAtMTUgLTE0IC0xMyAtMTggMyAtNCAtMiAtMTcgLTEyIC0yNyAtMjQgLTI4IC0xMDcKLTE5OSAtMTA0IC0yMTUgMSAtNCAtOCAtMzkgLTE5IC03OSAtMTkgLTcwIC0yMCAtMTAyIC0xOSAtMTA4OSAwIC0xMDQ1IDEKLTEwNTMgMzkgLTExODEgMzEgLTEwNiA0MCAtMTQzIDM1IC0xNTEgLTMgLTUgMiAtNiAxMCAtMyA5IDMgMTYgMSAxNiAtNSAwIC03CjkgLTMxIDIwIC01MyAxMSAtMjMgMjAgLTQ3IDIwIC01MiAwIC0xMyA3NiAtMTI0IDEyMSAtMTc4IDE3IC0yMCAzMCAtMzkgMzAKLTQyIC0yIC0xMCAxMTQgLTEyMyAxMjEgLTExOSAxMCA1IDMwIC0zNiAyMyAtNDcgLTMgLTUgMCAtOCA3IC01IDcgMyAyNSAtMwozOSAtMTIgODEgLTU1IDEwNiAtNzMgMTI5IC05NCAxMyAtMTMgMjYgLTIzIDI3IC0yMSA4IDYgMjQgMCA0MCAtMTYgMTAgLTEwCjM3IC0yNCA2MSAtMzEgMjMgLTYgNDIgLTE2IDQyIC0yMSAwIC02IDggLTEwIDE4IC0xMCAxMCAwIDQxIC0xMSA2OCAtMjUgMjcKLTE0IDU4IC0yNSA2OSAtMjUgMTEgMCA0MCAtNyA2NSAtMTYgNDEgLTE0IDE1NyAtMzQgMzE1IC01MiA0NyAtNiAzMTcwIC05CjMzNzggLTMgbDQ3IDEgLTIgNTI4IC0zIDUyNyAtMTUwMCA1IGMtMTQyMiA1IC0xNTAzIDYgLTE1NTAgMjMgLTg0IDMxIC0xMzkKNTkgLTE2NyA4NCAtMTQgMTQgLTI5IDI1IC0zMiAyNCAtMyAtMSAtNiAxIC02IDQgMSAxMyAtMjYgMzIgLTM3IDI4IC0xMiAtNQotMTcgOCAtMTQgMjkgMCA0IC02IDUgLTE0IDIgLTggLTQgLTE1IC0xIC0xNSA0IDAgNiAtMTEgMjQgLTI1IDM5IC00MCA0NSAtNDUKNTIgLTQ1IDU5IDAgNCAtNiAxNSAtMTMgMjMgLTE0IDE2IC00OSAxMDIgLTU0IDEzMSAtMiA4IC03IDQwIC0xMiA3MCAtMTIgNjkKLTEzIDEwMjcgLTEgMTA5NSAxNCA4MCAxNiA4OSAyOCA5MyA3IDIgMTIgMTMgMTIgMjUgMCAzMSAxNSA1MSAzMCA0MiA5IC01IDExCi00IDYgMyAtOSAxNSA0MiAxMDIgNjAgMTAyIDggMCAxNCA5IDE0IDIwIDAgMTIgMTAgMjUgMjUgMzIgMTMgNiAyMiAxNSAxOSAxOQotMiA0IDggMTYgMjMgMjYgMTUgMTAgMzYgMjggNDYgNDAgMTAgMTMgMjUgMjMgMzMgMjMgOCAwIDE0IDUgMTQgMTAgMCA2IDYgMTAKMTQgMTAgOCAwIDE2IDMgMTggOCA0IDEwIDEwNSA2MiAxNDMgNzQgMTIyIDM4IDE0NSAzOCAxNTc5IDM4IDc2NCAtMSAxMzkwIDEKMTM5MiAzIDMgMiA1IDIyNSA3IDQ5NCAxIDM3MyAtMSA0OTMgLTEwIDUwMiAtNyA2IC0xMyAxMCAtMTUgOSAtMiAtMiAtODI5IC01Ci0xODM4IC04eiBNMTIxNTAgMTI2MCBjLTQgLTQwMiAyIC0xMDE1IDEwIC0xMDIwIDEzIC04IDIwNDcgLTYgMjA1NSAyIDQgMyA2CjIzNSA2IDUxNSBsMCA1MDggLTEwMzYgMyBjLTY4OCAxIC0xMDM1IC0xIC0xMDM1IC04eiBNMjE5MzYgOTIyIGMtMyAtNSAxIC05CjkgLTkgOCAwIDEyIDQgOSA5IC0zIDQgLTcgOCAtOSA4IC0yIDAgLTYgLTQgLTkgLTh6Ii8+CjwvZz4KPC9zdmc+Cg==",
+    alt: "JAYCO",
+    style: {
+      height: "40px",
+      display: "block",
+      margin: "0 auto 16px"
+    }
+  }), React.createElement("p", {
+    style: {
+      color: "var(--text-dim)",
+      fontSize: "13px",
+      marginBottom: "20px"
+    }
+  }, "Enter PIN to continue"), React.createElement("input", {
+    type: "password",
+    inputMode: "numeric",
+    autoFocus: true,
+    value: pin,
+    onChange: e => {
+      setPin(e.target.value);
+      setError(false);
+    },
+    style: {
+      ...inputStyle,
+      textAlign: "center",
+      letterSpacing: "6px",
+      fontSize: "20px",
+      marginBottom: "12px",
+      borderColor: error ? "var(--accent-red)" : "var(--border)"
+    }
+  }), error && React.createElement("div", {
+    style: {
+      color: "var(--accent-red)",
+      fontSize: "13px",
+      marginBottom: "12px"
+    }
+  }, "Wrong PIN, try again"), React.createElement(Button, {
+    type: "submit",
+    full: true
+  }, "Unlock")));
+}
+const NAV_GROUPS = [{
+  label: "OVERVIEW",
+  items: [{
+    id: "dashboard",
+    label: "📊 Dashboard"
+  }]
+}, {
+  label: "MASTERS",
+  items: [{
+    id: "vendors",
+    label: "👥 Vendors"
+  }]
+}, {
+  label: "TRANSACTIONS",
+  items: [{
+    id: "invoices",
+    label: "📄 Invoices"
+  }, {
+    id: "payments",
+    label: "💰 Payments"
+  }]
+}, {
+  label: "REPORTS",
+  items: [{
+    id: "outstanding",
+    label: "📋 Outstanding"
+  }, {
+    id: "cashflow",
+    label: "📉 Cash Outflow"
+  }, {
+    id: "advance",
+    label: "⚡ Advance Report"
+  }, {
+    id: "ledger",
+    label: "📖 Vendor Ledger"
+  }]
+}, {
+  label: "TOOLS",
+  items: [{
+    id: "import",
+    label: "📥 Excel Import"
+  }]
+}];
+function Shell({
+  active,
+  onNavigate,
+  children,
+  onSearch
+}) {
+  const [searchValue, setSearchValue] = useState("");
+  function handleSearchSubmit(e) {
+    e.preventDefault();
+    if (onSearch) onSearch(searchValue);
+  }
+  return React.createElement("div", {
+    style: {
+      display: "flex",
+      minHeight: "100vh"
+    }
+  }, React.createElement("aside", {
+    style: {
+      width: "220px",
+      flexShrink: 0,
+      background: "var(--bg-panel)",
+      borderRight: "1px solid var(--border)",
+      padding: "20px 14px",
+      position: "sticky",
+      top: 0,
+      height: "100vh",
+      overflowY: "auto"
+    }
+  }, React.createElement("div", {
+    style: {
+      marginBottom: "20px",
+      paddingLeft: "8px"
+    }
+  }, React.createElement("img", {
+    src: "data:image/svg+xml;base64,PHN2ZyB2ZXJzaW9uPSIxLjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyIKIHdpZHRoPSIxMDAlIiBoZWlnaHQ9IjEwMCUiIHZpZXdCb3g9IjAgMCAyNzYyLjAwMDAwMCA0OTguMDAwMDAwIgogcHJlc2VydmVBc3BlY3RSYXRpbz0ieE1pZFlNaWQgbWVldCI+CjxnIHRyYW5zZm9ybT0idHJhbnNsYXRlKDAuMDAwMDAwLDQ5OC4wMDAwMDApIHNjYWxlKDAuMTAwMDAwLC0wLjEwMDAwMCkiCmZpbGw9IiNlNTMyMmQiIHN0cm9rZT0ibm9uZSI+CjxwYXRoIGQ9Ik0yMzczNCA0OTUwIGMtNjYgLTUgLTEzOSAtMTMgLTE2MiAtMTkgLTIyIC02IC00NCAtMTAgLTQ5IC05IC00IDIKLTMzIC0zIC02MyAtOSAtMTMwIC0yOSAtMjA2IC00NSAtMjI3IC00OCAtMTMgLTEgLTI4IC03IC0zNSAtMTIgLTcgLTUgLTQwCi0xOCAtNzMgLTI3IC0zMyAtMTAgLTkzIC0zMSAtMTMyIC00NyAtNDAgLTE2IC04MCAtMjkgLTg4IC0yOSAtOSAwIC0xOCAtNwotMjEgLTE1IC00IC04IC0xMiAtMTUgLTE5IC0xNSAtMjQgMCAtMTQwIC01OSAtMjI1IC0xMTUgLTQ3IC0zMCAtOTcgLTYwIC0xMTIKLTY2IC0xNiAtNiAtMjggLTE1IC0yOCAtMTkgMCAtNCAtMTkgLTE5IC00MiAtMzMgLTUxIC0zMCAtMTI1IC05MCAtMjI3IC0xODQKLTEyNCAtMTE0IC0xNDcgLTEzOCAtMTU0IC0xNTYgLTQgLTExIC0xMiAtMTUgLTE4IC0xMSAtNyA0IC05IDMgLTYgLTMgNCAtNgotNCAtMjIgLTE4IC0zNyAtMTQgLTE1IC01MSAtNTkgLTgyIC05OSAtMzIgLTQwIC02NCAtNzggLTcwIC04NSAtNyAtNyAtMTMKLTE3IC0xMyAtMjIgMCAtNSAtMTMgLTIzIC0zMCAtNDEgLTE2IC0xOCAtMjcgLTM1IC0yNSAtMzcgNSAtNSAtMzQgLTYzIC01MAotNzQgLTUgLTQgLTYgLTggLTIgLTggNSAwIC0xIC0xNiAtMTMgLTM1IC0xMiAtMjAgLTM1IC02MiAtNTAgLTk0IC0xNiAtMzMKLTMzIC02MiAtMzkgLTY1IC01IC00IC0xMiAtMTkgLTE2IC0zNiAtMyAtMTYgLTE3IC01MSAtMjkgLTc3IC0xMyAtMjYgLTI3Ci01OSAtMzAgLTczIC00IC0xNCAtMTYgLTQ3IC0yNiAtNzUgLTEwIC0yNyAtMjQgLTcwIC0zMCAtOTUgLTcgLTI1IC0xOSAtNjMKLTI2IC04NSAtMTIgLTM0IC0yNyAtMTE1IC01OCAtMzAwIC0zIC0xNiAtMTAgLTkzIC0xNyAtMTcwIC05IC0xMTYgLTggLTE3MiA1Ci0zMjUgOSAtMTAyIDIzIC0yMjUgMzIgLTI3NSA4IC00OSAxNyAtMTAzIDE5IC0xMTggMyAtMTUgOSAtMzYgMTUgLTQ3IDUgLTEwCjE1IC00MiAyMSAtNzIgNSAtMjkgMTQgLTYzIDIwIC03NSAxMCAtMjUgMTQgLTM1IDU0IC0xMzggMTUgLTM4IDM0IC04NCA0MQotMTAyIDggLTE3IDE0IC0zNiAxNCAtNDIgMCAtNyA5IC0yNSAyMSAtNDAgMTIgLTE2IDIyIC00MCAyMiAtNTQgMSAtMTQgNSAtMjMKMTAgLTIwIDQgMiAxNCAtMTIgMjMgLTMzIDkgLTIxIDI3IC01MiA0MCAtNjkgMTMgLTE4IDI0IC0zNSAyNCAtMzggMCAtNCAyMwotMzkgNTAgLTc5IDI4IC00MCA0OCAtNzkgNDUgLTg2IC0zIC03IC0xIC0xMSAzIC04IDUgMyAxNyAtNSAyNyAtMTcgMTEgLTEyCjE4IC0yMiAxNiAtMjIgLTUgMCAxMDcgLTEyMyAxOTcgLTIxNiA1MSAtNTIgODkgLTk5IDg1IC0xMDMgLTUgLTQgLTEgLTYgNyAtNAo4IDIgMTQgLTIgMTMgLTggLTEgLTcgMTAgLTE4IDI2IC0yNSAzNSAtMTcgMTAxIC03NSAxMDEgLTg4IDAgLTYgNiAtOCAxNCAtNQo3IDMgMjMgLTYgMzMgLTIwIDExIC0xNCAyMiAtMjMgMjUgLTIxIDIgMyAyMSAtMTAgNDEgLTI5IDIwIC0xOSAzNyAtMzEgMzcKLTI3IDAgMyA0IDIgOCAtNCA4IC0xMSAyOSAtMjUgODIgLTU0IDE5IC0xMCA0NiAtMjggNTkgLTQwIDEzIC0xMiAzMiAtMjEgNDEKLTIxIDEwIDAgMjMgLTYgMjkgLTE0IDcgLTggMjMgLTE3IDM2IC0yMCAxNCAtNCA0MSAtMTcgNjEgLTMxIDIwIC0xNCA0MyAtMjUKNTEgLTI1IDcgMCAyMSAtNCAzMSAtOSA0NyAtMjUgMjIzIC05MCAzMDIgLTExMiAyNSAtNiA2NCAtMTggODcgLTI1IDI0IC04IDg5Ci0yMSAxNDUgLTMwIDU3IC04IDEyNiAtMjAgMTUzIC0yNiAyOSAtNSAxNzAgLTggMzM1IC02IDMyOSA1IDQ2MiAyMSA2NjUgODQKMjggOSA2NiAyMCA4NSAyNiAxOSA1IDQ0IDEzIDU1IDE3IDExIDUgMzMgMTQgNTAgMjAgMTYgNyA1NiAyMiA5MCAzMyAzMyAxMgo2OSAyNyA4MCAzNCAxMSA4IDMwIDE0IDQyIDE0IDEzIDAgMjIgMyAyMCA4IC0xIDQgMSA3IDQgNyAzIDAgMTMgOCAyMyAxOCAxMAo5IDIyIDE1IDI3IDEyIDUgLTQgOSAtMiA5IDMgMCA0IDE3IDE1IDM3IDIzIDIxIDggNTcgMjkgODAgNDYgNDYgMzUgNjMgNDEgNjMKMjEgMCAtOSAzIC04IDkgMiA2IDggOCAxNyA1IDIxIC01IDkgMTA2IDg5IDEyMyA4OSA3IDAgMTMgNCAxMyA5IDAgNSA5IDEzIDIwCjE2IDExIDQgMTggMTEgMTUgMTYgLTQgNSAtMiA5IDMgOSA1IDAgMjUgMTUgNDQgMzMgMTkgMTcgNTYgNTAgODIgNzIgMjcgMjIKNTggNTEgNzAgNjQgMTEgMTMgNDEgNDQgNjYgNzAgMjUgMjUgNjggNzMgOTYgMTA2IDYzIDc2IDg2IDEwNCA5OSAxMTkgNiA2IDE2CjIzIDI0IDM4IDggMTUgMTkgMjUgMjQgMjEgNiAtMyA3IC0yIDQgNCAtMyA1IDUgMjIgMTkgMzggMTMgMTUgMjQgMzMgMjQgNDAgMAo3IDkgMjAgMjAgMzAgMTEgMTAgMjAgMjYgMjAgMzYgMCAxMCA2IDIyIDE0IDI2IDggNCAyMSAyNSAzMCA0NiA4IDIxIDIwIDM2CjI2IDMyIDYgLTMgNyAwIDQgOSAtMyA5IC0xIDE2IDUgMTYgNyAwIDExIDYgOSAxMyAtMSA2IDcgMzIgMTkgNTcgMTIgMjUgMjcKNTcgMzIgNzMgNiAxNSAxNiAyNyAyMiAyNyA2IDAgOCA3IDUgMTYgLTQgOSAwIDI2IDcgMzggNyAxMiAxOSA0MCAyNyA2NCA3IDIzCjE3IDQyIDIyIDQyIDUgMCA3IDQgNCA5IC0zIDQgMyAzNyAxNCA3MiA0MyAxNDggNTIgMTgwIDYyIDI0MSA1IDM0IDE0IDg4IDE5CjExOCAyNSAxNjEgMzMgMzQ2IDIxIDUzNSAtNyAxMDQgLTE3IDIxMCAtMjMgMjM1IC01IDI1IC0xMiA2MSAtMTQgODAgLTIgMTkKLTExIDYwIC0yMCA5MCAtOSAzMCAtMjcgOTMgLTQwIDE0MCAtMzIgMTE2IC03NSAyMjggLTEyOCAzMzUgLTI0IDUwIC01MyAxMDgKLTYzIDEzMCAtMTAgMjIgLTM4IDcyIC02MyAxMTAgLTI2IDM5IC01NyA5MiAtNzEgMTE4IC0xMyAyNyAtMzIgNTQgLTQyIDYyCi0xMSA3IC0xOCAxOCAtMTYgMjYgMiA3IC0yIDEzIC05IDE0IC03IDAgLTI0IDE2IC0zOCAzNSAtMzggNTIgLTk1IDExOCAtMTM1CjE1NiAtMTkgMTkgLTI5IDM0IC0yMiAzNCA3IDAgMTAgNSA3IDEwIC00IDYgLTExIDggLTE2IDQgLTYgLTMgLTM4IDIwIC03MSA1MgotMzQgMzMgLTgwIDc3IC0xMDMgMTAwIC0yMyAyMiAtNTggNTEgLTc4IDYzIC0yMSAxMiAtMzcgMjcgLTM3IDMyIDAgNiAtNCA4Ci05IDUgLTQgLTMgLTI4IDEyIC01MSAzNCAtMjQgMjIgLTQ5IDQwIC01NyA0MCAtNyAwIC0xMyAzIC0xMyA4IDAgNCAtMjIgMTcKLTUwIDMwIC0yNyAxMyAtNTAgMjcgLTUwIDMyIDAgNiAtNyAxMCAtMTUgMTAgLTggMCAtMTUgNSAtMTUgMTEgMCA1IC00IDggLTkKNSAtNSAtNCAtMTEgLTIgLTEzIDMgLTEgNCAtNDggMjkgLTEwMyA1NSAtNTUgMjYgLTEwOCA1MSAtMTE4IDU3IC0xNiA4IC0xMjQKNTIgLTEzNyA1NCAtMzUgNyAtOTAgMzAgLTkwIDM3IDAgNSAtOCA4IC0xNyA3IC0yMiAtMyAtMTA0IDE5IC0xMjAgMzMgLTcgNQotMTcgNyAtMjIgMyAtNiAtMyAtMjggLTIgLTQ4IDQgLTg2IDIyIC0yNTkgNTEgLTMzMyA1NSAtMjAzIDEyIC0yODkgMTMgLTM5Ngo2eiBtMzE0IC0yMjIgYzI4IC0xMSA1MyAtMjQgNTMgLTI5IDEgLTUgMiAtMTQgMyAtMjEgMCAtNyAxNCAtMTMgMjkgLTEzIDM0Ci0yIDUxIC0yMyAzNSAtNDIgLTggLTExIC03IC0xMiA3IC03IDE0IDYgMTYgNCAxMCAtNiAtNSAtOCAtNCAtMTEgMyAtNiAxMyA4CjQ0IC0zNiA2NCAtOTQgNDYgLTEzMCAyMyAtMjU1IC02OCAtMzY2IC0zNyAtNDUgLTEyNyAtOTkgLTE1MCAtOTAgLTEwIDQgLTEzCjIgLTggLTYgNSAtOCAyIC05IC0xMCAtNSAtOSA0IC0xNSAzIC0xMiAtMiA5IC0xNCAtMjEgLTIxIC05NSAtMjEgLTQyIDAgLTgxCjYgLTk4IDE1IC0xNiA4IC0zMSAxMiAtMzMgOSAtMyAtMiAtMTYgNiAtMjkgMjAgLTEyIDEzIC0yOSAyMiAtMzYgMTkgLTE3IC03Ci01NSAyNiAtNDYgNDAgMyA1IDIgNyAtNCA0IC0xMCAtNyAtNjAgNDIgLTY1IDY0IC0yIDggLTYgMTcgLTExIDIwIC00IDMgLTE3CjMyIC0yOCA2NSAtMTYgNDYgLTIwIDcyIC0xNSAxMTkgOCA3NSAxMyAxMTAgMTUgMTEwIDIgMCA0IDggNiAxOCA0IDIwIDI2IDU2CjU4IDk0IDQzIDUyIDU4IDY0IDcwIDU3IDcgLTQgOSAtMyA0IDEgLTE0IDE3IDgwIDY0IDE0NSA3MyA3NyAxMSAxMzcgNSAyMDYKLTIweiBtLTk5NSAtMjQzIGM4IC04IDI3IC0xNiA0MSAtMTkgMjggLTUgOTYgLTQzIDEwOCAtNjAgNCAtNiA0IC0xNCAyIC0xOAotMyAtNCAwIC04IDYgLTggNiAwIDggLTUgNCAtMTIgLTQgLTYgLTMgLTggMyAtNSAxOCAxMSA1MCAtMzYgNzcgLTExMiAyMyAtNjIKMjUgLTgzIDIwIC0xNDAgLTggLTgzIC0yOSAtMTQ1IC02MyAtMTkxIC00NiAtNjEgLTU5IC03MyAtNzkgLTY4IC0xMyA0IC0xOSAxCi0xOCAtMTAgMSAtMTcgLTUwIC01MCAtNzkgLTUxIC0xMiAtMSAtMjYgLTYgLTMzIC0xMyAtMTUgLTE1IC0xMjcgLTE5IC0xNzIKLTYgLTExMyAzMiAtMTkwIDkyIC0yNDggMTkyIC0xMiAyMSAtMjAgNDEgLTE3IDQ0IDMgMyAwIDExIC02IDE4IC01IDcgLTEyIDQyCi0xNSA3OSAtNCA2NiA2IDExOCAzOSAxOTUgMTkgNDQgNzUgMTAyIDkxIDkzIDYgLTMgOCAtMyA0IDIgLTEzIDE0IDExIDQzIDQyCjUwIDE2IDQgMzAgMTEgMzAgMTUgMCAxMSA3MCAzMSA4MiAyNCA0IC0zIDggMCA4IDUgMCAxOCAxNTYgMTQgMTczIC00eiBtMTkwMQo5IGM5IC0zIDEzIC0xMSA5IC0xNyAtMyAtNSAtMSAtNyA1IC0zIDEwIDYgODAgLTIxIDkyIC0zNSAzIC00IDE0IC05IDI2IC0xMwozOSAtMTIgMTI4IC0xNDcgMTM2IC0yMDcgMiAtMTMgNyAtMzAgMTIgLTM3IDE1IC0yNSAtMTUgLTE4MSAtNDYgLTIzMiAtMjIKLTM3IC04MyAtMTAwIC05NiAtMTAwIC02IDAgLTEyIC01IC0xMiAtMTEgMCAtNiAtNyAtOCAtMTYgLTUgLTkgMyAtMTIgMiAtOQotNCA4IC0xMyAtNjIgLTQzIC04MSAtMzYgLTggMyAtMTMgMCAtMTEgLTcgMyAtMTYgLTgyIC0yNCAtMTU4IC0xNCAtMzYgNCAtNzQKMTcgLTk3IDMyIC0yMSAxNCAtNDUgMjUgLTUzIDI1IC05IDAgLTE0IDQgLTExIDkgMyA0IC02IDEzIC0yMSAyMCAtMTQgNiAtMjMKMTQgLTIwIDE3IDMgMyAtMTAgMjAgLTI4IDM4IC0xOCAxOCAtMzYgNDggLTQwIDY3IC00IDE5IC0xMyAzNyAtMTkgNDEgLTE2IDExCi0xNCAxOTUgMyAyMzUgNyAxOCAxNyAzMSAyMSAyOCA1IC0zIDYgNCAzIDE0IC0zIDEzIDEzIDM3IDU0IDgwIDMzIDM0IDY2IDYxCjc0IDYxIDggMCAyNSA3IDM3IDE2IDEyIDggMjcgMTIgMzQgOCA2IC00IDggLTMgNCA0IC0zIDYgNiAxNSAyMSAyMCAzMSAxMgoxNjIgMTUgMTg3IDZ6IG0tMjU5NiAtNzExIGMyOCAtOCA1MiAtMTkgNTIgLTI0IDAgLTUgNyAtOSAxNiAtOSAxMSAwIDE0IC01CjEwIC0xNiAtNiAtMTUgLTQgLTE1IDExIC0zIDE1IDEyIDE2IDEyIDEwIC0zIC00IC0xMSAtMiAtMTUgNyAtMTIgMzIgMTIgMTMxCi0xMjkgMTQxIC0yMDIgMTYgLTExMyAxNCAtMTQwIC0xNiAtMjE0IC0xNyAtNDEgLTM2IC04MCAtNDQgLTg2IC04IC02IC0xNQotMTUgLTE1IC0yMCAtMSAtMTIgLTgwIC03MCAtOTEgLTY2IC01IDEgLTkgLTIgLTkgLTggMCAtNSAtNiAtMTAgLTE0IC0xMCAtOAowIC0xNiAtNSAtMTggLTExIC02IC0xNyAtNzggLTMyIC0xNTMgLTMzIC01OCAwIC04MiA1IC0xNDUgMzMgLTc5IDM1IC0xNDQgODcKLTEzNiAxMDggMyA3IDAgMTIgLTYgMTAgLTEyIC0yIC00OCA2MCAtNjcgMTIwIC0yOCA4NSA1IDI0OSA2MSAzMDYgMTYgMTUgMjgKMzEgMjggMzUgMCAxNCA0NiA1MyA1MyA0NSA0IC0zIDcgLTIgNyAzIDAgMTQgNTggNDYgNzAgMzkgNiAtMyAxMCAtMiAxMCAzIDAKMjggMTU1IDM5IDIzOCAxNXogbTMyODggNyBjMjcgLTYgNTYgLTE4IDY2IC0yNyA5IC04IDIxIC0xMiAyNiAtOSAxMiA3IDM0Ci0xOCAyNCAtMjggLTQgLTQgLTIgLTcgMyAtNiAyNiA2IDQzIC0zIDY1IC0zMiAxMyAtMTcgMjMgLTM3IDIzIC00NCAwIC03IDUKLTEyIDEwIC0xMSAxOCAzIDUzIC03MSA2NiAtMTM5IDE1IC04NCAwIC0xODAgLTMyIC0yMDcgLTEyIC0xMCAtMTYgLTE2IC05Ci0xMiAxMCA2IDExIDMgMyAtMTEgLTUgLTExIC0xMiAtMjcgLTE1IC0zNiAtMyAtOSAtMTUgLTIyIC0yNyAtMjggLTEyIC03IC0xOQotOCAtMTUgLTIgMyA2IDIgMTMgLTMgMTYgLTEwIDcgLTkgLTEzIDIgLTMwIDQgLTcgLTIyIC0yOSAtNjUgLTU3IC01NSAtMzUKLTg5IC00OSAtMTQwIC01NyAtNjggLTEyIC0xNDMgLTYgLTE1NCAxMSAtMyA1IC0xNyA5IC0zMiA5IC0yNSAwIC0xMzAgNTkKLTEwNyA2MCA2IDAgMyA2IC02IDEzIC05IDcgLTE3IDE3IC0xNyAyMiAtMSA2IC01IDEwIC0xMCAxMCAtNCAwIC0xOCAxMCAtMzAKMjEgLTE2IDE1IC0yMSAyOSAtMTggNDggMyAxNSAxIDI0IC01IDIxIC01IC00IC02IC0xMiAtMyAtMTggNSAtOSA0IC05IC01IC0xCi0zMyAzMSAtNTQgMjEyIC0yOSAyNTcgNyAxMiAxMiAyNyAxMyAzMiA2IDY1IDE1OSAyMjIgMTk1IDIwMCA2IC00IDkgLTEgOCA2Ci02IDI4IDEzOCA0NyAyMTggMjl6IG0tMTU1NyAtMTQ5IGMxOSAtNiAzOCAtOCA0MiAtNSAxMCA2IDcwIC0xMSAxMTIgLTMyIDE2Ci04IDQwIC0xNCA1MyAtMTQgMTMgMCAyNCAtNSAyNCAtMTEgMCAtNSA0IC04IDkgLTUgMTIgOCA2NyAtMjAgMTE2IC01OCAyMQotMTcgMzYgLTI1IDMyIC0xOCAtNSA2IC00IDEyIDIgMTIgNiAwIDExIC00IDExIC05IDAgLTUgMTMgLTE0IDI4IC0xOSAxNiAtNQo0NSAtMjQgNjQgLTQxIDIwIC0xNyA0MCAtMzEgNDUgLTMxIDExIDAgNDggLTQyIDQ4IC01NSAwIC01IDkgLTEwIDIwIC0xMCAxMwowIDE5IC02IDE3IC0xNSAtMiAtOCAwIC0xMiA0IC03IDkgOSA1NCAtMzIgNTQgLTUwIDAgLTcgNiAtMTMgMTMgLTEzIDYgMCAyNwotMjMgNDYgLTUwIDE5IC0yOCAzNyAtNTAgNDEgLTUwIDQgMCAxMyAtMTMgMjAgLTMwIDcgLTE2IDE2IC0zMCAyMSAtMzAgNSAwIDkKLTYgOSAtMTQgMCAtNyA3IC0xOSAxNSAtMjYgOCAtNyAxNSAtMjEgMTUgLTMwIDAgLTEwIDMgLTIwIDggLTIyIDEyIC01IDU0Ci05OCA1NiAtMTIzIDAgLTEzIDQgLTIxIDggLTE5IDkgNiA0MCAtMTA0IDMzIC0xMTYgLTMgLTYgLTIgLTEwIDMgLTEwIDUgMCAxNQotNDcgMjIgLTEwNSAxNSAtMTI0IDggLTMzMyAtMTQgLTQxNSAtMzYgLTEzMiAtNTYgLTE5NCAtNjcgLTIwMCAtNiAtNCAtMTAgLTkKLTggLTExIDQgLTggLTE0IC01NCAtMjYgLTY5IC04IC04IC0xNSAtMTkgLTE2IC0yNSAtNCAtMjIgLTMzIC03NSAtNDEgLTc1IC00CjAgLTggLTYgLTggLTE0IDAgLTggLTEzIC0yNSAtMjkgLTM4IC0xNiAtMTQgLTMxIC0zMyAtMzUgLTQ0IC02IC0yMCAtMTEwCi0xMjkgLTE2NyAtMTc3IC0xOSAtMTUgLTUwIC00MCAtNjkgLTU2IC00NyAtMzggLTE0NSAtOTIgLTE1NCAtODQgLTMgMyAtNiAxCi02IC01IDAgLTI2IC0yMzEgLTEwNSAtMzcwIC0xMjYgLTU5IC05IC0yNzEgLTcgLTMzNSAzIC0xNDMgMjIgLTM1MCA5NSAtMzkzCjEzOCAtNyA3IC0xOSAxMyAtMjYgMTMgLTcgMCAtMjIgOCAtMzQgMTcgLTM0IDMwIC01OCA0NyAtNzggNjAgLTEwIDYgLTE4IDE1Ci0xNyAyMCAxIDUgLTcgMTAgLTE4IDEwIC0yMiAyIC04MSA1NyAtOTIgODYgLTMgOSAtMTIgMTcgLTIwIDE3IC03IDAgLTI2IDE4Ci00MyA0MCAtMTYgMjIgLTMyIDQwIC0zNiA0MCAtNSAwIC04IDcgLTggMTUgMCA5IC03IDE4IC0xNSAyMSAtOCA0IC0xNSAxMQotMTUgMTggMCA2IC0xMiAyNSAtMjYgNDEgLTI4IDMzIC02NSAxMDYgLTY3IDEzNSAwIDEwIC02IDE2IC0xMiAxNCAtOSAtNCAtNDUKNzUgLTUxIDExMSAtMSA2IC04IDM3IC0xNyA3MCAtNDUgMTc5IC00OSAyMDggLTQ0IDMzNSA2IDEzNCAxMyAxODIgNDYgMzAyIDIxCjc4IDc0IDIwMyA5MCAyMTMgNSAzIDEyIDE5IDE2IDM2IDQgMTcgMTMgMzMgMjEgMzYgOCAzIDE0IDkgMTQgMTUgMCA1IDYgMTUKMTMgMjMgMjggMzAgNDcgNTYgNDcgNjUgMCA1IDIwIDMwIDQ1IDU2IDI1IDI1IDQ1IDUwIDQ1IDU2IDAgNiAyIDkgNSA2IDMgLTIKMjggMTcgNTUgNDQgMzAgMjkgNTYgNDYgNjMgNDIgNyAtNCA5IC0zIDQgMSAtMTAgMTIgMjIgNDUgMzggMzkgNyAtMyAxNiAwIDIxCjcgNCA4IDMgMTAgLTQgNSAtNyAtNCAtMTIgLTUgLTEyIC0yIDAgNCAxNDMgODcgMTY1IDk1IDUgMiAyNCA5IDQwIDE2IDM3IDE2CjE1NyA1OSAyMDggNzUgMjEgNyA0OCAxMCA2MCA3IDEyIC0zIDM4IDEgNTcgOSA0MCAxNSAyNzIgMTIgMzI5IC01eiBtLTE5NjgKLTgyNSBjNjUgLTI2IDE0OSAtOTEgMTQ5IC0xMTQgMCAtOCAzIC0xMiA2IC05IDQgMyAxNCAtNCAyNCAtMTYgMzAgLTQwIDUyCi0xMTEgNTcgLTE4NyA0IC02MSAxIC04NiAtMTcgLTEzMiAtMTIgLTMyIC0yNiAtNTggLTMyIC01OCAtNSAwIC04IC02IC01IC0xNAo3IC0xNyAtMTE0IC0xMzIgLTE1NyAtMTUwIC04MCAtMzMgLTI1MCAtNDYgLTIzMiAtMTcgMyA0IC01IDcgLTE3IDYgLTI2IC0zCi05NyAzMSAtOTcgNDYgMCA2IC01IDcgLTExIDMgLTE0IC04IC04MCA1NiAtNzIgNzAgMyA2IDMgOCAtMiA0IC0xNCAtMTMgLTYwCjU1IC00OSA3NCA0IDcgMyA4IC00IDQgLTExIC02IC0xNyA2IC0xMyAyNyAxIDQgLTMgMTYgLTkgMjcgLTggMTYgLTEyIDc0IC0xMAoxNzUgMSAzNSA0OSAxMTkgOTggMTcwIDI2IDI3IDQ5IDUwIDUyIDUwIDMgMCAxNyA5IDMyIDE5IDc0IDQ5IDIxOSA1OSAzMDkgMjJ6Cm0zODIxIDMgYzcwIC0yMyAxNTIgLTc4IDE1NiAtMTA1IDIgLTEwIDkgLTIzIDE0IC0yOSA4IC03IDkgLTYgNCAzIC00IDYgLTUKMTIgLTMgMTIgMTggMCA1OSAtMTAwIDcxIC0xNzMgMTYgLTkxIDE0IC0xMDggLTI3IC0xOTcgLTExIC0yNSAtMjEgLTQ4IC0yMQotNTEgLTIgLTE0IC00MiAtNTkgLTUzIC01OSAtNyAwIC0xOSAtMTAgLTI3IC0yMyAtMTQgLTIwIC02NSAtNTcgLTgzIC01OSAtMTEKLTEgLTM0IC04IC01OCAtMTggLTQwIC0xNyAtMTEwIC0yMCAtMTY0IC05IC01NyAxMyAtMTA0IDM2IC05NyA0OCAyIDMgLTcgNwotMjAgNyAtMzIgMiAtMTA3IDgwIC0xNDIgMTQ4IC0yNCA0NiAtMjYgNjIgLTI3IDE1OSAwIDc5IDQgMTEwIDEzIDExNiA4IDUgMTMKMTEgMTMgMTUgLTMgMjMgMCAzNiA5IDMxIDYgLTMgMTAgMiAxMCAxMiAwIDEwIDcgMjkgMTYgNDIgMTMgMTggMTggMjAgMjUgMTAKNiAtMTAgOCAtNiA3IDExIC0yIDE4IDIgMjUgMTQgMjQgMTAgLTEgMTYgMiAxMyA2IC03IDEyIDQ5IDUwIDExMSA3NSA3MSAyOQoxNjggMzAgMjQ2IDR6IG0tMzU5MyAtOTUxIGM2NCAtMjAgMTAyIC0zOSAxMDggLTU0IDMgLTggOCAtMTIgMTIgLTEwIDQgMyAxNgotNiAyNiAtMTkgMTEgLTE0IDM0IC00MCA1MSAtNTkgMzkgLTQ1IDYzIC0xMjEgNjUgLTIxMSAxIC01NyAtNCAtODQgLTI5IC0xNDUKLTE2IC00MSAtMzUgLTc0IC00MSAtNzIgLTYgMSAtMTUgLTYgLTE4IC0xNSAtMTAgLTI1IC03MyAtODMgLTEwMyAtOTUgLTYxCi0yNCAtMTU0IC00NSAtMTg5IC00MyAtNDMgNCAtMTI5IDMxIC0xNDkgNDggLTggNiAtMjEgMTIgLTMxIDEzIC0zMiA1IC0xMTkKMTE0IC0xNDcgMTg1IC0yNCA2MCAtMjYgNzcgLTIxIDE0MCAzIDQwIDEwIDc2IDE2IDgyIDUgNSA3IDE1IDUgMjIgLTMgNyAtMQoxNiA1IDIwIDYgMyAxMSAxMyAxMSAyMSAwIDI0IDU2IDg4IDcwIDc5IDUgLTMgNyAxIDQgOSAtNCAxMCAzIDIwIDIwIDI3IDE0IDcKMjMgMTUgMjEgMTkgLTMgNSAyIDExIDExIDE0IDEwIDQgMTMgMiA4IC03IC00IC02IDQgLTEgMTggMTMgMTQgMTMgNDMgMjkgNjQKMzYgNTEgMTYgMTY4IDE3IDIxMyAyeiBtMzMyMiAxIGMxOSAtNyA0MiAtMTkgNTIgLTI3IDkgLTggMTcgLTEyIDE3IC04IDAgNCA5CjIgMjEgLTQgMTEgLTcgMTggLTE4IDE1IC0yNSAtMyAtOSAwIC0xMiA5IC05IDEyIDUgNDAgLTE5IDgyIC03MCA3IC04IDI1IC00MQozOSAtNzMgMzUgLTc5IDM3IC0yMDAgMyAtMjcxIC0xMyAtMjYgLTI3IC01MCAtMzMgLTU0IC03IC01IC03IC04IC0xIC04IDYgMAoxIC03IC05IC0xNSAtMTEgLTggLTE2IC0xNSAtMTAgLTE1IDUgMCAtOCAtMTYgLTI5IC0zNSAtMjEgLTE5IC00MSAtMzUgLTQ0Ci0zNSAtNCAwIC0xNSAtNyAtMjUgLTE3IC0xNCAtMTMgLTE4IC0xMyAtMTggLTIgLTEgMTAgLTQgMTAgLTE0IC0zIC0zMyAtNDQKLTE2MCAtNjggLTIyMSAtNDIgLTIwIDggLTQwIDEyIC00NSA5IC01IC0zIC0xOCAzIC0yOSAxNCAtMTEgMTEgLTIyIDE3IC0yNQoxNCAtNiAtNiAtNjEgMjYgLTk1IDU2IC0zNSAzMCAtNTQgNzEgLTQxIDg3IDkgMTAgNiAxMSAtOSA3IC0xNyAtNCAtMjQgMiAtMzYKMzEgLTI4IDY3IC0zMiAyNjggLTUgMjUxIDUgLTMgMTIgMCAxNiA2IDQgOCAzIDkgLTQgNSAtNyAtNCAtMTIgLTUgLTEyIC0xIDAKMTUgMzAgNzIgNDcgOTAgMTAgMTEgMjIgMjcgMjUgMzYgNyAxOSAxMTAgODkgMTMyIDg5IDggMCAxOCA1IDIxIDExIDQgNiAxMiA4CjE5IDYgNiAtMiAyMCAtMSAzMSA0IDMwIDEyIDEzOCAxMCAxNzYgLTJ6IG0tMjU5OCAtNzExIGMzNSAtMTIgNTYgLTI2IDUzIC0zMwotMiAtNiAyIC0xMiAxMCAtMTIgNyAwIDEwIDUgNyAxMCAtMyA2IC0xIDcgNSAzIDcgLTQgMTIgLTE0IDEyIC0yMiAwIC04IDQKLTEyIDEwIC05IDExIDcgNjcgLTQ1IDk0IC04OCAyNyAtNDQgNTQgLTEzOSA1NCAtMTkzIDAgLTU0IC0yNSAtMTU0IC0zOCAtMTU0Ci00IDAgLTEwIC0xMCAtMTQgLTIzIC02IC0yNiAtODAgLTExMCAtODkgLTEwMSAtMyAzIC0xMSAtNCAtMTcgLTE2IC02IC0xMgotMTQgLTE5IC0xNyAtMTYgLTMgMyAtMTEgLTEgLTE3IC05IC02IC05IC0yNSAtMTYgLTQzIC0xOCAtMTcgLTEgLTI5IC01IC0yNwotOCA3IC0xMyAtMjggLTE5IC0xMDEgLTE5IC03NyAwIC0xNzIgMjcgLTE5NSA1NSAtNyA4IC0xNiAxMyAtMjAgMTAgLTUgLTMKLTEyIDAgLTE2IDYgLTUgOCAtMiAxMCA3IDUgOCAtNCA1IC0xIC01IDggLTEwIDggLTIyIDEzIC0yNiAxMSAtMTAgLTYgLTU2IDU0Ci03MiA5MiAtNTEgMTI2IC02MCAxOTUgLTMyIDI2OCA4IDIyIDE2IDQ2IDE4IDU0IDEgOCAxMCAxOSAyMCAyNiAxMCA3IDE3IDE2CjE3IDE5IC0zIDIyIDEgMjcgMTMgMjMgMTAgLTQgMTMgLTEgOSA4IC01IDE2IDM0IDY1IDUzIDY1IDUgMCAxOSA4IDMwIDE5IDExCjEwIDM4IDI0IDYwIDMyIDIxIDcgNDIgMTYgNDcgMTkgNCA0IDQwIDcgODAgOCA1MiAxIDg4IC00IDEzMCAtMjB6IG0xOTE4IDEKYzI5IC0xMSA2NSAtMzAgNzkgLTQyIDE1IC0xMiA0MiAtMzMgNTkgLTQ3IDMxIC0yNSA1MSAtNTYgMjggLTQ1IC02IDQgMCAtMwoxNiAtMTUgMTUgLTEyIDI3IC0zMCAyNyAtNDAgMCAtOSA3IC0zNSAxNiAtNTYgMjAgLTQ4IDE5IC0xNTAgLTEgLTIxMiAtMzEKLTkwIC0xMjQgLTE5OCAtMTUwIC0xNzQgLTUgNCAtNCAxIDAgLTcgNiAtMTEgNCAtMTMgLTggLTggLTEwIDQgLTE0IDIgLTEyIC02CjMgLTcgLTE0IC0yMSAtMzcgLTMyIC0zNCAtMTYgLTYyIC0yMCAtMTQ3IC0yMCAtOTUgMSAtMTExIDMgLTE1NiAyOCAtNzQgMzkKLTE3NiAxNDMgLTE1OCAxNjEgMyAzIDIgNiAtNCA2IC0xOSAwIC00MyA5MSAtNDMgMTU5IDAgNzEgMjIgMTYwIDQzIDE3MyA2IDQKMTMgMTIgMTMgMTggMSA1IDIgMTQgMyAxOSAyIDE0IDY0IDcxIDc3IDcxIDcgMCAyNSAxMiAzOSAyOCAxNCAxNSAyOSAyNyAzMwoyOCA0IDAgMTggNSAzMiAxMSAxNCA2IDMyIDEzIDQwIDE2IDM4IDE0IDE2MSA2IDIxMSAtMTR6IG0tOTgyIC0yNTEgYzc2IC0yNAoxMDQgLTQyIDE2MSAtOTkgODEgLTg0IDEwNCAtMTQ3IDk4IC0yNzEgLTQgLTc2IC0xMCAtMTAyIC0zMSAtMTQwIC0zMCAtNTcKLTg5IC0xMjggLTEwNSAtMTI4IC03IDAgLTEyIC00IC0xMiAtOCAwIC0xMSAtODIgLTUxIC0xMDcgLTU0IC0xIDAgLTIzIC02Ci00OCAtMTQgLTUwIC0xNCAtMTAwIC0xMCAtMTI2IDEzIC05IDcgLTI0IDExIC0zMyA3IC0xOSAtNyAtNzYgMTQgLTc2IDI4IDAgNQotNCA3IC05IDQgLTEyIC04IC02MyAzMyAtNTYgNDUgNCA1IC0yIDYgLTEyIDIgLTEwIC0zIC0xNSAtMiAtMTEgMiA1IDUgLTEgMTQKLTExIDIyIC0xMSA3IC0zMyA0MSAtNTAgNzYgLTU1IDExMiAtNTMgMjQxIDUgMzQyIDQzIDc1IDE0OCAxNTcgMjI0IDE3NSA1MwoxMiAxNTkgMTIgMTk5IC0yeiBNMjM2MzcgNDE2OSBjNyAtNyAxNSAtMTAgMTggLTcgMyAzIC0yIDkgLTEyIDEyIC0xNCA2IC0xNQo1IC02IC01eiBNMjUxMzAgMTAwNiBjMCAtMiA4IC0xMCAxOCAtMTcgMTUgLTEzIDE2IC0xMiAzIDQgLTEzIDE2IC0yMSAyMSAtMjEKMTN6IE0yNDExNyA4MjkgYzcgLTcgMTUgLTEwIDE4IC03IDMgMyAtMiA5IC0xMiAxMiAtMTQgNiAtMTUgNSAtNiAtNXogTTI2Nzg1CjQ4MTYgYy0yMzMgLTU0IC00MDkgLTIxMyAtNDc4IC00MzEgLTMxIC05OCAtMzEgLTI1MiAwIC0zNTAgNjIgLTE5NSAyMTMgLTM0OAo0MDcgLTQxMiA3MCAtMjMgOTggLTI3IDIwMSAtMjcgMTAzIDAgMTMxIDQgMjAxIDI3IDI3MCA4OSA0NDggMzQ2IDQzMSA2MjIKLTIwIDMyMCAtMjgwIDU2OCAtNjA3IDU4MSAtNTkgMiAtMTE4IC0yIC0xNTUgLTEweiBtMjQxIC00NyBjMzIgLTUgMTAwIC0zMAoxNTAgLTU0IDMyNiAtMTU3IDQyMyAtNTYxIDIwNSAtODUwIC03MyAtOTcgLTIxMyAtMTg0IC0zMzkgLTIxMSAtMzAxIC02MwotNTg4IDEwMSAtNjg4IDM5NiAtMjggODMgLTI2IDI0MyA0IDMzMiA1MSAxNDcgMTU1IDI2NCAyOTcgMzMzIDEyNyA2MiAyMzcgNzgKMzcxIDU0eiBNMjY2MzggNDU1MCBjLTIgLTE0IC0yIC0xNzEgMCAtMzUwIGwzIC0zMjUgNTcgNSA1NyA1IDMgMTUzIDMgMTUyIDYyCjAgYzcxIDAgMTA5IC04IDEwMSAtMjEgLTMgLTUgMiAtOSAxMSAtOSA4IDAgMTkgLTggMjIgLTE3IDQgLTEwIDkgLTIwIDEyIC0yMwoxMCAtOCAxMjUgLTE4MyAxNDAgLTIxMiAxNCAtMjYgMTggLTI4IDgzIC0yOCA1NCAwIDY4IDMgNjggMTUgMCA4IC00IDE1IC0xMAoxNSAtNSAwIC0xMCA3IC0xMCAxNSAwIDggLTQgMTUgLTEwIDE1IC01IDAgLTEwIDQgLTEwIDkgMCAyMyAtNzggMTQwIC0xMjcKMTkwIC0yOSAzMCAtNTAgNTcgLTQ4IDYyIDMgNCAxOSAxMCAzNiAxNCA0NiAxMCA5NSA0NiAxMDggODAgNyAxNyAxNyAzOCAyMgo0NyAyNCA0NSAwIDExOSAtNTggMTc1IC01MCA0OSAtNjcgNTIgLTM0MCA1NiBsLTE3MSAyIC00IC0yNXogbTM4OSAtNzAgYzU0Ci0xOSA4NiAtMTAzIDUzIC0xNDMgLTU0IC02NiAtNDEgLTYyIC0xODYgLTY1IGwtMTM0IC00IDAgMTExIDAgMTExIDExOSAwIGM2NQowIDEzMSAtNSAxNDggLTEweiBNMTExMTUgNDQ5MiBjLTMzNCAtMSAtNTgzIC02IC01ODggLTExIC0xNSAtMTUgLTIwIC0xNDY0Ci02IC0xNTMxIDcgLTMwIDEzIC02MiAxNCAtNzAgMSAtOCAxMCAtMzMgMTkgLTU1IDEwIC0yMiAyNCAtNTYgMzEgLTc2IDcgLTIwCjE4IC00NSAyMyAtNTUgNiAtMTEgMjIgLTQ0IDM2IC03NSAyNSAtNTcgODQgLTE1MiAxMTEgLTE4MCA4IC05IDE1IC0yMyAxNQotMzIgMCAtOSA2IC0yMCAxMyAtMjQgNiAtNCAzMCAtMzAgNTIgLTU4IDIyIC0yNyA3MCAtNzggMTA3IC0xMTMgNDYgLTQ0IDY1Ci02OSA2MSAtODAgLTMgLTEyIC0yIC0xMyA0IC01IDEyIDE3IDU3IC0xMyA0OSAtMzQgLTMgLTggLTIgLTEyIDMgLTggNSAzIDIyCjAgMzggLTYgMjYgLTEwIDI3IC0xMSAxMCAtMjQgLTE2IC0xMSAtMTYgLTEzIC0yIC0xOSA5IC0zIDEzIC0yIDEwIDMgLTMgNSAtMQoxMiA0IDE2IDEzIDcgOTMgLTQ0IDg2IC01NiAtMyAtNCAwIC0xMSA2IC0xNSA4IC00IDkgLTMgNSA0IC00IDcgLTIgMTIgMyAxMgo2IDAgMTEgLTQgMTEgLTEwIDAgLTUgOCAtMTAgMTggLTEwIDEwIDAgMjMgLTUgMjkgLTExIDE3IC0xNyAxNjcgLTY4IDI2OCAtOTEKODkgLTIxIDEwOSAtMjEgMTU4MCAtMjUgMTUzMSAtNCAxNzk5IDEgMTg4NSAzMyA4IDMgMjkgOCA0NSAxMSAxNyAzIDUzIDE1IDgwCjI4IDI4IDEyIDY2IDI4IDg1IDM2IDE5IDcgNDUgMjIgNTcgMzQgMTMgMTEgNDQgMzEgNzAgNDUgNDYgMjQgNjUgMzkgMTQyIDEwOQoxOSAxNyAzNyAzMSA0MSAzMSA0IDAgMTIgMTIgMTggMjYgOCAxNiAxNyAyMiAyNSAxOCA2IC00IDkgLTMgNCAxIC00IDUgNiAyMgoyMiAzOSAxNSAxNyA0NSA1NiA2NSA4NiA0NiA3MSA1NiA4MSA2NSA3NiA0IC0zIDUgOCAzIDI1IC0zIDE3IDAgMjkgNyAyOSA2IDAKMTAgMyA5IDggMCA0IDYgMjQgMTUgNDQgOSAyMCAyOSA3NiA0NCAxMjUgbDI4IDg4IDAgODcwIDAgODcwIC01ODkgMCAtNTg4IDAKLTMgLTU0NSAtMyAtNTQ1IC0yNiAtNzkgYy0xNSAtNDMgLTM2IC05MCAtNDYgLTEwNCAtMTEgLTEzIC0yMCAtMzAgLTIwIC0zNgotMSAtNDggLTI0OSAtMjcwIC0yODEgLTI1MCAtNyA0IC05IDMgLTYgLTMgNCAtNiAtMyAtMTQgLTE2IC0xNyAtMTIgLTQgLTQ3Ci0xNSAtNzcgLTI0IC01MCAtMTYgLTEzOSAtMTcgLTEwMjAgLTE3IC05MzEgMCAtOTY3IDEgLTEwMjUgMjAgLTU1IDE4IC0xMTgKNTYgLTE3MSAxMDQgLTEyIDExIC0yNCAxOCAtMjcgMTUgLTIgLTIgLTEwIDMgLTE4IDEzIC0xMiAxNSAtMTIgMTYgMSA5IDggLTUKMiA0IC0xMyAyMCAtNjIgNjQgLTEwNyAxMTkgLTEyMSAxNDggLTUwIDEwOSAtNjUgMTQ3IC03NSAxOTUgLTggMzcgLTExIDIxNwotMTEgNTc5IDEgMjg4IDAgNTI1IC0yIDUyNiAtMiAwIC0yNjQgMCAtNTgzIC0yeiBNMjUwMCA0NDc1IGMwIC01IC0xIC01OTMgLTEKLTEzMDUgMCAtOTk3IC0zIC0xMzA3IC0xMiAtMTM0OCAtNyAtMjkgLTE1IC01MSAtMTcgLTQ4IC0zIDIgLTYgLTYgLTYgLTE5IC0yCi0yNiAtNTEgLTEzMiAtNjUgLTE0MSAtNSAtMyAtNyAtMTAgLTQgLTE1IDYgLTggLTggLTEzIC0yNyAtMTAgLTQgMCAtNSAtNiAtMgotMTQgNSAtMTEgMSAtMTQgLTEyIC05IC0xNCA0IC0xNiAzIC01IC00IDExIC04IDEwIC0xNCAtNCAtMzYgLTkgLTE0IC0yMiAtMjMKLTI4IC0xOSAtNSAzIC03IDEgLTQgLTQgNCAtNiAtMTggLTMxIC00OSAtNTcgLTU0IC00NCAtODMgLTU5IC02OCAtMzQgNCA3IDMKOCAtNCA0IC02IC00IC05IC0xMiAtNiAtMTkgNSAtMTMgLTgxIC02MyAtMTIxIC03MCAtMTEgLTIgLTM4IC0xMiAtNjAgLTIyCi0yMiAtMTAgLTYyIC0xOSAtOTAgLTIxIC0yNyAtMSAtNDcwIC0zIC05ODIgLTMgbC05MzMgLTEgMCAtNTIwIDAgLTUyMCAxMzA4CjMgYzk5NSAyIDEzMjQgNiAxMzc3IDE1IDM5IDcgNzkgMTQgOTAgMTUgMTEgMSAyNiA4IDMzIDE0IDEzIDEyIDQ2IDE4IDg1IDE1CjEwIC0xIDE2IDIgMTMgNyAtMyA1IDYgMTQgMjIgMjAgNDEgMTcgMTM0IDcxIDE2NCA5NyAxNiAxMiAzNyAyNSA0OCAyOSAxMSAzCjIwIDExIDIwIDE2IDAgNSAzIDggOCA3IDQgLTIgMTggNiAzMSAxNyA0NSAzNyAxNDYgMTI4IDE4MCAxNjEgMTggMTkgMzcgMzEKNDIgMjggNSAtMyA2IDEgMyA5IC0zIDggNiAyMyAyMSAzNSAxNCAxMSAyNiAyMyAyNiAyNiAtMSAxNiAxMiAzNSAyMCAzMCA1IC0zCjggLTIgNyAzIC0zIDExIDUyIDkzIDYzIDkzIDUgMCA4IDYgNiAxMyAtMSA2IDQgMTEgMTEgOSA4IC0xIDExIDEgOCA2IC01IDkKNDcgMTI0IDY4IDE1MSA2IDggMTYgMzIgMjIgNTUgNyAyMyAyMSA3MyAzMyAxMTIgMjAgNzIgMjAgNzkgMjAgMTY0OCAwIDg2NyAzCjE1ODEgNiAxNTg2IDMgNSAtNCAxMiAtMTcgMTUgLTQ0IDEwIC0xMjE4IDEwIC0xMjE4IDB6IE00MzAzIDQ0NzcgYy0zIC00IC02Ci0yNDQgLTYgLTUzMyAtMiAtNDYzIDAgLTUyMyAxMyAtNTE3IDIyIDEyIDM5MjEgMTAgMzk0NSAtMSAxMSAtNSAzMSAtMTAgNDUKLTExIDE0IC0xIDM0IC01IDQ1IC05IDExIC00IDMyIC0xMiA0OCAtMTggMTUgLTYgMjcgLTE0IDI3IC0xOSAwIC01IDcgLTkgMTUKLTkgOCAwIDI0IC05IDM1IC0yMCAxMSAtMTEgMjIgLTIwIDI1IC0yMCAxOSAtMSAzMyAtMTQgMjggLTI2IC0zIC05IDIgLTE0IDE0Ci0xNCAxOSAwIDUzIC0yOCA1MyAtNDQgMCAtNSAxMSAtMTYgMjQgLTI3IDMwIC0yMyA5MCAtMTQ5IDEwNSAtMjE3IDExIC01MSAxNgotNDEyIDYgLTQxMiAtMiAwIC0zMyAyOCAtNjggNjMgLTc5IDc3IC0xNDggMTM3IC0xNTggMTM3IC01IDAgLTQ1IDE4IC05MSA0MAotNDYgMjIgLTk1IDQwIC0xMTAgNDAgLTE1IDAgLTM4IDQgLTUzIDEwIC0xNyA2IC02MzMgMTAgLTE3NDAgMTAgbC0xNzE0IDAKLTc4IC0yNiBjLTQzIC0xNSAtOTQgLTM4IC0xMTQgLTUwIC0yMCAtMTMgLTQwIC0yMCAtNDUgLTE2IC00IDQgLTQgMiAwIC01IDMKLTcgLTIgLTE0IC0xMyAtMTggLTI1IC04IC0xMDEgLTc3IC0xMDEgLTkyIDAgLTYgLTExIC0xOCAtMjUgLTI3IC0xNCAtOSAtMjUKLTIzIC0yNSAtMzEgMCAtOCAtNyAtMTUgLTE2IC0xNSAtOCAwIC0xMiAtNSAtOSAtMTEgNCAtNiAtMiAtMjAgLTEzIC0zMiAtMTIKLTEyIC0yMSAtMjYgLTIwIC0zMCAxIC0xNiAtMjUgLTY3IC0zMiAtNjIgLTQgMiAtNyAtOSAtOCAtMjQgMCAtMTYgLTkgLTYwCi0xOCAtOTggLTE3IC02MiAtMTggLTEyOSAtMTYgLTgyMSAxIC00MTQgNCAtNzY1IDcgLTc4MCAxOSAtODcgMjkgLTEyMiA1MgotMTY5IDE0IC0yOSAyOSAtNTMgMzQgLTUzIDUgMCAxMSAtMTAgMTQgLTIzIDMgLTEyIDI0IC0zOCA0NSAtNTYgMjIgLTE4IDM3Ci0zNyAzNCAtNDIgLTMgLTUgMiAtOSAxMCAtOSA4IDAgMjAgLTkgMjYgLTIxIDcgLTExIDE0IC0xOCAxNyAtMTUgMyAzIDE4IC0zCjMzIC0xNCAxNiAtMTEgMzIgLTIwIDM4IC0yMCA1IDAgMTkgLTkgMzIgLTIwIDEzIC0xMSAzMSAtMjAgNDIgLTIwIDEwIDAgMjYKLTQgMzYgLTEwIDY2IC0zNiAxMDYgLTM3IDE5MDcgLTM2IGwxNzUwIDIgNjUgMjQgYzM2IDEzIDcwIDI2IDc1IDMwIDEzIDkgNjcKMjQgNzggMjEgNSAtMSA2IDMgMyA4IC0zIDQgMjUgMzMgNjMgNjIgMzggMzAgNzcgNjggODcgODQgbDE5IDMwIDMgLTEyNiAzCi0xMjcgMzAgLTQgYzUxIC04IDEyMjQgLTIgMTIzNiA1IDkgNiAxMiAzNjEgMTIgMTQzNSAxIDE0NTggLTIgMTU4MCAtMzkgMTY3NwotNSAxNCAtNiAyNSAtMyAyNSA0IDAgMiA1IC01IDEyIC03IDcgLTEyIDE5IC0xMiAyNyAtMSA5IC05IDM0IC0yMCA1NiAtMTEgMjIKLTE5IDQ4IC0yMCA1NyAwIDkgLTQgMTkgLTEwIDIzIC0xMCA2IC04NSAxNTUgLTg1IDE2OSAwIDUgLTExIDIyIC0yNSAzNyAtNDEKNDQgLTQ3IDU0IC00NSA3NiAxIDE0IC0zIDE5IC0xMiAxNiAtNyAtMyAtMTcgNiAtMjMgMjEgLTUgMTQgLTEzIDI2IC0xOCAyNgotOSAwIC00OCA2MiAtNDQgNzIgMSA1IC0xIDcgLTYgNiAtMTAgLTQgLTIxOCAyMDMgLTIxNCAyMTQgMSA1IC0yIDcgLTYgNCAtNQotMyAtMjEgNSAtMzUgMTggLTE1IDE0IC0zNiAyNyAtNDcgMzEgLTExIDMgLTIwIDEzIC0yMCAyMSAwIDggLTEwIDE0IC0yNSAxNAotMTMgMCAtMjkgOCAtMzQgMTggLTYgOSAtMTEgMTMgLTExIDcgMCAtNSAtNCAtNSAtOCAyIC05IDE0IC0xNjEgOTMgLTE4MCA5MwotOCAwIC0yNiA2IC00MCAxNCAtMzEgMTcgLTExMiA0MiAtMTY4IDUzIC01MyAxMCAtNDU0NSAyMCAtNDU1MSAxMHogbTM5MzUKLTI2NTQgYzIzIC04IDQyIC0yMCA0MiAtMjUgMCAtNSA1IC02IDExIC0zIDE0IDkgNTAgLTI1IDQyIC0zOSAtNCAtNyAtMSAtNyA3CjEgMTQgMTMgMjEgOSA3MyAtNDQgNDQgLTQzIDU3IC02MCA1NyAtNzMgMCAtNiAtNiAtOCAtMTIgLTUgLTcgNCAtNiAwIDMgLTcgOQotNyAxOSAtMjcgMjMgLTQ0IDkgLTM5IC04IC0xMTUgLTI4IC0xMzAgLTkgLTYgLTEzIC0xMyAtMTAgLTE2IDEwIC0xMCAtNjUKLTgwIC03NyAtNzIgLTcgNCAtMTAgMyAtNyAtMiA1IC04IC0yMyAtNDMgLTI5IC0zNiAtMiAxIC0xNSAtNiAtMzAgLTE1IC0yNgotMTcgLTEwMyAtMTggLTEzMTAgLTIxIC0xMzY2IC0yIC0xMjkyIC01IC0xMzY5IDQxIC00MyAyNiAtOTAgODkgLTc5IDEwNyAzIDUKMCAxMiAtNiAxNiAtOCA1IC0xMCAyIC01IC03IDQgLTggMSAtNiAtNyA0IC0xOSAyMyAtMzEgMTA2IC0yMiAxNDggMTAgNDUgNDIKMTE0IDYwIDEyOSA4IDcgMTUgMTggMTUgMjUgMCAxNSAxOSAzMiA0MCAzNyA4IDIgMTcgNiAyMCA5IDMgMyAxOSAxMyAzNSAyMgoyNyAxNSAxNDkgMTYgMTI3NSAxNiAxMTIzIDEgMTI0OSAtMSAxMjg4IC0xNnogTTE5MTUwIDQ0ODAgYy0xOTk5IC02IC0xODQwCi0xIC0xOTcyIC01OSAtMjcgLTExIC00OCAtMTggLTQ4IC0xNCAwIDMgLTYgMCAtMTMgLTYgLTggLTYgLTE3IC04IC0yMCAtNCAtNAozIC03IDEgLTcgLTYgMCAtNiAtMTEgLTE2IC0yNCAtMjEgLTEzIC01IC01NyAtMzAgLTk3IC01NiAtNDEgLTI2IC03NSAtNDYKLTc3IC00NSAtMiAyIC03IC0xIC0xMCAtNSAtNCAtNCAtMSAtNCA3IDEgOCA1IDEyIDQgOCAtMSAtMyAtNSAtMjIgLTE4IC00MgotMjkgLTM0IC0xNyAtMjYwIC0yMzMgLTI5NSAtMjgwIC04IC0xMSAtMzIgLTQyIC01MyAtNjggLTIxIC0yNiAtMzUgLTQ3IC0zMAotNDcgNCAwIDAgLTUgLTEwIC0xMSAtOSAtNiAtMTUgLTE0IC0xMyAtMTggMyAtNCAtMiAtMTcgLTEyIC0yNyAtMjQgLTI4IC0xMDcKLTE5OSAtMTA0IC0yMTUgMSAtNCAtOCAtMzkgLTE5IC03OSAtMTkgLTcwIC0yMCAtMTAyIC0xOSAtMTA4OSAwIC0xMDQ1IDEKLTEwNTMgMzkgLTExODEgMzEgLTEwNiA0MCAtMTQzIDM1IC0xNTEgLTMgLTUgMiAtNiAxMCAtMyA5IDMgMTYgMSAxNiAtNSAwIC03CjkgLTMxIDIwIC01MyAxMSAtMjMgMjAgLTQ3IDIwIC01MiAwIC0xMyA3NiAtMTI0IDEyMSAtMTc4IDE3IC0yMCAzMCAtMzkgMzAKLTQyIC0yIC0xMCAxMTQgLTEyMyAxMjEgLTExOSAxMCA1IDMwIC0zNiAyMyAtNDcgLTMgLTUgMCAtOCA3IC01IDcgMyAyNSAtMwozOSAtMTIgODEgLTU1IDEwNiAtNzMgMTI5IC05NCAxMyAtMTMgMjYgLTIzIDI3IC0yMSA4IDYgMjQgMCA0MCAtMTYgMTAgLTEwCjM3IC0yNCA2MSAtMzEgMjMgLTYgNDIgLTE2IDQyIC0yMSAwIC02IDggLTEwIDE4IC0xMCAxMCAwIDQxIC0xMSA2OCAtMjUgMjcKLTE0IDU4IC0yNSA2OSAtMjUgMTEgMCA0MCAtNyA2NSAtMTYgNDEgLTE0IDE1NyAtMzQgMzE1IC01MiA0NyAtNiAzMTcwIC05CjMzNzggLTMgbDQ3IDEgLTIgNTI4IC0zIDUyNyAtMTUwMCA1IGMtMTQyMiA1IC0xNTAzIDYgLTE1NTAgMjMgLTg0IDMxIC0xMzkKNTkgLTE2NyA4NCAtMTQgMTQgLTI5IDI1IC0zMiAyNCAtMyAtMSAtNiAxIC02IDQgMSAxMyAtMjYgMzIgLTM3IDI4IC0xMiAtNQotMTcgOCAtMTQgMjkgMCA0IC02IDUgLTE0IDIgLTggLTQgLTE1IC0xIC0xNSA0IDAgNiAtMTEgMjQgLTI1IDM5IC00MCA0NSAtNDUKNTIgLTQ1IDU5IDAgNCAtNiAxNSAtMTMgMjMgLTE0IDE2IC00OSAxMDIgLTU0IDEzMSAtMiA4IC03IDQwIC0xMiA3MCAtMTIgNjkKLTEzIDEwMjcgLTEgMTA5NSAxNCA4MCAxNiA4OSAyOCA5MyA3IDIgMTIgMTMgMTIgMjUgMCAzMSAxNSA1MSAzMCA0MiA5IC01IDExCi00IDYgMyAtOSAxNSA0MiAxMDIgNjAgMTAyIDggMCAxNCA5IDE0IDIwIDAgMTIgMTAgMjUgMjUgMzIgMTMgNiAyMiAxNSAxOSAxOQotMiA0IDggMTYgMjMgMjYgMTUgMTAgMzYgMjggNDYgNDAgMTAgMTMgMjUgMjMgMzMgMjMgOCAwIDE0IDUgMTQgMTAgMCA2IDYgMTAKMTQgMTAgOCAwIDE2IDMgMTggOCA0IDEwIDEwNSA2MiAxNDMgNzQgMTIyIDM4IDE0NSAzOCAxNTc5IDM4IDc2NCAtMSAxMzkwIDEKMTM5MiAzIDMgMiA1IDIyNSA3IDQ5NCAxIDM3MyAtMSA0OTMgLTEwIDUwMiAtNyA2IC0xMyAxMCAtMTUgOSAtMiAtMiAtODI5IC01Ci0xODM4IC04eiBNMTIxNTAgMTI2MCBjLTQgLTQwMiAyIC0xMDE1IDEwIC0xMDIwIDEzIC04IDIwNDcgLTYgMjA1NSAyIDQgMyA2CjIzNSA2IDUxNSBsMCA1MDggLTEwMzYgMyBjLTY4OCAxIC0xMDM1IC0xIC0xMDM1IC04eiBNMjE5MzYgOTIyIGMtMyAtNSAxIC05CjkgLTkgOCAwIDEyIDQgOSA5IC0zIDQgLTcgOCAtOSA4IC0yIDAgLTYgLTQgLTkgLTh6Ii8+CjwvZz4KPC9zdmc+Cg==",
+    alt: "JAYCO",
+    style: {
+      height: "28px",
+      display: "block"
+    }
+  }), React.createElement("div", {
+    style: {
+      fontSize: "11px",
+      color: "var(--text-faint)",
+      marginTop: "4px"
+    }
+  }, "Vendor Payments")), NAV_GROUPS.map(group => React.createElement("div", {
+    key: group.label,
+    style: {
+      marginBottom: "18px"
+    }
+  }, React.createElement("div", {
+    style: {
+      fontSize: "11px",
+      fontWeight: 700,
+      color: "var(--text-faint)",
+      letterSpacing: "0.06em",
+      padding: "0 12px",
+      marginBottom: "6px"
+    }
+  }, group.label), React.createElement("nav", {
+    style: {
+      display: "flex",
+      flexDirection: "column",
+      gap: "4px"
+    }
+  }, group.items.map(item => React.createElement("button", {
+    key: item.id,
+    onClick: () => onNavigate(item.id),
+    style: {
+      display: "flex",
+      alignItems: "center",
+      gap: "10px",
+      padding: "10px 12px",
+      borderRadius: "8px",
+      border: "none",
+      background: active === item.id ? "var(--accent-orange)" : "transparent",
+      color: active === item.id ? "#fff" : "var(--text-dim)",
+      fontWeight: 700,
+      fontSize: "14px",
+      cursor: "pointer",
+      textAlign: "left"
+    }
+  }, item.label)))))), React.createElement("div", {
+    style: {
+      flex: 1,
+      minWidth: 0,
+      display: "flex",
+      flexDirection: "column"
+    }
+  }, React.createElement("header", {
+    style: {
+      display: "flex",
+      justifyContent: "flex-end",
+      alignItems: "center",
+      gap: "12px",
+      padding: "16px 32px",
+      borderBottom: "1px solid var(--border)",
+      background: "var(--bg-panel)"
+    }
+  }, React.createElement("form", {
+    onSubmit: handleSearchSubmit,
+    style: {
+      position: "relative",
+      width: "280px"
+    }
+  }, React.createElement("span", {
+    style: {
+      position: "absolute",
+      left: "12px",
+      top: "50%",
+      transform: "translateY(-50%)",
+      fontSize: "14px",
+      color: "var(--text-faint)"
+    }
+  }, "🔍"), React.createElement("input", {
+    type: "text",
+    placeholder: "Search vendors...",
+    value: searchValue,
+    onChange: e => setSearchValue(e.target.value),
+    style: {
+      ...inputStyle,
+      paddingLeft: "34px"
+    }
+  })), React.createElement("button", {
+    onClick: () => onNavigate("vendors"),
+    style: {
+      display: "flex",
+      alignItems: "center",
+      gap: "6px",
+      padding: "10px 16px",
+      borderRadius: "8px",
+      border: "1px solid var(--border)",
+      background: "var(--bg-panel-2)",
+      color: "var(--text)",
+      fontWeight: 700,
+      fontSize: "14px",
+      cursor: "pointer"
+    }
+  }, "⚙️ Settings")), React.createElement("main", {
+    style: {
+      flex: 1,
+      padding: "28px 32px",
+      minWidth: 0
+    }
+  }, children)));
+}
+const AGEING_BUCKET_META = {
+  not_due: {
+    label: "NOT YET DUE",
+    color: "var(--accent-blue)",
+    bg: "#eaf1ff"
+  },
+  "0_30": {
+    label: "0-30 OVERDUE",
+    color: "var(--accent-blue)",
+    bg: "#eaf1ff"
+  },
+  "31_60": {
+    label: "31-60 OVERDUE",
+    color: "var(--accent-yellow)",
+    bg: "#fdf3e0"
+  },
+  "61_90": {
+    label: "61-90 OVERDUE",
+    color: "var(--accent-orange)",
+    bg: "#fde8e0"
+  },
+  "90_plus": {
+    label: "90+ OVERDUE",
+    color: "var(--accent-red)",
+    bg: "#fbe3e8"
+  }
+};
+const AGEING_BUCKET_ORDER = ["not_due", "0_30", "31_60", "61_90", "90_plus"];
+function Dashboard({
+  vendors,
+  invoices,
+  payments,
+  onNavigate
+}) {
+  const [ageingFilter, setAgeingFilter] = useState(null);
+  const openInvoices = useMemo(() => invoices.filter(i => i.status !== "paid"), [invoices]);
+  const vendorMap = useMemo(() => {
+    const m = {};
+    vendors.forEach(v => m[v.id] = v);
+    return m;
+  }, [vendors]);
+  const totalOutstanding = useMemo(() => round2(openInvoices.reduce((s, i) => s + (i.amount - (i.amountPaid || 0)), 0)), [openInvoices]);
+  const overdueInvoices = useMemo(() => openInvoices.filter(i => daysPastDue(i.dueDate) > 0), [openInvoices]);
+  const overdueTotal = round2(overdueInvoices.reduce((s, i) => s + (i.amount - (i.amountPaid || 0)), 0));
+  const notDueInvoices = useMemo(() => openInvoices.filter(i => daysPastDue(i.dueDate) <= 0), [openInvoices]);
+  const notDueTotal = round2(notDueInvoices.reduce((s, i) => s + (i.amount - (i.amountPaid || 0)), 0));
+  const vendorsWithBalance = useMemo(() => {
+    const ids = new Set(openInvoices.map(i => i.vendorId));
+    return ids.size;
+  }, [openInvoices]);
+  const ageingBreakdown = useMemo(() => {
+    const b = {
+      not_due: 0,
+      "0_30": 0,
+      "31_60": 0,
+      "61_90": 0,
+      "90_plus": 0
+    };
+    openInvoices.forEach(i => {
+      b[ageingBucket(i.dueDate)] += round2(i.amount - (i.amountPaid || 0));
+    });
+    return b;
+  }, [openInvoices]);
+  const ageingGrandTotal = round2(Object.values(ageingBreakdown).reduce((s, v) => s + v, 0)) || 1;
+  const monthlyCollections = useMemo(() => {
+    const now = new Date();
+    const months = [];
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      months.push({
+        key: d.getFullYear() + "-" + d.getMonth(),
+        label: d.toLocaleDateString("en-IN", {
+          month: "short"
+        }),
+        total: 0
+      });
+    }
+    const byKey = {};
+    months.forEach(m => byKey[m.key] = m);
+    payments.forEach(p => {
+      const d = new Date(p.paymentDate);
+      const key = d.getFullYear() + "-" + d.getMonth();
+      if (byKey[key] && p.mode !== "advance_adjustment") {
+        byKey[key].total = round2(byKey[key].total + p.amount);
+      }
+    });
+    return months;
+  }, [payments]);
+  const totalCollected6mo = round2(monthlyCollections.reduce((s, m) => s + m.total, 0));
+  const maxMonthly = Math.max(...monthlyCollections.map(m => m.total), 1);
+  const topDebtors = useMemo(() => {
+    const byVendor = {};
+    openInvoices.forEach(inv => {
+      if (!byVendor[inv.vendorId]) {
+        byVendor[inv.vendorId] = {
+          vendorId: inv.vendorId,
+          not_due: 0,
+          "0_30": 0,
+          "31_60": 0,
+          "61_90": 0,
+          "90_plus": 0,
+          total: 0
+        };
+      }
+      const outstanding = round2(inv.amount - (inv.amountPaid || 0));
+      const bucket = ageingBucket(inv.dueDate);
+      byVendor[inv.vendorId][bucket] += outstanding;
+      byVendor[inv.vendorId].total = round2(byVendor[inv.vendorId].total + outstanding);
+    });
+    return Object.values(byVendor).sort((a, b) => b.total - a.total).slice(0, 8);
+  }, [openInvoices]);
+  return React.createElement("div", null, React.createElement("div", {
+    style: {
+      marginBottom: "24px"
+    }
+  }, React.createElement("h1", {
+    style: {
+      margin: 0
+    }
+  }, "Dashboard"), React.createElement("p", {
+    style: {
+      color: "var(--text-dim)",
+      margin: "2px 0 0"
+    }
+  }, "Vendor Payables & Cashflow Overview")), React.createElement("div", {
+    style: {
+      display: "grid",
+      gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+      gap: "16px",
+      marginBottom: "24px"
+    }
+  }, React.createElement(StatCardLinked, {
+    label: "TOTAL OUTSTANDING",
+    value: fmtINR(totalOutstanding),
+    linkText: vendorsWithBalance + " vendors with balance",
+    onClick: () => onNavigate("outstanding"),
+    color: "var(--accent-red)",
+    icon: "💰"
+  }), React.createElement(StatCardLinked, {
+    label: "OVERDUE",
+    value: fmtINR(overdueTotal),
+    linkText: overdueInvoices.length + " bills past due date",
+    onClick: () => onNavigate("outstanding"),
+    color: "var(--accent-red)",
+    icon: "⚠️"
+  }), React.createElement(StatCardLinked, {
+    label: "NOT YET DUE",
+    value: fmtINR(notDueTotal),
+    linkText: "Expected in upcoming period",
+    onClick: () => onNavigate("cashflow"),
+    color: "var(--accent-blue)",
+    icon: "📅"
+  }), React.createElement(StatCardLinked, {
+    label: "TOTAL VENDORS",
+    value: vendors.length,
+    linkText: vendorsWithBalance + " with outstanding",
+    onClick: () => onNavigate("vendors"),
+    color: "var(--accent-yellow)",
+    icon: "👥"
+  })), React.createElement("div", {
+    style: {
+      display: "grid",
+      gridTemplateColumns: "1.3fr 1fr",
+      gap: "20px",
+      marginBottom: "24px"
+    }
+  }, React.createElement(Card, null, React.createElement("div", {
+    style: {
+      display: "flex",
+      justifyContent: "space-between",
+      alignItems: "flex-start",
+      marginBottom: "14px"
+    }
+  }, React.createElement("div", null, React.createElement("h3", {
+    style: {
+      margin: 0
+    }
+  }, "Ageing Analysis"), React.createElement("p", {
+    style: {
+      color: "var(--text-faint)",
+      fontSize: "12px",
+      margin: "2px 0 0"
+    }
+  }, "By due date — click any bucket to drill down")), React.createElement("button", {
+    onClick: () => onNavigate("cashflow"),
+    style: {
+      padding: "8px 14px",
+      borderRadius: "8px",
+      border: "1px solid var(--border)",
+      background: "var(--bg-panel-2)",
+      color: "var(--text)",
+      fontWeight: 700,
+      fontSize: "13px",
+      cursor: "pointer",
+      whiteSpace: "nowrap"
+    }
+  }, "Cashflow Forecast →")), React.createElement("div", {
+    style: {
+      display: "grid",
+      gridTemplateColumns: "1fr 1fr",
+      gap: "10px"
+    }
+  }, AGEING_BUCKET_ORDER.map(bucket => {
+    const meta = AGEING_BUCKET_META[bucket];
+    const amount = ageingBreakdown[bucket];
+    const pct = (amount / ageingGrandTotal * 100).toFixed(1);
+    return React.createElement("div", {
+      key: bucket,
+      onClick: () => onNavigate("outstanding"),
+      style: {
+        background: meta.bg,
+        borderRadius: "8px",
+        padding: "12px 14px",
+        cursor: "pointer"
+      }
+    }, React.createElement("div", {
+      style: {
+        fontSize: "11px",
+        fontWeight: 700,
+        color: meta.color,
+        letterSpacing: "0.04em"
+      }
+    }, meta.label), React.createElement("div", {
+      style: {
+        fontFamily: "var(--font-mono)",
+        fontSize: "18px",
+        fontWeight: 700,
+        margin: "4px 0 2px"
+      }
+    }, fmtINR(amount)), React.createElement("div", {
+      style: {
+        fontSize: "11px",
+        color: "var(--text-faint)"
+      }
+    }, pct, "% — click to view vendors →"));
+  })), React.createElement("div", {
+    style: {
+      display: "flex",
+      height: "10px",
+      borderRadius: "6px",
+      overflow: "hidden",
+      marginTop: "16px"
+    }
+  }, AGEING_BUCKET_ORDER.map(bucket => {
+    const amount = ageingBreakdown[bucket];
+    const pct = amount / ageingGrandTotal * 100;
+    if (pct <= 0) return null;
+    return React.createElement("div", {
+      key: bucket,
+      style: {
+        width: pct + "%",
+        background: AGEING_BUCKET_META[bucket].color
+      }
+    });
+  }))), React.createElement(Card, null, React.createElement("h3", {
+    style: {
+      marginTop: 0
+    }
+  }, "Monthly Collections"), React.createElement("p", {
+    style: {
+      color: "var(--text-faint)",
+      fontSize: "12px",
+      marginTop: "-8px"
+    }
+  }, "Last 6 months receipts"), React.createElement("div", {
+    style: {
+      display: "flex",
+      alignItems: "flex-end",
+      gap: "10px",
+      height: "140px",
+      marginTop: "18px"
+    }
+  }, monthlyCollections.map(m => React.createElement("div", {
+    key: m.key,
+    style: {
+      flex: 1,
+      display: "flex",
+      flexDirection: "column",
+      alignItems: "center",
+      justifyContent: "flex-end",
+      height: "100%"
+    }
+  }, React.createElement("div", {
+    style: {
+      width: "100%",
+      maxWidth: "36px",
+      height: Math.max(m.total / maxMonthly * 110, m.total > 0 ? 4 : 0) + "px",
+      background: "var(--accent-red)",
+      borderRadius: "4px 4px 0 0"
+    },
+    title: fmtINR(m.total)
+  })))), React.createElement("div", {
+    style: {
+      display: "flex",
+      gap: "10px",
+      marginTop: "6px"
+    }
+  }, monthlyCollections.map(m => React.createElement("div", {
+    key: m.key,
+    style: {
+      flex: 1,
+      textAlign: "center",
+      fontSize: "11px",
+      color: "var(--text-faint)"
+    }
+  }, m.label))), React.createElement("div", {
+    style: {
+      marginTop: "16px",
+      paddingTop: "12px",
+      borderTop: "1px solid var(--border)"
+    }
+  }, React.createElement("span", {
+    style: {
+      color: "var(--text-dim)",
+      fontSize: "13px"
+    }
+  }, "Total collected: "), React.createElement("span", {
+    style: {
+      fontFamily: "var(--font-mono)",
+      fontWeight: 700
+    }
+  }, fmtINR(totalCollected6mo))))), React.createElement(Card, {
+    style: {
+      padding: 0,
+      overflow: "hidden"
+    }
+  }, React.createElement("div", {
+    style: {
+      display: "flex",
+      justifyContent: "space-between",
+      alignItems: "center",
+      padding: "18px 20px"
+    }
+  }, React.createElement("div", null, React.createElement("h3", {
+    style: {
+      margin: 0
+    }
+  }, "Top Debtors"), React.createElement("p", {
+    style: {
+      color: "var(--text-faint)",
+      fontSize: "12px",
+      margin: "2px 0 0"
+    }
+  }, "Vendors with highest outstanding")), React.createElement("button", {
+    onClick: () => onNavigate("outstanding"),
+    style: {
+      padding: "8px 14px",
+      borderRadius: "8px",
+      border: "1px solid var(--border)",
+      background: "var(--bg-panel-2)",
+      color: "var(--text)",
+      fontWeight: 700,
+      fontSize: "13px",
+      cursor: "pointer",
+      whiteSpace: "nowrap"
+    }
+  }, "View All →")), React.createElement("table", null, React.createElement("thead", null, React.createElement("tr", {
+    style: {
+      background: "var(--bg-panel-2)"
+    }
+  }, ["#", "VENDOR", "NOT DUE", "0-30 OD", "31-60 OD", "61-90 OD", "90+ OD", "TOTAL OUTSTANDING"].map(h => React.createElement("th", {
+    key: h,
+    style: {
+      padding: "10px 20px",
+      fontSize: "11px",
+      color: "var(--text-dim)",
+      whiteSpace: "nowrap"
+    }
+  }, h)))), React.createElement("tbody", null, topDebtors.map((row, idx) => React.createElement("tr", {
+    key: row.vendorId,
+    style: {
+      borderTop: "1px solid var(--border)"
+    }
+  }, React.createElement("td", {
+    style: {
+      padding: "10px 20px",
+      fontSize: "13px",
+      color: "var(--text-faint)"
+    }
+  }, idx + 1), React.createElement("td", {
+    style: {
+      padding: "10px 20px",
+      fontWeight: 700,
+      fontSize: "13px"
+    }
+  }, vendorMap[row.vendorId]?.name || "—"), React.createElement("td", {
+    style: {
+      padding: "10px 20px",
+      fontFamily: "var(--font-mono)",
+      fontSize: "12px"
+    }
+  }, fmtINR(row.not_due)), React.createElement("td", {
+    style: {
+      padding: "10px 20px",
+      fontFamily: "var(--font-mono)",
+      fontSize: "12px"
+    }
+  }, fmtINR(row["0_30"])), React.createElement("td", {
+    style: {
+      padding: "10px 20px",
+      fontFamily: "var(--font-mono)",
+      fontSize: "12px"
+    }
+  }, fmtINR(row["31_60"])), React.createElement("td", {
+    style: {
+      padding: "10px 20px",
+      fontFamily: "var(--font-mono)",
+      fontSize: "12px"
+    }
+  }, fmtINR(row["61_90"])), React.createElement("td", {
+    style: {
+      padding: "10px 20px",
+      fontFamily: "var(--font-mono)",
+      fontSize: "12px"
+    }
+  }, fmtINR(row["90_plus"])), React.createElement("td", {
+    style: {
+      padding: "10px 20px",
+      fontFamily: "var(--font-mono)",
+      fontWeight: 700,
+      fontSize: "13px"
+    }
+  }, fmtINR(row.total)))), topDebtors.length === 0 && React.createElement("tr", null, React.createElement("td", {
+    colSpan: "8",
+    style: {
+      padding: "24px 20px",
+      textAlign: "center",
+      color: "var(--text-dim)"
+    }
+  }, "No outstanding balances."))))));
+}
+function StatCardLinked({
+  label,
+  value,
+  linkText,
+  onClick,
+  color,
+  icon
+}) {
+  return React.createElement(Card, {
+    style: {
+      position: "relative",
+      overflow: "hidden",
+      cursor: "pointer"
+    }
+  }, React.createElement("div", {
+    style: {
+      position: "absolute",
+      top: 0,
+      left: 0,
+      width: "100%",
+      height: "4px",
+      background: color
+    }
+  }), React.createElement("div", {
+    style: {
+      display: "flex",
+      justifyContent: "space-between",
+      alignItems: "flex-start"
+    }
+  }, React.createElement("div", {
+    style: {
+      color: "var(--text-dim)",
+      fontSize: "12px",
+      fontWeight: 700,
+      letterSpacing: "0.04em"
+    }
+  }, label), React.createElement("span", {
+    style: {
+      fontSize: "18px",
+      opacity: 0.5
+    }
+  }, icon)), React.createElement("div", {
+    style: {
+      fontFamily: "var(--font-mono)",
+      fontSize: "26px",
+      fontWeight: 700,
+      marginTop: "6px"
+    }
+  }, value), React.createElement("div", {
+    onClick: onClick,
+    style: {
+      color: "var(--accent-blue)",
+      fontSize: "12px",
+      marginTop: "6px",
+      cursor: "pointer"
+    }
+  }, linkText, " →"));
+}
+function Vendors({
+  vendors,
+  invoices,
+  onRefresh,
+  onOpenStatement
+}) {
+  const [showModal, setShowModal] = useState(false);
+  const [editingVendor, setEditingVendor] = useState(null);
+  const [deletingVendor, setDeletingVendor] = useState(null);
+  const [filterText, setFilterText] = useState("");
+  function outstandingFor(vendorId) {
+    return round2(invoices.filter(i => i.vendorId === vendorId && i.status !== "paid").reduce((s, i) => s + (i.amount - (i.amountPaid || 0)), 0));
+  }
+  const filtered = useMemo(() => {
+    const q = filterText.trim().toLowerCase();
+    return vendors.filter(v => !q || v.name.toLowerCase().includes(q) || (v.gstin || "").toLowerCase().includes(q)).sort((a, b) => a.name.localeCompare(b.name));
+  }, [vendors, filterText]);
+  return React.createElement("div", null, React.createElement("div", {
+    style: {
+      marginBottom: "20px"
+    }
+  }, React.createElement("h1", {
+    style: {
+      margin: 0
+    }
+  }, "Vendors"), React.createElement("p", {
+    style: {
+      color: "var(--text-dim)",
+      margin: "2px 0 0"
+    }
+  }, "Manage vendor master records")), React.createElement(Card, {
+    style: {
+      padding: 0,
+      overflow: "hidden"
+    }
+  }, React.createElement("div", {
+    style: {
+      display: "flex",
+      justifyContent: "space-between",
+      alignItems: "center",
+      padding: "18px 20px",
+      flexWrap: "wrap",
+      gap: "12px"
+    }
+  }, React.createElement("div", null, React.createElement("h3", {
+    style: {
+      margin: 0
+    }
+  }, "Vendor Master"), React.createElement("p", {
+    style: {
+      color: "var(--text-faint)",
+      fontSize: "12px",
+      margin: "2px 0 0"
+    }
+  }, vendors.length, " vendor", vendors.length === 1 ? "" : "s")), React.createElement("div", {
+    style: {
+      display: "flex",
+      gap: "10px",
+      alignItems: "center"
+    }
+  }, React.createElement("input", {
+    type: "text",
+    placeholder: "Filter...",
+    value: filterText,
+    onChange: e => setFilterText(e.target.value),
+    style: {
+      ...inputStyle,
+      width: "200px"
+    }
+  }), React.createElement(Button, {
+    onClick: () => {
+      setEditingVendor(null);
+      setShowModal(true);
+    }
+  }, "+ Add Vendor"))), React.createElement("div", {
+    style: {
+      overflowX: "auto"
+    }
+  }, React.createElement("table", null, React.createElement("thead", null, React.createElement("tr", {
+    style: {
+      background: "var(--bg-panel-2)"
+    }
+  }, ["NAME", "GSTIN", "PHONE", "CREDIT DAYS", "CREDIT LIMIT", "OUTSTANDING", "ACTIONS"].map(h => React.createElement("th", {
+    key: h,
+    style: {
+      padding: "10px 16px",
+      fontSize: "11px",
+      color: "var(--text-dim)",
+      whiteSpace: "nowrap"
+    }
+  }, h)))), React.createElement("tbody", null, filtered.map(v => {
+    const outstanding = outstandingFor(v.id);
+    return React.createElement("tr", {
+      key: v.id,
+      style: {
+        borderTop: "1px solid var(--border)"
+      }
+    }, React.createElement("td", {
+      style: {
+        padding: "12px 16px",
+        fontWeight: 700,
+        fontSize: "13px"
+      }
+    }, v.name), React.createElement("td", {
+      style: {
+        padding: "12px 16px",
+        fontSize: "13px",
+        color: "var(--text-dim)"
+      }
+    }, v.gstin || "—"), React.createElement("td", {
+      style: {
+        padding: "12px 16px",
+        fontSize: "13px",
+        color: "var(--text-dim)"
+      }
+    }, v.phone || "—"), React.createElement("td", {
+      style: {
+        padding: "12px 16px",
+        fontSize: "13px"
+      }
+    }, v.creditDays ? v.creditDays + " days" : "—"), React.createElement("td", {
+      style: {
+        padding: "12px 16px",
+        fontSize: "13px"
+      }
+    }, v.creditLimit ? fmtINR(v.creditLimit) : "—"), React.createElement("td", {
+      style: {
+        padding: "12px 16px",
+        fontFamily: "var(--font-mono)",
+        fontWeight: 700,
+        fontSize: "13px",
+        color: outstanding > 0 ? "var(--accent-red)" : "var(--accent-green)"
+      }
+    }, fmtINR(outstanding)), React.createElement("td", {
+      style: {
+        padding: "12px 16px",
+        whiteSpace: "nowrap"
+      }
+    }, React.createElement("div", {
+      style: {
+        display: "flex",
+        gap: "6px"
+      }
+    }, React.createElement(RowActionButton, {
+      label: "Statement",
+      onClick: () => onOpenStatement(v.id)
+    }), React.createElement(RowActionButton, {
+      label: "Edit",
+      onClick: () => {
+        setEditingVendor(v);
+        setShowModal(true);
+      }
+    }), React.createElement(RowActionButton, {
+      label: "Del",
+      variant: "danger",
+      onClick: () => setDeletingVendor(v)
+    }))));
+  }), filtered.length === 0 && React.createElement("tr", null, React.createElement("td", {
+    colSpan: "7",
+    style: {
+      padding: "24px 20px",
+      textAlign: "center",
+      color: "var(--text-dim)"
+    }
+  }, vendors.length === 0 ? "No vendors yet. Add your first one." : "No vendors match that filter.")))))), showModal && React.createElement(VendorModal, {
+    vendor: editingVendor,
+    onClose: () => setShowModal(false),
+    onSaved: () => {
+      setShowModal(false);
+      onRefresh();
+    }
+  }), deletingVendor && React.createElement(DeleteVendorConfirm, {
+    vendor: deletingVendor,
+    hasActivity: invoices.some(i => i.vendorId === deletingVendor.id),
+    onClose: () => setDeletingVendor(null),
+    onDeleted: () => {
+      setDeletingVendor(null);
+      onRefresh();
+    }
+  }));
+}
+function DeleteVendorConfirm({
+  vendor,
+  hasActivity,
+  onClose,
+  onDeleted
+}) {
+  const [deleting, setDeleting] = useState(false);
+  const [error, setError] = useState("");
+  async function handleDelete() {
+    setDeleting(true);
+    setError("");
+    try {
+      await deleteVendor(vendor.id);
+      onDeleted();
+    } catch (err) {
+      setError(err.message || "Failed to delete vendor");
+    } finally {
+      setDeleting(false);
+    }
+  }
+  return React.createElement(Modal, {
+    title: "Delete Vendor",
+    onClose: onClose,
+    width: "420px"
+  }, hasActivity ? React.createElement("div", null, React.createElement("p", {
+    style: {
+      fontSize: "14px"
+    }
+  }, React.createElement("strong", null, vendor.name), " has bills or payments recorded against them. Deleting the vendor would leave that history orphaned and break reports like the ledger and ageing."), React.createElement("p", {
+    style: {
+      fontSize: "13px",
+      color: "var(--text-dim)"
+    }
+  }, "If you need to stop using this vendor, consider leaving the record as-is rather than deleting it."), React.createElement(Button, {
+    onClick: onClose,
+    full: true,
+    variant: "secondary"
+  }, "Close")) : React.createElement("div", null, React.createElement("p", {
+    style: {
+      fontSize: "14px"
+    }
+  }, "Delete vendor ", React.createElement("strong", null, vendor.name), "? This can't be undone."), error && React.createElement("p", {
+    style: {
+      color: "var(--accent-red)",
+      fontSize: "13px"
+    }
+  }, error), React.createElement("div", {
+    style: {
+      display: "flex",
+      gap: "10px"
+    }
+  }, React.createElement(Button, {
+    onClick: onClose,
+    variant: "secondary",
+    full: true,
+    disabled: deleting
+  }, "Cancel"), React.createElement(Button, {
+    onClick: handleDelete,
+    variant: "danger",
+    full: true,
+    disabled: deleting
+  }, deleting ? "Deleting..." : "Delete"))));
+}
+function VendorModal({
+  vendor,
+  onClose,
+  onSaved
+}) {
+  const [form, setForm] = useState({
+    name: vendor?.name || "",
+    gstin: vendor?.gstin || "",
+    contactPerson: vendor?.contactPerson || "",
+    phone: vendor?.phone || "",
+    email: vendor?.email || "",
+    creditDays: vendor?.creditDays ?? "",
+    creditLimit: vendor?.creditLimit ?? "",
+    openingBalance: vendor?.openingBalance ?? 0
+  });
+  const [saving, setSaving] = useState(false);
+  async function handleSave(e) {
+    e.preventDefault();
+    if (!form.name.trim()) return;
+    setSaving(true);
+    try {
+      const payload = {
+        ...form,
+        creditDays: Number(form.creditDays) || 0,
+        creditLimit: Number(form.creditLimit) || 0,
+        openingBalance: Number(form.openingBalance)
+      };
+      if (vendor) await updateVendor(vendor.id, payload);else await createVendor(payload);
+      onSaved();
+    } finally {
+      setSaving(false);
+    }
+  }
+  return React.createElement(Modal, {
+    title: vendor ? "Edit Vendor" : "Add Vendor",
+    onClose: onClose
+  }, React.createElement("form", {
+    onSubmit: handleSave
+  }, React.createElement(Field, {
+    label: "Vendor Name *"
+  }, React.createElement("input", {
+    style: inputStyle,
+    value: form.name,
+    onChange: e => setForm({
+      ...form,
+      name: e.target.value
+    }),
+    required: true
+  })), React.createElement(Field, {
+    label: "GSTIN"
+  }, React.createElement("input", {
+    style: inputStyle,
+    value: form.gstin,
+    onChange: e => setForm({
+      ...form,
+      gstin: e.target.value
+    })
+  })), React.createElement(Field, {
+    label: "Contact Person"
+  }, React.createElement("input", {
+    style: inputStyle,
+    value: form.contactPerson,
+    onChange: e => setForm({
+      ...form,
+      contactPerson: e.target.value
+    })
+  })), React.createElement("div", {
+    style: {
+      display: "grid",
+      gridTemplateColumns: "1fr 1fr",
+      gap: "12px"
+    }
+  }, React.createElement(Field, {
+    label: "Phone"
+  }, React.createElement("input", {
+    style: inputStyle,
+    value: form.phone,
+    onChange: e => setForm({
+      ...form,
+      phone: e.target.value
+    })
+  })), React.createElement(Field, {
+    label: "Email"
+  }, React.createElement("input", {
+    style: inputStyle,
+    value: form.email,
+    onChange: e => setForm({
+      ...form,
+      email: e.target.value
+    })
+  }))), React.createElement("div", {
+    style: {
+      display: "grid",
+      gridTemplateColumns: "1fr 1fr",
+      gap: "12px"
+    }
+  }, React.createElement(Field, {
+    label: "Credit Days"
+  }, React.createElement("input", {
+    type: "number",
+    placeholder: "e.g. 45",
+    style: inputStyle,
+    value: form.creditDays,
+    onChange: e => setForm({
+      ...form,
+      creditDays: e.target.value
+    })
+  })), React.createElement(Field, {
+    label: "Credit Limit (₹)"
+  }, React.createElement("input", {
+    type: "number",
+    step: "0.01",
+    placeholder: "e.g. 500000",
+    style: inputStyle,
+    value: form.creditLimit,
+    onChange: e => setForm({
+      ...form,
+      creditLimit: e.target.value
+    })
+  }))), !vendor && React.createElement(Field, {
+    label: "Opening Balance (₹) — existing dues before using this system"
+  }, React.createElement("input", {
+    type: "number",
+    step: "0.01",
+    style: inputStyle,
+    value: form.openingBalance,
+    onChange: e => setForm({
+      ...form,
+      openingBalance: e.target.value
+    })
+  })), React.createElement(Button, {
+    type: "submit",
+    full: true,
+    disabled: saving
+  }, saving ? "Saving..." : vendor ? "Save Changes" : "Add Vendor")));
+}
+function Invoices({
+  vendors,
+  invoices,
+  onRefresh,
+  prefillVendorId,
+  onClearPrefill
+}) {
+  const [showModal, setShowModal] = useState(false);
+  const [editingInvoice, setEditingInvoice] = useState(null);
+  const [viewingInvoice, setViewingInvoice] = useState(null);
+  const [deletingInvoice, setDeletingInvoice] = useState(null);
+  const [filterText, setFilterText] = useState("");
+  React.useEffect(() => {
+    if (prefillVendorId) {
+      setEditingInvoice(null);
+      setShowModal(true);
+    }
+  }, [prefillVendorId]);
+  const vendorMap = useMemo(() => {
+    const m = {};
+    vendors.forEach(v => m[v.id] = v);
+    return m;
+  }, [vendors]);
+  const filtered = useMemo(() => {
+    const q = filterText.trim().toLowerCase();
+    return invoices.filter(i => {
+      if (!q) return true;
+      const vendorName = (vendorMap[i.vendorId]?.name || "").toLowerCase();
+      return vendorName.includes(q) || i.invoiceNo.toLowerCase().includes(q);
+    }).sort((a, b) => new Date(b.invoiceDate) - new Date(a.invoiceDate));
+  }, [invoices, filterText, vendorMap]);
+  return React.createElement("div", null, React.createElement("div", {
+    style: {
+      marginBottom: "20px"
+    }
+  }, React.createElement("h1", {
+    style: {
+      margin: 0
+    }
+  }, "Bills / Invoices"), React.createElement("p", {
+    style: {
+      color: "var(--text-dim)",
+      margin: "2px 0 0"
+    }
+  }, "All vendor bills at summary level")), React.createElement(Card, {
+    style: {
+      padding: 0,
+      overflow: "hidden"
+    }
+  }, React.createElement("div", {
+    style: {
+      display: "flex",
+      justifyContent: "space-between",
+      alignItems: "center",
+      padding: "18px 20px",
+      flexWrap: "wrap",
+      gap: "12px"
+    }
+  }, React.createElement("div", null, React.createElement("h3", {
+    style: {
+      margin: 0
+    }
+  }, "Bills / Invoices"), React.createElement("p", {
+    style: {
+      color: "var(--text-faint)",
+      fontSize: "12px",
+      margin: "2px 0 0"
+    }
+  }, invoices.length, " total bill", invoices.length === 1 ? "" : "s")), React.createElement("div", {
+    style: {
+      display: "flex",
+      gap: "10px",
+      alignItems: "center"
+    }
+  }, React.createElement("input", {
+    type: "text",
+    placeholder: "Filter vendor / bill no...",
+    value: filterText,
+    onChange: e => setFilterText(e.target.value),
+    style: {
+      ...inputStyle,
+      width: "220px"
+    }
+  }), React.createElement(Button, {
+    onClick: () => {
+      setEditingInvoice(null);
+      setShowModal(true);
+    },
+    disabled: vendors.length === 0
+  }, "+ Add Bill"))), vendors.length === 0 && React.createElement("p", {
+    style: {
+      padding: "0 20px 16px",
+      color: "var(--text-dim)"
+    }
+  }, "Add a vendor first before entering invoices."), React.createElement("div", {
+    style: {
+      overflowX: "auto"
+    }
+  }, React.createElement("table", null, React.createElement("thead", null, React.createElement("tr", {
+    style: {
+      background: "var(--bg-panel-2)"
+    }
+  }, ["BILL NO", "BILL DATE", "DUE DATE", "VENDOR", "INVOICE AMOUNT", "PAID", "BALANCE", "STATUS", "ACTIONS"].map(h => React.createElement("th", {
+    key: h,
+    style: {
+      padding: "10px 16px",
+      fontSize: "11px",
+      color: "var(--text-dim)",
+      whiteSpace: "nowrap"
+    }
+  }, h)))), React.createElement("tbody", null, filtered.map(inv => {
+    const outstanding = round2(inv.amount - (inv.amountPaid || 0));
+    const dpd = daysPastDue(inv.dueDate);
+    const isPaid = inv.status === "paid";
+    return React.createElement("tr", {
+      key: inv.id,
+      style: {
+        borderTop: "1px solid var(--border)"
+      }
+    }, React.createElement("td", {
+      style: {
+        padding: "12px 16px",
+        fontFamily: "var(--font-mono)",
+        fontWeight: 700,
+        fontSize: "13px"
+      }
+    }, inv.invoiceNo), React.createElement("td", {
+      style: {
+        padding: "12px 16px",
+        fontSize: "13px",
+        whiteSpace: "nowrap"
+      }
+    }, fmtDate(inv.invoiceDate)), React.createElement("td", {
+      style: {
+        padding: "12px 16px",
+        fontSize: "13px",
+        whiteSpace: "nowrap"
+      }
+    }, fmtDate(inv.dueDate), !isPaid && React.createElement("div", {
+      style: {
+        fontSize: "11px",
+        color: dpd > 0 ? "var(--accent-red)" : "var(--text-faint)"
+      }
+    }, dpd > 0 ? "overdue " + dpd + "d" : "due in " + -dpd + "d")), React.createElement("td", {
+      style: {
+        padding: "12px 16px",
+        fontWeight: 700,
+        fontSize: "13px"
+      }
+    }, vendorMap[inv.vendorId]?.name || "—"), React.createElement("td", {
+      style: {
+        padding: "12px 16px",
+        fontFamily: "var(--font-mono)",
+        fontSize: "13px",
+        textAlign: "right"
+      }
+    }, fmtINR(inv.amount)), React.createElement("td", {
+      style: {
+        padding: "12px 16px",
+        fontFamily: "var(--font-mono)",
+        fontSize: "13px",
+        textAlign: "right",
+        color: "var(--accent-green)"
+      }
+    }, inv.amountPaid > 0 ? fmtINR(inv.amountPaid) : "—"), React.createElement("td", {
+      style: {
+        padding: "12px 16px",
+        fontFamily: "var(--font-mono)",
+        fontWeight: 700,
+        fontSize: "13px",
+        textAlign: "right",
+        color: isPaid ? "var(--accent-green)" : "var(--accent-red)"
+      }
+    }, isPaid ? "✓" : fmtINR(outstanding)), React.createElement("td", {
+      style: {
+        padding: "12px 16px"
+      }
+    }, React.createElement(Badge, {
+      color: statusColor(inv.status)
+    }, inv.status)), React.createElement("td", {
+      style: {
+        padding: "12px 16px",
+        whiteSpace: "nowrap"
+      }
+    }, React.createElement("div", {
+      style: {
+        display: "flex",
+        gap: "6px"
+      }
+    }, React.createElement(RowActionButton, {
+      label: "View",
+      onClick: () => setViewingInvoice(inv)
+    }), React.createElement(RowActionButton, {
+      label: "Edit",
+      onClick: () => {
+        setEditingInvoice(inv);
+        setShowModal(true);
+      }
+    }), React.createElement(RowActionButton, {
+      label: "Del",
+      variant: "danger",
+      onClick: () => setDeletingInvoice(inv)
+    }))));
+  }), filtered.length === 0 && React.createElement("tr", null, React.createElement("td", {
+    colSpan: "9",
+    style: {
+      padding: "24px 20px",
+      textAlign: "center",
+      color: "var(--text-dim)"
+    }
+  }, "No bills found.")))))), showModal && React.createElement(InvoiceModal, {
+    vendors: vendors,
+    existingInvoice: editingInvoice,
+    prefillVendorId: prefillVendorId,
+    onClose: () => {
+      setShowModal(false);
+      if (onClearPrefill) onClearPrefill();
+    },
+    onSaved: () => {
+      setShowModal(false);
+      if (onClearPrefill) onClearPrefill();
+      onRefresh();
+    }
+  }), viewingInvoice && React.createElement(InvoiceViewModal, {
+    invoice: viewingInvoice,
+    vendorName: vendorMap[viewingInvoice.vendorId]?.name || "—",
+    onClose: () => setViewingInvoice(null)
+  }), deletingInvoice && React.createElement(DeleteInvoiceConfirm, {
+    invoice: deletingInvoice,
+    onClose: () => setDeletingInvoice(null),
+    onDeleted: () => {
+      setDeletingInvoice(null);
+      onRefresh();
+    }
+  }));
+}
+function RowActionButton({
+  label,
+  onClick,
+  variant
+}) {
+  const colors = variant === "danger" ? {
+    background: "#fbe3e8",
+    color: "var(--accent-red)"
+  } : {
+    background: "var(--bg-panel-2)",
+    color: "var(--text)"
+  };
+  return React.createElement("button", {
+    onClick: onClick,
+    style: {
+      padding: "6px 12px",
+      borderRadius: "6px",
+      border: "1px solid var(--border)",
+      fontWeight: 700,
+      fontSize: "12px",
+      cursor: "pointer",
+      ...colors
+    }
+  }, label);
+}
+function InvoiceViewModal({
+  invoice,
+  vendorName,
+  onClose
+}) {
+  const outstanding = round2(invoice.amount - (invoice.amountPaid || 0));
+  return React.createElement(Modal, {
+    title: "Bill " + invoice.invoiceNo,
+    onClose: onClose
+  }, React.createElement("div", {
+    style: {
+      display: "flex",
+      flexDirection: "column",
+      gap: "10px",
+      fontSize: "14px"
+    }
+  }, React.createElement(DetailRow, {
+    label: "Vendor",
+    value: vendorName
+  }), React.createElement(DetailRow, {
+    label: "Bill Date",
+    value: fmtDate(invoice.invoiceDate)
+  }), React.createElement(DetailRow, {
+    label: "Due Date",
+    value: fmtDate(invoice.dueDate)
+  }), React.createElement(DetailRow, {
+    label: "Invoice Amount",
+    value: fmtINR(invoice.amount)
+  }), React.createElement(DetailRow, {
+    label: "Paid",
+    value: fmtINR(invoice.amountPaid || 0)
+  }), React.createElement(DetailRow, {
+    label: "Balance",
+    value: fmtINR(outstanding),
+    highlight: outstanding > 0
+  }), React.createElement(DetailRow, {
+    label: "Status",
+    value: React.createElement(Badge, {
+      color: statusColor(invoice.status)
+    }, invoice.status)
+  }), invoice.notes && React.createElement(DetailRow, {
+    label: "Notes",
+    value: invoice.notes
+  }), invoice.attachmentLink && React.createElement(DetailRow, {
+    label: "Attachment",
+    value: React.createElement("a", {
+      href: invoice.attachmentLink,
+      target: "_blank",
+      rel: "noreferrer"
+    }, "Open link ↗")
+  })));
+}
+function DetailRow({
+  label,
+  value,
+  highlight
+}) {
+  return React.createElement("div", {
+    style: {
+      display: "flex",
+      justifyContent: "space-between",
+      padding: "6px 0",
+      borderBottom: "1px solid var(--border)"
+    }
+  }, React.createElement("span", {
+    style: {
+      color: "var(--text-dim)",
+      fontWeight: 700
+    }
+  }, label), React.createElement("span", {
+    style: {
+      fontWeight: highlight ? 700 : 400,
+      color: highlight ? "var(--accent-red)" : "var(--text)"
+    }
+  }, value));
+}
+function DeleteInvoiceConfirm({
+  invoice,
+  onClose,
+  onDeleted
+}) {
+  const [deleting, setDeleting] = useState(false);
+  const [error, setError] = useState("");
+  const hasPayments = (invoice.amountPaid || 0) > 0;
+  async function handleDelete() {
+    setDeleting(true);
+    setError("");
+    try {
+      await deleteInvoice(invoice.id);
+      onDeleted();
+    } catch (err) {
+      setError(err.message || "Failed to delete invoice");
+    } finally {
+      setDeleting(false);
+    }
+  }
+  return React.createElement(Modal, {
+    title: "Delete Bill",
+    onClose: onClose,
+    width: "420px"
+  }, hasPayments ? React.createElement("div", null, React.createElement("p", {
+    style: {
+      fontSize: "14px"
+    }
+  }, React.createElement("strong", null, invoice.invoiceNo), " already has ", fmtINR(invoice.amountPaid), " paid against it. Deleting it would leave that payment's records pointing at a bill that no longer exists, and break the vendor's ledger."), React.createElement("p", {
+    style: {
+      fontSize: "13px",
+      color: "var(--text-dim)"
+    }
+  }, "To remove this bill safely, first reverse or reallocate the payment(s) applied to it, then delete."), React.createElement(Button, {
+    onClick: onClose,
+    full: true,
+    variant: "secondary"
+  }, "Close")) : React.createElement("div", null, React.createElement("p", {
+    style: {
+      fontSize: "14px"
+    }
+  }, "Delete bill ", React.createElement("strong", null, invoice.invoiceNo), " for ", fmtINR(invoice.amount), "? This can't be undone."), error && React.createElement("p", {
+    style: {
+      color: "var(--accent-red)",
+      fontSize: "13px"
+    }
+  }, error), React.createElement("div", {
+    style: {
+      display: "flex",
+      gap: "10px"
+    }
+  }, React.createElement(Button, {
+    onClick: onClose,
+    variant: "secondary",
+    full: true,
+    disabled: deleting
+  }, "Cancel"), React.createElement(Button, {
+    onClick: handleDelete,
+    variant: "danger",
+    full: true,
+    disabled: deleting
+  }, deleting ? "Deleting..." : "Delete"))));
+}
+function InvoiceModal({
+  vendors,
+  existingInvoice,
+  prefillVendorId,
+  onClose,
+  onSaved
+}) {
+  const today = new Date().toISOString().slice(0, 10);
+  const isEditing = !!existingInvoice;
+  const [form, setForm] = useState({
+    vendorId: existingInvoice?.vendorId || prefillVendorId || vendors[0]?.id || "",
+    invoiceNo: existingInvoice?.invoiceNo || "",
+    invoiceDate: existingInvoice?.invoiceDate || today,
+    dueDate: existingInvoice?.dueDate || today,
+    amount: existingInvoice?.amount ?? "",
+    attachmentLink: existingInvoice?.attachmentLink || "",
+    notes: existingInvoice?.notes || ""
+  });
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  const hasPayments = isEditing && (existingInvoice.amountPaid || 0) > 0;
+  async function handleSave(e) {
+    e.preventDefault();
+    if (!form.vendorId || !form.invoiceNo || !form.amount) return;
+    setSaving(true);
+    setError("");
+    try {
+      if (isEditing) {
+        await updateInvoice(existingInvoice.id, {
+          invoiceNo: form.invoiceNo,
+          invoiceDate: form.invoiceDate,
+          dueDate: form.dueDate,
+          amount: Number(form.amount),
+          attachmentLink: form.attachmentLink,
+          notes: form.notes
+        });
+      } else {
+        await createInvoice({
+          ...form,
+          amount: Number(form.amount)
+        });
+      }
+      onSaved();
+    } catch (err) {
+      setError(err.message || "Failed to save invoice");
+    } finally {
+      setSaving(false);
+    }
+  }
+  return React.createElement(Modal, {
+    title: isEditing ? "Edit Bill " + existingInvoice.invoiceNo : "Enter Invoice",
+    onClose: onClose
+  }, React.createElement("form", {
+    onSubmit: handleSave
+  }, hasPayments && React.createElement("div", {
+    style: {
+      background: "#fdf3e0",
+      color: "#8a6100",
+      padding: "10px 12px",
+      borderRadius: "8px",
+      fontSize: "12px",
+      marginBottom: "14px"
+    }
+  }, "This bill already has ", fmtINR(existingInvoice.amountPaid), " paid against it. Changing the amount won't adjust past payment allocations — double check the balance afterward."), React.createElement(Field, {
+    label: "Vendor *"
+  }, React.createElement("select", {
+    style: inputStyle,
+    value: form.vendorId,
+    onChange: e => setForm({
+      ...form,
+      vendorId: e.target.value
+    }),
+    required: true,
+    disabled: isEditing
+  }, vendors.map(v => React.createElement("option", {
+    key: v.id,
+    value: v.id
+  }, v.name)))), React.createElement(Field, {
+    label: "Vendor Invoice Number *"
+  }, React.createElement("input", {
+    style: inputStyle,
+    value: form.invoiceNo,
+    onChange: e => setForm({
+      ...form,
+      invoiceNo: e.target.value
+    }),
+    required: true
+  })), React.createElement("div", {
+    style: {
+      display: "grid",
+      gridTemplateColumns: "1fr 1fr",
+      gap: "12px"
+    }
+  }, React.createElement(Field, {
+    label: "Invoice Date *"
+  }, React.createElement("input", {
+    type: "date",
+    style: inputStyle,
+    value: form.invoiceDate,
+    onChange: e => setForm({
+      ...form,
+      invoiceDate: e.target.value
+    }),
+    required: true
+  })), React.createElement(Field, {
+    label: "Due Date *"
+  }, React.createElement("input", {
+    type: "date",
+    style: inputStyle,
+    value: form.dueDate,
+    onChange: e => setForm({
+      ...form,
+      dueDate: e.target.value
+    }),
+    required: true
+  }))), React.createElement(Field, {
+    label: "Amount (₹) *"
+  }, React.createElement("input", {
+    type: "number",
+    step: "0.01",
+    style: inputStyle,
+    value: form.amount,
+    onChange: e => setForm({
+      ...form,
+      amount: e.target.value
+    }),
+    required: true
+  })), React.createElement(Field, {
+    label: "OneDrive Attachment Link"
+  }, React.createElement("input", {
+    type: "url",
+    placeholder: "https://onedrive.live.com/...",
+    style: inputStyle,
+    value: form.attachmentLink,
+    onChange: e => setForm({
+      ...form,
+      attachmentLink: e.target.value
+    })
+  })), React.createElement(Field, {
+    label: "Notes"
+  }, React.createElement("input", {
+    style: inputStyle,
+    value: form.notes,
+    onChange: e => setForm({
+      ...form,
+      notes: e.target.value
+    })
+  })), error && React.createElement("p", {
+    style: {
+      color: "var(--accent-red)",
+      fontSize: "13px"
+    }
+  }, error), React.createElement(Button, {
+    type: "submit",
+    full: true,
+    disabled: saving
+  }, saving ? "Saving..." : isEditing ? "Save Changes" : "Save Invoice")));
+}
+function Payments({
+  vendors,
+  invoices,
+  payments,
+  onRefresh
+}) {
+  const [showModal, setShowModal] = useState(false);
+  const [deletingPayment, setDeletingPayment] = useState(null);
+  const [filterText, setFilterText] = useState("");
+  const vendorMap = useMemo(() => {
+    const m = {};
+    vendors.forEach(v => m[v.id] = v);
+    return m;
+  }, [vendors]);
+  const filtered = useMemo(() => {
+    const q = filterText.trim().toLowerCase();
+    return payments.filter(p => {
+      if (!q) return true;
+      const vendorName = (vendorMap[p.vendorId]?.name || "").toLowerCase();
+      return vendorName.includes(q) || (p.reference || "").toLowerCase().includes(q);
+    }).sort((a, b) => new Date(b.paymentDate) - new Date(a.paymentDate));
+  }, [payments, filterText, vendorMap]);
+  return React.createElement("div", null, React.createElement("div", {
+    style: {
+      marginBottom: "20px"
+    }
+  }, React.createElement("h1", {
+    style: {
+      margin: 0
+    }
+  }, "Payments Made"), React.createElement("p", {
+    style: {
+      color: "var(--text-dim)",
+      margin: "2px 0 0"
+    }
+  }, "Payments with FIFO allocation")), React.createElement(Card, {
+    style: {
+      padding: 0,
+      overflow: "hidden"
+    }
+  }, React.createElement("div", {
+    style: {
+      display: "flex",
+      justifyContent: "space-between",
+      alignItems: "center",
+      padding: "18px 20px",
+      flexWrap: "wrap",
+      gap: "12px"
+    }
+  }, React.createElement("div", null, React.createElement("h3", {
+    style: {
+      margin: 0
+    }
+  }, "Payments Made"), React.createElement("p", {
+    style: {
+      color: "var(--text-faint)",
+      fontSize: "12px",
+      margin: "2px 0 0"
+    }
+  }, payments.length, " payment", payments.length === 1 ? "" : "s", " — FIFO allocated")), React.createElement("div", {
+    style: {
+      display: "flex",
+      gap: "10px",
+      alignItems: "center"
+    }
+  }, React.createElement("input", {
+    type: "text",
+    placeholder: "Filter...",
+    value: filterText,
+    onChange: e => setFilterText(e.target.value),
+    style: {
+      ...inputStyle,
+      width: "200px"
+    }
+  }), React.createElement(Button, {
+    onClick: () => setShowModal(true),
+    disabled: vendors.length === 0
+  }, "+ Record Payment"))), React.createElement("div", {
+    style: {
+      overflowX: "auto"
+    }
+  }, React.createElement("table", null, React.createElement("thead", null, React.createElement("tr", {
+    style: {
+      background: "var(--bg-panel-2)"
+    }
+  }, ["DATE", "VENDOR", "REF NO", "MODE", "AMOUNT", "ALLOCATED TO", "ACTIONS"].map(h => React.createElement("th", {
+    key: h,
+    style: {
+      padding: "10px 16px",
+      fontSize: "11px",
+      color: "var(--text-dim)",
+      whiteSpace: "nowrap"
+    }
+  }, h)))), React.createElement("tbody", null, filtered.map(p => React.createElement("tr", {
+    key: p.id,
+    style: {
+      borderTop: "1px solid var(--border)"
+    }
+  }, React.createElement("td", {
+    style: {
+      padding: "12px 16px",
+      fontSize: "13px",
+      whiteSpace: "nowrap"
+    }
+  }, fmtDate(p.paymentDate)), React.createElement("td", {
+    style: {
+      padding: "12px 16px",
+      fontWeight: 700,
+      fontSize: "13px"
+    }
+  }, vendorMap[p.vendorId]?.name || "—"), React.createElement("td", {
+    style: {
+      padding: "12px 16px",
+      fontSize: "13px",
+      color: "var(--text-dim)"
+    }
+  }, p.reference || "—"), React.createElement("td", {
+    style: {
+      padding: "12px 16px"
+    }
+  }, React.createElement("span", {
+    style: {
+      display: "inline-block",
+      padding: "3px 10px",
+      borderRadius: "999px",
+      fontSize: "11px",
+      fontWeight: 700,
+      background: "var(--bg-panel-2)",
+      color: "var(--text-dim)",
+      border: "1px solid var(--border)"
+    }
+  }, p.mode === "advance_adjustment" ? "Advance Adj." : p.mode)), React.createElement("td", {
+    style: {
+      padding: "12px 16px",
+      fontFamily: "var(--font-mono)",
+      fontWeight: 700,
+      fontSize: "13px",
+      color: "var(--accent-green)",
+      textAlign: "right"
+    }
+  }, fmtINR(p.amount)), React.createElement("td", {
+    style: {
+      padding: "12px 16px"
+    }
+  }, p.isAdvance ? React.createElement("span", {
+    style: {
+      fontSize: "12px",
+      color: "var(--text-faint)"
+    }
+  }, "— pure advance") : p.allocations && p.allocations.length > 0 ? React.createElement("div", {
+    style: {
+      display: "flex",
+      flexWrap: "wrap",
+      gap: "4px"
+    }
+  }, p.allocations.map(a => React.createElement("span", {
+    key: a.invoiceId,
+    style: {
+      display: "inline-block",
+      padding: "2px 8px",
+      borderRadius: "6px",
+      fontSize: "11px",
+      fontFamily: "var(--font-mono)",
+      fontWeight: 700,
+      background: "#eaf1ff",
+      color: "var(--accent-blue)",
+      whiteSpace: "nowrap"
+    }
+  }, a.invoiceNo, " ", fmtINR(a.amountApplied))), p.unallocatedAmount > 0 && React.createElement("span", {
+    style: {
+      display: "inline-block",
+      padding: "2px 8px",
+      borderRadius: "6px",
+      fontSize: "11px",
+      fontWeight: 700,
+      background: "#e3f9ee",
+      color: "var(--accent-green)",
+      whiteSpace: "nowrap"
+    }
+  }, "+", fmtINR(p.unallocatedAmount), " advance")) : React.createElement("span", {
+    style: {
+      fontSize: "12px",
+      color: "var(--text-faint)"
+    }
+  }, "—")), React.createElement("td", {
+    style: {
+      padding: "12px 16px",
+      whiteSpace: "nowrap"
+    }
+  }, React.createElement(RowActionButton, {
+    label: "Del",
+    variant: "danger",
+    onClick: () => setDeletingPayment(p)
+  })))), filtered.length === 0 && React.createElement("tr", null, React.createElement("td", {
+    colSpan: "7",
+    style: {
+      padding: "24px 20px",
+      textAlign: "center",
+      color: "var(--text-dim)"
+    }
+  }, "No payments recorded yet.")))))), showModal && React.createElement(PaymentModal, {
+    vendors: vendors,
+    invoices: invoices,
+    onClose: () => setShowModal(false),
+    onSaved: () => {
+      setShowModal(false);
+      onRefresh();
+    }
+  }), deletingPayment && React.createElement(DeletePaymentConfirm, {
+    payment: deletingPayment,
+    vendorName: vendorMap[deletingPayment.vendorId]?.name || "—",
+    onClose: () => setDeletingPayment(null),
+    onDeleted: () => {
+      setDeletingPayment(null);
+      onRefresh();
+    }
+  }));
+}
+function DeletePaymentConfirm({
+  payment,
+  vendorName,
+  onClose,
+  onDeleted
+}) {
+  const [deleting, setDeleting] = useState(false);
+  const [error, setError] = useState("");
+  async function handleDelete() {
+    setDeleting(true);
+    setError("");
+    try {
+      await deletePayment(payment);
+      onDeleted();
+    } catch (err) {
+      setError(err.message || "Failed to delete payment");
+    } finally {
+      setDeleting(false);
+    }
+  }
+  return React.createElement(Modal, {
+    title: "Delete Payment",
+    onClose: onClose,
+    width: "440px"
+  }, React.createElement("p", {
+    style: {
+      fontSize: "14px"
+    }
+  }, "Delete the ", fmtINR(payment.amount), " payment to ", React.createElement("strong", null, vendorName), " on ", fmtDate(payment.paymentDate), "?"), React.createElement("p", {
+    style: {
+      fontSize: "13px",
+      color: "var(--text-dim)"
+    }
+  }, "This will reverse its FIFO allocation — invoices it paid down will show as outstanding again, and any advance credit it created will be removed."), error && React.createElement("p", {
+    style: {
+      color: "var(--accent-red)",
+      fontSize: "13px"
+    }
+  }, error), React.createElement("div", {
+    style: {
+      display: "flex",
+      gap: "10px"
+    }
+  }, React.createElement(Button, {
+    onClick: onClose,
+    variant: "secondary",
+    full: true,
+    disabled: deleting
+  }, "Cancel"), React.createElement(Button, {
+    onClick: handleDelete,
+    variant: "danger",
+    full: true,
+    disabled: deleting
+  }, deleting ? "Deleting..." : "Delete & Reverse")));
+}
+function PaymentModal({
+  vendors,
+  invoices,
+  onClose,
+  onSaved
+}) {
+  const today = new Date().toISOString().slice(0, 10);
+  const [vendorId, setVendorId] = useState(vendors[0]?.id || "");
+  const [amount, setAmount] = useState("");
+  const [paymentDate, setPaymentDate] = useState(today);
+  const [mode, setMode] = useState("NEFT");
+  const [reference, setReference] = useState("");
+  const [isAdvance, setIsAdvance] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  const openInvoicesForVendor = useMemo(() => invoices.filter(i => i.vendorId === vendorId && i.status !== "paid"), [invoices, vendorId]);
+  const preview = useMemo(() => {
+    if (!amount || Number(amount) <= 0 || isAdvance) return null;
+    return allocatePaymentFIFO(Number(amount), openInvoicesForVendor);
+  }, [amount, openInvoicesForVendor, isAdvance]);
+  async function handleSave(e) {
+    e.preventDefault();
+    if (!vendorId || !amount || Number(amount) <= 0) return;
+    setSaving(true);
+    setError("");
+    try {
+      await recordPayment({
+        vendorId,
+        amount: Number(amount),
+        paymentDate,
+        mode: isAdvance ? "advance" : mode,
+        reference,
+        isAdvance
+      });
+      onSaved();
+    } catch (err) {
+      setError(err.message || "Failed to record payment");
+    } finally {
+      setSaving(false);
+    }
+  }
+  return React.createElement(Modal, {
+    title: "Record Payment",
+    onClose: onClose,
+    width: "560px"
+  }, React.createElement("form", {
+    onSubmit: handleSave
+  }, React.createElement(Field, {
+    label: "Vendor *"
+  }, React.createElement("select", {
+    style: inputStyle,
+    value: vendorId,
+    onChange: e => setVendorId(e.target.value),
+    required: true
+  }, vendors.map(v => React.createElement("option", {
+    key: v.id,
+    value: v.id
+  }, v.name)))), React.createElement("div", {
+    style: {
+      display: "grid",
+      gridTemplateColumns: "1fr 1fr",
+      gap: "12px"
+    }
+  }, React.createElement(Field, {
+    label: "Amount (₹) *"
+  }, React.createElement("input", {
+    type: "number",
+    step: "0.01",
+    style: inputStyle,
+    value: amount,
+    onChange: e => setAmount(e.target.value),
+    required: true
+  })), React.createElement(Field, {
+    label: "Payment Date *"
+  }, React.createElement("input", {
+    type: "date",
+    style: inputStyle,
+    value: paymentDate,
+    onChange: e => setPaymentDate(e.target.value),
+    required: true
+  }))), React.createElement("div", {
+    style: {
+      display: "grid",
+      gridTemplateColumns: "1fr 1fr",
+      gap: "12px"
+    }
+  }, React.createElement(Field, {
+    label: "Mode"
+  }, React.createElement("select", {
+    style: inputStyle,
+    value: mode,
+    onChange: e => setMode(e.target.value),
+    disabled: isAdvance
+  }, React.createElement("option", null, "NEFT"), React.createElement("option", null, "RTGS"), React.createElement("option", null, "UPI"), React.createElement("option", null, "Cheque"), React.createElement("option", null, "Cash"))), React.createElement(Field, {
+    label: "Reference (UTR / Cheque #)"
+  }, React.createElement("input", {
+    style: inputStyle,
+    value: reference,
+    onChange: e => setReference(e.target.value)
+  }))), React.createElement("label", {
+    style: {
+      display: "flex",
+      alignItems: "center",
+      gap: "8px",
+      marginBottom: "16px",
+      fontSize: "13px"
+    }
+  }, React.createElement("input", {
+    type: "checkbox",
+    checked: isAdvance,
+    onChange: e => setIsAdvance(e.target.checked)
+  }), "This is a pure advance payment (no open bills to apply against yet)"), preview && !isAdvance && React.createElement(Card, {
+    style: {
+      background: "var(--bg-panel-2)",
+      marginBottom: "16px"
+    }
+  }, React.createElement("div", {
+    style: {
+      fontSize: "13px",
+      fontWeight: 700,
+      marginBottom: "8px",
+      color: "var(--text-dim)"
+    }
+  }, "FIFO ALLOCATION PREVIEW"), preview.allocations.length === 0 && React.createElement("p", {
+    style: {
+      margin: 0,
+      fontSize: "13px",
+      color: "var(--text-dim)"
+    }
+  }, "No open bills for this vendor — full amount will be parked as advance."), preview.allocations.map(a => React.createElement("div", {
+    key: a.invoiceId,
+    style: {
+      display: "flex",
+      justifyContent: "space-between",
+      fontSize: "13px",
+      padding: "4px 0"
+    }
+  }, React.createElement("span", null, a.invoiceNo, " ", React.createElement(Badge, {
+    color: a.newStatus === "paid" ? "var(--accent-green)" : "var(--accent-yellow)"
+  }, a.newStatus)), React.createElement("span", {
+    style: {
+      fontFamily: "var(--font-mono)"
+    }
+  }, fmtINR(a.amountApplied)))), preview.unallocatedAmount > 0 && React.createElement("div", {
+    style: {
+      display: "flex",
+      justifyContent: "space-between",
+      fontSize: "13px",
+      padding: "6px 0",
+      marginTop: "6px",
+      borderTop: "1px solid var(--border)",
+      color: "var(--accent-green)",
+      fontWeight: 700
+    }
+  }, React.createElement("span", null, "→ Parked as advance/credit"), React.createElement("span", {
+    style: {
+      fontFamily: "var(--font-mono)"
+    }
+  }, fmtINR(preview.unallocatedAmount)))), error && React.createElement("p", {
+    style: {
+      color: "var(--accent-red)",
+      fontSize: "13px"
+    }
+  }, error), React.createElement(Button, {
+    type: "submit",
+    full: true,
+    variant: "success",
+    disabled: saving
+  }, saving ? "Recording..." : "Record Payment")));
+}
+function weekLabel(offset) {
+  if (offset === 0) return "This Week";
+  if (offset === 1) return "Next Week";
+  return "Week +" + offset;
+}
+const CASHFLOW_BUCKET_META = {
+  overdue: {
+    label: "OVERDUE",
+    color: "var(--accent-red)",
+    bg: "#fbe3e8"
+  },
+  this_week: {
+    label: "THIS WEEK",
+    color: "var(--accent-blue)",
+    bg: "#eaf1ff"
+  },
+  next_week: {
+    label: "NEXT WEEK",
+    color: "var(--accent-blue)",
+    bg: "#eaf1ff"
+  },
+  rest_of_month: {
+    label: "REST OF THIS MONTH",
+    color: "var(--accent-purple)",
+    bg: "#f1eaff"
+  },
+  next_month: {
+    label: "NEXT MONTH",
+    color: "var(--accent-green)",
+    bg: "#e3f9ee"
+  },
+  later: {
+    label: "LATER / NO DUE DATE",
+    color: "var(--text-faint)",
+    bg: "var(--bg-panel-2)"
+  }
+};
+const CASHFLOW_BUCKET_ORDER = ["overdue", "this_week", "next_week", "rest_of_month", "next_month", "later"];
+function classifyCashflowBucket(dueDate, today) {
+  if (!dueDate) return "later";
+  const dpd = daysPastDue(dueDate, today);
+  if (dpd > 0) return "overdue";
+  const daysUntil = -dpd;
+  if (daysUntil <= 7) return "this_week";
+  if (daysUntil <= 14) return "next_week";
+  const dueDateObj = new Date(dueDate);
+  const sameMonth = dueDateObj.getMonth() === today.getMonth() && dueDateObj.getFullYear() === today.getFullYear();
+  if (sameMonth) return "rest_of_month";
+  const nextMonthDate = new Date(today.getFullYear(), today.getMonth() + 1, 1);
+  const dueIsNextMonth = dueDateObj.getMonth() === nextMonthDate.getMonth() && dueDateObj.getFullYear() === nextMonthDate.getFullYear();
+  if (dueIsNextMonth) return "next_month";
+  return "later";
+}
+function CashFlow({
+  vendors,
+  invoices,
+  onOpenStatement
+}) {
+  const [selectedBucket, setSelectedBucket] = useState("overdue");
+  const today = useMemo(() => new Date(), []);
+  const vendorMap = useMemo(() => {
+    const m = {};
+    vendors.forEach(v => m[v.id] = v);
+    return m;
+  }, [vendors]);
+  const openInvoices = useMemo(() => invoices.filter(i => i.status !== "paid"), [invoices]);
+  const buckets = useMemo(() => {
+    const b = {};
+    CASHFLOW_BUCKET_ORDER.forEach(k => b[k] = {
+      total: 0,
+      invoices: []
+    });
+    openInvoices.forEach(inv => {
+      const key = classifyCashflowBucket(inv.dueDate, today);
+      const outstanding = round2(inv.amount - (inv.amountPaid || 0));
+      b[key].total = round2(b[key].total + outstanding);
+      b[key].invoices.push(inv);
+    });
+    return b;
+  }, [openInvoices, today]);
+  const grandTotal = round2(CASHFLOW_BUCKET_ORDER.reduce((s, k) => s + buckets[k].total, 0)) || 1;
+  const activeInvoices = useMemo(() => [...buckets[selectedBucket].invoices].sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate)), [buckets, selectedBucket]);
+  return React.createElement("div", null, React.createElement("div", {
+    style: {
+      marginBottom: "20px"
+    }
+  }, React.createElement("h1", {
+    style: {
+      margin: 0
+    }
+  }, "Cashflow Forecast"), React.createElement("p", {
+    style: {
+      color: "var(--text-dim)",
+      margin: "2px 0 0"
+    }
+  }, "Expected payments by period")), React.createElement(Card, {
+    style: {
+      marginBottom: "20px"
+    }
+  }, React.createElement("h3", {
+    style: {
+      marginTop: 0
+    }
+  }, "Cashflow Forecast"), React.createElement("p", {
+    style: {
+      color: "var(--text-faint)",
+      fontSize: "12px",
+      marginTop: "-8px"
+    }
+  }, "Expected payments grouped by due-date period"), React.createElement("div", {
+    style: {
+      display: "grid",
+      gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
+      gap: "12px",
+      marginTop: "16px"
+    }
+  }, CASHFLOW_BUCKET_ORDER.map(key => {
+    const meta = CASHFLOW_BUCKET_META[key];
+    const bucket = buckets[key];
+    const isActive = selectedBucket === key;
+    return React.createElement("div", {
+      key: key,
+      onClick: () => setSelectedBucket(key),
+      style: {
+        background: meta.bg,
+        borderRadius: "8px",
+        padding: "14px",
+        cursor: "pointer",
+        border: isActive ? "2px solid " + meta.color : "2px solid transparent"
+      }
+    }, React.createElement("div", {
+      style: {
+        fontSize: "11px",
+        fontWeight: 700,
+        color: meta.color,
+        letterSpacing: "0.04em"
+      }
+    }, meta.label), React.createElement("div", {
+      style: {
+        fontFamily: "var(--font-mono)",
+        fontSize: "18px",
+        fontWeight: 700,
+        margin: "6px 0 2px"
+      }
+    }, fmtINR(bucket.total)), React.createElement("div", {
+      style: {
+        fontSize: "11px",
+        color: "var(--text-faint)"
+      }
+    }, bucket.invoices.length, " bills"));
+  })), React.createElement("div", {
+    style: {
+      display: "flex",
+      height: "10px",
+      borderRadius: "6px",
+      overflow: "hidden",
+      marginTop: "16px"
+    }
+  }, CASHFLOW_BUCKET_ORDER.map(key => {
+    const pct = buckets[key].total / grandTotal * 100;
+    if (pct <= 0) return null;
+    return React.createElement("div", {
+      key: key,
+      style: {
+        width: pct + "%",
+        background: CASHFLOW_BUCKET_META[key].color
+      }
+    });
+  }))), React.createElement(Card, {
+    style: {
+      padding: 0,
+      overflow: "hidden"
+    }
+  }, React.createElement("div", {
+    style: {
+      padding: "18px 20px",
+      borderBottom: "1px solid var(--border)"
+    }
+  }, React.createElement("h3", {
+    style: {
+      margin: 0,
+      color: CASHFLOW_BUCKET_META[selectedBucket].color
+    }
+  }, CASHFLOW_BUCKET_META[selectedBucket].label), React.createElement("p", {
+    style: {
+      color: "var(--text-faint)",
+      fontSize: "12px",
+      margin: "2px 0 0"
+    }
+  }, activeInvoices.length, " bill", activeInvoices.length === 1 ? "" : "s", " — ", fmtINR(buckets[selectedBucket].total), " expected")), React.createElement("div", {
+    style: {
+      overflowX: "auto"
+    }
+  }, React.createElement("table", null, React.createElement("thead", null, React.createElement("tr", {
+    style: {
+      background: "var(--bg-panel-2)"
+    }
+  }, ["BILL NO", "VENDOR", "DUE DATE", "BALANCE", "ACTION"].map(h => React.createElement("th", {
+    key: h,
+    style: {
+      padding: "10px 16px",
+      fontSize: "11px",
+      color: "var(--text-dim)",
+      whiteSpace: "nowrap"
+    }
+  }, h)))), React.createElement("tbody", null, activeInvoices.map(inv => {
+    const outstanding = round2(inv.amount - (inv.amountPaid || 0));
+    return React.createElement("tr", {
+      key: inv.id,
+      style: {
+        borderTop: "1px solid var(--border)"
+      }
+    }, React.createElement("td", {
+      style: {
+        padding: "12px 16px",
+        fontFamily: "var(--font-mono)",
+        fontWeight: 700,
+        fontSize: "13px"
+      }
+    }, inv.invoiceNo), React.createElement("td", {
+      style: {
+        padding: "12px 16px",
+        fontWeight: 700,
+        fontSize: "13px"
+      }
+    }, vendorMap[inv.vendorId]?.name || "—"), React.createElement("td", {
+      style: {
+        padding: "12px 16px",
+        fontSize: "13px",
+        whiteSpace: "nowrap"
+      }
+    }, fmtDate(inv.dueDate)), React.createElement("td", {
+      style: {
+        padding: "12px 16px",
+        fontFamily: "var(--font-mono)",
+        fontWeight: 700,
+        fontSize: "13px"
+      }
+    }, fmtINR(outstanding)), React.createElement("td", {
+      style: {
+        padding: "12px 16px"
+      }
+    }, React.createElement(RowActionButton, {
+      label: "Statement",
+      onClick: () => onOpenStatement(inv.vendorId)
+    })));
+  }), activeInvoices.length === 0 && React.createElement("tr", null, React.createElement("td", {
+    colSpan: "5",
+    style: {
+      padding: "24px 20px",
+      textAlign: "center",
+      color: "var(--text-dim)"
+    }
+  }, "Nothing in this period.")))))));
+}
+function Ledger({
+  vendors,
+  invoices,
+  payments,
+  initialVendorId,
+  onClearInitial
+}) {
+  const [vendorId, setVendorId] = useState(initialVendorId || "");
+  const [pendingChoice, setPendingChoice] = useState(initialVendorId || "");
+  React.useEffect(() => {
+    if (initialVendorId) {
+      setVendorId(initialVendorId);
+      setPendingChoice(initialVendorId);
+    }
+  }, [initialVendorId]);
+  const vendor = vendors.find(v => v.id === vendorId);
+  const entries = useMemo(() => {
+    if (!vendorId) return [];
+    const invRows = invoices.filter(i => i.vendorId === vendorId).map(i => ({
+      date: i.invoiceDate,
+      type: "invoice",
+      label: "Invoice " + i.invoiceNo,
+      debit: i.amount,
+      credit: 0
+    }));
+    const payRows = payments.filter(p => p.vendorId === vendorId).map(p => ({
+      date: p.paymentDate,
+      type: "payment",
+      label: p.mode === "advance_adjustment" ? "Advance applied → " + (p.allocations?.[0]?.invoiceNo || "") : p.isAdvance ? "Advance payment" : "Payment (" + p.mode + ")" + (p.reference ? " - " + p.reference : ""),
+      debit: 0,
+      credit: p.amount
+    }));
+    const combined = [...invRows, ...payRows].sort((a, b) => new Date(a.date) - new Date(b.date));
+    let running = round2(vendor?.openingBalance || 0);
+    return [{
+      date: null,
+      type: "opening",
+      label: "Opening Balance",
+      debit: 0,
+      credit: 0,
+      balance: running
+    }, ...combined.map(row => {
+      running = round2(running + row.debit - row.credit);
+      return {
+        ...row,
+        balance: running
+      };
+    })];
+  }, [vendorId, vendor, invoices, payments]);
+  const closingBalance = entries.length ? entries[entries.length - 1].balance : 0;
+  function handleChangeCustomer() {
+    setVendorId("");
+    setPendingChoice("");
+    if (onClearInitial) onClearInitial();
+  }
+  if (!vendorId) {
+    return React.createElement("div", null, React.createElement("div", {
+      style: {
+        marginBottom: "20px"
+      }
+    }, React.createElement("h1", {
+      style: {
+        margin: 0
+      }
+    }, "Statement of Account"), React.createElement("p", {
+      style: {
+        color: "var(--text-dim)",
+        margin: "2px 0 0"
+      }
+    }, "Vendor-wise ledger")), React.createElement(Card, {
+      style: {
+        maxWidth: "480px"
+      }
+    }, React.createElement("h3", {
+      style: {
+        marginTop: 0
+      }
+    }, "Statement of Account"), React.createElement(Field, {
+      label: "Select Vendor"
+    }, React.createElement("select", {
+      style: inputStyle,
+      value: pendingChoice,
+      onChange: e => setPendingChoice(e.target.value)
+    }, React.createElement("option", {
+      value: ""
+    }, "— Choose Vendor —"), vendors.map(v => React.createElement("option", {
+      key: v.id,
+      value: v.id
+    }, v.name)))), React.createElement(Button, {
+      full: true,
+      disabled: !pendingChoice,
+      onClick: () => setVendorId(pendingChoice)
+    }, "Open Statement")));
+  }
+  return React.createElement("div", null, React.createElement("div", {
+    style: {
+      display: "flex",
+      justifyContent: "space-between",
+      alignItems: "flex-start",
+      marginBottom: "20px"
+    }
+  }, React.createElement("div", null, React.createElement("h1", {
+    style: {
+      margin: 0
+    }
+  }, "Statement of Account"), React.createElement("p", {
+    style: {
+      color: "var(--text-dim)",
+      margin: "2px 0 0"
+    }
+  }, "Vendor-wise ledger")), React.createElement(Button, {
+    variant: "secondary",
+    onClick: handleChangeCustomer
+  }, "← Change Vendor")), React.createElement("div", {
+    style: {
+      display: "flex",
+      gap: "12px",
+      alignItems: "center",
+      marginBottom: "18px"
+    }
+  }, React.createElement("select", {
+    style: {
+      ...inputStyle,
+      width: "280px"
+    },
+    value: vendorId,
+    onChange: e => setVendorId(e.target.value)
+  }, vendors.map(v => React.createElement("option", {
+    key: v.id,
+    value: v.id
+  }, v.name))), React.createElement(Badge, {
+    color: closingBalance > 0 ? "var(--accent-red)" : "var(--accent-green)"
+  }, closingBalance > 0 ? "You owe " + fmtINR(closingBalance) : "Settled / in credit")), React.createElement(Card, {
+    style: {
+      padding: 0,
+      overflow: "hidden"
+    }
+  }, React.createElement("table", null, React.createElement("thead", null, React.createElement("tr", {
+    style: {
+      background: "var(--bg-panel-2)"
+    }
+  }, ["Date", "Particulars", "Debit (Bill)", "Credit (Paid)", "Balance"].map(h => React.createElement("th", {
+    key: h,
+    style: {
+      padding: "10px 14px",
+      fontSize: "12px",
+      color: "var(--text-dim)"
+    }
+  }, h)))), React.createElement("tbody", null, entries.map((e, idx) => React.createElement("tr", {
+    key: idx,
+    style: {
+      borderTop: "1px solid var(--border)"
+    }
+  }, React.createElement("td", {
+    style: {
+      padding: "9px 14px",
+      fontSize: "13px"
+    }
+  }, e.date ? fmtDate(e.date) : "—"), React.createElement("td", {
+    style: {
+      padding: "9px 14px",
+      fontSize: "13px",
+      fontWeight: e.type === "opening" ? 700 : 400
+    }
+  }, e.label), React.createElement("td", {
+    style: {
+      padding: "9px 14px",
+      fontFamily: "var(--font-mono)",
+      color: "var(--accent-red)"
+    }
+  }, e.debit ? fmtINR(e.debit) : ""), React.createElement("td", {
+    style: {
+      padding: "9px 14px",
+      fontFamily: "var(--font-mono)",
+      color: "var(--accent-green)"
+    }
+  }, e.credit ? fmtINR(e.credit) : ""), React.createElement("td", {
+    style: {
+      padding: "9px 14px",
+      fontFamily: "var(--font-mono)",
+      fontWeight: 700
+    }
+  }, fmtINR(e.balance))))))));
+}
+function Outstanding({
+  vendors,
+  invoices,
+  onOpenStatement
+}) {
+  const vendorMap = useMemo(() => {
+    const m = {};
+    vendors.forEach(v => m[v.id] = v);
+    return m;
+  }, [vendors]);
+  const openInvoices = useMemo(() => invoices.filter(i => i.status !== "paid"), [invoices]);
+  const rows = useMemo(() => {
+    const groups = {};
+    openInvoices.forEach(inv => {
+      if (!groups[inv.vendorId]) {
+        groups[inv.vendorId] = {
+          not_due: 0,
+          "0_30": 0,
+          "31_60": 0,
+          "61_90": 0,
+          "90_plus": 0
+        };
+      }
+      const outstanding = round2(inv.amount - (inv.amountPaid || 0));
+      groups[inv.vendorId][ageingBucket(inv.dueDate)] += outstanding;
+    });
+    vendors.forEach(v => {
+      if (!groups[v.id] && (v.advanceBalance || 0) > 0) {
+        groups[v.id] = {
+          not_due: 0,
+          "0_30": 0,
+          "31_60": 0,
+          "61_90": 0,
+          "90_plus": 0
+        };
+      }
+    });
+    return Object.entries(groups).map(([vendorId, buckets]) => {
+      const grossTotal = round2(Object.values(buckets).reduce((s, v) => s + v, 0));
+      const advanceCr = round2(vendorMap[vendorId]?.advanceBalance || 0);
+      const netOutstanding = round2(Math.max(0, grossTotal - advanceCr));
+      return {
+        vendorId,
+        buckets,
+        grossTotal,
+        advanceCr,
+        netOutstanding
+      };
+    }).sort((a, b) => b.netOutstanding - a.netOutstanding);
+  }, [openInvoices, vendorMap, vendors]);
+  const hasAnyAdvance = rows.some(r => r.advanceCr > 0);
+  const totals = useMemo(() => {
+    const t = {
+      not_due: 0,
+      "0_30": 0,
+      "31_60": 0,
+      "61_90": 0,
+      "90_plus": 0,
+      advanceCr: 0,
+      netOutstanding: 0
+    };
+    rows.forEach(r => {
+      AGEING_BUCKET_ORDER.forEach(b => t[b] = round2(t[b] + r.buckets[b]));
+      t.advanceCr = round2(t.advanceCr + r.advanceCr);
+      t.netOutstanding = round2(t.netOutstanding + r.netOutstanding);
+    });
+    return t;
+  }, [rows]);
+  return React.createElement("div", null, React.createElement("div", {
+    style: {
+      display: "flex",
+      justifyContent: "space-between",
+      alignItems: "flex-start",
+      marginBottom: "20px"
+    }
+  }, React.createElement("div", null, React.createElement("h1", {
+    style: {
+      margin: 0
+    }
+  }, "Outstanding Report"), React.createElement("p", {
+    style: {
+      color: "var(--text-dim)",
+      margin: "2px 0 0"
+    }
+  }, "Ageing analysis by due date"))), React.createElement(Card, {
+    style: {
+      padding: 0,
+      overflow: "hidden"
+    }
+  }, React.createElement("div", {
+    style: {
+      display: "flex",
+      justifyContent: "space-between",
+      alignItems: "center",
+      padding: "18px 20px"
+    }
+  }, React.createElement("div", null, React.createElement("h3", {
+    style: {
+      margin: 0
+    }
+  }, "Outstanding & Ageing Report"), React.createElement("p", {
+    style: {
+      color: "var(--text-faint)",
+      fontSize: "12px",
+      margin: "2px 0 0"
+    }
+  }, "As on ", fmtDate(new Date().toISOString().slice(0, 10)), " — aged by due date"))), hasAnyAdvance && React.createElement("div", {
+    style: {
+      margin: "0 20px 16px",
+      background: "#fdf3e0",
+      color: "#8a6100",
+      padding: "12px 16px",
+      borderRadius: "8px",
+      fontSize: "13px"
+    }
+  }, React.createElement("strong", null, "Advance Credit Note:"), " one or more vendors have payments in excess of billed amounts. Advance credit is shown separately and netted from outstanding."), React.createElement("div", {
+    style: {
+      overflowX: "auto"
+    }
+  }, React.createElement("table", null, React.createElement("thead", null, React.createElement("tr", {
+    style: {
+      background: "var(--bg-panel-2)"
+    }
+  }, ["VENDOR", ...AGEING_BUCKET_ORDER.map(b => AGEING_BUCKET_META[b].label), "ADVANCE CR", "NET OUTSTANDING", "AGEING", "ACTION"].map((h, idx) => React.createElement("th", {
+    key: h + idx,
+    style: {
+      padding: "10px 14px",
+      fontSize: "11px",
+      color: idx >= 1 && idx <= 5 ? AGEING_BUCKET_META[AGEING_BUCKET_ORDER[idx - 1]].color : h === "ADVANCE CR" ? "var(--accent-green)" : "var(--text-dim)",
+      whiteSpace: "nowrap"
+    }
+  }, h)))), React.createElement("tbody", null, rows.map(row => {
+    const vendor = vendorMap[row.vendorId];
+    const maxBucket = Math.max(...AGEING_BUCKET_ORDER.map(b => row.buckets[b]), 1);
+    return React.createElement("tr", {
+      key: row.vendorId,
+      style: {
+        borderTop: "1px solid var(--border)"
+      }
+    }, React.createElement("td", {
+      style: {
+        padding: "12px 14px",
+        verticalAlign: "top"
+      }
+    }, React.createElement("div", {
+      style: {
+        fontWeight: 700,
+        fontSize: "13px"
+      }
+    }, vendor?.name || "Unknown vendor"), React.createElement("div", {
+      style: {
+        fontSize: "11px",
+        color: "var(--text-faint)",
+        marginTop: "2px"
+      }
+    }, "Credit: ", vendor?.creditDays ? vendor.creditDays + "d" : "—", " | Limit:", " ", vendor?.creditLimit ? fmtINR(vendor.creditLimit) : "Unlimited")), AGEING_BUCKET_ORDER.map(b => React.createElement("td", {
+      key: b,
+      style: {
+        padding: "12px 14px",
+        fontFamily: "var(--font-mono)",
+        fontSize: "13px",
+        color: row.buckets[b] > 0 ? AGEING_BUCKET_META[b].color : "var(--text-faint)",
+        whiteSpace: "nowrap"
+      }
+    }, row.buckets[b] > 0 ? fmtINR(row.buckets[b]) : "—")), React.createElement("td", {
+      style: {
+        padding: "12px 14px",
+        fontFamily: "var(--font-mono)",
+        fontSize: "13px",
+        color: "var(--accent-green)"
+      }
+    }, row.advanceCr > 0 ? fmtINR(row.advanceCr) : "—"), React.createElement("td", {
+      style: {
+        padding: "12px 14px",
+        fontFamily: "var(--font-mono)",
+        fontWeight: 700,
+        fontSize: "13px",
+        color: "var(--accent-red)",
+        whiteSpace: "nowrap"
+      }
+    }, fmtINR(row.netOutstanding)), React.createElement("td", {
+      style: {
+        padding: "12px 14px"
+      }
+    }, React.createElement("div", {
+      style: {
+        display: "flex",
+        height: "8px",
+        width: "70px",
+        borderRadius: "4px",
+        overflow: "hidden"
+      }
+    }, AGEING_BUCKET_ORDER.map(b => {
+      const w = row.buckets[b] / maxBucket * 100;
+      if (row.buckets[b] <= 0) return null;
+      return React.createElement("div", {
+        key: b,
+        style: {
+          width: Math.max(w / AGEING_BUCKET_ORDER.length, 4) + "%",
+          background: AGEING_BUCKET_META[b].color
+        }
+      });
+    }))), React.createElement("td", {
+      style: {
+        padding: "12px 14px",
+        whiteSpace: "nowrap"
+      }
+    }, React.createElement(RowActionButton, {
+      label: "Statement",
+      onClick: () => onOpenStatement(row.vendorId)
+    })));
+  }), rows.length === 0 && React.createElement("tr", null, React.createElement("td", {
+    colSpan: "9",
+    style: {
+      padding: "24px 20px",
+      textAlign: "center",
+      color: "var(--text-dim)"
+    }
+  }, "Nothing outstanding — all bills are paid."))), rows.length > 0 && React.createElement("tfoot", null, React.createElement("tr", {
+    style: {
+      borderTop: "2px solid var(--border)",
+      background: "var(--bg-panel-2)"
+    }
+  }, React.createElement("td", {
+    style: {
+      padding: "10px 14px",
+      fontWeight: 700,
+      fontSize: "13px"
+    }
+  }, "TOTAL"), AGEING_BUCKET_ORDER.map(b => React.createElement("td", {
+    key: b,
+    style: {
+      padding: "10px 14px",
+      fontFamily: "var(--font-mono)",
+      fontWeight: 700,
+      fontSize: "13px"
+    }
+  }, totals[b] > 0 ? fmtINR(totals[b]) : "—")), React.createElement("td", {
+    style: {
+      padding: "10px 14px",
+      fontFamily: "var(--font-mono)",
+      fontWeight: 700,
+      fontSize: "13px",
+      color: "var(--accent-green)"
+    }
+  }, totals.advanceCr > 0 ? fmtINR(totals.advanceCr) : "—"), React.createElement("td", {
+    style: {
+      padding: "10px 14px",
+      fontFamily: "var(--font-mono)",
+      fontWeight: 700,
+      fontSize: "13px",
+      color: "var(--accent-red)"
+    }
+  }, fmtINR(totals.netOutstanding)), React.createElement("td", {
+    colSpan: "2"
+  })))))));
+}
+function AdvanceReport({
+  vendors,
+  invoices,
+  payments,
+  onOpenStatement,
+  onAddBill
+}) {
+  const vendorsWithAdvance = useMemo(() => vendors.filter(v => (v.advanceBalance || 0) > 0).sort((a, b) => (b.advanceBalance || 0) - (a.advanceBalance || 0)), [vendors]);
+  const statsByVendor = useMemo(() => {
+    const m = {};
+    vendorsWithAdvance.forEach(v => {
+      const vInvoices = invoices.filter(i => i.vendorId === v.id);
+      const vPayments = payments.filter(p => p.vendorId === v.id && p.mode !== "advance_adjustment");
+      const totalBilled = round2(vInvoices.reduce((s, i) => s + i.amount, 0));
+      const totalReceived = round2(vPayments.reduce((s, p) => s + p.amount, 0));
+      const allocated = round2(vInvoices.reduce((s, i) => s + (i.amountPaid || 0), 0));
+      const paymentCount = vPayments.length;
+      m[v.id] = {
+        totalBilled,
+        totalReceived,
+        allocated,
+        paymentCount
+      };
+    });
+    return m;
+  }, [vendorsWithAdvance, invoices, payments]);
+  const totalAdvance = round2(vendorsWithAdvance.reduce((s, v) => s + (v.advanceBalance || 0), 0));
+  return React.createElement("div", null, React.createElement("div", {
+    style: {
+      marginBottom: "20px"
+    }
+  }, React.createElement("h1", {
+    style: {
+      margin: 0
+    }
+  }, "Advance Report"), React.createElement("p", {
+    style: {
+      color: "var(--text-dim)",
+      margin: "2px 0 0"
+    }
+  }, "Vendors with excess credit / advance payments")), React.createElement(Card, {
+    style: {
+      padding: 0,
+      overflow: "hidden"
+    }
+  }, React.createElement("div", {
+    style: {
+      display: "flex",
+      justifyContent: "space-between",
+      alignItems: "center",
+      padding: "18px 20px",
+      flexWrap: "wrap",
+      gap: "12px"
+    }
+  }, React.createElement("div", null, React.createElement("h3", {
+    style: {
+      margin: 0
+    }
+  }, "⚡ Advance Credit Register"), React.createElement("p", {
+    style: {
+      color: "var(--text-faint)",
+      fontSize: "12px",
+      margin: "2px 0 0"
+    }
+  }, "Vendors with payments in excess of billed amounts — as on ", fmtDate(new Date().toISOString().slice(0, 10)))), React.createElement("span", {
+    style: {
+      padding: "8px 14px",
+      borderRadius: "8px",
+      background: "#fdf3e0",
+      color: "#8a6100",
+      fontSize: "12px",
+      fontWeight: 700
+    }
+  }, "⚡ Auto-adjusts via FIFO when next bill is raised")), React.createElement("div", {
+    style: {
+      overflowX: "auto"
+    }
+  }, React.createElement("table", null, React.createElement("thead", null, React.createElement("tr", {
+    style: {
+      background: "var(--bg-panel-2)"
+    }
+  }, ["#", "VENDOR", "TOTAL BILLED", "TOTAL RECEIVED", "ALLOCATED", "ADVANCE CREDIT", "NET OUTSTANDING", "ACTIONS"].map(h => React.createElement("th", {
+    key: h,
+    style: {
+      padding: "10px 16px",
+      fontSize: "11px",
+      color: h === "ADVANCE CREDIT" ? "var(--accent-orange)" : "var(--text-dim)",
+      whiteSpace: "nowrap"
+    }
+  }, h)))), React.createElement("tbody", null, vendorsWithAdvance.map((v, idx) => {
+    const stats = statsByVendor[v.id];
+    return React.createElement("tr", {
+      key: v.id,
+      style: {
+        borderTop: "1px solid var(--border)"
+      }
+    }, React.createElement("td", {
+      style: {
+        padding: "12px 16px",
+        fontSize: "13px",
+        color: "var(--text-faint)"
+      }
+    }, idx + 1), React.createElement("td", {
+      style: {
+        padding: "12px 16px",
+        verticalAlign: "top"
+      }
+    }, React.createElement("div", {
+      style: {
+        fontWeight: 700,
+        fontSize: "13px"
+      }
+    }, v.name), React.createElement("div", {
+      style: {
+        fontSize: "11px",
+        color: "var(--text-faint)"
+      }
+    }, stats.paymentCount, " payment", stats.paymentCount === 1 ? "" : "s")), React.createElement("td", {
+      style: {
+        padding: "12px 16px",
+        fontFamily: "var(--font-mono)",
+        fontSize: "13px"
+      }
+    }, fmtINR(stats.totalBilled)), React.createElement("td", {
+      style: {
+        padding: "12px 16px",
+        fontFamily: "var(--font-mono)",
+        fontSize: "13px",
+        color: "var(--accent-green)"
+      }
+    }, fmtINR(stats.totalReceived)), React.createElement("td", {
+      style: {
+        padding: "12px 16px",
+        fontFamily: "var(--font-mono)",
+        fontSize: "13px"
+      }
+    }, fmtINR(stats.allocated)), React.createElement("td", {
+      style: {
+        padding: "12px 16px"
+      }
+    }, React.createElement("span", {
+      style: {
+        display: "inline-flex",
+        alignItems: "center",
+        gap: "4px",
+        padding: "4px 10px",
+        borderRadius: "999px",
+        background: "#fdf3e0",
+        color: "#8a6100",
+        fontWeight: 700,
+        fontSize: "12px",
+        fontFamily: "var(--font-mono)",
+        whiteSpace: "nowrap"
+      }
+    }, "⚡ ", fmtINR(v.advanceBalance))), React.createElement("td", {
+      style: {
+        padding: "12px 16px",
+        fontSize: "13px",
+        color: "var(--accent-green)",
+        fontWeight: 700
+      }
+    }, "Nil ✓"), React.createElement("td", {
+      style: {
+        padding: "12px 16px",
+        whiteSpace: "nowrap"
+      }
+    }, React.createElement("div", {
+      style: {
+        display: "flex",
+        gap: "6px"
+      }
+    }, React.createElement(RowActionButton, {
+      label: "Statement",
+      onClick: () => onOpenStatement(v.id)
+    }), React.createElement(RowActionButton, {
+      label: "+ Bill",
+      onClick: () => onAddBill(v.id)
+    }))));
+  }), vendorsWithAdvance.length === 0 && React.createElement("tr", null, React.createElement("td", {
+    colSpan: "8",
+    style: {
+      padding: "24px 20px",
+      textAlign: "center",
+      color: "var(--text-dim)"
+    }
+  }, "No vendor currently holds an advance balance."))), vendorsWithAdvance.length > 0 && React.createElement("tfoot", null, React.createElement("tr", {
+    style: {
+      background: "#fdf3e0"
+    }
+  }, React.createElement("td", {
+    colSpan: "5",
+    style: {
+      padding: "12px 16px",
+      fontWeight: 700,
+      fontSize: "13px"
+    }
+  }, "TOTAL ADVANCE CREDIT"), React.createElement("td", {
+    style: {
+      padding: "12px 16px",
+      fontFamily: "var(--font-mono)",
+      fontWeight: 700,
+      fontSize: "14px",
+      color: "#8a6100"
+    }
+  }, fmtINR(totalAdvance)), React.createElement("td", {
+    colSpan: "2"
+  })))))));
+}
+function ExcelImport({
+  vendors,
+  invoices,
+  onRefresh
+}) {
+  return React.createElement("div", null, React.createElement("div", {
+    style: {
+      marginBottom: "20px"
+    }
+  }, React.createElement("h1", {
+    style: {
+      margin: 0
+    }
+  }, "Excel Import"), React.createElement("p", {
+    style: {
+      color: "var(--text-dim)",
+      margin: "2px 0 0"
+    }
+  }, "Import bills and payments from Excel")), React.createElement("div", {
+    style: {
+      display: "grid",
+      gridTemplateColumns: "1fr 1fr",
+      gap: "20px",
+      marginBottom: "20px"
+    }
+  }, React.createElement(ImportDropZone, {
+    title: "📥 Import Bills",
+    subtitle: "From Excel / CSV",
+    onFile: rows => null,
+    kind: "bills",
+    vendors: vendors,
+    onRefresh: onRefresh
+  }), React.createElement(ImportDropZone, {
+    title: "📥 Import Payments",
+    subtitle: "From Excel / CSV",
+    kind: "payments",
+    vendors: vendors,
+    invoices: invoices,
+    onRefresh: onRefresh
+  })), React.createElement(Card, null, React.createElement("h3", {
+    style: {
+      marginTop: 0
+    }
+  }, "ℹ️ Import Guide"), React.createElement("div", {
+    style: {
+      display: "grid",
+      gridTemplateColumns: "1fr 1fr",
+      gap: "24px"
+    }
+  }, React.createElement("div", null, React.createElement("h4", {
+    style: {
+      marginBottom: "10px"
+    }
+  }, "Bills / Invoices columns"), React.createElement("ul", {
+    style: {
+      fontSize: "13px",
+      color: "var(--text-dim)",
+      paddingLeft: "18px",
+      lineHeight: "1.9"
+    }
+  }, React.createElement("li", null, React.createElement("strong", null, "Vendor Name"), " — must match exactly"), React.createElement("li", null, React.createElement("strong", null, "Bill No"), " / Invoice Number"), React.createElement("li", null, React.createElement("strong", null, "Bill Date"), " — any standard date format"), React.createElement("li", null, React.createElement("strong", null, "Invoice Amount"), " — full invoice value"), React.createElement("li", null, React.createElement("strong", null, "Due Date"), " — optional, defaults to Bill Date + 45 days if left blank"), React.createElement("li", null, React.createElement("strong", null, "Notes"), " — optional"))), React.createElement("div", null, React.createElement("h4", {
+    style: {
+      marginBottom: "10px"
+    }
+  }, "Payments / Receipts columns"), React.createElement("ul", {
+    style: {
+      fontSize: "13px",
+      color: "var(--text-dim)",
+      paddingLeft: "18px",
+      lineHeight: "1.9"
+    }
+  }, React.createElement("li", null, React.createElement("strong", null, "Vendor Name"), " — must match exactly"), React.createElement("li", null, React.createElement("strong", null, "Payment Date")), React.createElement("li", null, React.createElement("strong", null, "Amount"), " — amount paid"), React.createElement("li", null, React.createElement("strong", null, "Mode"), " — NEFT, RTGS, Cheque, etc."), React.createElement("li", null, React.createElement("strong", null, "Reference No"), " — UTR / Cheque no"), React.createElement("li", null, React.createElement("strong", null, "Notes"), " — optional"))))));
+}
+function ImportDropZone({
+  title,
+  subtitle,
+  kind,
+  vendors,
+  invoices,
+  onRefresh
+}) {
+  const [rows, setRows] = useState([]);
+  const [fileName, setFileName] = useState("");
+  const [status, setStatus] = useState("");
+  const [errors, setErrors] = useState([]);
+  const [importing, setImporting] = useState(false);
+  const [dragOver, setDragOver] = useState(false);
+  const fileInputRef = React.useRef(null);
+  const vendorByName = useMemo(() => {
+    const m = {};
+    vendors.forEach(v => m[v.name.trim().toLowerCase()] = v);
+    return m;
+  }, [vendors]);
+  function handleFiles(fileList) {
+    const file = fileList[0];
+    if (!file) return;
+    setFileName(file.name);
+    setStatus("");
+    setErrors([]);
+    const reader = new FileReader();
+    reader.onload = function (evt) {
+      try {
+        const data = new Uint8Array(evt.target.result);
+        const workbook = window.XLSX.read(data, {
+          type: "array"
+        });
+        const sheet = workbook.Sheets[workbook.SheetNames[0]];
+        const json = window.XLSX.utils.sheet_to_json(sheet, {
+          defval: ""
+        });
+        setRows(json);
+      } catch (err) {
+        setStatus("Couldn't read that file. Make sure it's a valid .xlsx, .xls, or .csv file.");
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  }
+  async function handleImport() {
+    setImporting(true);
+    setStatus("");
+    const foundErrors = [];
+    let successCount = 0;
+    if (kind === "bills") {
+      for (let i = 0; i < rows.length; i++) {
+        const r = rows[i];
+        const vendorName = String(r["Vendor Name"] || r.Vendor || r.vendor || "").trim();
+        const vendor = vendorByName[vendorName.toLowerCase()];
+        if (!vendor) {
+          foundErrors.push("Row " + (i + 2) + ": vendor \"" + vendorName + "\" not found — add this vendor first");
+          continue;
+        }
+        const amount = Number(r["Invoice Amount"] || r.Amount || r.amount || 0);
+        const billNo = String(r["Bill No"] || r["Invoice Number"] || r.invoiceNo || "").trim();
+        if (!billNo || !amount) {
+          foundErrors.push("Row " + (i + 2) + ": missing bill number or amount, skipped");
+          continue;
+        }
+        const billDate = parseImportDate(r["Bill Date"] || r.invoiceDate) || new Date().toISOString().slice(0, 10);
+        let dueDate = parseImportDate(r["Due Date"] || r.dueDate);
+        if (!dueDate) {
+          const d = new Date(billDate);
+          d.setDate(d.getDate() + 45);
+          dueDate = d.toISOString().slice(0, 10);
+        }
+        try {
+          await createInvoice({
+            vendorId: vendor.id,
+            invoiceNo: billNo,
+            invoiceDate: billDate,
+            dueDate,
+            amount,
+            notes: r.Notes || r.notes || ""
+          });
+          successCount++;
+        } catch (err) {
+          foundErrors.push("Row " + (i + 2) + " (" + billNo + "): " + err.message);
+        }
+      }
+    } else {
+      for (let i = 0; i < rows.length; i++) {
+        const r = rows[i];
+        const vendorName = String(r["Vendor Name"] || r.Vendor || r.vendor || "").trim();
+        const vendor = vendorByName[vendorName.toLowerCase()];
+        if (!vendor) {
+          foundErrors.push("Row " + (i + 2) + ": vendor \"" + vendorName + "\" not found — add this vendor first");
+          continue;
+        }
+        const amount = Number(r.Amount || r.amount || 0);
+        if (!amount) {
+          foundErrors.push("Row " + (i + 2) + ": missing amount, skipped");
+          continue;
+        }
+        const paymentDate = parseImportDate(r["Payment Date"] || r.paymentDate) || new Date().toISOString().slice(0, 10);
+        try {
+          await recordPayment({
+            vendorId: vendor.id,
+            amount,
+            paymentDate,
+            mode: r.Mode || r.mode || "NEFT",
+            reference: r["Reference No"] || r.reference || "",
+            isAdvance: false
+          });
+          successCount++;
+        } catch (err) {
+          foundErrors.push("Row " + (i + 2) + ": " + err.message);
+        }
+      }
+    }
+    const totalRows = rows.length;
+    setErrors(foundErrors);
+    setStatus(successCount + " of " + totalRows + " rows imported successfully.");
+    setImporting(false);
+    if (successCount > 0) {
+      onRefresh();
+      // Clear the loaded batch so a completed import can't be re-submitted by
+      // clicking the button again (it would try to re-import the same rows).
+      setRows([]);
+      setFileName("");
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  }
+  return React.createElement(Card, null, React.createElement("div", {
+    style: {
+      display: "flex",
+      alignItems: "baseline",
+      gap: "8px",
+      marginBottom: "14px"
+    }
+  }, React.createElement("h3", {
+    style: {
+      margin: 0
+    }
+  }, title), React.createElement("span", {
+    style: {
+      fontSize: "12px",
+      color: "var(--text-faint)"
+    }
+  }, subtitle)), React.createElement("div", {
+    onClick: () => fileInputRef.current && fileInputRef.current.click(),
+    onDragOver: e => {
+      e.preventDefault();
+      setDragOver(true);
+    },
+    onDragLeave: () => setDragOver(false),
+    onDrop: e => {
+      e.preventDefault();
+      setDragOver(false);
+      handleFiles(e.dataTransfer.files);
+    },
+    style: {
+      border: "2px dashed " + (dragOver ? "var(--accent-orange)" : "var(--border)"),
+      borderRadius: "10px",
+      padding: "36px 20px",
+      textAlign: "center",
+      cursor: "pointer",
+      background: dragOver ? "#fff4ef" : "var(--bg-panel-2)"
+    }
+  }, React.createElement("div", {
+    style: {
+      fontSize: "32px",
+      marginBottom: "8px"
+    }
+  }, "📁"), React.createElement("div", {
+    style: {
+      fontWeight: 700,
+      fontSize: "14px"
+    }
+  }, "Drop Excel file here or click to browse"), React.createElement("div", {
+    style: {
+      fontSize: "12px",
+      color: "var(--text-faint)",
+      marginTop: "4px"
+    }
+  }, "Supports .xlsx, .xls, .csv"), React.createElement("input", {
+    ref: fileInputRef,
+    type: "file",
+    accept: ".xlsx,.xls,.csv",
+    style: {
+      display: "none"
+    },
+    onChange: e => handleFiles(e.target.files)
+  })), fileName && rows.length > 0 && React.createElement("div", {
+    style: {
+      marginTop: "16px"
+    }
+  }, React.createElement("p", {
+    style: {
+      fontSize: "13px",
+      color: "var(--text-dim)"
+    }
+  }, React.createElement("strong", null, fileName), " — found ", rows.length, " row", rows.length === 1 ? "" : "s"), React.createElement("div", {
+    style: {
+      overflowX: "auto",
+      border: "1px solid var(--border)",
+      borderRadius: "8px",
+      marginBottom: "12px"
+    }
+  }, React.createElement("table", null, React.createElement("thead", null, React.createElement("tr", {
+    style: {
+      background: "var(--bg-panel-2)"
+    }
+  }, Object.keys(rows[0]).map(k => React.createElement("th", {
+    key: k,
+    style: {
+      padding: "6px 10px",
+      fontSize: "11px",
+      color: "var(--text-dim)",
+      whiteSpace: "nowrap"
+    }
+  }, k)))), React.createElement("tbody", null, rows.slice(0, 4).map((r, idx) => React.createElement("tr", {
+    key: idx,
+    style: {
+      borderTop: "1px solid var(--border)"
+    }
+  }, Object.keys(rows[0]).map(k => React.createElement("td", {
+    key: k,
+    style: {
+      padding: "6px 10px",
+      fontSize: "12px",
+      whiteSpace: "nowrap"
+    }
+  }, String(r[k])))))))), React.createElement(Button, {
+    onClick: handleImport,
+    disabled: importing,
+    variant: "success",
+    full: true
+  }, importing ? "Importing..." : "Import " + rows.length + " Row" + (rows.length === 1 ? "" : "s"))), status && React.createElement("p", {
+    style: {
+      marginTop: "14px",
+      fontWeight: 700,
+      fontSize: "13px"
+    }
+  }, status), errors.length > 0 && React.createElement("div", {
+    style: {
+      marginTop: "10px"
+    }
+  }, errors.map((e, i) => React.createElement("div", {
+    key: i,
+    style: {
+      fontSize: "12px",
+      color: "var(--accent-red)",
+      padding: "2px 0"
+    }
+  }, e))));
+}
+function parseImportDate(val) {
+  if (!val) return null;
+  if (typeof val === "number") {
+    const excelEpoch = new Date(Date.UTC(1899, 11, 30));
+    const d = new Date(excelEpoch.getTime() + val * 86400000);
+    return d.toISOString().slice(0, 10);
+  }
+  const parsed = new Date(val);
+  if (isNaN(parsed.getTime())) return null;
+  return parsed.toISOString().slice(0, 10);
+}
+function App() {
+  const [page, setPage] = useState("dashboard");
+  const [selectedVendorForStatement, setSelectedVendorForStatement] = useState(null);
+  const [prefillVendorForInvoice, setPrefillVendorForInvoice] = useState(null);
+  const [vendors, setVendors] = useState([]);
+  const [invoices, setInvoices] = useState([]);
+  const [payments, setPayments] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
+  const [fbReady, setFbReady] = useState(!!window.__firebaseReady);
+  useEffect(() => {
+    if (fbReady) return;
+    const handler = () => setFbReady(true);
+    window.addEventListener("firebase-ready", handler);
+    return () => window.removeEventListener("firebase-ready", handler);
+  }, [fbReady]);
+  const refresh = useCallback(async () => {
+    setLoadError("");
+    try {
+      const [v, i, p] = await Promise.all([listVendors(), listAllInvoices(), listAllPayments()]);
+      setVendors(v);
+      setInvoices(i);
+      setPayments(p);
+    } catch (err) {
+      console.error(err);
+      setLoadError("Couldn't reach Firebase. Check that FIREBASE_CONFIG at the top of this file has your real project values.");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+  useEffect(() => {
+    if (fbReady) refresh();
+  }, [fbReady, refresh]);
+  if (!fbReady) {
+    return React.createElement("div", {
+      style: {
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        height: "100vh",
+        color: "var(--text-dim)"
+      }
+    }, "Connecting to Firebase…");
+  }
+  return React.createElement(PinGate, null, React.createElement(Shell, {
+    active: page,
+    onNavigate: setPage
+  }, loadError && React.createElement("div", {
+    style: {
+      background: "var(--accent-red)",
+      color: "#fff",
+      padding: "12px 16px",
+      borderRadius: "8px",
+      marginBottom: "18px",
+      fontSize: "14px"
+    }
+  }, loadError), loading ? React.createElement("p", {
+    style: {
+      color: "var(--text-dim)"
+    }
+  }, "Loading...") : React.createElement(React.Fragment, null, page === "dashboard" && React.createElement(Dashboard, {
+    vendors: vendors,
+    invoices: invoices,
+    payments: payments,
+    onNavigate: setPage
+  }), page === "vendors" && React.createElement(Vendors, {
+    vendors: vendors,
+    invoices: invoices,
+    onRefresh: refresh,
+    onOpenStatement: vendorId => {
+      setSelectedVendorForStatement(vendorId);
+      setPage("ledger");
+    }
+  }), page === "invoices" && React.createElement(Invoices, {
+    vendors: vendors,
+    invoices: invoices,
+    onRefresh: refresh,
+    prefillVendorId: prefillVendorForInvoice,
+    onClearPrefill: () => setPrefillVendorForInvoice(null)
+  }), page === "payments" && React.createElement(Payments, {
+    vendors: vendors,
+    invoices: invoices,
+    payments: payments,
+    onRefresh: refresh
+  }), page === "cashflow" && React.createElement(CashFlow, {
+    vendors: vendors,
+    invoices: invoices,
+    onOpenStatement: vendorId => {
+      setSelectedVendorForStatement(vendorId);
+      setPage("ledger");
+    }
+  }), page === "outstanding" && React.createElement(Outstanding, {
+    vendors: vendors,
+    invoices: invoices,
+    onOpenStatement: vendorId => {
+      setSelectedVendorForStatement(vendorId);
+      setPage("ledger");
+    }
+  }), page === "advance" && React.createElement(AdvanceReport, {
+    vendors: vendors,
+    invoices: invoices,
+    payments: payments,
+    onOpenStatement: vendorId => {
+      setSelectedVendorForStatement(vendorId);
+      setPage("ledger");
+    },
+    onAddBill: vendorId => {
+      setPrefillVendorForInvoice(vendorId);
+      setPage("invoices");
+    }
+  }), page === "import" && React.createElement(ExcelImport, {
+    vendors: vendors,
+    invoices: invoices,
+    onRefresh: refresh
+  }), page === "ledger" && React.createElement(Ledger, {
+    vendors: vendors,
+    invoices: invoices,
+    payments: payments,
+    initialVendorId: selectedVendorForStatement,
+    onClearInitial: () => setSelectedVendorForStatement(null)
+  }))));
+}
+ReactDOM.createRoot(document.getElementById("root")).render(React.createElement(App, null));</script>
+</body>
+</html>
