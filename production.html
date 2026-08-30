@@ -7,7 +7,7 @@
 <title>Jayco Engineering — Production Management</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <!-- Firebase SDK -->
@@ -76,19 +76,22 @@ document.addEventListener('DOMContentLoaded', function(){
   }
   *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
   body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;font-size:13px;-webkit-font-smoothing:antialiased}
-  h1,h2,h3,h4,h5{font-family:'Inter',sans-serif;font-weight:700}
-  
+  h1,h2,h3,h4,h5{font-family:'Space Grotesk','Inter',sans-serif;font-weight:700}
+
   /* TOPBAR */
   #topbar{
     background:var(--navy);border-bottom:3px solid var(--orange);
     height:58px;display:flex;align-items:center;padding:0 20px;gap:14px;
-    position:sticky;top:0;z-index:100;box-shadow:0 2px 20px rgba(0,0,0,.3);
+    position:sticky;top:0;z-index:100;box-shadow:0 2px 24px rgba(0,0,0,.35),0 1px 0 rgba(255,255,255,.06) inset;
+    border-radius:0 0 14px 14px;
   }
   #topbar .logo-wrap{display:flex;align-items:center;gap:12px}
   #topbar .logo-img{height:34px;width:auto;display:block;border-radius:6px;object-fit:contain;background:#fff;padding:4px 10px}
   #topbar .brand{display:flex;flex-direction:column;line-height:1.2}
-  #topbar .brand-name{color:#fff;font-weight:800;font-size:15px;letter-spacing:.5px}
+  #topbar .brand-name{color:#fff;font-weight:800;font-size:15px;letter-spacing:.5px;font-family:'Space Grotesk','Inter',sans-serif;}
   #topbar .brand-addr{color:rgba(255,255,255,.4);font-size:9.5px;font-weight:400}
+  #topbar .back-link{display:flex;align-items:center;gap:5px;color:rgba(255,255,255,.55);font-size:11px;font-weight:600;text-decoration:none;padding:5px 10px 5px 8px;border-radius:100px;border:1px solid rgba(255,255,255,.14);transition:background .2s,color .2s;white-space:nowrap;}
+  #topbar .back-link:hover{background:rgba(255,255,255,.1);color:#fff;}
   #topbar .spacer{flex:1}
   #topbar .phone{color:rgba(255,255,255,.5);font-size:11px;font-weight:500}
   #topbar .cfg-btn{
@@ -401,7 +404,7 @@ document.addEventListener('DOMContentLoaded', function(){
 
 <div id="loginScreen" style="position:fixed;inset:0;background:linear-gradient(160deg,var(--navy),var(--navy-mid));
   display:flex;align-items:center;justify-content:center;z-index:5000;">
-  <div style="background:var(--surface);border-radius:var(--radius-lg);padding:36px 34px;width:340px;max-width:90vw;box-shadow:var(--shadow-lg);">
+  <div style="background:var(--surface);border-radius:20px;padding:36px 34px;width:340px;max-width:90vw;box-shadow:0 30px 70px -20px rgba(0,0,0,.45);border:1px solid rgba(255,255,255,.08);">
     <div style="text-align:center;margin-bottom:22px;">
       <div style="font-size:18px;font-weight:700;color:var(--text);">Jayco Engineering</div>
       <div style="font-size:12.5px;color:var(--text2);margin-top:2px;">Production Management — staff sign in</div>
@@ -434,6 +437,7 @@ document.addEventListener('DOMContentLoaded', function(){
     </div>
     </div>
   </div>
+  <a class="back-link" href="index.html"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"></path><path d="M12 19l-7-7 7-7"></path></svg>Staff Portals</a>
   <div class="spacer"></div>
   <span class="phone">+91 9512244473</span>
   <button class="cfg-btn" onclick="location.href='index.html'" title="Home">🏠</button>
