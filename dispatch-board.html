@@ -158,6 +158,56 @@ const SEED = {
   },
 };
 
+// ============================================================
+// Shared-password gate. NOT real security — the password lives
+// in this file's source, so a technical visitor could read it.
+// It just keeps casual/accidental access out. For real access
+// control, switch to Firebase Authentication instead.
+// ============================================================
+const BOARD_PASSWORD = "P@2026";
+const UNLOCK_KEY = "jaycoDispatchBoardUnlocked";
+
+function Gate({ children }) {
+  const [unlocked, setUnlocked] = useState(() => {
+    try { return localStorage.getItem(UNLOCK_KEY) === "1"; } catch (e) { return false; }
+  });
+  const [pw, setPw] = useState("");
+  const [err, setErr] = useState(false);
+
+  if (unlocked) return children;
+
+  const tryUnlock = () => {
+    if (pw === BOARD_PASSWORD) {
+      try { localStorage.setItem(UNLOCK_KEY, "1"); } catch (e) {}
+      setUnlocked(true);
+    } else {
+      setErr(true);
+    }
+  };
+
+  return (
+    <div style={{ minHeight:"100vh", display:"flex", alignItems:"center", justifyContent:"center", background:"var(--bg)", fontFamily:"'Inter','Helvetica Neue',Arial,sans-serif" }}>
+      <div style={{ background:"var(--panel)", border:"1px solid var(--line)", padding:"32px", width:"320px", boxShadow:"0 4px 14px rgba(16,24,40,0.08)" }}>
+        <div style={{ fontWeight:800, fontSize:"18px", marginBottom:"6px", color:"var(--text)" }}>JAYCO Dispatch Board</div>
+        <div style={{ fontSize:"13px", color:"var(--text-dim)", marginBottom:"18px" }}>Enter password to continue</div>
+        <input
+          type="password"
+          autoFocus
+          value={pw}
+          onChange={e => { setPw(e.target.value); setErr(false); }}
+          onKeyDown={e => { if (e.key === "Enter") tryUnlock(); }}
+          placeholder="Password"
+          style={{ width:"100%", padding:"10px 12px", border:`1px solid ${err ? "#dc2626" : "var(--line)"}`, marginBottom:"10px", fontSize:"14px", boxSizing:"border-box" }}
+        />
+        {err && <div style={{ color:"#dc2626", fontSize:"12px", marginBottom:"10px" }}>Incorrect password.</div>}
+        <button onClick={tryUnlock} style={{ width:"100%", padding:"10px", background:"var(--red)", color:"#fff", border:"none", fontWeight:600, fontSize:"14px", cursor:"pointer" }}>
+          Unlock
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function App() {
   const [tab, setTab] = useState("overview");
   const [data, setData] = useState(null);
@@ -1169,7 +1219,7 @@ function App() {
 }
 
 try {
-  ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+  ReactDOM.createRoot(document.getElementById("root")).render(<Gate><App /></Gate>);
 } catch (e) {
   document.getElementById("root").innerHTML =
     '<div style="padding:24px;color:#101828;background:#f4f6f9;font-family:monospace;white-space:pre-wrap;min-height:100vh;">Dashboard failed to load.\n\nError: ' +
