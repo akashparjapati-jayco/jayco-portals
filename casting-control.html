@@ -277,8 +277,7 @@ th.num{text-align:right}
       <div class="nav-sep"></div>
       <button class="nav-btn" data-view="generate-po"><span><span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3h6a1 1 0 0 1 1 1v1H8V4a1 1 0 0 1 1-1Z"></path><rect x="5" y="5" width="14" height="16" rx="2"></rect><path d="M9 12h6M9 16h6M9 8h2"></path></svg></span><span class="nav-txt">Generate P/O</span></span><span class="count" id="c-pos">0</span></button>
       <div class="nav-label">Masters</div>
-      <button class="nav-btn" data-view="pattern-master"><span><span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 3 7v10l9 5 9-5V7l-9-5Z"></path><path d="m3 7 9 5 9-5"></path><path d="M12 12v10"></path></svg></span><span class="nav-txt">Pattern Master</span></span><span class="count" id="c-patmas">0</span></button>
-      <button class="nav-btn" data-view="casting-master"><span><span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="8" width="18" height="12" rx="2"></rect><path d="M7 8V6a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v2"></path><path d="M7 13h10"></path></svg></span><span class="nav-txt">Casting Master</span></span><span class="count" id="c-castmas">0</span></button>
+      <button class="nav-btn" data-view="casting-master"><span><span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="8" width="18" height="12" rx="2"></rect><path d="M7 8V6a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v2"></path><path d="M7 13h10"></path></svg></span><span class="nav-txt">Casting &amp; Pattern Master</span></span><span class="count" id="c-castmas">0</span></button>
       <button class="nav-btn" data-view="type-master"><span><span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7V5h16v2"></path><path d="M9 20h6"></path><path d="M12 5v15"></path></svg></span><span class="nav-txt">Type Master</span></span><span class="count" id="c-types">0</span></button>
       <div class="nav-sep"></div>
       <div class="nav-label">Data</div>
@@ -464,10 +463,19 @@ const MOVE_STATUS = ['Available','Good','Recall','Repair due','On hold'];
 const MASTER_STATUS = ['Active','On hold','Inactive'];
 /* Built-in casting types. Always available in every Type dropdown.
    Anything added in Type Master is merged on top of these.          */
-const DEFAULT_TYPES = ['Cap','Bottom','Ring','Coller','Cover','Nut','End Cover','Plate'];
+const DEFAULT_TYPES = ['Cap','Bottom','Ring','Coller','Cover','Plate','Nut','Crown Wheel','End Cover'];
 const PO_TYPES = DEFAULT_TYPES;
 const PATTERN_MATERIALS = ['Wooden','Aluminium'];
 const PATTERN_CONSTRUCTION = ['Split Type','Non-Split Type'];
+const CORE_OPTIONS = ['With core box','Without core'];
+const HOME_LOCATION = 'JAYCO (In-house)';
+/* Every place a pattern could be: JAYCO, plus every foundry you've dealt with. */
+function allLocations(){
+  return [...new Set([HOME_LOCATION,
+    ...state.challans.map(c=>c.foundryName),
+    ...state.purchaseOrders.map(p=>p.foundryName),
+    ...state.castingMasters.map(m=>m.currentLocation)].filter(Boolean))];
+}
 
 /* Attachments are stored inside the Firestore document as compressed
    data URLs. Firestore caps a document at 1 MiB, so each image is
@@ -506,8 +514,7 @@ const VIEWS = {
   'pattern-management': {eyebrow:'Pattern movement', title:'Pattern Management', desc:'Track every pattern set at JAYCO or with a foundry.'},
   'insert-casting':     {eyebrow:'Goods receipt entry', title:'Insert Casting Details', desc:'Enter one foundry challan with one or more casting items.'},
   'generate-po':        {eyebrow:'Outward order', title:'Generate P/O', desc:'Raise a purchase order on a foundry. Approximate weight is calculated from your own challan history.'},
-  'pattern-master':     {eyebrow:'Master data', title:'Pattern Master', desc:'Maintain the approved list of JAYCO patterns.'},
-  'casting-master':     {eyebrow:'Master data', title:'Casting Master', desc:'Maintain casting item types, materials and linked patterns.'},
+  'casting-master':     {eyebrow:'Master data', title:'Casting & Pattern Master', desc:'One record per item: casting details, pattern construction, core boxes and current location.'},
   'type-master':        {eyebrow:'Master data', title:'Type Master', desc:'Create or edit the casting types used throughout the system.'}
 };
 
@@ -586,7 +593,6 @@ function render(){
     b.classList.toggle('active', b.dataset.view === state.view));
   document.getElementById('c-challans').textContent = state.challans.length;
   document.getElementById('c-patrec').textContent  = state.patternRecords.length;
-  document.getElementById('c-patmas').textContent  = state.patternMasters.length;
   document.getElementById('c-castmas').textContent = state.castingMasters.length;
   document.getElementById('c-types').textContent   = state.castingTypes.length;
   document.getElementById('c-pos').textContent     = state.purchaseOrders.length;
@@ -600,7 +606,6 @@ function render(){
     'pattern-management': viewPatternManagement,
     'insert-casting': viewInsertCasting,
     'generate-po': viewGeneratePO,
-    'pattern-master': viewPatternMaster,
     'casting-master': viewCastingMaster,
     'type-master': viewTypeMaster
   })[state.view]();
@@ -641,18 +646,13 @@ function viewDashboard(){
     <div class="data-panel" style="padding:1.25rem">
       <p class="eyebrow">System readiness</p>
       <h2 class="panel-title" style="margin-bottom:1.25rem">Master completion</h2>
-      <div style="margin-bottom:1.1rem">
-        <div style="display:flex;justify-content:space-between;font-size:.78rem"><b>Pattern master</b><span class="mono">${state.patternMasters.length}</span></div>
-        <div class="progress"><i style="width:${Math.min(100,state.patternMasters.length*10)}%"></i></div>
-      </div>
       <div style="margin-bottom:1.4rem">
-        <div style="display:flex;justify-content:space-between;font-size:.78rem"><b>Casting master</b><span class="mono">${state.castingMasters.length}</span></div>
+        <div style="display:flex;justify-content:space-between;font-size:.78rem"><b>Casting &amp; pattern master</b><span class="mono">${state.castingMasters.length}</span></div>
         <div class="progress dark"><i style="width:${Math.min(100,state.castingMasters.length*10)}%"></i></div>
       </div>
       <div style="display:grid;gap:.5rem">
         <button class="btn primary" data-new-challan style="justify-content:flex-start">＋ Insert casting details</button>
-        <button class="btn" data-open-pattern="" style="justify-content:flex-start">＋ Add pattern master</button>
-        <button class="btn" data-open-casting="" style="justify-content:flex-start">＋ Add casting master</button>
+        <button class="btn" data-open-casting="" style="justify-content:flex-start">＋ Add casting &amp; pattern item</button>
       </div>
     </div>
   </div>`;
@@ -718,48 +718,30 @@ function viewPatternManagement(){
 }
 
 /* ---- Pattern Master ---- */
-function viewPatternMaster(){
-  const rows = state.patternMasters.filter(r => match(r.patternCode, r.patternName, r.castingItem, r.location));
-  return `<section class="data-panel">
-    <div class="panel-heading">
-      <div><p class="eyebrow">Approved pattern list</p><h2 class="panel-title">Pattern Master</h2></div>
-      <button class="btn primary" data-open-pattern="">＋ Add pattern</button>
-    </div>
-    <div class="table-scroll"><table>
-      <thead><tr><th>Pattern code</th><th>Pattern name</th><th>Casting item</th><th>Type</th><th class="num">Sets</th><th>Location</th><th>Status</th><th class="num">Change</th></tr></thead>
-      <tbody>${ rows.map(r=>`<tr>
-        <td class="mono">${esc(r.patternCode)}</td><td><b>${esc(r.patternName)}</b></td>
-        <td>${esc(r.castingItem)||'—'}</td><td>${esc(r.patternType)}</td>
-        <td class="num">${num(r.totalQuantity)}</td><td>${esc(r.location)}</td><td>${statusBadge(r.status)}</td>
-        <td class="num" style="white-space:nowrap">
-          <button class="btn icon" data-open-pattern="${esc(r.id)}" title="Edit">✎</button>
-          <button class="btn icon danger" data-del-pattern="${esc(r.id)}" title="Delete">🗑</button>
-        </td></tr>`).join('')
-        || emptyRow(8, state.patternMasters.length ? 'No patterns match the search.' : 'Pattern Master is blank. Select Add pattern to begin.') }
-      </tbody></table></div></section>`;
-}
 
 /* ---- Casting Master ---- */
 function viewCastingMaster(){
-  const rows = state.castingMasters.filter(r => match(r.itemName, r.itemType, r.material, r.drawingNumber, r.patternCode, r.patternMaterial, r.patternConstruction));
+  const rows = state.castingMasters.filter(r => match(r.itemName, r.itemType, r.material, r.drawingNumber, r.patternCode, r.patternMaterial, r.patternConstruction, r.currentLocation, r.coreBox));
   return `<section class="data-panel">
     <div class="panel-heading">
-      <div><p class="eyebrow">Approved casting list</p><h2 class="panel-title">Casting Master</h2></div>
-      <button class="btn primary" data-open-casting="">＋ Add casting item</button>
+      <div><p class="eyebrow">Approved item list</p><h2 class="panel-title">Casting &amp; Pattern Master</h2></div>
+      <button class="btn primary" data-open-casting="">＋ Add item</button>
     </div>
     <div class="table-scroll"><table>
-      <thead><tr><th>Photo</th><th>Casting item name</th><th>Type</th><th>Casting material</th><th>Pattern material</th><th>Construction</th><th>Drawing No.</th><th>Pattern code</th><th>Status</th><th class="num">Change</th></tr></thead>
+      <thead><tr><th>Photo</th><th>Item / pattern name</th><th>Type</th><th>Casting mat.</th><th>Pattern mat.</th><th>Construction</th><th>Core</th><th class="num">Sets</th><th>Current location</th><th>Pattern code</th><th>Status</th><th class="num">Change</th></tr></thead>
       <tbody>${ rows.map(r=>`<tr>
         <td>${ r.patternPhoto ? `<img class="thumb" src="${r.patternPhoto}" alt="">` : '<span class="thumb-none">—</span>' }</td>
         <td><b>${esc(r.itemName)}</b></td><td>${esc(r.itemType)}</td><td>${esc(r.material)}</td>
         <td>${esc(r.patternMaterial)||'—'}</td><td>${esc(r.patternConstruction)||'—'}</td>
-        <td>${ r.drawingImage ? `<img class="thumb" src="${r.drawingImage}" alt="" style="margin-bottom:4px">` : '' }${esc(r.drawingNumber)||(r.drawingImage?'':'—')}</td>
-        <td class="mono">${esc(r.patternCode)||'—'}</td><td>${statusBadge(r.status)}</td>
+        <td>${ r.coreBox==='With core box' ? `<span class="badge neutral">${num(r.coreCount)} core${num(r.coreCount)===1?'':'s'}</span>` : '<span class="thumb-none">No core</span>' }</td>
+        <td class="num">${num(r.totalSets ?? 1)}</td>
+        <td>${ (r.currentLocation||HOME_LOCATION)===HOME_LOCATION ? '<span class="badge ok">JAYCO</span>' : `<span class="badge warn">${esc(r.currentLocation)}</span>` }</td>
+        <td class="mono">${esc(r.patternCode)||'—'}${ r.drawingImage ? `<img class="thumb" src="${r.drawingImage}" alt="" style="margin-top:4px">` : '' }</td><td>${statusBadge(r.status)}</td>
         <td class="num" style="white-space:nowrap">
           <button class="btn icon" data-open-casting="${esc(r.id)}" title="Edit">✎</button>
           <button class="btn icon danger" data-del-casting="${esc(r.id)}" title="Delete">🗑</button>
         </td></tr>`).join('')
-        || emptyRow(10, state.castingMasters.length ? 'No casting items match the search.' : 'Casting Master is blank. Select Add casting item to begin.') }
+        || emptyRow(12, state.castingMasters.length ? 'No items match the search.' : 'No items yet. Select Add item to begin.') }
       </tbody></table></div></section>`;
 }
 
@@ -1014,27 +996,6 @@ function openModal(html, wide){
 }
 function closeModal(){ document.getElementById('modal-back').classList.remove('open'); }
 
-function modalPattern(id){
-  const r = state.patternMasters.find(x=>String(x.id)===String(id)) || {};
-  const isEdit = !!r.id;
-  openModal(`<form id="f-pattern">
-    <div class="modal-head"><h3>${isEdit?'Edit':'Add'} Pattern Master</h3>
-    <p>Maintain the approved pattern identification, construction and home location.</p></div>
-    <div class="modal-body">
-      <label class="field">Pattern Code *<input type="text" required maxlength="80" name="patternCode" value="${esc(r.patternCode||'')}" placeholder="e.g. PTN-SNH-520"></label>
-      <label class="field">Total Sets *<input type="number" required min="0" name="totalQuantity" value="${esc(r.totalQuantity ?? 1)}"></label>
-      <label class="field full">Pattern Name *<input type="text" required maxlength="180" name="patternName" value="${esc(r.patternName||'')}" placeholder="e.g. SNH 520-617 housing pattern"></label>
-      <label class="field full">Casting Item<input type="text" maxlength="200" name="castingItem" list="dl-ci" value="${esc(r.castingItem||'')}" placeholder="Linked casting item">
-        <datalist id="dl-ci">${state.castingMasters.map(m=>`<option value="${esc(m.itemName)}">`).join('')}</datalist></label>
-      <label class="field">Pattern Type<select name="patternType">${opt(PATTERN_TYPES, r.patternType||'Split pattern')}</select></label>
-      <label class="field">Home Location<input type="text" maxlength="160" name="location" value="${esc(r.location||'In-house')}" placeholder="In-house rack or foundry"></label>
-      <label class="field">Status<select name="status">${opt(PATTERN_STATUS, r.status||'Available')}</select></label>
-      <label class="field full">Notes<textarea maxlength="500" name="notes">${esc(r.notes||'')}</textarea></label>
-    </div>
-    <div class="modal-foot"><button type="button" class="btn" data-close>Cancel</button>
-    <button type="submit" class="btn primary">Save pattern</button></div>
-    <input type="hidden" name="id" value="${esc(r.id||'')}"></form>`);
-}
 
 function modalCasting(id, quickIndex){
   const r = state.castingMasters.find(x=>String(x.id)===String(id)) || {};
@@ -1043,17 +1004,22 @@ function modalCasting(id, quickIndex){
   const typeOptions = allTypes();
   const cur = r.itemType || typeOptions[0] || DEFAULT_TYPES[0];
   openModal(`<form id="f-casting">
-    <div class="modal-head"><h3>${isEdit?'Edit Casting Master': quickIndex!=null ? 'Save New Casting Item':'Add Casting Master'}</h3>
-    <p>${quickIndex!=null?'Save this item to Casting Master and select it on the current challan line.':'Maintain the approved casting type, material and related pattern.'}</p></div>
+    <div class="modal-head"><h3>${isEdit?'Edit Casting &amp; Pattern Item': quickIndex!=null ? 'Save New Item':'Add Casting &amp; Pattern Item'}</h3>
+    <p>${quickIndex!=null?'Save this item to Casting Master and select it on the current challan line.':'One record per item — casting details, pattern construction, core boxes and where the pattern is right now.'}</p></div>
     <div class="modal-body">
       <label class="field full">Casting Item Name *<input type="text" required maxlength="180" name="itemName" value="${esc(r.itemName||'')}" placeholder="e.g. SNH 520-617 bearing housing"></label>
       <label class="field">Type *<select name="itemType" required>${!typeOptions.includes(cur)&&cur?`<option value="${esc(cur)}" selected>${esc(cur)}</option>`:''}${opt(typeOptions,cur)}</select></label>
       <label class="field">Casting Material<select name="material">${opt(MATERIALS, r.material||'Cast Iron')}</select></label>
       <label class="field">Pattern Material<select name="patternMaterial">${opt(PATTERN_MATERIALS, r.patternMaterial||'Wooden')}</select></label>
       <label class="field">Pattern Construction<select name="patternConstruction">${opt(PATTERN_CONSTRUCTION, r.patternConstruction||'Split Type')}</select></label>
+      <label class="field">Core Box<select name="coreBox" id="sel-corebox">${opt(CORE_OPTIONS, r.coreBox||'Without core')}</select></label>
+      <label class="field">Number of Cores<input type="number" min="0" max="20" name="coreCount" id="inp-corecount" value="${esc(r.coreCount ?? 0)}" ${ (r.coreBox||'Without core')==='Without core' ? 'disabled' : '' }></label>
+      <label class="field">Pattern Code<input type="text" maxlength="80" name="patternCode" list="dl-pc" value="${esc(r.patternCode||'')}" placeholder="e.g. PTN-SNH-520">
+        <datalist id="dl-pc">${state.castingMasters.map(m=>`<option value="${esc(m.patternCode)}">`).join('')}</datalist></label>
+      <label class="field">Total Sets<input type="number" min="0" max="999" name="totalSets" value="${esc(r.totalSets ?? 1)}"></label>
+      <label class="field">Current Location<input type="text" maxlength="160" name="currentLocation" list="dl-loc" value="${esc(r.currentLocation||HOME_LOCATION)}" placeholder="JAYCO or foundry name">
+        <datalist id="dl-loc">${allLocations().map(x=>`<option value="${esc(x)}">`).join('')}</datalist></label>
       <label class="field">Drawing No.<input type="text" maxlength="100" name="drawingNumber" value="${esc(r.drawingNumber||'')}" placeholder="e.g. DRG-520-617"></label>
-      <label class="field">Pattern Code<input type="text" maxlength="80" name="patternCode" list="dl-pc" value="${esc(r.patternCode||'')}">
-        <datalist id="dl-pc">${state.patternMasters.map(p=>`<option value="${esc(p.patternCode)}">`).join('')}</datalist></label>
 
       <div class="full" style="display:grid;grid-template-columns:1fr 1fr;gap:18px">
         <div class="attach" data-slot="drawingImage">
@@ -1115,7 +1081,7 @@ function modalMovement(id){
     <p>Record the current physical location and availability of a pattern set.</p></div>
     <div class="modal-body">
       <label class="field">Pattern Reference *<input type="text" required maxlength="80" name="reference" list="dl-pr" value="${esc(r.reference||'')}" placeholder="Pattern code">
-        <datalist id="dl-pr">${state.patternMasters.map(p=>`<option value="${esc(p.patternCode)}">`).join('')}</datalist></label>
+        <datalist id="dl-pr">${state.castingMasters.map(m=>`<option value="${esc(m.patternCode)}">`).join('')}</datalist></label>
       <label class="field">Record Date<input type="date" name="dueDate" value="${esc(r.dueDate||today())}"></label>
       <label class="field full">Pattern / Item *<input type="text" required maxlength="180" name="item" value="${esc(r.item||'')}"></label>
       <label class="field full">Current Foundry / Location *<input type="text" required maxlength="180" name="foundry" value="${esc(r.foundry||'In-house')}"></label>
@@ -1463,7 +1429,7 @@ async function savePo(status){
    7. EVENTS
    ========================================================================== */
 document.addEventListener('click', async (e) => {
-  const t = e.target.closest('[data-view],[data-go],[data-new-challan],[data-view-challan],[data-edit-challan],[data-del-challan],[data-open-pattern],[data-del-pattern],[data-open-casting],[data-del-casting],[data-open-type],[data-del-type],[data-open-move],[data-del-move],[data-close],[data-rm-po],[data-rm-item],[data-quick-add],[data-pdf-challan],[data-wa-challan],[data-edit-po],[data-del-po],[data-pdf-po],[data-wa-po],[data-rm-po-item]');
+  const t = e.target.closest('[data-view],[data-go],[data-new-challan],[data-view-challan],[data-edit-challan],[data-del-challan],[data-open-casting],[data-del-casting],[data-open-type],[data-del-type],[data-open-move],[data-del-move],[data-close],[data-rm-po],[data-rm-item],[data-quick-add],[data-pdf-challan],[data-wa-challan],[data-edit-po],[data-del-po],[data-pdf-po],[data-wa-po],[data-rm-po-item]');
   if(!t) return;
   const d = t.dataset;
 
@@ -1494,12 +1460,10 @@ document.addEventListener('click', async (e) => {
   }
 
   if(d.delChallan){ if(confirm('Delete this challan permanently?')){ await DB.remove('casting_challans', d.delChallan); toast('Challan deleted','success'); loadAll(); } return; }
-  if(d.delPattern){ if(confirm('Delete this pattern from the master?')){ await DB.remove('pattern_masters', d.delPattern); toast('Pattern deleted','success'); loadAll(); } return; }
   if(d.delCasting){ if(confirm('Delete this casting item from the master?')){ await DB.remove('casting_masters', d.delCasting); toast('Casting item deleted','success'); loadAll(); } return; }
   if(d.delType){ if(confirm('Delete this casting type?')){ await DB.remove('casting_types', d.delType); toast('Type deleted','success'); loadAll(); } return; }
   if(d.delMove){ if(confirm('Delete this pattern position record?')){ await DB.remove('control_records', d.delMove); toast('Pattern position deleted','success'); loadAll(); } return; }
 
-  if(d.openPattern !== undefined){ modalPattern(d.openPattern); return; }
   if(d.openCasting !== undefined){ modalCasting(d.openCasting, null); return; }
   if(d.openType !== undefined){ modalType(d.openType); return; }
   if(d.openMove !== undefined){ modalMovement(d.openMove); return; }
@@ -1528,6 +1492,15 @@ document.addEventListener('click', async (e) => {
   if(d.rmItem !== undefined){
     if(state.entryForm.items.length>1) state.entryForm.items.splice(Number(d.rmItem),1);
     render(); return;
+  }
+});
+
+/* core count enables only when a core box exists */
+document.addEventListener('change', e => {
+  if(e.target.id === 'sel-corebox'){
+    const n = document.getElementById('inp-corecount');
+    if(e.target.value === 'Without core'){ n.value = 0; n.disabled = true; }
+    else { n.disabled = false; if(num(n.value) < 1) n.value = 1; }
   }
 });
 
@@ -1685,19 +1658,11 @@ document.addEventListener('submit', async e => {
 
     if(f.id === 'po-form'){ await savePo('Closed'); return; }
 
-    if(f.id === 'f-pattern'){
-      const p = {patternCode:data.patternCode.trim(), patternName:data.patternName.trim(), castingItem:data.castingItem.trim(),
-                 patternType:data.patternType, totalQuantity:num(data.totalQuantity), location:data.location.trim(),
-                 status:data.status, notes:data.notes.trim()};
-      const dup = state.patternMasters.find(x=>x.patternCode===p.patternCode && String(x.id)!==String(data.id));
-      if(dup) return toast('That pattern code already exists.','error');
-      data.id ? await DB.update('pattern_masters', data.id, p) : await DB.create('pattern_masters', p);
-      toast(data.id?'Pattern master updated':'Pattern added to master','success');
-    }
-
     if(f.id === 'f-casting'){
       const c = {itemName:data.itemName.trim(), itemType:data.itemType, material:data.material,
                  patternMaterial:data.patternMaterial, patternConstruction:data.patternConstruction,
+                 coreBox:data.coreBox, coreCount: data.coreBox==='Without core' ? 0 : num(data.coreCount),
+                 totalSets:num(data.totalSets), currentLocation:data.currentLocation.trim()||HOME_LOCATION,
                  drawingNumber:data.drawingNumber.trim(), patternCode:data.patternCode.trim(),
                  drawingImage:pendingAttach.drawingImage || '', patternPhoto:pendingAttach.patternPhoto || '',
                  status:data.status, notes:data.notes.trim(), averageWeight:0};
@@ -1783,11 +1748,6 @@ document.getElementById('btn-seed').addEventListener('click', async () => {
   for(const [itemName,itemType,material,drawingNumber,patternCode] of items)
     saved.push(await DB.create('casting_masters',
       {itemCode:'CAST-'+Math.random().toString(36).slice(2,10).toUpperCase(), itemName, itemType, material, drawingNumber, patternCode, status:'Active', notes:'', averageWeight:0}));
-  for(const [patternCode,patternName,castingItem] of [
-    ['PTN-SNH-520','SNH 520-617 housing pattern','SNH 520-617 Housing'],
-    ['PTN-SN-511','SN 511-609 base pattern','SN 511-609 Base'],
-    ['PTN-P-210','P 210 pillow block pattern','P 210 Pillow Block']])
-    await DB.create('pattern_masters', {patternCode, patternName, castingItem, patternType:'Split pattern', totalQuantity:2, location:'In-house', status:'Available', notes:''});
   await DB.create('control_records', {module:'patterns', reference:'PTN-SNH-520', item:'SNH 520-617 housing pattern', foundry:'Bharat Steel Foundry', quantity:2, received:1, dueDate:today(), status:'At foundry', notes:'One set sent for trial casting', changedBy: authUser()});
   const demoItems = [
     {itemName:saved[0].itemName, itemType:saved[0].itemType, material:saved[0].material, quantity:50, foundryWeight:1250, actualWeight:1268.5, foundryTotalWeight:1250, actualTotalWeight:1268.5},
