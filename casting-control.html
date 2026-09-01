@@ -277,7 +277,7 @@ th.num{text-align:right}
       <div class="nav-sep"></div>
       <button class="nav-btn" data-view="generate-po"><span><span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3h6a1 1 0 0 1 1 1v1H8V4a1 1 0 0 1 1-1Z"></path><rect x="5" y="5" width="14" height="16" rx="2"></rect><path d="M9 12h6M9 16h6M9 8h2"></path></svg></span><span class="nav-txt">Generate P/O</span></span><span class="count" id="c-pos">0</span></button>
       <div class="nav-label">Masters</div>
-      <button class="nav-btn" data-view="casting-master"><span><span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="8" width="18" height="12" rx="2"></rect><path d="M7 8V6a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v2"></path><path d="M7 13h10"></path></svg></span><span class="nav-txt">Casting &amp; Pattern Master</span></span><span class="count" id="c-castmas">0</span></button>
+      <button class="nav-btn" data-view="pattern-master"><span><span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="8" width="18" height="12" rx="2"></rect><path d="M7 8V6a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v2"></path><path d="M7 13h10"></path></svg></span><span class="nav-txt">Pattern Master</span></span><span class="count" id="c-patmas">0</span></button>
       <button class="nav-btn" data-view="type-master"><span><span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7V5h16v2"></path><path d="M9 20h6"></path><path d="M12 5v15"></path></svg></span><span class="nav-txt">Type Master</span></span><span class="count" id="c-types">0</span></button>
       <div class="nav-sep"></div>
       <div class="nav-label">Data</div>
@@ -514,7 +514,7 @@ const VIEWS = {
   'pattern-management': {eyebrow:'Pattern movement', title:'Pattern Management', desc:'Track every pattern set at JAYCO or with a foundry.'},
   'insert-casting':     {eyebrow:'Goods receipt entry', title:'Insert Casting Details', desc:'Enter one foundry challan with one or more casting items.'},
   'generate-po':        {eyebrow:'Outward order', title:'Generate P/O', desc:'Raise a purchase order on a foundry. Approximate weight is calculated from your own challan history.'},
-  'casting-master':     {eyebrow:'Master data', title:'Casting & Pattern Master', desc:'One record per item: casting details, pattern construction, core boxes and current location.'},
+  'pattern-master':     {eyebrow:'Master data', title:'Pattern Master', desc:'One record per pattern: item, type, construction, core boxes and current location.'},
   'type-master':        {eyebrow:'Master data', title:'Type Master', desc:'Create or edit the casting types used throughout the system.'}
 };
 
@@ -593,7 +593,7 @@ function render(){
     b.classList.toggle('active', b.dataset.view === state.view));
   document.getElementById('c-challans').textContent = state.challans.length;
   document.getElementById('c-patrec').textContent  = state.patternRecords.length;
-  document.getElementById('c-castmas').textContent = state.castingMasters.length;
+  document.getElementById('c-patmas').textContent  = state.castingMasters.length;
   document.getElementById('c-types').textContent   = state.castingTypes.length;
   document.getElementById('c-pos').textContent     = state.purchaseOrders.length;
   document.getElementById('storage-mode').textContent = '◆ ' + DB.name;
@@ -606,7 +606,7 @@ function render(){
     'pattern-management': viewPatternManagement,
     'insert-casting': viewInsertCasting,
     'generate-po': viewGeneratePO,
-    'casting-master': viewCastingMaster,
+    'pattern-master': viewPatternMaster,
     'type-master': viewTypeMaster
   })[state.view]();
 }
@@ -647,12 +647,12 @@ function viewDashboard(){
       <p class="eyebrow">System readiness</p>
       <h2 class="panel-title" style="margin-bottom:1.25rem">Master completion</h2>
       <div style="margin-bottom:1.4rem">
-        <div style="display:flex;justify-content:space-between;font-size:.78rem"><b>Casting &amp; pattern master</b><span class="mono">${state.castingMasters.length}</span></div>
+        <div style="display:flex;justify-content:space-between;font-size:.78rem"><b>Pattern master</b><span class="mono">${state.castingMasters.length}</span></div>
         <div class="progress dark"><i style="width:${Math.min(100,state.castingMasters.length*10)}%"></i></div>
       </div>
       <div style="display:grid;gap:.5rem">
         <button class="btn primary" data-new-challan style="justify-content:flex-start">＋ Insert casting details</button>
-        <button class="btn" data-open-casting="" style="justify-content:flex-start">＋ Add casting &amp; pattern item</button>
+        <button class="btn" data-open-casting="" style="justify-content:flex-start">＋ Add pattern</button>
       </div>
     </div>
   </div>`;
@@ -719,13 +719,13 @@ function viewPatternManagement(){
 
 /* ---- Pattern Master ---- */
 
-/* ---- Casting Master ---- */
-function viewCastingMaster(){
+/* ---- Pattern Master ---- */
+function viewPatternMaster(){
   const rows = state.castingMasters.filter(r => match(r.itemName, r.itemType, r.material, r.drawingNumber, r.patternCode, r.patternMaterial, r.patternConstruction, r.currentLocation, r.coreBox));
   return `<section class="data-panel">
     <div class="panel-heading">
-      <div><p class="eyebrow">Approved item list</p><h2 class="panel-title">Casting &amp; Pattern Master</h2></div>
-      <button class="btn primary" data-open-casting="">＋ Add item</button>
+      <div><p class="eyebrow">Approved pattern list</p><h2 class="panel-title">Pattern Master</h2></div>
+      <button class="btn primary" data-open-casting="">＋ Add pattern</button>
     </div>
     <div class="table-scroll"><table>
       <thead><tr><th>Photo</th><th>Item / pattern name</th><th>Type</th><th>Casting mat.</th><th>Pattern mat.</th><th>Construction</th><th>Core</th><th class="num">Sets</th><th>Current location</th><th>Pattern code</th><th>Status</th><th class="num">Change</th></tr></thead>
@@ -741,7 +741,7 @@ function viewCastingMaster(){
           <button class="btn icon" data-open-casting="${esc(r.id)}" title="Edit">✎</button>
           <button class="btn icon danger" data-del-casting="${esc(r.id)}" title="Delete">🗑</button>
         </td></tr>`).join('')
-        || emptyRow(12, state.castingMasters.length ? 'No items match the search.' : 'No items yet. Select Add item to begin.') }
+        || emptyRow(12, state.castingMasters.length ? 'No patterns match the search.' : 'Pattern Master is blank. Select Add pattern to begin.') }
       </tbody></table></div></section>`;
 }
 
@@ -796,11 +796,14 @@ function viewGeneratePO(){
     if(it.itemName && w.source === 'none') anyMissing = true;
     const known = masters.some(m=>m.itemCode===it.masterCode);
     return `<tr>
-      <td><select data-po-item="${i}" data-po-field="masterCode" required>
-        <option value="">${masters.length?'Select saved item':'Save an item in Casting Master first'}</option>
-        ${!known && it.itemName ? `<option value="${esc(it.masterCode)}" selected>${esc(it.itemName)}</option>` : ''}
-        ${masters.map(m=>`<option value="${esc(m.itemCode)}" ${m.itemCode===it.masterCode?'selected':''}>${esc(m.itemName)}</option>`).join('')}
-      </select></td>
+      <td><div style="display:flex;gap:8px">
+        <select data-po-item="${i}" data-po-field="masterCode" required style="flex:1">
+          <option value="">${masters.length?'Select pattern':'Save a pattern first'}</option>
+          ${!known && it.itemName ? `<option value="${esc(it.masterCode)}" selected>${esc(it.itemName)}</option>` : ''}
+          ${masters.map(m=>`<option value="${esc(m.itemCode)}" ${m.itemCode===it.masterCode?'selected':''}>${esc(m.itemName)}</option>`).join('')}
+        </select>
+        <button type="button" class="btn icon" data-quick-add-po="${i}" title="Add a new pattern to Pattern Master">＋</button>
+      </div></td>
       <td><select data-po-item="${i}" data-po-field="itemType">${opt(typeOptions, it.itemType)}</select></td>
       <td><input type="number" min="1" required data-po-item="${i}" data-po-field="quantity" value="${esc(it.quantity)}" placeholder="0" style="text-align:right"></td>
       <td class="num">${ w.source==='challans'
@@ -950,11 +953,11 @@ function viewInsertCasting(){
             return `<tr>
               <td><div style="display:flex;gap:.4rem">
                 <select data-item="${i}" data-field="masterCode" required style="flex:1">
-                  <option value="">${masters.length?'Select saved item':'Save your first item'}</option>
+                  <option value="">${masters.length?'Select pattern':'Save your first pattern'}</option>
                   ${!known && it.itemName ? `<option value="${esc(it.masterCode)}" selected>${esc(it.itemName)}</option>` : ''}
                   ${masters.map(m=>`<option value="${esc(m.itemCode)}" ${m.itemCode===it.masterCode?'selected':''}>${esc(m.itemName)}</option>`).join('')}
                 </select>
-                <button type="button" class="btn icon" data-quick-add="${i}" title="Save new item to Casting Master">＋</button>
+                <button type="button" class="btn icon" data-quick-add="${i}" title="Add a new pattern to Pattern Master">＋</button>
               </div></td>
               <td><select data-item="${i}" data-field="itemType">
                 ${!typeOptions.includes(it.itemType) && it.itemType ? `<option value="${esc(it.itemType)}" selected>${esc(it.itemType)}</option>` : ''}
@@ -997,15 +1000,15 @@ function openModal(html, wide){
 function closeModal(){ document.getElementById('modal-back').classList.remove('open'); }
 
 
-function modalCasting(id, quickIndex){
+function modalCasting(id, quickIndex, quickTarget){
   const r = state.castingMasters.find(x=>String(x.id)===String(id)) || {};
   pendingAttach = {drawingImage: r.drawingImage || '', patternPhoto: r.patternPhoto || ''};
   const isEdit = !!r.id;
   const typeOptions = allTypes();
   const cur = r.itemType || typeOptions[0] || DEFAULT_TYPES[0];
   openModal(`<form id="f-casting">
-    <div class="modal-head"><h3>${isEdit?'Edit Casting &amp; Pattern Item': quickIndex!=null ? 'Save New Item':'Add Casting &amp; Pattern Item'}</h3>
-    <p>${quickIndex!=null?'Save this item to Casting Master and select it on the current challan line.':'One record per item — casting details, pattern construction, core boxes and where the pattern is right now.'}</p></div>
+    <div class="modal-head"><h3>${isEdit?'Edit Pattern': quickIndex!=null ? 'Save New Pattern':'Add Pattern'}</h3>
+    <p>${quickIndex!=null?'Save this to Pattern Master and select it on the line you were filling.':'One record per pattern — item, type, construction, core boxes and where it is right now.'}</p></div>
     <div class="modal-body">
       <label class="field full">Casting Item Name *<input type="text" required maxlength="180" name="itemName" value="${esc(r.itemName||'')}" placeholder="e.g. SNH 520-617 bearing housing"></label>
       <label class="field">Type *<select name="itemType" required>${!typeOptions.includes(cur)&&cur?`<option value="${esc(cur)}" selected>${esc(cur)}</option>`:''}${opt(typeOptions,cur)}</select></label>
@@ -1054,16 +1057,17 @@ function modalCasting(id, quickIndex){
       <label class="field full">Notes<textarea maxlength="500" name="notes">${esc(r.notes||'')}</textarea></label>
     </div>
     <div class="modal-foot"><button type="button" class="btn" data-close>Cancel</button>
-    <button type="submit" class="btn primary">${quickIndex!=null?'Save &amp; select item':'Save casting item'}</button></div>
+    <button type="submit" class="btn primary">${quickIndex!=null?'Save &amp; select':'Save pattern'}</button></div>
     <input type="hidden" name="id" value="${esc(r.id||'')}">
-    <input type="hidden" name="quickIndex" value="${quickIndex??''}"></form>`);
+    <input type="hidden" name="quickIndex" value="${quickIndex??''}">
+    <input type="hidden" name="quickTarget" value="${quickTarget||'challan'}"></form>`);
 }
 
 function modalType(id){
   const r = state.castingTypes.find(x=>String(x.id)===String(id)) || {};
   openModal(`<form id="f-type">
     <div class="modal-head"><h3>${r.id?'Edit':'Add'} Casting Type</h3>
-    <p>This type will be available in Casting Master and every casting challan.</p></div>
+    <p>This type will be available in Pattern Master and every casting challan.</p></div>
     <div class="modal-body single">
       <label class="field">Type Name *<input type="text" required maxlength="80" name="typeName" value="${esc(r.typeName||'')}" placeholder="e.g. Nut, Crown Wheel or Plates"></label>
       <label class="field" style="margin-top:1rem">Status<select name="status">${opt(['Active','Inactive'], r.status||'Active')}</select></label>
@@ -1429,7 +1433,7 @@ async function savePo(status){
    7. EVENTS
    ========================================================================== */
 document.addEventListener('click', async (e) => {
-  const t = e.target.closest('[data-view],[data-go],[data-new-challan],[data-view-challan],[data-edit-challan],[data-del-challan],[data-open-casting],[data-del-casting],[data-open-type],[data-del-type],[data-open-move],[data-del-move],[data-close],[data-rm-po],[data-rm-item],[data-quick-add],[data-pdf-challan],[data-wa-challan],[data-edit-po],[data-del-po],[data-pdf-po],[data-wa-po],[data-rm-po-item]');
+  const t = e.target.closest('[data-view],[data-go],[data-new-challan],[data-view-challan],[data-edit-challan],[data-del-challan],[data-open-casting],[data-del-casting],[data-open-type],[data-del-type],[data-open-move],[data-del-move],[data-close],[data-rm-po],[data-rm-item],[data-quick-add],[data-quick-add-po],[data-pdf-challan],[data-wa-challan],[data-edit-po],[data-del-po],[data-pdf-po],[data-wa-po],[data-rm-po-item]');
   if(!t) return;
   const d = t.dataset;
 
@@ -1467,7 +1471,8 @@ document.addEventListener('click', async (e) => {
   if(d.openCasting !== undefined){ modalCasting(d.openCasting, null); return; }
   if(d.openType !== undefined){ modalType(d.openType); return; }
   if(d.openMove !== undefined){ modalMovement(d.openMove); return; }
-  if(d.quickAdd !== undefined){ modalCasting('', Number(d.quickAdd)); return; }
+  if(d.quickAdd !== undefined){ modalCasting('', Number(d.quickAdd), 'challan'); return; }
+  if(d.quickAddPo !== undefined){ modalCasting('', Number(d.quickAddPo), 'po'); return; }
 
   if(d.rmPo !== undefined){
     if(state.entryForm.purchaseOrders.length>1) state.entryForm.purchaseOrders.splice(Number(d.rmPo),1);
@@ -1669,11 +1674,15 @@ document.addEventListener('submit', async e => {
       let saved;
       if(data.id){ saved = await DB.update('casting_masters', data.id, c); }
       else { c.itemCode = 'CAST-' + Math.random().toString(36).slice(2,10).toUpperCase(); saved = await DB.create('casting_masters', c); }
-      if(data.quickIndex !== '' && state.entryForm){
+      if(data.quickIndex !== '' && data.quickTarget === 'po' && state.poForm){
+        const i = Number(data.quickIndex);
+        Object.assign(state.poForm.items[i], {masterCode:saved.itemCode, itemName:saved.itemName, itemType:saved.itemType});
+        toast('Pattern saved and selected on the P/O','success');
+      } else if(data.quickIndex !== '' && state.entryForm){
         const i = Number(data.quickIndex);
         Object.assign(state.entryForm.items[i], {masterCode:saved.itemCode, itemName:saved.itemName, itemType:saved.itemType, material:saved.material});
-        toast('Item saved and selected on the challan','success');
-      } else toast(data.id?'Casting master updated':'Casting item added to master','success');
+        toast('Pattern saved and selected on the challan','success');
+      } else toast(data.id?'Pattern updated':'Pattern added to master','success');
     }
 
     if(f.id === 'f-type'){
