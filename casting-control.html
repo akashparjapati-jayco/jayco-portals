@@ -181,6 +181,19 @@ th.num{text-align:right}
 .modal-body .full{grid-column:1/-1}
 .modal-foot{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:10px;padding:20px 28px 28px;border-top:1px solid var(--line)}
 
+/* ---------- attachments ---------- */
+.attach-box{border:1px dashed var(--card-border);border-radius:var(--r-md);background:rgba(17,17,17,.02);
+  height:132px;display:grid;place-items:center;overflow:hidden}
+.attach-img{width:100%;height:100%;object-fit:contain;background:#fff;cursor:zoom-in}
+.attach-empty{margin:0;font-size:12px;color:var(--ink-faint)}
+.thumb{width:42px;height:32px;object-fit:cover;border-radius:6px;border:1px solid var(--card-border);
+  background:#fff;cursor:zoom-in;display:block}
+.thumb-none{font-size:11px;color:var(--ink-faint)}
+#lightbox{position:fixed;inset:0;background:rgba(17,17,17,.86);z-index:120;display:none;
+  align-items:center;justify-content:center;padding:32px;cursor:zoom-out}
+#lightbox.open{display:flex}
+#lightbox img{max-width:100%;max-height:100%;border-radius:var(--r-md);background:#fff}
+
 /* ---------- toast ---------- */
 #toasts{position:fixed;top:20px;right:20px;z-index:100;display:flex;flex-direction:column;gap:10px}
 .toast{background:var(--card);border:1px solid var(--card-border);border-left:3px solid var(--ink);
@@ -315,6 +328,7 @@ th.num{text-align:right}
 <!-- MODALS -->
 <div class="modal-back" id="modal-back"><div class="modal" id="modal"></div></div>
 <div id="toasts"></div>
+<div id="lightbox"><img alt=""></div>
 <input type="file" id="file-import" accept="application/json" style="display:none">
 
 <script type="module">
@@ -452,6 +466,34 @@ const MASTER_STATUS = ['Active','On hold','Inactive'];
    Anything added in Type Master is merged on top of these.          */
 const DEFAULT_TYPES = ['Cap','Bottom','Ring','Coller','Cover','Nut','End Cover','Plate'];
 const PO_TYPES = DEFAULT_TYPES;
+const PATTERN_MATERIALS = ['Wooden','Aluminium'];
+const PATTERN_CONSTRUCTION = ['Split Type','Non-Split Type'];
+
+/* Attachments are stored inside the Firestore document as compressed
+   data URLs. Firestore caps a document at 1 MiB, so each image is
+   shrunk until it fits a 320 KB budget. Held here while the modal is open. */
+const ATTACH_BUDGET = 320000;
+let pendingAttach = {drawingImage:'', patternPhoto:''};
+
+async function compressImage(file){
+  if(!file.type.startsWith('image/'))
+    throw new Error('Only image files can be attached (JPG, PNG, WEBP). For a PDF drawing, keep the drawing number and store the PDF on Drive.');
+  const bmp = await createImageBitmap(file);
+  let dim = 1400, q = 0.75, out = '';
+  for(let pass = 0; pass < 7; pass++){
+    const scale = Math.min(1, dim / Math.max(bmp.width, bmp.height));
+    const w = Math.round(bmp.width * scale), h = Math.round(bmp.height * scale);
+    const cv = document.createElement('canvas');
+    cv.width = w; cv.height = h;
+    const cx = cv.getContext('2d');
+    cx.fillStyle = '#fff'; cx.fillRect(0,0,w,h);
+    cx.drawImage(bmp, 0, 0, w, h);
+    out = cv.toDataURL('image/jpeg', q);
+    if(out.length <= ATTACH_BUDGET) return out;
+    if(q > 0.45) q -= 0.1; else dim = Math.round(dim * 0.75);
+  }
+  throw new Error('That image is too large even after compression. Crop it or use a smaller photo.');
+}
 /* Built-ins first, then any Active types from Type Master, de-duplicated. */
 function allTypes(){
   return [...new Set([...DEFAULT_TYPES,
@@ -699,22 +741,25 @@ function viewPatternMaster(){
 
 /* ---- Casting Master ---- */
 function viewCastingMaster(){
-  const rows = state.castingMasters.filter(r => match(r.itemName, r.itemType, r.material, r.drawingNumber, r.patternCode));
+  const rows = state.castingMasters.filter(r => match(r.itemName, r.itemType, r.material, r.drawingNumber, r.patternCode, r.patternMaterial, r.patternConstruction));
   return `<section class="data-panel">
     <div class="panel-heading">
       <div><p class="eyebrow">Approved casting list</p><h2 class="panel-title">Casting Master</h2></div>
       <button class="btn primary" data-open-casting="">＋ Add casting item</button>
     </div>
     <div class="table-scroll"><table>
-      <thead><tr><th>Type</th><th>Casting item name</th><th>Material</th><th>Drawing No.</th><th>Pattern code</th><th>Status</th><th class="num">Change</th></tr></thead>
+      <thead><tr><th>Photo</th><th>Casting item name</th><th>Type</th><th>Casting material</th><th>Pattern material</th><th>Construction</th><th>Drawing No.</th><th>Pattern code</th><th>Status</th><th class="num">Change</th></tr></thead>
       <tbody>${ rows.map(r=>`<tr>
-        <td><b>${esc(r.itemType)}</b></td><td><b>${esc(r.itemName)}</b></td><td>${esc(r.material)}</td>
-        <td>${esc(r.drawingNumber)||'—'}</td><td class="mono">${esc(r.patternCode)||'—'}</td><td>${statusBadge(r.status)}</td>
+        <td>${ r.patternPhoto ? `<img class="thumb" src="${r.patternPhoto}" alt="">` : '<span class="thumb-none">—</span>' }</td>
+        <td><b>${esc(r.itemName)}</b></td><td>${esc(r.itemType)}</td><td>${esc(r.material)}</td>
+        <td>${esc(r.patternMaterial)||'—'}</td><td>${esc(r.patternConstruction)||'—'}</td>
+        <td>${ r.drawingImage ? `<img class="thumb" src="${r.drawingImage}" alt="" style="margin-bottom:4px">` : '' }${esc(r.drawingNumber)||(r.drawingImage?'':'—')}</td>
+        <td class="mono">${esc(r.patternCode)||'—'}</td><td>${statusBadge(r.status)}</td>
         <td class="num" style="white-space:nowrap">
           <button class="btn icon" data-open-casting="${esc(r.id)}" title="Edit">✎</button>
           <button class="btn icon danger" data-del-casting="${esc(r.id)}" title="Delete">🗑</button>
         </td></tr>`).join('')
-        || emptyRow(7, state.castingMasters.length ? 'No casting items match the search.' : 'Casting Master is blank. Select Add casting item to begin.') }
+        || emptyRow(10, state.castingMasters.length ? 'No casting items match the search.' : 'Casting Master is blank. Select Add casting item to begin.') }
       </tbody></table></div></section>`;
 }
 
@@ -993,6 +1038,7 @@ function modalPattern(id){
 
 function modalCasting(id, quickIndex){
   const r = state.castingMasters.find(x=>String(x.id)===String(id)) || {};
+  pendingAttach = {drawingImage: r.drawingImage || '', patternPhoto: r.patternPhoto || ''};
   const isEdit = !!r.id;
   const typeOptions = allTypes();
   const cur = r.itemType || typeOptions[0] || DEFAULT_TYPES[0];
@@ -1000,12 +1046,44 @@ function modalCasting(id, quickIndex){
     <div class="modal-head"><h3>${isEdit?'Edit Casting Master': quickIndex!=null ? 'Save New Casting Item':'Add Casting Master'}</h3>
     <p>${quickIndex!=null?'Save this item to Casting Master and select it on the current challan line.':'Maintain the approved casting type, material and related pattern.'}</p></div>
     <div class="modal-body">
-      <label class="field">Type *<select name="itemType" required>${!typeOptions.includes(cur)&&cur?`<option value="${esc(cur)}" selected>${esc(cur)}</option>`:''}${opt(typeOptions,cur)}</select></label>
-      <label class="field">Material<select name="material">${opt(MATERIALS, r.material||'Cast Iron')}</select></label>
       <label class="field full">Casting Item Name *<input type="text" required maxlength="180" name="itemName" value="${esc(r.itemName||'')}" placeholder="e.g. SNH 520-617 bearing housing"></label>
-      <label class="field">Drawing No.<input type="text" maxlength="100" name="drawingNumber" value="${esc(r.drawingNumber||'')}"></label>
+      <label class="field">Type *<select name="itemType" required>${!typeOptions.includes(cur)&&cur?`<option value="${esc(cur)}" selected>${esc(cur)}</option>`:''}${opt(typeOptions,cur)}</select></label>
+      <label class="field">Casting Material<select name="material">${opt(MATERIALS, r.material||'Cast Iron')}</select></label>
+      <label class="field">Pattern Material<select name="patternMaterial">${opt(PATTERN_MATERIALS, r.patternMaterial||'Wooden')}</select></label>
+      <label class="field">Pattern Construction<select name="patternConstruction">${opt(PATTERN_CONSTRUCTION, r.patternConstruction||'Split Type')}</select></label>
+      <label class="field">Drawing No.<input type="text" maxlength="100" name="drawingNumber" value="${esc(r.drawingNumber||'')}" placeholder="e.g. DRG-520-617"></label>
       <label class="field">Pattern Code<input type="text" maxlength="80" name="patternCode" list="dl-pc" value="${esc(r.patternCode||'')}">
         <datalist id="dl-pc">${state.patternMasters.map(p=>`<option value="${esc(p.patternCode)}">`).join('')}</datalist></label>
+
+      <div class="full" style="display:grid;grid-template-columns:1fr 1fr;gap:18px">
+        <div class="attach" data-slot="drawingImage">
+          <p class="field" style="margin:0 0 8px">Drawing (image)</p>
+          <div class="attach-box">
+            <img class="attach-img" alt="" style="${pendingAttach.drawingImage?'':'display:none'}" src="${pendingAttach.drawingImage||''}">
+            <p class="attach-empty" style="${pendingAttach.drawingImage?'display:none':''}">No drawing attached</p>
+          </div>
+          <div style="display:flex;gap:8px;margin-top:10px">
+            <label class="btn" style="flex:1;justify-content:center">Choose file
+              <input type="file" accept="image/*" data-attach="drawingImage" style="display:none"></label>
+            <button type="button" class="btn icon danger" data-clear-attach="drawingImage" title="Remove">🗑</button>
+          </div>
+        </div>
+
+        <div class="attach" data-slot="patternPhoto">
+          <p class="field" style="margin:0 0 8px">Pattern Photo</p>
+          <div class="attach-box">
+            <img class="attach-img" alt="" style="${pendingAttach.patternPhoto?'':'display:none'}" src="${pendingAttach.patternPhoto||''}">
+            <p class="attach-empty" style="${pendingAttach.patternPhoto?'display:none':''}">No photo attached</p>
+          </div>
+          <div style="display:flex;gap:8px;margin-top:10px">
+            <label class="btn" style="flex:1;justify-content:center">Choose file
+              <input type="file" accept="image/*" data-attach="patternPhoto" style="display:none"></label>
+            <button type="button" class="btn icon danger" data-clear-attach="patternPhoto" title="Remove">🗑</button>
+          </div>
+        </div>
+      </div>
+      <p class="full" style="margin:0;font-size:12px;color:var(--ink-faint);line-height:1.6">Images are resized and compressed automatically before saving. Photographs work well; a multi-page PDF drawing does not — keep the drawing number for that.</p>
+
       <label class="field">Status<select name="status">${opt(MASTER_STATUS, r.status||'Active')}</select></label>
       <label class="field full">Notes<textarea maxlength="500" name="notes">${esc(r.notes||'')}</textarea></label>
     </div>
@@ -1453,6 +1531,48 @@ document.addEventListener('click', async (e) => {
   }
 });
 
+/* attachments: pick, clear, zoom */
+document.addEventListener('change', async e => {
+  const inp = e.target.closest('[data-attach]');
+  if(!inp || !inp.files || !inp.files[0]) return;
+  const slot = inp.dataset.attach, file = inp.files[0];
+  const wrap = document.querySelector(`.attach[data-slot="${slot}"]`);
+  const img = wrap.querySelector('.attach-img'), ph = wrap.querySelector('.attach-empty');
+  ph.textContent = 'Compressing…'; ph.style.display = ''; img.style.display = 'none';
+  try{
+    const data = await compressImage(file);
+    pendingAttach[slot] = data;
+    img.src = data; img.style.display = ''; ph.style.display = 'none';
+    toast('Image attached (' + Math.round(data.length/1024) + ' KB)','success');
+  }catch(err){
+    pendingAttach[slot] = '';
+    ph.textContent = 'No file attached'; ph.style.display = ''; img.style.display = 'none';
+    toast(err.message,'error');
+  }
+  inp.value = '';
+});
+
+document.addEventListener('click', e => {
+  const clr = e.target.closest('[data-clear-attach]');
+  if(clr){
+    const slot = clr.dataset.clearAttach;
+    pendingAttach[slot] = '';
+    const wrap = document.querySelector(`.attach[data-slot="${slot}"]`);
+    wrap.querySelector('.attach-img').style.display = 'none';
+    const ph = wrap.querySelector('.attach-empty');
+    ph.textContent = 'No file attached'; ph.style.display = '';
+    return;
+  }
+  const zoom = e.target.closest('.attach-img, .thumb');
+  if(zoom && zoom.src){
+    const lb = document.getElementById('lightbox');
+    lb.querySelector('img').src = zoom.src;
+    lb.classList.add('open');
+  }
+});
+document.getElementById('lightbox').addEventListener('click', () =>
+  document.getElementById('lightbox').classList.remove('open'));
+
 /* modal backdrop click */
 document.getElementById('modal-back').addEventListener('click', e => { if(e.target.id==='modal-back') closeModal(); });
 
@@ -1577,7 +1697,9 @@ document.addEventListener('submit', async e => {
 
     if(f.id === 'f-casting'){
       const c = {itemName:data.itemName.trim(), itemType:data.itemType, material:data.material,
+                 patternMaterial:data.patternMaterial, patternConstruction:data.patternConstruction,
                  drawingNumber:data.drawingNumber.trim(), patternCode:data.patternCode.trim(),
+                 drawingImage:pendingAttach.drawingImage || '', patternPhoto:pendingAttach.patternPhoto || '',
                  status:data.status, notes:data.notes.trim(), averageWeight:0};
       let saved;
       if(data.id){ saved = await DB.update('casting_masters', data.id, c); }
