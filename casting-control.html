@@ -262,6 +262,7 @@ th.num{text-align:right}
       <button class="nav-btn" data-view="pattern-management"><span><span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><circle cx="12" cy="12" r="9"></circle><path d="M12 3v3M12 18v3M3 12h3M18 12h3"></path></svg></span><span class="nav-txt">Pattern Management</span></span><span class="count" id="c-patrec">0</span></button>
       <button class="nav-btn" data-view="insert-casting"><span><span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"></path></svg></span><span class="nav-txt">Insert Casting Details</span></span></button>
       <div class="nav-sep"></div>
+      <button class="nav-btn" data-view="generate-po"><span><span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3h6a1 1 0 0 1 1 1v1H8V4a1 1 0 0 1 1-1Z"></path><rect x="5" y="5" width="14" height="16" rx="2"></rect><path d="M9 12h6M9 16h6M9 8h2"></path></svg></span><span class="nav-txt">Generate P/O</span></span><span class="count" id="c-pos">0</span></button>
       <div class="nav-label">Masters</div>
       <button class="nav-btn" data-view="pattern-master"><span><span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 3 7v10l9 5 9-5V7l-9-5Z"></path><path d="m3 7 9 5 9-5"></path><path d="M12 12v10"></path></svg></span><span class="nav-txt">Pattern Master</span></span><span class="count" id="c-patmas">0</span></button>
       <button class="nav-btn" data-view="casting-master"><span><span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="8" width="18" height="12" rx="2"></rect><path d="M7 8V6a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v2"></path><path d="M7 13h10"></path></svg></span><span class="nav-txt">Casting Master</span></span><span class="count" id="c-castmas">0</span></button>
@@ -350,7 +351,8 @@ const COLLECTIONS = [
   'pattern_masters',
   'casting_masters',
   'casting_types',
-  'control_records'         // pattern movement (module: "patterns")
+  'control_records',        // pattern movement (module: "patterns")
+  'purchase_orders'         // POs raised on foundries
 ];
 
 /* Firestore collection names. Prefixed so this app can share ONE Firebase
@@ -360,7 +362,8 @@ const FS_NAME = {
   pattern_masters:  'casting_pattern_masters',
   casting_masters:  'casting_item_masters',
   casting_types:    'casting_types',
-  control_records:  'casting_pattern_movements'
+  control_records:  'casting_pattern_movements',
+  purchase_orders:  'casting_purchase_orders'
 };
 
 let app, db, auth;
@@ -434,8 +437,9 @@ const DB = FirebaseAdapter;
 const state = {
   view: 'dashboard',
   search: '',
-  challans: [], patternMasters: [], castingMasters: [], castingTypes: [], patternRecords: [],
+  challans: [], patternMasters: [], castingMasters: [], castingTypes: [], patternRecords: [], purchaseOrders: [],
   entryForm: null, editingChallanId: null,
+  poForm: null, editingPoId: null,
   saving: false
 };
 
@@ -444,12 +448,14 @@ const PATTERN_TYPES = ['Split pattern','Match plate','Loose pattern','Core box']
 const PATTERN_STATUS = ['Available','At foundry','Repair due','Retired'];
 const MOVE_STATUS = ['Available','Good','Recall','Repair due','On hold'];
 const MASTER_STATUS = ['Active','On hold','Inactive'];
+const PO_TYPES = ['Cap','Bottom','Ring','Collar','Cover'];
 
 const VIEWS = {
   'dashboard':          {eyebrow:'Operations overview', title:'Dashboard', desc:'Casting receipts, pattern position and master-data readiness.'},
   'casting-records':    {eyebrow:'Closed challans', title:'Casting Management', desc:'Review closed foundry challans, items and weight differences.'},
   'pattern-management': {eyebrow:'Pattern movement', title:'Pattern Management', desc:'Track every pattern set at JAYCO or with a foundry.'},
   'insert-casting':     {eyebrow:'Goods receipt entry', title:'Insert Casting Details', desc:'Enter one foundry challan with one or more casting items.'},
+  'generate-po':        {eyebrow:'Outward order', title:'Generate P/O', desc:'Raise a purchase order on a foundry. Approximate weight is calculated from your own challan history.'},
   'pattern-master':     {eyebrow:'Master data', title:'Pattern Master', desc:'Maintain the approved list of JAYCO patterns.'},
   'casting-master':     {eyebrow:'Master data', title:'Casting Master', desc:'Maintain casting item types, materials and linked patterns.'},
   'type-master':        {eyebrow:'Master data', title:'Type Master', desc:'Create or edit the casting types used throughout the system.'}
@@ -494,12 +500,13 @@ function opt(list, sel){ return list.map(v=>`<option value="${esc(v)}" ${v===sel
 
 async function loadAll(notify){
   try{
-    const [ch, pm, cm, ct, cr] = await Promise.all(COLLECTIONS.map(c => DB.list(c)));
+    const [ch, pm, cm, ct, cr, po] = await Promise.all(COLLECTIONS.map(c => DB.list(c)));
     state.challans = ch.map(c => ({...c, items: c.items||[], purchaseOrders: c.purchaseOrders||[]}));
     state.patternMasters = pm;
     state.castingMasters = cm;
     state.castingTypes = ct;
     state.patternRecords = cr.filter(r => r.module === 'patterns');
+    state.purchaseOrders = po.map(x => ({...x, items: x.items || []}));
     document.getElementById('pg-status').className = 'badge ok';
     document.getElementById('pg-status').textContent = '● Live data';
     if(notify) toast('Dashboard refreshed','success');
@@ -532,6 +539,7 @@ function render(){
   document.getElementById('c-patmas').textContent  = state.patternMasters.length;
   document.getElementById('c-castmas').textContent = state.castingMasters.length;
   document.getElementById('c-types').textContent   = state.castingTypes.length;
+  document.getElementById('c-pos').textContent     = state.purchaseOrders.length;
   document.getElementById('storage-mode').textContent = '◆ ' + DB.name;
   document.getElementById('foot-mode').textContent = 'Test build · ' + DB.name;
 
@@ -541,6 +549,7 @@ function render(){
     'casting-records': viewCastingRecords,
     'pattern-management': viewPatternManagement,
     'insert-casting': viewInsertCasting,
+    'generate-po': viewGeneratePO,
     'pattern-master': viewPatternMaster,
     'casting-master': viewCastingMaster,
     'type-master': viewTypeMaster
@@ -719,6 +728,128 @@ function viewTypeMaster(){
         </td></tr>`).join('')
         || emptyRow(4, state.castingTypes.length ? 'No casting types match the search.' : 'Type Master is blank. Select Add type to begin.') }
       </tbody></table></div></section>`;
+}
+
+/* ---- Generate P/O ---- */
+/* Approx weight per piece is derived from YOUR OWN closed challans:
+   total JAYCO weight received for that item / total pieces received.   */
+function avgWeightFor(itemName){
+  let qty = 0, wt = 0;
+  for(const c of state.challans)
+    for(const i of c.items)
+      if(i.itemName === itemName){ qty += num(i.quantity); wt += num(i.actualTotalWeight); }
+  return qty > 0 ? {avg: wt/qty, qty, source: 'challans'} : {avg: 0, qty: 0, source: 'none'};
+}
+
+function blankPoLine(){ return {masterCode:'', itemName:'', itemType:'Cap', quantity:''}; }
+function blankPo(){ return {poNumber:'', poDate: today(), foundryName:'', items:[blankPoLine()], notes:''}; }
+
+function viewGeneratePO(){
+  if(!state.poForm) state.poForm = blankPo();
+  const f = state.poForm;
+  const editing = !!state.editingPoId;
+  const masters = [...state.castingMasters].sort((a,b)=>String(a.itemName).localeCompare(String(b.itemName),'en',{numeric:true}));
+  const foundries = [...new Set([...state.challans.map(c=>c.foundryName), ...state.purchaseOrders.map(p=>p.foundryName)].filter(Boolean))];
+  const typeOptions = [...new Set([...PO_TYPES, ...state.castingTypes.filter(t=>t.status==='Active').map(t=>t.typeName)])];
+
+  let totQty = 0, totWt = 0, anyMissing = false;
+  const lines = f.items.map((it,i)=>{
+    const qty = num(it.quantity);
+    const w = avgWeightFor(it.itemName);
+    const approx = qty * w.avg;
+    totQty += qty; totWt += approx;
+    if(it.itemName && w.source === 'none') anyMissing = true;
+    const known = masters.some(m=>m.itemCode===it.masterCode);
+    return `<tr>
+      <td><select data-po-item="${i}" data-po-field="masterCode" required>
+        <option value="">${masters.length?'Select saved item':'Save an item in Casting Master first'}</option>
+        ${!known && it.itemName ? `<option value="${esc(it.masterCode)}" selected>${esc(it.itemName)}</option>` : ''}
+        ${masters.map(m=>`<option value="${esc(m.itemCode)}" ${m.itemCode===it.masterCode?'selected':''}>${esc(m.itemName)}</option>`).join('')}
+      </select></td>
+      <td><select data-po-item="${i}" data-po-field="itemType">${opt(typeOptions, it.itemType)}</select></td>
+      <td><input type="number" min="1" required data-po-item="${i}" data-po-field="quantity" value="${esc(it.quantity)}" placeholder="0" style="text-align:right"></td>
+      <td class="num">${ w.source==='challans'
+          ? `<b>${fmtWt(w.avg)}</b><div style="font-size:10.5px;color:var(--ink-faint);font-family:var(--font)">from ${w.qty} pcs received</div>`
+          : (it.itemName ? `<span class="badge warn">No history</span>` : '—') }</td>
+      <td class="num"><b>${ approx>0 ? fmtWt(approx) : '—' }</b></td>
+      <td><button type="button" class="btn icon danger" data-rm-po-item="${i}" ${f.items.length===1?'disabled':''}>🗑</button></td>
+    </tr>`;
+  }).join('');
+
+  const register = state.purchaseOrders.map(p=>`<tr>
+      <td class="mono">${esc(p.poNumber)}</td>
+      <td>${fmtDate(p.poDate)}</td>
+      <td>${esc(p.foundryName)}</td>
+      <td class="num">${p.items.length}</td>
+      <td class="num">${num(p.totalQuantity)}</td>
+      <td class="num">${fmtWt(p.totalApproxWeight)}</td>
+      <td>${statusBadge(p.status||'Open')}</td>
+      <td class="num" style="white-space:nowrap">
+        <button class="btn icon" data-edit-po="${esc(p.id)}" title="Edit">✎</button>
+        <button class="btn icon" data-pdf-po="${esc(p.id)}" title="PDF">⬇</button>
+        <button class="btn icon green" data-wa-po="${esc(p.id)}" title="WhatsApp">✆</button>
+        <button class="btn icon danger" data-del-po="${esc(p.id)}" title="Delete">🗑</button>
+      </td></tr>`).join('');
+
+  return `<section class="data-panel">
+    <div class="panel-heading">
+      <div><p class="eyebrow">${editing?'Change saved order':'New purchase order'}</p>
+      <h2 class="panel-title">${editing?'Edit Purchase Order':'Generate P/O'}</h2></div>
+      <span class="badge neutral">Weight from challan history</span>
+    </div>
+    <form id="po-form">
+      <div class="form-grid">
+        <label class="field">P/O No. *<input type="text" required maxlength="80" name="poNumber" value="${esc(f.poNumber)}" placeholder="e.g. JAY/PO/2026/118"></label>
+        <label class="field">P/O Date *<input type="date" required name="poDate" value="${esc(f.poDate)}"></label>
+        <label class="field">Foundry Name *<input type="text" required maxlength="160" name="foundryName" list="dl-po-foundries" value="${esc(f.foundryName)}" placeholder="Enter foundry name">
+          <datalist id="dl-po-foundries">${foundries.map(x=>`<option value="${esc(x)}">`).join('')}</datalist></label>
+      </div>
+
+      <div style="padding:26px">
+        <div style="display:flex;flex-wrap:wrap;justify-content:space-between;gap:14px;margin-bottom:18px">
+          <div><p class="eyebrow">Order line items</p>
+          <p style="margin:8px 0 0;font-size:13px;color:var(--ink-soft);line-height:1.6">Approx. weight/pc is pulled from your closed challans for that item. Approx. total = qty x avg weight/pc.</p></div>
+          <button type="button" class="btn" id="add-po-item">+ Add Item</button>
+        </div>
+        <div class="item-table-wrap"><table class="item-table">
+          <thead><tr><th style="min-width:240px">Item</th><th style="min-width:130px">Type</th>
+          <th class="num" style="min-width:90px">Qty</th><th class="num" style="min-width:170px">Approx. Weight/Pc</th>
+          <th class="num" style="min-width:150px">Approx. Total Weight</th><th></th></tr></thead>
+          <tbody>${lines}</tbody>
+        </table></div>
+
+        ${ anyMissing ? `<div style="margin-top:16px;border:1px solid rgba(180,83,9,.28);background:rgba(180,83,9,.06);border-radius:var(--r-md);padding:14px 18px;font-size:13px;color:var(--warn);line-height:1.6">
+          One or more items have never been received on a closed challan, so there is no weight history to calculate from. The approximate weight for those lines will show as zero until you close a challan for them.</div>` : '' }
+
+        <div class="totals-grid" style="grid-template-columns:repeat(3,1fr)">
+          <div class="weight-total-card"><span>Line Items</span><strong>${f.items.length}</strong></div>
+          <div class="weight-total-card"><span>Total Quantity</span><strong>${totQty}</strong></div>
+          <div class="weight-total-card actual"><span>Approx. Total Weight</span><strong>${fmtWt(totWt)}</strong></div>
+        </div>
+
+        <label class="field" style="margin-top:20px">Notes / delivery instructions
+          <textarea maxlength="600" name="notes" placeholder="Optional — delivery date, material grade, packing instructions">${esc(f.notes||'')}</textarea></label>
+      </div>
+
+      <div class="form-actions">
+        <button type="button" class="btn" id="po-reset">Clear form</button>
+        <button type="button" class="btn" id="po-pdf">Download PDF</button>
+        <button type="button" class="btn green" id="po-wa">Send on WhatsApp</button>
+        <button type="button" class="btn" id="po-save">Save as Open</button>
+        <button type="submit" class="btn primary">${editing?'Update & Close P/O':'Close P/O'}</button>
+      </div>
+    </form></section>
+
+  <section class="data-panel">
+    <div class="panel-heading">
+      <div><p class="eyebrow">Order register</p><h2 class="panel-title">Saved purchase orders</h2></div>
+    </div>
+    <div class="table-scroll"><table>
+      <thead><tr><th>P/O No.</th><th>Date</th><th>Foundry</th><th class="num">Items</th>
+      <th class="num">Qty</th><th class="num">Approx. Weight</th><th>Status</th><th class="num">Actions</th></tr></thead>
+      <tbody>${ register || emptyRow(8,'No purchase orders raised yet.') }</tbody>
+    </table></div>
+  </section>`;
 }
 
 /* ---- Insert Casting Details ---- */
@@ -1097,11 +1228,156 @@ function currentFormChallan(){
   };
 }
 
+/* ---- P/O document ---- */
+function currentFormPo(){
+  const f = state.poForm;
+  const items = f.items.map(i=>{
+    const qty = num(i.quantity), w = avgWeightFor(i.itemName);
+    return {masterCode:i.masterCode, itemName:i.itemName, itemType:i.itemType,
+            quantity:qty, avgWeight:w.avg, approxWeight:qty*w.avg, weightSource:w.source};
+  });
+  const bad = !f.poNumber.trim() || !f.poDate || !f.foundryName.trim()
+    || items.some(i=>!i.itemName || !i.itemType || i.quantity<=0);
+  if(bad){ toast('Complete the P/O number, date, foundry, item and quantity fields first.','error'); return null; }
+  return {
+    id: state.editingPoId || 'draft',
+    poNumber: f.poNumber, poDate: f.poDate, foundryName: f.foundryName, notes: f.notes||'',
+    status: 'Open', items,
+    totalQuantity: items.reduce((s,i)=>s+i.quantity,0),
+    totalApproxWeight: items.reduce((s,i)=>s+i.approxWeight,0)
+  };
+}
+
+function buildPoPdf(p){
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({orientation:'landscape', unit:'pt', format:'a4'});
+  const W = doc.internal.pageSize.getWidth();
+  const RED = [229,50,45], DARK = [17,17,17], SLATE = [110,124,132];
+
+  doc.setFillColor(...DARK); doc.rect(0,0,W,54,'F');
+  doc.setFillColor(...RED); doc.rect(0,54,W,4,'F');
+  doc.setTextColor(255,255,255);
+  doc.setFont('helvetica','bold'); doc.setFontSize(20); doc.text('JAYCO', 30, 34);
+  doc.setFontSize(13); doc.text('JAYCO ENGINEERING INDIA', W-30, 28, {align:'right'});
+  doc.setFont('helvetica','normal'); doc.setFontSize(8);
+  doc.text('Ahmedabad-Indore Highway, Dist. Kheda, Gujarat  |  www.jaycohousing.com', W-30, 42, {align:'right'});
+
+  doc.setTextColor(...DARK); doc.setFont('helvetica','bold'); doc.setFontSize(13);
+  doc.text('PURCHASE ORDER', 30, 80);
+
+  const meta = [['P/O NO.', p.poNumber], ['P/O DATE', fmtDate(p.poDate)], ['FOUNDRY NAME', p.foundryName]];
+  let mx = 30;
+  meta.forEach(([l,v])=>{
+    doc.setDrawColor(215,222,226); doc.rect(mx, 90, 250, 34);
+    doc.setFont('helvetica','bold'); doc.setFontSize(6.5); doc.setTextColor(...SLATE); doc.text(l, mx+8, 102);
+    doc.setFontSize(10); doc.setTextColor(...DARK); doc.text(String(v||'-').slice(0,42), mx+8, 116);
+    mx += 258;
+  });
+
+  doc.setFont('helvetica','bold'); doc.setFontSize(7.5); doc.setTextColor(...RED);
+  doc.text('APPROX. WEIGHT IS INDICATIVE, DERIVED FROM PREVIOUS SUPPLY RECORDS. FINAL WEIGHT ON RECEIPT.', 30, 140);
+
+  doc.autoTable({
+    startY: 148,
+    margin: {left:30, right:30},
+    head: [['SR','CASTING ITEM','TYPE','QTY','APPROX. WEIGHT/PC','APPROX. TOTAL WEIGHT']],
+    body: p.items.map((i,n)=>[
+      n+1, i.itemName, i.itemType, num(i.quantity),
+      i.avgWeight > 0 ? fmtWt(i.avgWeight) : 'No history',
+      i.approxWeight > 0 ? fmtWt(i.approxWeight) : '-'
+    ]),
+    styles:{fontSize:8.5, cellPadding:6, lineColor:[215,222,226], lineWidth:.4},
+    headStyles:{fillColor:RED, textColor:255, fontStyle:'bold', fontSize:7.5, halign:'center'},
+    columnStyles:{0:{halign:'center',cellWidth:28},3:{halign:'right'},4:{halign:'right'},5:{halign:'right',fontStyle:'bold'}},
+    alternateRowStyles:{fillColor:[248,250,252]}
+  });
+
+  let ty = doc.lastAutoTable.finalY + 14;
+  const cards = [
+    ['LINE ITEMS', String(p.items.length), null],
+    ['TOTAL QUANTITY', String(num(p.totalQuantity)), null],
+    ['APPROX. TOTAL WEIGHT', fmtWt(p.totalApproxWeight), DARK]
+  ];
+  const cw = (W - 60 - 2*10) / 3;
+  cards.forEach(([l,v,fill],i)=>{
+    const x = 30 + i*(cw+10);
+    if(fill){ doc.setFillColor(...fill); doc.rect(x,ty,cw,42,'F'); doc.setTextColor(255,255,255); }
+    else { doc.setDrawColor(215,222,226); doc.setFillColor(248,250,252); doc.rect(x,ty,cw,42,'FD'); doc.setTextColor(...SLATE); }
+    doc.setFont('helvetica','bold'); doc.setFontSize(6.5); doc.text(l, x+8, ty+14);
+    doc.setFontSize(11); if(!fill) doc.setTextColor(...DARK);
+    doc.text(v, x+8, ty+31);
+  });
+  ty += 56;
+
+  if(p.notes){
+    doc.setFont('helvetica','bold'); doc.setFontSize(6.5); doc.setTextColor(...SLATE);
+    doc.text('NOTES / DELIVERY INSTRUCTIONS', 30, ty+10);
+    doc.setFont('helvetica','normal'); doc.setFontSize(8.5); doc.setTextColor(...DARK);
+    doc.text(doc.splitTextToSize(p.notes, W-60), 30, ty+23);
+    ty += 30 + Math.min(4, doc.splitTextToSize(p.notes, W-60).length) * 11;
+  }
+
+  ty += 14;
+  doc.setDrawColor(180,190,196);
+  ['PREPARED BY','APPROVED BY','FOUNDRY ACKNOWLEDGEMENT'].forEach((l,i)=>{
+    const x = 30 + i*((W-60)/3);
+    doc.line(x, ty+26, x+((W-60)/3)-40, ty+26);
+    doc.setFont('helvetica','bold'); doc.setFontSize(6.5); doc.setTextColor(...SLATE);
+    doc.text(l, x, ty+38);
+  });
+  doc.setFont('helvetica','normal'); doc.setFontSize(7); doc.setTextColor(...SLATE);
+  doc.text('Generated from JAYCO Casting & Pattern Control System', 30, doc.internal.pageSize.getHeight()-16);
+  return doc;
+}
+
+function downloadPoPdf(p){
+  try{
+    buildPoPdf(p).save('JAYCO-Purchase-Order-' + String(p.poNumber).replace(/[^a-z0-9-]+/gi,'-') + '.pdf');
+    toast('Purchase order PDF downloaded','success');
+  }catch(e){ toast('The PDF could not be created: ' + e.message,'error'); }
+}
+
+function shareWhatsAppPo(p){
+  const lines = [
+    '*JAYCO ENGINEERING INDIA*','*Purchase Order*',
+    `P/O No: ${p.poNumber}`, `P/O Date: ${fmtDate(p.poDate)}`, `Foundry: ${p.foundryName}`,
+    '',
+    ...p.items.map((i,n)=>`${n+1}. ${i.itemName} - ${i.itemType}\nQty: ${num(i.quantity)} | Approx. Wt/Pc: ${i.avgWeight>0?fmtWt(i.avgWeight):'No history'} | Approx. Total: ${i.approxWeight>0?fmtWt(i.approxWeight):'-'}`),
+    '',
+    `Total Qty: ${num(p.totalQuantity)}`,
+    `Approx. Total Weight: ${fmtWt(p.totalApproxWeight)}`,
+    ...(p.notes ? ['', `Notes: ${p.notes}`] : []),
+    '',
+    'Approx. weight is indicative, based on previous supply records. Final weight on receipt.'
+  ];
+  window.open('https://wa.me/?text=' + encodeURIComponent(lines.join('\n')), '_blank', 'noopener');
+  toast('WhatsApp opened. Attach the downloaded PDF manually if required.','info');
+}
+
+async function savePo(status){
+  const p = currentFormPo(); if(!p) return;
+  const payload = {...p, status};
+  delete payload.id;
+  try{
+    if(state.editingPoId){
+      await DB.update('purchase_orders', state.editingPoId, payload);
+      toast('Purchase order updated','success');
+    } else {
+      const dup = state.purchaseOrders.find(x => x.poNumber === payload.poNumber);
+      if(dup) return toast('That P/O number already exists.','error');
+      await DB.create('purchase_orders', payload);
+      toast(status === 'Closed' ? 'Purchase order closed and saved' : 'Purchase order saved as Open','success');
+    }
+    state.poForm = blankPo(); state.editingPoId = null;
+    await loadAll(); window.scrollTo(0,0);
+  }catch(err){ toast('Could not save: ' + err.message,'error'); }
+}
+
 /* ==========================================================================
    7. EVENTS
    ========================================================================== */
 document.addEventListener('click', async (e) => {
-  const t = e.target.closest('[data-view],[data-go],[data-new-challan],[data-view-challan],[data-edit-challan],[data-del-challan],[data-open-pattern],[data-del-pattern],[data-open-casting],[data-del-casting],[data-open-type],[data-del-type],[data-open-move],[data-del-move],[data-close],[data-rm-po],[data-rm-item],[data-quick-add],[data-pdf-challan],[data-wa-challan]');
+  const t = e.target.closest('[data-view],[data-go],[data-new-challan],[data-view-challan],[data-edit-challan],[data-del-challan],[data-open-pattern],[data-del-pattern],[data-open-casting],[data-del-casting],[data-open-type],[data-del-type],[data-open-move],[data-del-move],[data-close],[data-rm-po],[data-rm-item],[data-quick-add],[data-pdf-challan],[data-wa-challan],[data-edit-po],[data-del-po],[data-pdf-po],[data-wa-po],[data-rm-po-item]');
   if(!t) return;
   const d = t.dataset;
 
@@ -1147,6 +1423,22 @@ document.addEventListener('click', async (e) => {
     if(state.entryForm.purchaseOrders.length>1) state.entryForm.purchaseOrders.splice(Number(d.rmPo),1);
     render(); return;
   }
+
+  if(d.rmPoItem !== undefined){
+    if(state.poForm.items.length>1) state.poForm.items.splice(Number(d.rmPoItem),1);
+    render(); return;
+  }
+  if(d.pdfPo){ const p = state.purchaseOrders.find(x=>String(x.id)===d.pdfPo); if(p) downloadPoPdf(p); return; }
+  if(d.waPo){ const p = state.purchaseOrders.find(x=>String(x.id)===d.waPo); if(p) shareWhatsAppPo(p); return; }
+  if(d.delPo){ if(confirm('Delete this purchase order permanently?')){ await DB.remove('purchase_orders', d.delPo); toast('Purchase order deleted','success'); loadAll(); } return; }
+  if(d.editPo){
+    const p = state.purchaseOrders.find(x=>String(x.id)===d.editPo); if(!p) return;
+    state.editingPoId = p.id;
+    state.poForm = {poNumber:p.poNumber, poDate:p.poDate, foundryName:p.foundryName, notes:p.notes||'',
+      items:p.items.map((i,n)=>({masterCode:(state.castingMasters.find(m=>m.itemName===i.itemName)||{}).itemCode || ('legacy-'+n),
+        itemName:i.itemName, itemType:i.itemType, quantity:String(i.quantity)}))};
+    state.view='generate-po'; render(); window.scrollTo(0,0); return;
+  }
   if(d.rmItem !== undefined){
     if(state.entryForm.items.length>1) state.entryForm.items.splice(Number(d.rmItem),1);
     render(); return;
@@ -1168,7 +1460,15 @@ document.addEventListener('input', e => {
   if(el.name && ['challanNumber','challanDate','foundryName'].includes(el.name) && el.closest('#entry-form')){
     state.entryForm[el.name] = el.value; return;   // no re-render: keeps focus
   }
+  if(el.name && ['poNumber','poDate','foundryName','notes'].includes(el.name) && el.closest('#po-form') && state.poForm){
+    state.poForm[el.name] = el.value; return;
+  }
   if(el.dataset.po !== undefined){ state.entryForm.purchaseOrders[Number(el.dataset.po)][el.dataset.pofield] = el.value; return; }
+  if(el.dataset.poItem !== undefined && state.poForm){
+    state.poForm.items[Number(el.dataset.poItem)][el.dataset.poField] = el.value;
+    if(el.dataset.poField === 'quantity') render();
+    return;
+  }
   if(el.dataset.item !== undefined){
     const i = Number(el.dataset.item), field = el.dataset.field;
     state.entryForm.items[i][field] = el.value;
@@ -1182,6 +1482,18 @@ document.addEventListener('input', e => {
 document.addEventListener('change', e => {
   const el = e.target;
   if(!state.entryForm) return;
+  if(el.dataset.poItem !== undefined && state.poForm){
+    const i = Number(el.dataset.poItem);
+    if(el.dataset.poField === 'masterCode'){
+      const m = state.castingMasters.find(x=>x.itemCode===el.value);
+      if(m) Object.assign(state.poForm.items[i], {masterCode:m.itemCode, itemName:m.itemName,
+        itemType: PO_TYPES.includes(m.itemType) ? m.itemType : state.poForm.items[i].itemType});
+      else Object.assign(state.poForm.items[i], {masterCode:'', itemName:''});
+    } else {
+      state.poForm.items[i][el.dataset.poField] = el.value;
+    }
+    render(); return;
+  }
   if(el.dataset.item !== undefined && el.dataset.field === 'masterCode'){
     const m = state.castingMasters.find(x=>x.itemCode===el.value);
     const i = Number(el.dataset.item);
@@ -1212,6 +1524,11 @@ document.addEventListener('click', e => {
   if(e.target.closest('#add-item')){ state.entryForm.items.push(blankLine()); render(); }
   if(e.target.closest('#form-pdf')){ const c = currentFormChallan(); if(c) downloadPdf(c); }
   if(e.target.closest('#form-wa')){ const c = currentFormChallan(); if(c) shareWhatsApp(c); }
+  if(e.target.closest('#add-po-item')){ state.poForm.items.push(blankPoLine()); render(); }
+  if(e.target.closest('#po-pdf')){ const p = currentFormPo(); if(p) downloadPoPdf(p); }
+  if(e.target.closest('#po-wa')){ const p = currentFormPo(); if(p) shareWhatsAppPo(p); }
+  if(e.target.closest('#po-reset')){ state.poForm = blankPo(); state.editingPoId = null; render(); }
+  if(e.target.closest('#po-save')){ savePo('Open'); }
 });
 
 /* form submissions */
@@ -1237,6 +1554,8 @@ document.addEventListener('submit', async e => {
       state.entryForm = blankEntry(); state.editingChallanId = null; state.view = 'casting-records';
       await loadAll(); window.scrollTo(0,0); return;
     }
+
+    if(f.id === 'po-form'){ await savePo('Closed'); return; }
 
     if(f.id === 'f-pattern'){
       const p = {patternCode:data.patternCode.trim(), patternName:data.patternName.trim(), castingItem:data.castingItem.trim(),
