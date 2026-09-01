@@ -448,7 +448,15 @@ const PATTERN_TYPES = ['Split pattern','Match plate','Loose pattern','Core box']
 const PATTERN_STATUS = ['Available','At foundry','Repair due','Retired'];
 const MOVE_STATUS = ['Available','Good','Recall','Repair due','On hold'];
 const MASTER_STATUS = ['Active','On hold','Inactive'];
-const PO_TYPES = ['Cap','Bottom','Ring','Collar','Cover'];
+/* Built-in casting types. Always available in every Type dropdown.
+   Anything added in Type Master is merged on top of these.          */
+const DEFAULT_TYPES = ['Cap','Bottom','Ring','Coller','Cover','Nut','End Cover','Plate'];
+const PO_TYPES = DEFAULT_TYPES;
+/* Built-ins first, then any Active types from Type Master, de-duplicated. */
+function allTypes(){
+  return [...new Set([...DEFAULT_TYPES,
+    ...state.castingTypes.filter(t => t.status === 'Active').map(t => t.typeName)])];
+}
 
 const VIEWS = {
   'dashboard':          {eyebrow:'Operations overview', title:'Dashboard', desc:'Casting receipts, pattern position and master-data readiness.'},
@@ -741,7 +749,7 @@ function avgWeightFor(itemName){
   return qty > 0 ? {avg: wt/qty, qty, source: 'challans'} : {avg: 0, qty: 0, source: 'none'};
 }
 
-function blankPoLine(){ return {masterCode:'', itemName:'', itemType:'Cap', quantity:''}; }
+function blankPoLine(){ return {masterCode:'', itemName:'', itemType:DEFAULT_TYPES[0], quantity:''}; }
 function blankPo(){ return {poNumber:'', poDate: today(), foundryName:'', items:[blankPoLine()], notes:''}; }
 
 function viewGeneratePO(){
@@ -750,7 +758,7 @@ function viewGeneratePO(){
   const editing = !!state.editingPoId;
   const masters = [...state.castingMasters].sort((a,b)=>String(a.itemName).localeCompare(String(b.itemName),'en',{numeric:true}));
   const foundries = [...new Set([...state.challans.map(c=>c.foundryName), ...state.purchaseOrders.map(p=>p.foundryName)].filter(Boolean))];
-  const typeOptions = [...new Set([...PO_TYPES, ...state.castingTypes.filter(t=>t.status==='Active').map(t=>t.typeName)])];
+  const typeOptions = allTypes();
 
   let totQty = 0, totWt = 0, anyMissing = false;
   const lines = f.items.map((it,i)=>{
@@ -853,7 +861,7 @@ function viewGeneratePO(){
 }
 
 /* ---- Insert Casting Details ---- */
-function blankLine(){ return {masterCode:'', itemName:'', itemType:'Cap', material:'Cast Iron', quantity:'', foundryWeight:'', actualWeight:''}; }
+function blankLine(){ return {masterCode:'', itemName:'', itemType:DEFAULT_TYPES[0], material:'Cast Iron', quantity:'', foundryWeight:'', actualWeight:''}; }
 function blankPO(){ return {purchaseOrderNumber:'', purchaseOrderDate: today()}; }
 function blankEntry(){ return {challanNumber:'', challanDate: today(), foundryName:'', purchaseOrders:[blankPO()], items:[blankLine()]}; }
 
@@ -861,7 +869,7 @@ function viewInsertCasting(){
   if(!state.entryForm) state.entryForm = blankEntry();
   const f = state.entryForm;
   const editing = !!state.editingChallanId;
-  const typeOptions = state.castingTypes.filter(t=>t.status==='Active').map(t=>t.typeName);
+  const typeOptions = allTypes();
   const masters = [...state.castingMasters].sort((a,b)=>String(a.itemName).localeCompare(String(b.itemName),'en',{numeric:true}));
   const foundries = [...new Set(state.challans.map(c=>c.foundryName))];
 
@@ -986,8 +994,8 @@ function modalPattern(id){
 function modalCasting(id, quickIndex){
   const r = state.castingMasters.find(x=>String(x.id)===String(id)) || {};
   const isEdit = !!r.id;
-  const typeOptions = state.castingTypes.filter(t=>t.status==='Active').map(t=>t.typeName);
-  const cur = r.itemType || typeOptions[0] || 'Cap';
+  const typeOptions = allTypes();
+  const cur = r.itemType || typeOptions[0] || DEFAULT_TYPES[0];
   openModal(`<form id="f-casting">
     <div class="modal-head"><h3>${isEdit?'Edit Casting Master': quickIndex!=null ? 'Save New Casting Item':'Add Casting Master'}</h3>
     <p>${quickIndex!=null?'Save this item to Casting Master and select it on the current challan line.':'Maintain the approved casting type, material and related pattern.'}</p></div>
