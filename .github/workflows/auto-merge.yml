@@ -1,0 +1,46 @@
+name: Auto-merge to main
+
+# Any push to a claude/* branch is merged into main automatically.
+# If the merge would conflict, it STOPS and leaves main untouched —
+# you then merge that one by hand. Nothing is ever force-pushed.
+
+on:
+  push:
+    branches:
+      - 'claude/**'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: auto-merge-main
+  cancel-in-progress: false
+
+jobs:
+  merge:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the whole repo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Merge this branch into main
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          git checkout main
+          git pull origin main
+
+          echo "Merging ${GITHUB_REF_NAME} into main"
+
+          if git merge --no-ff "${GITHUB_SHA}" -m "Auto-merge ${GITHUB_REF_NAME} into main"; then
+            git push origin main
+            echo "::notice::Merged ${GITHUB_REF_NAME} into main"
+          else
+            git merge --abort
+            echo "::error::CONFLICT — ${GITHUB_REF_NAME} could not be merged automatically."
+            echo "::error::main was NOT changed. Open a pull request and resolve it by hand."
+            exit 1
+          fi
