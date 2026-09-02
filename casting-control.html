@@ -168,18 +168,23 @@ th.num{text-align:right}
 
 /* ---------- modal ---------- */
 .modal-back{position:fixed;inset:0;background:rgba(17,17,17,.42);backdrop-filter:blur(4px);display:none;
-  align-items:flex-start;justify-content:center;padding:44px 20px;z-index:60;overflow-y:auto}
+  align-items:center;justify-content:center;padding:32px 20px;z-index:60}
 .modal-back.open{display:flex}
 .modal{background:var(--card);border-radius:var(--r-lg);width:100%;max-width:46rem;
-  box-shadow:0 40px 90px -24px rgba(11,24,41,.4);animation:rise .3s ease both}
+  box-shadow:0 40px 90px -24px rgba(11,24,41,.4);animation:rise .3s ease both;
+  display:flex;flex-direction:column;max-height:calc(100vh - 64px)}
 .modal.wide{max-width:66rem}
-.modal-head{padding:28px 28px 8px}
+.modal > form{display:flex;flex-direction:column;min-height:0;flex:1}
+.modal-head{padding:28px 28px 8px;flex:0 0 auto}
 .modal-head h3{margin:0;font-size:19px;font-weight:700;letter-spacing:-.5px}
 .modal-head p{margin:8px 0 0;font-size:13px;color:var(--ink-soft);line-height:1.6}
-.modal-body{padding:20px 28px;display:grid;grid-template-columns:1fr 1fr;gap:18px}
+.modal-body{padding:20px 28px;display:grid;grid-template-columns:1fr 1fr;gap:18px;
+  overflow-y:auto;flex:1 1 auto;min-height:0}
 .modal-body.single{display:block}
 .modal-body .full{grid-column:1/-1}
-.modal-foot{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:10px;padding:20px 28px 28px;border-top:1px solid var(--line)}
+.modal-foot{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:10px;padding:18px 28px;
+  border-top:1px solid var(--line);background:var(--card);flex:0 0 auto;
+  border-radius:0 0 var(--r-lg) var(--r-lg)}
 
 /* ---------- attachments ---------- */
 .attach-box{border:1px dashed var(--card-border);border-radius:var(--r-md);background:rgba(17,17,17,.02);
@@ -1105,7 +1110,7 @@ function modalViewChallan(id){
   const fc = foundryComplete(c), pos = getPOs(c);
   openModal(`<div class="modal-head"><h3>Challan ${esc(c.challanNumber)}</h3>
     <p>${fmtDate(c.challanDate)} · ${esc(c.foundryName)} · ${pos.length} P/O${pos.length===1?'':'s'} · ${c.items.length} item${c.items.length===1?'':'s'}</p></div>
-    <div style="padding:0 1.25rem">
+    <div style="padding:0 1.25rem;overflow-y:auto;flex:1 1 auto;min-height:0">
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:.6rem;margin-bottom:1rem">
         ${pos.map((p,i)=>`<div style="border:1px solid var(--border);background:#f8fafc;padding:.7rem">
           <p class="eyebrow" style="font-size:.6rem">JAYCO P/O ${i+1}</p>
@@ -1499,6 +1504,21 @@ document.addEventListener('click', async (e) => {
     render(); return;
   }
 });
+
+/* If a required field is empty, the browser's own tooltip can be hidden inside
+   the modal's scroll area. Scroll to the field and say so out loud instead. */
+document.addEventListener('invalid', e => {
+  const el = e.target;
+  if(!el.closest('.modal')) return;
+  e.preventDefault();
+  el.scrollIntoView({behavior:'smooth', block:'center'});
+  el.focus({preventScroll:true});
+  el.style.borderColor = 'var(--orange)';
+  el.style.boxShadow = '0 0 0 3px rgba(229,50,45,.18)';
+  el.addEventListener('input', () => { el.style.borderColor = ''; el.style.boxShadow = ''; }, {once:true});
+  const lbl = el.closest('label')?.textContent.replace('*','').trim().split('\n')[0] || 'A required field';
+  toast(lbl + ' is required.', 'error');
+}, true);
 
 /* core count enables only when a core box exists */
 document.addEventListener('change', e => {
