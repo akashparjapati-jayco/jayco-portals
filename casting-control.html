@@ -474,6 +474,19 @@ const MASTER_STATUS = ['Active','On hold','Inactive'];
    Anything added in Type Master is merged on top of these.          */
 const DEFAULT_TYPES = ['Housing','Cap','Bottom','Ring','Coller','Cover','Plate','Nut','Crown Wheel','End Cover'];
 const PO_TYPES = DEFAULT_TYPES;
+
+/* Printed on every purchase order. Edit here if any of it changes. */
+const COMPANY = {
+  name:    'JAYCO ENGINEERING INDIA',
+  tagline: 'Power in Precision — Plummer Blocks & Bearing Housings',
+  addr1:   'Plot No. 20, Dharti Industrial Park, Near Oskar Cashew Tech Pvt. Ltd.,',
+  addr2:   'B/H Mahakali Dhaba Hotel, Ahmedabad–Indore Highway, Taiyabpur,',
+  addr3:   'Kapadvanj – 387620, Dist. Kheda, Gujarat, India',
+  gstin:   '24AAJFJ3998D1Z5',
+  pan:     'AAJFJ3998D',
+  phone:   '+91 80460 38003',
+  web:     'www.jaycohousing.com'
+};
 const PATTERN_MATERIALS = ['Wooden','Aluminium'];
 const PATTERN_CONSTRUCTION = ['Split Type','Non-Split Type'];
 const CORE_OPTIONS = ['With core box','Without core'];
@@ -834,7 +847,7 @@ function avgWeightFor(itemName){
 }
 
 function blankPoLine(){ return {masterCode:'', itemName:'', itemType:DEFAULT_TYPES[0], quantity:''}; }
-function blankPo(){ return {poNumber:'', poDate: today(), foundryName:'', items:[blankPoLine()], notes:''}; }
+function blankPo(){ return {poNumber:'', poDate: today(), foundryName:'', items:[blankPoLine()], notes:'', generatedBy: operatorName().trim()}; }
 
 function viewGeneratePO(){
   if(!state.poForm) state.poForm = blankPo();
@@ -854,7 +867,7 @@ function viewGeneratePO(){
     const known = masters.some(m=>m.itemCode===it.masterCode);
     return `<tr>
       <td><div style="display:flex;gap:8px">
-        <select data-po-item="${i}" data-po-field="masterCode" required style="flex:1">
+        <select data-po-item="${i}" data-po-field="masterCode" style="flex:1">
           <option value="">${masters.length?'Select pattern':'Save a pattern first'}</option>
           ${!known && it.itemName ? `<option value="${esc(it.masterCode)}" selected>${esc(it.itemName)}</option>` : ''}
           ${masters.map(m=>`<option value="${esc(m.itemCode)}" ${m.itemCode===it.masterCode?'selected':''}>${esc(m.itemName)}</option>`).join('')}
@@ -862,7 +875,7 @@ function viewGeneratePO(){
         <button type="button" class="btn icon" data-quick-add-po="${i}" title="Add a new pattern to Pattern Master">＋</button>
       </div></td>
       <td><select data-po-item="${i}" data-po-field="itemType">${opt(typeOptions, it.itemType)}</select></td>
-      <td><input type="number" min="1" required data-po-item="${i}" data-po-field="quantity" value="${esc(it.quantity)}" placeholder="0" style="text-align:right"></td>
+      <td><input type="number" min="1" data-po-item="${i}" data-po-field="quantity" value="${esc(it.quantity)}" placeholder="0" style="text-align:right"></td>
       <td class="num">${ w.source==='challans'
           ? `<b>${fmtWt(w.avg)}</b><div style="font-size:10.5px;color:var(--ink-faint);font-family:var(--font)">from ${w.qty} pcs received</div>`
           : (it.itemName ? `<span class="badge warn">No history</span>` : '—') }</td>
@@ -878,6 +891,7 @@ function viewGeneratePO(){
       <td class="num">${p.items.length}</td>
       <td class="num">${num(p.totalQuantity)}</td>
       <td class="num">${fmtWt(p.totalApproxWeight)}</td>
+      <td>${esc(p.generatedBy)||'—'}</td>
       <td>${statusBadge(p.status||'Open')}</td>
       <td class="num" style="white-space:nowrap">
         <button class="btn icon" data-edit-po="${esc(p.id)}" title="Edit">✎</button>
@@ -894,9 +908,9 @@ function viewGeneratePO(){
     </div>
     <form id="po-form">
       <div class="form-grid">
-        <label class="field">P/O No. *<input type="text" required maxlength="80" name="poNumber" value="${esc(f.poNumber)}" placeholder="e.g. JAY/PO/2026/118"></label>
-        <label class="field">P/O Date *<input type="date" required name="poDate" value="${esc(f.poDate)}"></label>
-        <label class="field">Foundry Name *<input type="text" required maxlength="160" name="foundryName" list="dl-po-foundries" value="${esc(f.foundryName)}" placeholder="Enter foundry name">
+        <label class="field">P/O No. *<input type="text" maxlength="80" name="poNumber" value="${esc(f.poNumber)}" placeholder="e.g. JAY/PO/2026/118"></label>
+        <label class="field">P/O Date *<input type="date" name="poDate" value="${esc(f.poDate)}"></label>
+        <label class="field">Foundry Name *<input type="text" maxlength="160" name="foundryName" list="dl-po-foundries" value="${esc(f.foundryName)}" placeholder="Enter foundry name">
           <datalist id="dl-po-foundries">${foundries.map(x=>`<option value="${esc(x)}">`).join('')}</datalist></label>
       </div>
 
@@ -924,6 +938,13 @@ function viewGeneratePO(){
 
         <label class="field" style="margin-top:20px">Notes / delivery instructions
           <textarea maxlength="600" name="notes" placeholder="Optional — delivery date, material grade, packing instructions">${esc(f.notes||'')}</textarea></label>
+
+        <div style="margin-top:20px;border:1px solid var(--card-border);border-radius:var(--r-md);background:rgba(17,17,17,.018);padding:20px">
+          <p class="eyebrow">Authorisation</p>
+          <p style="margin:8px 0 16px;font-size:13px;color:var(--ink-soft);line-height:1.6">This name is printed in the Prepared By panel of the purchase order and stored against the record.</p>
+          <label class="field" style="max-width:420px">Purchase Order Generated By *
+            <input type="text" maxlength="80" name="generatedBy" value="${esc(f.generatedBy||'')}" placeholder="Your full name"></label>
+        </div>
       </div>
 
       <div class="form-actions">
@@ -931,7 +952,7 @@ function viewGeneratePO(){
         <button type="button" class="btn" id="po-pdf">Download PDF</button>
         <button type="button" class="btn green" id="po-wa">Send on WhatsApp</button>
         <button type="button" class="btn" id="po-save">Save as Open</button>
-        <button type="submit" class="btn primary">${editing?'Update & Close P/O':'Close P/O'}</button>
+        <button type="button" id="btn-close-po" class="btn primary">${editing?'Update & Close P/O':'Close P/O'}</button>
       </div>
     </form></section>
 
@@ -941,8 +962,8 @@ function viewGeneratePO(){
     </div>
     <div class="table-scroll"><table>
       <thead><tr><th>P/O No.</th><th>Date</th><th>Foundry</th><th class="num">Items</th>
-      <th class="num">Qty</th><th class="num">Approx. Weight</th><th>Status</th><th class="num">Actions</th></tr></thead>
-      <tbody>${ register || emptyRow(8,'No purchase orders raised yet.') }</tbody>
+      <th class="num">Qty</th><th class="num">Approx. Weight</th><th>Generated by</th><th>Status</th><th class="num">Actions</th></tr></thead>
+      <tbody>${ register || emptyRow(9,'No purchase orders raised yet.') }</tbody>
     </table></div>
   </section>`;
 }
@@ -1040,7 +1061,7 @@ function viewInsertCasting(){
         <button type="button" class="btn" data-go="casting-records">Cancel</button>
         <button type="button" class="btn" id="form-pdf">⬇ PDF</button>
         <button type="button" class="btn green" id="form-wa">✆ WhatsApp</button>
-        <button type="submit" class="btn primary">🔒 ${editing?'Update &amp; Close Challan':'Close Challan'}</button>
+        <button type="button" id="btn-close-challan" class="btn primary">🔒 ${editing?'Update &amp; Close Challan':'Close Challan'}</button>
       </div>
     </form></section>`;
 }
@@ -1120,12 +1141,12 @@ function modalType(id){
     <div class="modal-head"><h3>${r.id?'Edit':'Add'} Casting Type</h3>
     <p>This type will be available in Pattern Master and every casting challan.</p></div>
     <div class="modal-body single">
-      <label class="field">Type Name *<input type="text" required maxlength="80" name="typeName" value="${esc(r.typeName||'')}" placeholder="e.g. Nut, Crown Wheel or Plates"></label>
+      <label class="field">Type Name *<input type="text" maxlength="80" name="typeName" value="${esc(r.typeName||'')}" placeholder="e.g. Nut, Crown Wheel or Plates"></label>
       <label class="field" style="margin-top:1rem">Status<select name="status">${opt(['Active','Inactive'], r.status||'Active')}</select></label>
       <label class="field" style="margin-top:1rem">Notes<textarea maxlength="500" name="notes" placeholder="Optional usage or description">${esc(r.notes||'')}</textarea></label>
     </div>
     <div class="modal-foot"><button type="button" class="btn" data-close>Cancel</button>
-    <button type="submit" class="btn primary">Save type</button></div>
+    <button type="button" id="btn-save-type" class="btn primary">Save type</button></div>
     <input type="hidden" name="id" value="${esc(r.id||'')}"></form>`);
 }
 
@@ -1135,18 +1156,18 @@ function modalMovement(id){
     <div class="modal-head"><h3>${r.id?'Edit':'Add'} Pattern Position</h3>
     <p>Record the current physical location and availability of a pattern set.</p></div>
     <div class="modal-body">
-      <label class="field">Pattern Reference *<input type="text" required maxlength="80" name="reference" list="dl-pr" value="${esc(r.reference||'')}" placeholder="Pattern code">
+      <label class="field">Pattern Reference *<input type="text" maxlength="80" name="reference" list="dl-pr" value="${esc(r.reference||'')}" placeholder="Pattern code">
         <datalist id="dl-pr">${state.castingMasters.map(m=>`<option value="${esc(m.itemName)}">`).join('')}</datalist></label>
       <label class="field">Record Date<input type="date" name="dueDate" value="${esc(r.dueDate||today())}"></label>
-      <label class="field full">Pattern / Item *<input type="text" required maxlength="180" name="item" value="${esc(r.item||'')}"></label>
-      <label class="field full">Current Foundry / Location *<input type="text" required maxlength="180" name="foundry" value="${esc(r.foundry||'In-house')}"></label>
-      <label class="field">Total Sets *<input type="number" required min="0" name="quantity" value="${esc(r.quantity ?? 1)}"></label>
+      <label class="field full">Pattern / Item *<input type="text" maxlength="180" name="item" value="${esc(r.item||'')}"></label>
+      <label class="field full">Current Foundry / Location *<input type="text" maxlength="180" name="foundry" value="${esc(r.foundry||'In-house')}"></label>
+      <label class="field">Total Sets *<input type="number" min="0" name="quantity" value="${esc(r.quantity ?? 1)}"></label>
       <label class="field">In-house Sets<input type="number" min="0" name="received" value="${esc(r.received ?? 1)}"></label>
       <label class="field">Status<select name="status">${opt(MOVE_STATUS, r.status||'Available')}</select></label>
       <label class="field full">Notes<textarea maxlength="500" name="notes">${esc(r.notes||'')}</textarea></label>
     </div>
     <div class="modal-foot"><button type="button" class="btn" data-close>Cancel</button>
-    <button type="submit" class="btn primary">Save pattern position</button></div>
+    <button type="button" id="btn-save-move" class="btn primary">Save pattern position</button></div>
     <input type="hidden" name="id" value="${esc(r.id||'')}"></form>`);
 }
 
@@ -1343,13 +1364,18 @@ function currentFormPo(){
     return {masterCode:i.masterCode, itemName:i.itemName, itemType:i.itemType,
             quantity:qty, avgWeight:w.avg, approxWeight:qty*w.avg, weightSource:w.source};
   });
-  const bad = !f.poNumber.trim() || !f.poDate || !f.foundryName.trim()
-    || items.some(i=>!i.itemName || !i.itemType || i.quantity<=0);
-  if(bad){ toast('Complete the P/O number, date, foundry, item and quantity fields first.','error'); return null; }
+  const form = document.getElementById('po-form');
+  const bad = (name, msg) => { if(form) fieldError(form, name, msg); else toast(msg,'error'); return null; };
+  if(!f.poNumber.trim())            return bad('poNumber', 'P/O No. is required.');
+  if(!f.poDate)                     return bad('poDate', 'P/O Date is required.');
+  if(!f.foundryName.trim())         return bad('foundryName', 'Foundry Name is required.');
+  if(!(f.generatedBy||'').trim())   return bad('generatedBy', 'Purchase Order Generated By is required — the order cannot be closed unauthorised.');
+  if(items.some(i=>!i.itemName))    { toast('Every line needs a pattern selected.','error'); return null; }
+  if(items.some(i=>i.quantity<=0))  { toast('Every line needs a quantity above zero.','error'); return null; }
   return {
     id: state.editingPoId || 'draft',
     poNumber: f.poNumber, poDate: f.poDate, foundryName: f.foundryName, notes: f.notes||'',
-    status: 'Open', items,
+    generatedBy: f.generatedBy.trim(), status: 'Open', items,
     totalQuantity: items.reduce((s,i)=>s+i.quantity,0),
     totalApproxWeight: items.reduce((s,i)=>s+i.approxWeight,0)
   };
@@ -1357,83 +1383,163 @@ function currentFormPo(){
 
 function buildPoPdf(p){
   const { jsPDF } = window.jspdf;
-  const doc = new jsPDF({orientation:'landscape', unit:'pt', format:'a4'});
-  const W = doc.internal.pageSize.getWidth();
-  const RED = [229,50,45], DARK = [17,17,17], SLATE = [110,124,132];
+  const doc = new jsPDF({orientation:'portrait', unit:'pt', format:'a4'});
+  const W = doc.internal.pageSize.getWidth();     // 595
+  const H = doc.internal.pageSize.getHeight();    // 842
+  const M = 38, CW = W - M*2;
+  const RED = [229,50,45], INK = [17,17,17], MUT = [120,128,133], LINE = [222,226,229];
 
-  doc.setFillColor(...DARK); doc.rect(0,0,W,54,'F');
-  doc.setFillColor(...RED); doc.rect(0,54,W,4,'F');
-  doc.setTextColor(255,255,255);
-  doc.setFont('helvetica','bold'); doc.setFontSize(20); doc.text('JAYCO', 30, 34);
-  doc.setFontSize(13); doc.text('JAYCO ENGINEERING INDIA', W-30, 28, {align:'right'});
-  doc.setFont('helvetica','normal'); doc.setFontSize(8);
-  doc.text('Ahmedabad-Indore Highway, Dist. Kheda, Gujarat  |  www.jaycohousing.com', W-30, 42, {align:'right'});
+  /* ---------- letterhead ---------- */
+  doc.setFillColor(...INK); doc.rect(0, 0, W, 96, 'F');
+  doc.setFillColor(...RED); doc.rect(0, 96, W, 3, 'F');
 
-  doc.setTextColor(...DARK); doc.setFont('helvetica','bold'); doc.setFontSize(13);
-  doc.text('PURCHASE ORDER', 30, 80);
-
-  const meta = [['P/O NO.', p.poNumber], ['P/O DATE', fmtDate(p.poDate)], ['FOUNDRY NAME', p.foundryName]];
-  let mx = 30;
-  meta.forEach(([l,v])=>{
-    doc.setDrawColor(215,222,226); doc.rect(mx, 90, 250, 34);
-    doc.setFont('helvetica','bold'); doc.setFontSize(6.5); doc.setTextColor(...SLATE); doc.text(l, mx+8, 102);
-    doc.setFontSize(10); doc.setTextColor(...DARK); doc.text(String(v||'-').slice(0,42), mx+8, 116);
-    mx += 258;
-  });
-
-  doc.setFont('helvetica','bold'); doc.setFontSize(7.5); doc.setTextColor(...RED);
-  doc.text('APPROX. WEIGHT IS INDICATIVE, DERIVED FROM PREVIOUS SUPPLY RECORDS. FINAL WEIGHT ON RECEIPT.', 30, 140);
-
-  doc.autoTable({
-    startY: 148,
-    margin: {left:30, right:30},
-    head: [['SR','CASTING ITEM','TYPE','QTY','APPROX. WEIGHT/PC','APPROX. TOTAL WEIGHT']],
-    body: p.items.map((i,n)=>[
-      n+1, i.itemName, i.itemType, num(i.quantity),
-      i.avgWeight > 0 ? fmtWt(i.avgWeight) : 'No history',
-      i.approxWeight > 0 ? fmtWt(i.approxWeight) : '-'
-    ]),
-    styles:{fontSize:8.5, cellPadding:6, lineColor:[215,222,226], lineWidth:.4},
-    headStyles:{fillColor:RED, textColor:255, fontStyle:'bold', fontSize:7.5, halign:'center'},
-    columnStyles:{0:{halign:'center',cellWidth:28},3:{halign:'right'},4:{halign:'right'},5:{halign:'right',fontStyle:'bold'}},
-    alternateRowStyles:{fillColor:[248,250,252]}
-  });
-
-  let ty = doc.lastAutoTable.finalY + 14;
-  const cards = [
-    ['LINE ITEMS', String(p.items.length), null],
-    ['TOTAL QUANTITY', String(num(p.totalQuantity)), null],
-    ['APPROX. TOTAL WEIGHT', fmtWt(p.totalApproxWeight), DARK]
-  ];
-  const cw = (W - 60 - 2*10) / 3;
-  cards.forEach(([l,v,fill],i)=>{
-    const x = 30 + i*(cw+10);
-    if(fill){ doc.setFillColor(...fill); doc.rect(x,ty,cw,42,'F'); doc.setTextColor(255,255,255); }
-    else { doc.setDrawColor(215,222,226); doc.setFillColor(248,250,252); doc.rect(x,ty,cw,42,'FD'); doc.setTextColor(...SLATE); }
-    doc.setFont('helvetica','bold'); doc.setFontSize(6.5); doc.text(l, x+8, ty+14);
-    doc.setFontSize(11); if(!fill) doc.setTextColor(...DARK);
-    doc.text(v, x+8, ty+31);
-  });
-  ty += 56;
-
-  if(p.notes){
-    doc.setFont('helvetica','bold'); doc.setFontSize(6.5); doc.setTextColor(...SLATE);
-    doc.text('NOTES / DELIVERY INSTRUCTIONS', 30, ty+10);
-    doc.setFont('helvetica','normal'); doc.setFontSize(8.5); doc.setTextColor(...DARK);
-    doc.text(doc.splitTextToSize(p.notes, W-60), 30, ty+23);
-    ty += 30 + Math.min(4, doc.splitTextToSize(p.notes, W-60).length) * 11;
+  try{
+    const logo = document.querySelector('.brand-logo');
+    if(logo && logo.src) doc.addImage(logo.src, 'PNG', M, 24, 108, 24);
+  }catch(e){
+    doc.setTextColor(255,255,255); doc.setFont('helvetica','bold'); doc.setFontSize(20);
+    doc.text('JAYCO', M, 44);
   }
 
-  ty += 14;
-  doc.setDrawColor(180,190,196);
-  ['PREPARED BY','APPROVED BY','FOUNDRY ACKNOWLEDGEMENT'].forEach((l,i)=>{
-    const x = 30 + i*((W-60)/3);
-    doc.line(x, ty+26, x+((W-60)/3)-40, ty+26);
-    doc.setFont('helvetica','bold'); doc.setFontSize(6.5); doc.setTextColor(...SLATE);
-    doc.text(l, x, ty+38);
+  doc.setTextColor(255,255,255);
+  doc.setFont('helvetica','bold'); doc.setFontSize(11);
+  doc.text(COMPANY.name, M, 62);
+  doc.setFont('helvetica','normal'); doc.setFontSize(6.6);
+  doc.setTextColor(190,194,198);
+  doc.text(COMPANY.tagline, M, 73);
+  doc.text([COMPANY.addr1, COMPANY.addr2, COMPANY.addr3], M, 82, {lineHeightFactor:1.35});
+
+  doc.setFont('helvetica','bold'); doc.setFontSize(6.4); doc.setTextColor(255,255,255);
+  const rx = W - M;
+  doc.text('GSTIN', rx - 78, 30);  doc.text('PAN', rx - 78, 44);
+  doc.text('PHONE', rx - 78, 58);  doc.text('WEB', rx - 78, 72);
+  doc.setFont('helvetica','normal'); doc.setTextColor(215,219,222); doc.setFontSize(7.4);
+  doc.text(COMPANY.gstin, rx, 30, {align:'right'});
+  doc.text(COMPANY.pan,   rx, 44, {align:'right'});
+  doc.text(COMPANY.phone, rx, 58, {align:'right'});
+  doc.text(COMPANY.web,   rx, 72, {align:'right'});
+
+  /* ---------- title ---------- */
+  let y = 128;
+  doc.setTextColor(...INK); doc.setFont('helvetica','bold'); doc.setFontSize(17);
+  doc.text('PURCHASE ORDER', M, y);
+  doc.setDrawColor(...RED); doc.setLineWidth(2);
+  doc.line(M, y + 7, M + 92, y + 7);
+  doc.setLineWidth(1);
+
+  doc.setFont('helvetica','bold'); doc.setFontSize(7); doc.setTextColor(...MUT);
+  doc.text('P/O NO.', rx - 132, y - 10);
+  doc.text('DATE',    rx - 62,  y - 10);
+  doc.setFont('helvetica','bold'); doc.setFontSize(11); doc.setTextColor(...INK);
+  doc.text(String(p.poNumber || '—'), rx - 132, y + 4);
+  doc.text(fmtDate(p.poDate),         rx - 62,  y + 4);
+
+  /* ---------- supplier ---------- */
+  y += 26;
+  doc.setDrawColor(...LINE); doc.setFillColor(249,250,251);
+  doc.roundedRect(M, y, CW, 52, 4, 4, 'FD');
+  doc.setFillColor(...RED); doc.rect(M, y, 3, 52, 'F');
+  doc.setFont('helvetica','bold'); doc.setFontSize(6.6); doc.setTextColor(...MUT);
+  doc.text('SUPPLIER / FOUNDRY', M + 14, y + 17);
+  doc.setFont('helvetica','bold'); doc.setFontSize(13); doc.setTextColor(...INK);
+  doc.text(String(p.foundryName || '—').slice(0, 52), M + 14, y + 36);
+
+  /* ---------- items ---------- */
+  y += 68;
+  doc.setFont('helvetica','bold'); doc.setFontSize(6.6); doc.setTextColor(...RED);
+  doc.text('APPROX. WEIGHT IS INDICATIVE, DERIVED FROM PREVIOUS SUPPLY RECORDS. FINAL WEIGHT ON RECEIPT.', M, y);
+
+  doc.autoTable({
+    startY: y + 8,
+    margin: {left: M, right: M},
+    head: [['SR', 'CASTING ITEM', 'TYPE', 'QTY', 'APPROX. WT/PC', 'APPROX. TOTAL']],
+    body: p.items.map((it, n) => [
+      n + 1, it.itemName, it.itemType, num(it.quantity),
+      it.avgWeight > 0 ? fmtWt(it.avgWeight) : 'No history',
+      it.approxWeight > 0 ? fmtWt(it.approxWeight) : '—'
+    ]),
+    styles: {fontSize: 8.4, cellPadding: 7, lineColor: LINE, lineWidth: 0.5, textColor: INK},
+    headStyles: {fillColor: INK, textColor: 255, fontStyle: 'bold', fontSize: 6.8, halign: 'center', cellPadding: 8},
+    columnStyles: {
+      0: {halign:'center', cellWidth: 26},
+      1: {cellWidth: 178},
+      2: {cellWidth: 66},
+      3: {halign:'right', cellWidth: 42},
+      4: {halign:'right'},
+      5: {halign:'right', fontStyle:'bold'}
+    },
+    alternateRowStyles: {fillColor: [250, 250, 249]}
   });
-  doc.setFont('helvetica','normal'); doc.setFontSize(7); doc.setTextColor(...SLATE);
-  doc.text('Generated from JAYCO Casting & Pattern Control System', 30, doc.internal.pageSize.getHeight()-16);
+
+  /* ---------- totals ---------- */
+  y = doc.lastAutoTable.finalY + 16;
+  const bw = 150;
+  doc.setDrawColor(...LINE);
+  doc.roundedRect(M, y, CW - bw - 10, 46, 4, 4, 'S');
+  doc.setFont('helvetica','bold'); doc.setFontSize(6.6); doc.setTextColor(...MUT);
+  doc.text('LINE ITEMS', M + 16, y + 18);
+  doc.text('TOTAL QUANTITY', M + 116, y + 18);
+  doc.setFontSize(13); doc.setTextColor(...INK);
+  doc.text(String(p.items.length), M + 16, y + 36);
+  doc.text(String(num(p.totalQuantity)), M + 116, y + 36);
+
+  doc.setFillColor(...INK);
+  doc.roundedRect(W - M - bw, y, bw, 46, 4, 4, 'F');
+  doc.setFont('helvetica','bold'); doc.setFontSize(6.6); doc.setTextColor(190,194,198);
+  doc.text('APPROX. TOTAL WEIGHT', W - M - bw + 14, y + 18);
+  doc.setFontSize(14); doc.setTextColor(255,255,255);
+  doc.text(fmtWt(p.totalApproxWeight), W - M - bw + 14, y + 36);
+
+  /* ---------- notes ---------- */
+  y += 62;
+  if(p.notes){
+    const lines = doc.splitTextToSize(p.notes, CW - 28).slice(0, 5);
+    const h = 26 + lines.length * 11;
+    doc.setDrawColor(...LINE); doc.setFillColor(252,252,251);
+    doc.roundedRect(M, y, CW, h, 4, 4, 'FD');
+    doc.setFont('helvetica','bold'); doc.setFontSize(6.6); doc.setTextColor(...MUT);
+    doc.text('NOTES / DELIVERY INSTRUCTIONS', M + 14, y + 15);
+    doc.setFont('helvetica','normal'); doc.setFontSize(8.4); doc.setTextColor(...INK);
+    doc.text(lines, M + 14, y + 28, {lineHeightFactor: 1.35});
+    y += h + 16;
+  }
+
+  /* ---------- signature panel ---------- */
+  const panelY = Math.max(y, H - 168);
+  doc.setDrawColor(...LINE);
+  doc.roundedRect(M, panelY, CW, 96, 4, 4, 'S');
+  doc.setFillColor(...INK); doc.rect(M, panelY, CW, 22, 'F');
+  doc.setFont('helvetica','bold'); doc.setFontSize(6.8); doc.setTextColor(255,255,255);
+  doc.text('AUTHORISATION', M + 14, panelY + 14.5);
+
+  const colW = CW / 3;
+  const cols = [
+    ['PREPARED BY', p.generatedBy || '—'],
+    ['APPROVED BY', ''],
+    ['FOUNDRY ACKNOWLEDGEMENT', '']
+  ];
+  cols.forEach(([label, value], n) => {
+    const x = M + n * colW;
+    if(n) { doc.setDrawColor(...LINE); doc.line(x, panelY + 22, x, panelY + 96); }
+    doc.setDrawColor(170,176,180);
+    doc.line(x + 16, panelY + 68, x + colW - 16, panelY + 68);
+    if(value){
+      doc.setFont('helvetica','bold'); doc.setFontSize(10); doc.setTextColor(...INK);
+      doc.text(String(value).slice(0, 26), x + 16, panelY + 62);
+    }
+    doc.setFont('helvetica','bold'); doc.setFontSize(6.4); doc.setTextColor(...MUT);
+    doc.text(label, x + 16, panelY + 82);
+  });
+
+  /* ---------- footer ---------- */
+  doc.setDrawColor(...LINE);
+  doc.line(M, H - 46, W - M, H - 46);
+  doc.setFont('helvetica','normal'); doc.setFontSize(6.6); doc.setTextColor(...MUT);
+  doc.text('Generated from the JAYCO Casting & Pattern Control System', M, H - 32);
+  doc.text(COMPANY.web + '  |  GSTIN ' + COMPANY.gstin, W - M, H - 32, {align: 'right'});
+  doc.setFontSize(6);
+  doc.text('This is a system-generated purchase order and is valid without a physical seal unless otherwise agreed.', M, H - 21);
+
   return doc;
 }
 
@@ -1453,6 +1559,7 @@ function shareWhatsAppPo(p){
     '',
     `Total Qty: ${num(p.totalQuantity)}`,
     `Approx. Total Weight: ${fmtWt(p.totalApproxWeight)}`,
+    `Prepared by: ${p.generatedBy || '-'}`,
     ...(p.notes ? ['', `Notes: ${p.notes}`] : []),
     '',
     'Approx. weight is indicative, based on previous supply records. Final weight on receipt.'
@@ -1609,7 +1716,7 @@ document.addEventListener('click', async (e) => {
   if(d.editPo){
     const p = state.purchaseOrders.find(x=>String(x.id)===d.editPo); if(!p) return;
     state.editingPoId = p.id;
-    state.poForm = {poNumber:p.poNumber, poDate:p.poDate, foundryName:p.foundryName, notes:p.notes||'',
+    state.poForm = {poNumber:p.poNumber, poDate:p.poDate, foundryName:p.foundryName, notes:p.notes||'', generatedBy:p.generatedBy||'',
       items:p.items.map((i,n)=>({masterCode:(state.castingMasters.find(m=>m.itemName===i.itemName)||{}).itemCode || ('legacy-'+n),
         itemName:i.itemName, itemType:i.itemType, quantity:String(i.quantity)}))};
     state.view='generate-po'; render(); window.scrollTo(0,0); return;
@@ -1745,7 +1852,7 @@ document.addEventListener('input', e => {
   if(el.name && ['challanNumber','challanDate','foundryName'].includes(el.name) && el.closest('#entry-form') && state.entryForm){
     state.entryForm[el.name] = el.value; return;   // no re-render: keeps focus
   }
-  if(el.name && ['poNumber','poDate','foundryName','notes'].includes(el.name) && el.closest('#po-form') && state.poForm){
+  if(el.name && ['poNumber','poDate','foundryName','notes','generatedBy'].includes(el.name) && el.closest('#po-form') && state.poForm){
     state.poForm[el.name] = el.value; return;
   }
   if(el.dataset.po !== undefined && state.entryForm){ state.entryForm.purchaseOrders[Number(el.dataset.po)][el.dataset.pofield] = el.value; return; }
@@ -1846,51 +1953,115 @@ document.addEventListener('click', e => {
 });
 
 /* form submissions */
-document.addEventListener('submit', async e => {
-  e.preventDefault();
-  const f = e.target;
-  const data = Object.fromEntries(new FormData(f).entries());
+/* Every save below is called directly from its button. Nothing depends on the
+   browser's native form validation, which can block a submit with no message. */
 
+function fieldError(form, name, msg){
+  const el = form.querySelector('[name="' + name + '"]');
+  if(el){
+    try{
+      el.scrollIntoView({behavior:'smooth', block:'center'});
+      el.focus({preventScroll:true});
+      el.style.borderColor = 'var(--orange)';
+      el.style.boxShadow = '0 0 0 3px rgba(229,50,45,.18)';
+      el.addEventListener('input', () => { el.style.borderColor=''; el.style.boxShadow=''; }, {once:true});
+    }catch{}
+  }
+  toast(msg, 'error');
+  return null;
+}
+
+function formData(id){
+  const f = document.getElementById(id);
+  if(!f) return null;
+  return {f, data: Object.fromEntries(new FormData(f).entries())};
+}
+
+async function saveType(){
+  const ctx = formData('f-type'); if(!ctx) return toast('The form is no longer open.','error');
+  const {f, data} = ctx;
+  const btn = document.getElementById('btn-save-type');
+  const name = (data.typeName || '').trim();
+  if(!name) return fieldError(f, 'typeName', 'Type Name is required.');
+  if(DEFAULT_TYPES.some(t => t.toLowerCase() === name.toLowerCase()) && !data.id)
+    return fieldError(f, 'typeName', '"' + name + '" is already a built-in type.');
+  const dup = state.castingTypes.find(x => String(x.typeName).toLowerCase() === name.toLowerCase() && String(x.id) !== String(data.id));
+  if(dup) return fieldError(f, 'typeName', 'That type name already exists.');
+
+  btn.disabled = true; btn.textContent = 'Saving…';
   try{
-    if(f.id === 'entry-form'){
-      const c = currentFormChallan(); if(!c) return;
-      const payload = {...c, status:'Closed'};
-      delete payload.id;
-      if(state.editingChallanId){
-        await DB.update('casting_challans', state.editingChallanId, payload);
-        toast('Closed challan updated','success');
-      } else {
-        const dup = state.challans.find(x => x.foundryName===payload.foundryName && x.challanNumber===payload.challanNumber);
-        if(dup) return toast('That challan number already exists for this foundry.','error');
-        await DB.create('casting_challans', payload);
-        toast('Challan closed and moved to Casting Management','success');
+    const t = {typeName:name, status:data.status || 'Active', notes:(data.notes||'').trim()};
+    if(data.id) await DB.update('casting_types', data.id, t);
+    else        await DB.create('casting_types', t);
+    toast(data.id ? 'Type updated: ' + name : 'Type saved: ' + name, 'success');
+    closeModal(); await loadAll();
+  }catch(err){
+    btn.disabled = false; btn.textContent = 'Save type';
+    toast('Could not save: ' + (err.code ? err.code + ' — ' : '') + (err.message || err), 'error');
+  }
+}
+
+async function saveMovement(){
+  const ctx = formData('f-move'); if(!ctx) return toast('The form is no longer open.','error');
+  const {f, data} = ctx;
+  const btn = document.getElementById('btn-save-move');
+  if(!(data.reference||'').trim()) return fieldError(f, 'reference', 'Pattern Reference is required.');
+  if(!(data.item||'').trim())      return fieldError(f, 'item', 'Pattern / Item is required.');
+  if(!(data.foundry||'').trim())   return fieldError(f, 'foundry', 'Current Foundry / Location is required.');
+
+  btn.disabled = true; btn.textContent = 'Saving…';
+  try{
+    const m = {module:'patterns', reference:data.reference.trim(), item:data.item.trim(), foundry:data.foundry.trim(),
+               quantity:num(data.quantity), received:Math.min(num(data.quantity), num(data.received)),
+               dueDate:data.dueDate || today(), status:data.status || 'Available',
+               notes:(data.notes||'').trim(), changedBy: authUser()};
+    if(data.id) await DB.update('control_records', data.id, m);
+    else        await DB.create('control_records', m);
+    toast(data.id ? 'Pattern position updated' : 'Pattern position saved: ' + m.item, 'success');
+    closeModal(); await loadAll();
+  }catch(err){
+    btn.disabled = false; btn.textContent = 'Save pattern position';
+    toast('Could not save: ' + (err.code ? err.code + ' — ' : '') + (err.message || err), 'error');
+  }
+}
+
+async function saveChallan(){
+  const c = currentFormChallan(); if(!c) return;
+  const btn = document.getElementById('btn-close-challan');
+  if(btn){ btn.disabled = true; btn.textContent = 'Saving…'; }
+  try{
+    const payload = {...c, status:'Closed'};
+    delete payload.id;
+    if(state.editingChallanId){
+      await DB.update('casting_challans', state.editingChallanId, payload);
+      toast('Closed challan updated','success');
+    } else {
+      const dup = state.challans.find(x => x.foundryName===payload.foundryName && x.challanNumber===payload.challanNumber);
+      if(dup){
+        if(btn){ btn.disabled = false; btn.textContent = 'Close Challan'; }
+        return toast('That challan number already exists for this foundry.','error');
       }
-      state.entryForm = blankEntry(); state.editingChallanId = null; state.view = 'casting-records';
-      await loadAll(); window.scrollTo(0,0); return;
+      await DB.create('casting_challans', payload);
+      toast('Challan closed: ' + payload.challanNumber, 'success');
     }
+    state.entryForm = blankEntry(); state.editingChallanId = null; state.view = 'casting-records';
+    await loadAll(); window.scrollTo(0,0);
+  }catch(err){
+    if(btn){ btn.disabled = false; btn.textContent = 'Close Challan'; }
+    toast('Could not save: ' + (err.code ? err.code + ' — ' : '') + (err.message || err), 'error');
+  }
+}
 
-    if(f.id === 'po-form'){ await savePo('Closed'); return; }
-
-    if(f.id === 'f-type'){
-      const t = {typeName:data.typeName.trim(), status:data.status, notes:data.notes.trim()};
-      const dup = state.castingTypes.find(x=>x.typeName.toLowerCase()===t.typeName.toLowerCase() && String(x.id)!==String(data.id));
-      if(dup) return toast('That type name already exists.','error');
-      data.id ? await DB.update('casting_types', data.id, t) : await DB.create('casting_types', t);
-      toast(data.id?'Casting type updated everywhere':'Casting type added to master','success');
-    }
-
-    if(f.id === 'f-move'){
-      const m = {module:'patterns', reference:data.reference.trim(), item:data.item.trim(), foundry:data.foundry.trim(),
-                 quantity:num(data.quantity), received:Math.min(num(data.quantity), num(data.received)),
-                 dueDate:data.dueDate, status:data.status, notes:data.notes.trim(), changedBy: authUser()};
-      data.id ? await DB.update('control_records', data.id, m) : await DB.create('control_records', m);
-      toast(data.id?'Pattern position updated':'Pattern position added','success');
-    }
-
-    closeModal();
-    await loadAll();
-  }catch(err){ toast(err.message || 'Could not save.','error'); }
+/* One place that routes every save button */
+document.addEventListener('click', e => {
+  if(e.target.closest('#btn-save-type'))      saveType();
+  if(e.target.closest('#btn-save-move'))      saveMovement();
+  if(e.target.closest('#btn-close-challan'))  saveChallan();
+  if(e.target.closest('#btn-close-po'))       savePo('Closed');
 });
+
+/* Forms no longer submit at all — the buttons do the work */
+document.addEventListener('submit', e => e.preventDefault());
 
 /* ==========================================================================
    8. BACKUP / SEED
