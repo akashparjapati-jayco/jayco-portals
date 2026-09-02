@@ -291,6 +291,7 @@ th.num{text-align:right}
       <div class="nav-label">Data</div>
       <button class="nav-btn" id="btn-export"><span><span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><path d="m7 10 5 5 5-5"></path><path d="M12 15V3"></path></svg></span><span class="nav-txt">Export JSON backup</span></span></button>
       <button class="nav-btn" id="btn-import"><span><span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><path d="m7 8 5-5 5 5"></path><path d="M12 3v12"></path></svg></span><span class="nav-txt">Import JSON backup</span></span></button>
+      <button class="nav-btn" id="btn-selftest"><span><span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 12l2 2 4-4"></path><circle cx="12" cy="12" r="9"></circle></svg></span><span class="nav-txt">Run connection test</span></span></button>
       <button class="nav-btn" id="btn-seed"><span><span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 4.5 12.5H11l-1 9.5 8.5-10.5H12l1-9.5Z"></path></svg></span><span class="nav-txt">Load demo data</span></span></button>
       <button class="nav-btn" id="btn-wipe"><span><span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"></path><path d="M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2"></path><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"></path><path d="M10 11v6M14 11v6"></path></svg></span><span class="nav-txt">Clear all data</span></span></button>
     </div>
@@ -572,9 +573,20 @@ function toast(msg, kind='info'){
   const el = document.createElement('div');
   el.className = 'toast ' + kind;
   el.textContent = msg;
+  el.title = 'Click to dismiss';
+  el.addEventListener('click', () => el.remove());
   document.getElementById('toasts').appendChild(el);
-  setTimeout(()=>{ el.style.opacity='0'; el.style.transition='opacity .3s'; setTimeout(()=>el.remove(),300); }, 3200);
+  /* errors stay on screen until dismissed — they are the ones you need to read */
+  if(kind !== 'error')
+    setTimeout(()=>{ el.style.opacity='0'; el.style.transition='opacity .3s'; setTimeout(()=>el.remove(),300); }, 3600);
 }
+
+/* nothing should ever fail silently */
+window.addEventListener('error', e => toast('Script error: ' + e.message, 'error'));
+window.addEventListener('unhandledrejection', e => {
+  const r = e.reason || {};
+  toast('Unhandled error: ' + (r.code ? r.code + ' — ' : '') + (r.message || r), 'error');
+});
 function getPOs(ch){
   if(ch.purchaseOrders && ch.purchaseOrders.length) return ch.purchaseOrders;
   return ch.purchaseOrderNumber ? [{purchaseOrderNumber:ch.purchaseOrderNumber, purchaseOrderDate:ch.purchaseOrderDate}] : [];
@@ -1778,6 +1790,34 @@ document.addEventListener('submit', async e => {
 /* ==========================================================================
    8. BACKUP / SEED
    ========================================================================== */
+/* Writes a throwaway record, reads it back, deletes it — and reports the exact
+   Firestore error code at whichever step fails. */
+document.getElementById('btn-selftest').addEventListener('click', async () => {
+  const steps = [];
+  let id = null;
+  try{
+    steps.push('Signed in: ' + (currentUser ? 'yes (' + currentUser.uid.slice(0,8) + '…)' : 'NO'));
+    const made = await DB.create('casting_masters', {itemName:'__connection test__', itemType:'Cap',
+      patternMaterial:'Wooden', patternConstruction:'Split Type', coreBox:'Without core', coreCount:0,
+      totalSets:0, patternGroup:'', drawingPdf:'', drawingPdfName:'', patternPhoto:'',
+      material:'Cast Iron', status:'Active', averageWeight:0, itemCode:'TEST'});
+    id = made.id;
+    steps.push('Write: OK');
+    const back = await DB.list('casting_masters');
+    steps.push('Read back: ' + (back.some(r=>r.id===id) ? 'OK, found it' : 'WROTE BUT CANNOT READ'));
+    await DB.remove('casting_masters', id);
+    steps.push('Cleanup: OK');
+    alert('Connection test passed.\n\n' + steps.join('\n') +
+      '\n\nSaving works. If a pattern still does not appear, tell Claude exactly what these lines say.');
+  }catch(err){
+    steps.push('FAILED: ' + (err.code ? err.code + ' — ' : '') + err.message);
+    alert('Connection test FAILED.\n\n' + steps.join('\n') +
+      '\n\nSend this text to Claude.');
+    if(id){ try{ await DB.remove('casting_masters', id); }catch{} }
+  }
+  loadAll();
+});
+
 document.getElementById('btn-export').addEventListener('click', async () => {
   const dump = {};
   for(const c of COLLECTIONS) dump[c] = await DB.list(c);
