@@ -484,7 +484,7 @@ const COMPANY = {
   addr3:   'Kapadvanj – 387620, Dist. Kheda, Gujarat, India',
   gstin:   '24AAJFJ3998D1Z5',
   pan:     'AAJFJ3998D',
-  phone:   '+91 80460 38003',
+  phone:   '+91 95122 44473  |  +91 78628 72182',
   web:     'www.jaycohousing.com'
 };
 const PATTERN_MATERIALS = ['Wooden','Aluminium'];
@@ -1381,72 +1381,87 @@ function currentFormPo(){
   };
 }
 
+/* Light, print-economical purchase order. No large filled areas — thin rules
+   and small red accents only. Every string is measured before it is drawn, so
+   long values shrink or truncate instead of colliding with their neighbours. */
 function buildPoPdf(p){
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({orientation:'portrait', unit:'pt', format:'a4'});
-  const W = doc.internal.pageSize.getWidth();     // 595
-  const H = doc.internal.pageSize.getHeight();    // 842
-  const M = 38, CW = W - M*2;
-  const RED = [229,50,45], INK = [17,17,17], MUT = [120,128,133], LINE = [222,226,229];
+  const W = doc.internal.pageSize.getWidth();
+  const H = doc.internal.pageSize.getHeight();
+  const M = 40, CW = W - M*2, rx = W - M;
+  const INK=[26,26,26], MUT=[128,133,138], LINE=[214,218,221], RED=[206,42,38], SOFT=[247,248,249];
+
+  /* shrink a string until it fits, then hard-truncate as a last resort */
+  const fit = (text, maxW, size, style='normal') => {
+    let sz = size;
+    doc.setFont('helvetica', style);
+    doc.setFontSize(sz);
+    let t = String(text ?? '—');
+    while(sz > 6 && doc.getTextWidth(t) > maxW){ sz -= 0.5; doc.setFontSize(sz); }
+    while(t.length > 4 && doc.getTextWidth(t) > maxW) t = t.slice(0, -2) + '…';
+    return t;
+  };
+  const label = (txt, x, y, align) => {
+    doc.setFont('helvetica','bold'); doc.setFontSize(6.2); doc.setTextColor(...MUT);
+    doc.text(txt, x, y, align ? {align} : undefined);
+  };
 
   /* ---------- letterhead ---------- */
-  doc.setFillColor(...INK); doc.rect(0, 0, W, 96, 'F');
-  doc.setFillColor(...RED); doc.rect(0, 96, W, 3, 'F');
-
+  let y = 46;
+  let logoDrawn = false;
   try{
     const logo = document.querySelector('.brand-logo');
-    if(logo && logo.src) doc.addImage(logo.src, 'PNG', M, 24, 108, 24);
-  }catch(e){
-    doc.setTextColor(255,255,255); doc.setFont('helvetica','bold'); doc.setFontSize(20);
-    doc.text('JAYCO', M, 44);
+    if(logo && logo.src){ doc.addImage(logo.src, 'PNG', M, y - 18, 100, 22); logoDrawn = true; }
+  }catch(e){ logoDrawn = false; }
+  if(!logoDrawn){
+    doc.setFont('helvetica','bold'); doc.setFontSize(19); doc.setTextColor(...RED);
+    doc.text('JAYCO', M, y);
   }
 
-  doc.setTextColor(255,255,255);
-  doc.setFont('helvetica','bold'); doc.setFontSize(11);
-  doc.text(COMPANY.name, M, 62);
-  doc.setFont('helvetica','normal'); doc.setFontSize(6.6);
-  doc.setTextColor(190,194,198);
-  doc.text(COMPANY.tagline, M, 73);
-  doc.text([COMPANY.addr1, COMPANY.addr2, COMPANY.addr3], M, 82, {lineHeightFactor:1.35});
+  doc.setFont('helvetica','bold'); doc.setFontSize(11.5); doc.setTextColor(...INK);
+  doc.text(COMPANY.name, M, y + 22);
+  doc.setFont('helvetica','normal'); doc.setFontSize(7); doc.setTextColor(...RED);
+  doc.text(COMPANY.tagline, M, y + 33);
+  doc.setTextColor(...MUT); doc.setFontSize(7.2);
+  doc.text([COMPANY.addr1, COMPANY.addr2, COMPANY.addr3], M, y + 45, {lineHeightFactor:1.4});
 
-  doc.setFont('helvetica','bold'); doc.setFontSize(6.4); doc.setTextColor(255,255,255);
-  const rx = W - M;
-  doc.text('GSTIN', rx - 78, 30);  doc.text('PAN', rx - 78, 44);
-  doc.text('PHONE', rx - 78, 58);  doc.text('WEB', rx - 78, 72);
-  doc.setFont('helvetica','normal'); doc.setTextColor(215,219,222); doc.setFontSize(7.4);
-  doc.text(COMPANY.gstin, rx, 30, {align:'right'});
-  doc.text(COMPANY.pan,   rx, 44, {align:'right'});
-  doc.text(COMPANY.phone, rx, 58, {align:'right'});
-  doc.text(COMPANY.web,   rx, 72, {align:'right'});
+  /* right column: label sits to the LEFT of its value, positioned by measurement */
+  let ry = y - 12;
+  [['GSTIN', COMPANY.gstin], ['PAN', COMPANY.pan], ['PHONE', COMPANY.phone], ['WEB', COMPANY.web]]
+  .forEach(([k, v]) => {
+    doc.setFont('helvetica','normal'); doc.setFontSize(8); doc.setTextColor(...INK);
+    const vw = doc.getTextWidth(v);
+    doc.text(v, rx, ry, {align:'right'});
+    label(k, rx - vw - 8, ry, 'right');
+    ry += 15;
+  });
 
-  /* ---------- title ---------- */
-  let y = 128;
-  doc.setTextColor(...INK); doc.setFont('helvetica','bold'); doc.setFontSize(17);
+  y += 82;
+  doc.setDrawColor(...RED); doc.setLineWidth(1.4); doc.line(M, y, W - M, y);
+  doc.setLineWidth(0.6);
+
+  /* ---------- title + meta boxes ---------- */
+  y += 30;
+  doc.setFont('helvetica','bold'); doc.setFontSize(16); doc.setTextColor(...INK);
   doc.text('PURCHASE ORDER', M, y);
-  doc.setDrawColor(...RED); doc.setLineWidth(2);
-  doc.line(M, y + 7, M + 92, y + 7);
-  doc.setLineWidth(1);
 
-  doc.setFont('helvetica','bold'); doc.setFontSize(7); doc.setTextColor(...MUT);
-  doc.text('P/O NO.', rx - 132, y - 10);
-  doc.text('DATE',    rx - 62,  y - 10);
-  doc.setFont('helvetica','bold'); doc.setFontSize(11); doc.setTextColor(...INK);
-  doc.text(String(p.poNumber || '—'), rx - 132, y + 4);
-  doc.text(fmtDate(p.poDate),         rx - 62,  y + 4);
-
-  /* ---------- supplier ---------- */
-  y += 26;
-  doc.setDrawColor(...LINE); doc.setFillColor(249,250,251);
-  doc.roundedRect(M, y, CW, 52, 4, 4, 'FD');
-  doc.setFillColor(...RED); doc.rect(M, y, 3, 52, 'F');
-  doc.setFont('helvetica','bold'); doc.setFontSize(6.6); doc.setTextColor(...MUT);
-  doc.text('SUPPLIER / FOUNDRY', M + 14, y + 17);
-  doc.setFont('helvetica','bold'); doc.setFontSize(13); doc.setTextColor(...INK);
-  doc.text(String(p.foundryName || '—').slice(0, 52), M + 14, y + 36);
+  y += 14;
+  const boxW = (CW - 20) / 3, boxH = 44;
+  [['P/O NO.', p.poNumber], ['P/O DATE', fmtDate(p.poDate)], ['SUPPLIER / FOUNDRY', p.foundryName]]
+  .forEach(([k, v], n) => {
+    const x = M + n * (boxW + 10);
+    doc.setDrawColor(...LINE); doc.setFillColor(...SOFT);
+    doc.roundedRect(x, y, boxW, boxH, 3, 3, 'FD');
+    label(k, x + 12, y + 16);
+    const t = fit(v, boxW - 24, 11.5, 'bold');
+    doc.setTextColor(...INK);
+    doc.text(t, x + 12, y + 33);
+  });
 
   /* ---------- items ---------- */
-  y += 68;
-  doc.setFont('helvetica','bold'); doc.setFontSize(6.6); doc.setTextColor(...RED);
+  y += boxH + 22;
+  doc.setFont('helvetica','bold'); doc.setFontSize(6.4); doc.setTextColor(...RED);
   doc.text('APPROX. WEIGHT IS INDICATIVE, DERIVED FROM PREVIOUS SUPPLY RECORDS. FINAL WEIGHT ON RECEIPT.', M, y);
 
   doc.autoTable({
@@ -1458,87 +1473,83 @@ function buildPoPdf(p){
       it.avgWeight > 0 ? fmtWt(it.avgWeight) : 'No history',
       it.approxWeight > 0 ? fmtWt(it.approxWeight) : '—'
     ]),
-    styles: {fontSize: 8.4, cellPadding: 7, lineColor: LINE, lineWidth: 0.5, textColor: INK},
-    headStyles: {fillColor: INK, textColor: 255, fontStyle: 'bold', fontSize: 6.8, halign: 'center', cellPadding: 8},
+    styles: {fontSize: 8.4, cellPadding: 7, lineColor: LINE, lineWidth: 0.5, textColor: INK, overflow:'linebreak'},
+    headStyles: {fillColor: SOFT, textColor: INK, fontStyle:'bold', fontSize: 6.6,
+                 halign:'center', cellPadding: 8, lineColor: LINE, lineWidth: 0.5},
     columnStyles: {
       0: {halign:'center', cellWidth: 26},
-      1: {cellWidth: 178},
-      2: {cellWidth: 66},
-      3: {halign:'right', cellWidth: 42},
+      1: {cellWidth: 168},
+      2: {cellWidth: 64},
+      3: {halign:'right', cellWidth: 40},
       4: {halign:'right'},
       5: {halign:'right', fontStyle:'bold'}
     },
-    alternateRowStyles: {fillColor: [250, 250, 249]}
+    didParseCell: d => { if(d.section === 'head') d.cell.styles.textColor = MUT; }
   });
 
   /* ---------- totals ---------- */
   y = doc.lastAutoTable.finalY + 16;
-  const bw = 150;
+  const tW = 178;
   doc.setDrawColor(...LINE);
-  doc.roundedRect(M, y, CW - bw - 10, 46, 4, 4, 'S');
-  doc.setFont('helvetica','bold'); doc.setFontSize(6.6); doc.setTextColor(...MUT);
-  doc.text('LINE ITEMS', M + 16, y + 18);
-  doc.text('TOTAL QUANTITY', M + 116, y + 18);
-  doc.setFontSize(13); doc.setTextColor(...INK);
-  doc.text(String(p.items.length), M + 16, y + 36);
-  doc.text(String(num(p.totalQuantity)), M + 116, y + 36);
+  doc.roundedRect(M, y, CW - tW - 10, 44, 3, 3, 'S');
+  label('LINE ITEMS', M + 14, y + 16);
+  label('TOTAL QUANTITY', M + 120, y + 16);
+  doc.setFont('helvetica','bold'); doc.setFontSize(13); doc.setTextColor(...INK);
+  doc.text(String(p.items.length), M + 14, y + 34);
+  doc.text(String(num(p.totalQuantity)), M + 120, y + 34);
 
-  doc.setFillColor(...INK);
-  doc.roundedRect(W - M - bw, y, bw, 46, 4, 4, 'F');
-  doc.setFont('helvetica','bold'); doc.setFontSize(6.6); doc.setTextColor(190,194,198);
-  doc.text('APPROX. TOTAL WEIGHT', W - M - bw + 14, y + 18);
-  doc.setFontSize(14); doc.setTextColor(255,255,255);
-  doc.text(fmtWt(p.totalApproxWeight), W - M - bw + 14, y + 36);
+  doc.setDrawColor(...RED); doc.setLineWidth(1);
+  doc.roundedRect(W - M - tW, y, tW, 44, 3, 3, 'S');
+  doc.setLineWidth(0.6);
+  label('APPROX. TOTAL WEIGHT', W - M - tW + 14, y + 16);
+  doc.setFont('helvetica','bold'); doc.setTextColor(...RED);
+  const wt = fit(fmtWt(p.totalApproxWeight), tW - 28, 14, 'bold');
+  doc.text(wt, W - M - tW + 14, y + 34);
 
   /* ---------- notes ---------- */
-  y += 62;
+  y += 60;
   if(p.notes){
+    doc.setFont('helvetica','normal'); doc.setFontSize(8.4);
     const lines = doc.splitTextToSize(p.notes, CW - 28).slice(0, 5);
     const h = 26 + lines.length * 11;
-    doc.setDrawColor(...LINE); doc.setFillColor(252,252,251);
-    doc.roundedRect(M, y, CW, h, 4, 4, 'FD');
-    doc.setFont('helvetica','bold'); doc.setFontSize(6.6); doc.setTextColor(...MUT);
-    doc.text('NOTES / DELIVERY INSTRUCTIONS', M + 14, y + 15);
+    doc.setDrawColor(...LINE);
+    doc.roundedRect(M, y, CW, h, 3, 3, 'S');
+    label('NOTES / DELIVERY INSTRUCTIONS', M + 14, y + 15);
     doc.setFont('helvetica','normal'); doc.setFontSize(8.4); doc.setTextColor(...INK);
-    doc.text(lines, M + 14, y + 28, {lineHeightFactor: 1.35});
+    doc.text(lines, M + 14, y + 28, {lineHeightFactor:1.35});
     y += h + 16;
   }
 
-  /* ---------- signature panel ---------- */
-  const panelY = Math.max(y, H - 168);
+  /* ---------- authorisation ---------- */
+  const py = Math.max(y, H - 160);
   doc.setDrawColor(...LINE);
-  doc.roundedRect(M, panelY, CW, 96, 4, 4, 'S');
-  doc.setFillColor(...INK); doc.rect(M, panelY, CW, 22, 'F');
-  doc.setFont('helvetica','bold'); doc.setFontSize(6.8); doc.setTextColor(255,255,255);
-  doc.text('AUTHORISATION', M + 14, panelY + 14.5);
+  doc.roundedRect(M, py, CW, 92, 3, 3, 'S');
+  doc.line(M, py + 20, W - M, py + 20);
+  label('AUTHORISATION', M + 14, py + 14);
 
   const colW = CW / 3;
-  const cols = [
-    ['PREPARED BY', p.generatedBy || '—'],
-    ['APPROVED BY', ''],
-    ['FOUNDRY ACKNOWLEDGEMENT', '']
-  ];
-  cols.forEach(([label, value], n) => {
+  [['PREPARED BY', p.generatedBy || ''], ['APPROVED BY', ''], ['FOUNDRY ACKNOWLEDGEMENT', '']]
+  .forEach(([k, v], n) => {
     const x = M + n * colW;
-    if(n) { doc.setDrawColor(...LINE); doc.line(x, panelY + 22, x, panelY + 96); }
-    doc.setDrawColor(170,176,180);
-    doc.line(x + 16, panelY + 68, x + colW - 16, panelY + 68);
-    if(value){
-      doc.setFont('helvetica','bold'); doc.setFontSize(10); doc.setTextColor(...INK);
-      doc.text(String(value).slice(0, 26), x + 16, panelY + 62);
+    if(n){ doc.setDrawColor(...LINE); doc.line(x, py + 20, x, py + 92); }
+    if(v){
+      const t = fit(v, colW - 32, 10.5, 'bold');
+      doc.setTextColor(...INK);
+      doc.text(t, x + 16, py + 58);
     }
-    doc.setFont('helvetica','bold'); doc.setFontSize(6.4); doc.setTextColor(...MUT);
-    doc.text(label, x + 16, panelY + 82);
+    doc.setDrawColor(175,180,185);
+    doc.line(x + 16, py + 64, x + colW - 16, py + 64);
+    label(k, x + 16, py + 78);
   });
 
   /* ---------- footer ---------- */
   doc.setDrawColor(...LINE);
-  doc.line(M, H - 46, W - M, H - 46);
-  doc.setFont('helvetica','normal'); doc.setFontSize(6.6); doc.setTextColor(...MUT);
-  doc.text('Generated from the JAYCO Casting & Pattern Control System', M, H - 32);
-  doc.text(COMPANY.web + '  |  GSTIN ' + COMPANY.gstin, W - M, H - 32, {align: 'right'});
+  doc.line(M, H - 44, W - M, H - 44);
+  doc.setFont('helvetica','normal'); doc.setFontSize(6.4); doc.setTextColor(...MUT);
+  doc.text('Generated from the JAYCO Casting & Pattern Control System', M, H - 31);
+  doc.text(COMPANY.web + '  |  GSTIN ' + COMPANY.gstin, rx, H - 31, {align:'right'});
   doc.setFontSize(6);
-  doc.text('This is a system-generated purchase order and is valid without a physical seal unless otherwise agreed.', M, H - 21);
+  doc.text('System-generated purchase order — valid without a physical seal unless otherwise agreed.', M, H - 21);
 
   return doc;
 }
