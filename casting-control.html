@@ -697,23 +697,38 @@ function opt(list, sel){ return list.map(v=>`<option value="${esc(v)}" ${v===sel
    ========================================================================== */
 
 async function loadAll(notify){
-  try{
-    const [ch, pm, cm, ct, cr, po, fd, pi] = await Promise.all(COLLECTIONS.map(c => DB.list(c)));
-    state.challans = ch.map(c => ({...c, items: c.items||[], purchaseOrders: c.purchaseOrders||[]}));
-    state.patternMasters = pm;
-    state.castingMasters = cm;
-    state.castingTypes = ct;
-    state.patternRecords = cr.filter(r => r.module === 'patterns');
-    state.purchaseOrders = po.map(x => ({...x, items: x.items || []}));
-    state.foundries = fd;
-    state.pigIron = pi;
-    document.getElementById('pg-status').className = 'badge ok';
-    document.getElementById('pg-status').textContent = '● Live data';
+  /* Each collection is read on its own. If one is refused — usually a Firestore
+     rule that has not been published yet — only that feature is empty, and the
+     message names the collection instead of blanking the whole app. */
+  const results = await Promise.all(COLLECTIONS.map(async c => {
+    try { return {c, rows: await DB.list(c)}; }
+    catch(err){ return {c, rows: [], err}; }
+  }));
+  const get = c => (results.find(r => r.c === c) || {rows: []}).rows;
+  const failed = results.filter(r => r.err);
+
+  state.challans       = get('casting_challans').map(c => ({...c, items: c.items || [], purchaseOrders: c.purchaseOrders || []}));
+  state.patternMasters = get('pattern_masters');
+  state.castingMasters = get('casting_masters');
+  state.castingTypes   = get('casting_types');
+  state.patternRecords = get('control_records').filter(r => r.module === 'patterns');
+  state.purchaseOrders = get('purchase_orders').map(x => ({...x, items: x.items || []}));
+  state.foundries      = get('foundries');
+  state.pigIron        = get('pig_iron');
+
+  const badge = document.getElementById('pg-status');
+  if(failed.length){
+    badge.className = 'badge bad';
+    badge.textContent = '● ' + failed.length + ' collection' + (failed.length === 1 ? '' : 's') + ' unavailable';
+    const names = failed.map(f => FS_NAME[f.c]).join(', ');
+    const denied = failed.some(f => String(f.err && f.err.code).includes('permission-denied'));
+    toast(denied
+      ? 'Firestore is refusing: ' + names + '. Add a rule for ' + (failed.length === 1 ? 'it' : 'them') + ' and publish.'
+      : 'Could not load: ' + names, 'error');
+  } else {
+    badge.className = 'badge ok';
+    badge.textContent = '● Live data';
     if(notify) toast('Dashboard refreshed','success');
-  }catch(e){
-    document.getElementById('pg-status').className = 'badge bad';
-    document.getElementById('pg-status').textContent = '● Storage unavailable';
-    toast('Could not load data: ' + e.message,'error');
   }
   render();
 }
