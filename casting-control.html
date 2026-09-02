@@ -6,6 +6,7 @@
 <title>JAYCO Casting & Pattern Control</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
@@ -338,6 +339,7 @@ th.num{text-align:right}
 <div id="toasts"></div>
 <div id="lightbox"><img alt=""></div>
 <input type="file" id="file-import" accept="application/json" style="display:none">
+<input type="file" id="file-xls" accept=".xlsx,.xls,.csv" style="display:none">
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-app.js";
@@ -488,6 +490,21 @@ const COMPANY = {
   web:     'www.jaycohousing.com'
 };
 const PATTERN_MATERIALS = ['Wooden','Aluminium'];
+
+/* Foundries you have raised a P/O on come first — a challan almost always
+   arrives against an order. Foundries seen only on past challans follow. */
+function foundryOptions(){
+  const fromPo = [...new Set(state.purchaseOrders.map(p => p.foundryName).filter(Boolean))];
+  const fromCh = [...new Set(state.challans.map(c => c.foundryName).filter(Boolean))]
+                   .filter(n => !fromPo.includes(n));
+  return {fromPo, fromCh, all: [...fromPo, ...fromCh]};
+}
+/* Open P/Os for one foundry, newest first */
+function posForFoundry(name){
+  return state.purchaseOrders
+    .filter(p => p.foundryName === name)
+    .sort((a,b) => String(b.poDate).localeCompare(String(a.poDate)));
+}
 const PATTERN_CONSTRUCTION = ['Split Type','Non-Split Type'];
 const CORE_OPTIONS = ['With core box','Without core'];
 
@@ -781,7 +798,11 @@ function viewPatternMaster(){
   return `<section class="data-panel">
     <div class="panel-heading">
       <div><p class="eyebrow">Approved pattern list</p><h2 class="panel-title">Pattern Master</h2></div>
-      <button class="btn primary" data-open-casting="">＋ Add pattern</button>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn" id="btn-xls-template">Excel template</button>
+        <button class="btn" id="btn-xls-import">Import from Excel</button>
+        <button class="btn primary" data-open-casting="">＋ Add pattern</button>
+      </div>
     </div>
     <div class="table-scroll"><table>
       <thead><tr><th>Image</th><th>Pattern name</th><th>Type</th><th>Material</th><th>Construction</th><th>Core</th><th class="num">Sets</th><th>Pattern group</th><th>Drawing</th><th class="num">Change</th></tr></thead>
@@ -971,7 +992,7 @@ function viewGeneratePO(){
 /* ---- Insert Casting Details ---- */
 function blankLine(){ return {masterCode:'', itemName:'', itemType:DEFAULT_TYPES[0], material:'Cast Iron', quantity:'', foundryWeight:'', actualWeight:''}; }
 function blankPO(){ return {purchaseOrderNumber:'', purchaseOrderDate: today()}; }
-function blankEntry(){ return {challanNumber:'', challanDate: today(), foundryName:'', purchaseOrders:[blankPO()], items:[blankLine()]}; }
+function blankEntry(){ return {challanNumber:'', challanDate: today(), foundryName:'', newFoundry:false, purchaseOrders:[blankPO()], items:[blankLine()]}; }
 
 function viewInsertCasting(){
   if(!state.entryForm) state.entryForm = blankEntry();
@@ -979,7 +1000,8 @@ function viewInsertCasting(){
   const editing = !!state.editingChallanId;
   const typeOptions = allTypes();
   const masters = [...state.castingMasters].sort((a,b)=>String(a.itemName).localeCompare(String(b.itemName),'en',{numeric:true}));
-  const foundries = [...new Set(state.challans.map(c=>c.foundryName))];
+  const fo = foundryOptions();
+  const poList = posForFoundry(f.foundryName);
 
   const totals = f.items.reduce((t,i)=>({
     quantity:t.quantity+num(i.quantity), foundry:t.foundry+num(i.foundryWeight), actual:t.actual+num(i.actualWeight)
@@ -997,8 +1019,19 @@ function viewInsertCasting(){
       <div class="form-grid">
         <label class="field">Challan No. *<input type="text" required maxlength="80" name="challanNumber" value="${esc(f.challanNumber)}" placeholder="e.g. BSF/CH/1024"></label>
         <label class="field">Date *<input type="date" required name="challanDate" value="${esc(f.challanDate)}"></label>
-        <label class="field">Foundry Name *<input type="text" required maxlength="160" name="foundryName" list="dl-foundries" value="${esc(f.foundryName)}" placeholder="Enter foundry name">
-          <datalist id="dl-foundries">${foundries.map(x=>`<option value="${esc(x)}">`).join('')}</datalist></label>
+        <label class="field">Foundry Name *
+          ${ f.newFoundry
+            ? `<div style="display:flex;gap:8px">
+                 <input type="text" maxlength="160" name="foundryName" value="${esc(f.foundryName)}" placeholder="Type the new foundry name" style="flex:1">
+                 <button type="button" class="btn icon" id="foundry-pick" title="Choose from the list instead">↩</button>
+               </div>`
+            : `<select name="foundryName" id="sel-foundry">
+                 <option value="">Select foundry</option>
+                 ${ fo.fromPo.length ? `<optgroup label="With purchase orders">${fo.fromPo.map(x=>`<option value="${esc(x)}" ${x===f.foundryName?'selected':''}>${esc(x)}</option>`).join('')}</optgroup>` : '' }
+                 ${ fo.fromCh.length ? `<optgroup label="Previously supplied">${fo.fromCh.map(x=>`<option value="${esc(x)}" ${x===f.foundryName?'selected':''}>${esc(x)}</option>`).join('')}</optgroup>` : '' }
+                 <option value="__new__">＋ New foundry…</option>
+               </select>` }
+        </label>
 
         <div class="po-block">
           <div style="display:flex;flex-wrap:wrap;justify-content:space-between;gap:.75rem;margin-bottom:.8rem">
@@ -1007,7 +1040,9 @@ function viewInsertCasting(){
             <button type="button" class="btn" id="add-po" ${f.purchaseOrders.length>=6?'disabled':''}>＋ Add P/O</button>
           </div>
           ${ f.purchaseOrders.map((p,i)=>`<div class="po-row">
-              <label class="field">JAYCO P/O Number ${i+1} *<input type="text" required maxlength="100" data-po="${i}" data-pofield="purchaseOrderNumber" value="${esc(p.purchaseOrderNumber)}" placeholder="Enter JAYCO purchase order number"></label>
+              <label class="field">JAYCO P/O Number ${i+1} *
+                <input type="text" maxlength="100" data-po="${i}" data-pofield="purchaseOrderNumber" list="dl-po-${i}" value="${esc(p.purchaseOrderNumber)}" placeholder="${ f.foundryName ? (poList.length ? 'Pick or type a P/O number' : 'No P/O found for this foundry — type it') : 'Select a foundry first' }">
+                <datalist id="dl-po-${i}">${poList.map(x=>`<option value="${esc(x.poNumber)}">${esc(fmtDate(x.poDate))} · ${num(x.totalQuantity)} pcs</option>`).join('')}</datalist></label>
               <label class="field">P/O Date *<input type="date" required data-po="${i}" data-pofield="purchaseOrderDate" value="${esc(p.purchaseOrderDate)}"></label>
               <button type="button" class="btn icon danger" data-rm-po="${i}" ${f.purchaseOrders.length===1?'disabled':''}>🗑</button>
             </div>`).join('') }
@@ -1691,6 +1726,7 @@ document.addEventListener('click', async (e) => {
     state.editingChallanId = c.id;
     state.entryForm = {
       challanNumber:c.challanNumber, challanDate:c.challanDate, foundryName:c.foundryName,
+      newFoundry: !foundryOptions().all.includes(c.foundryName),
       purchaseOrders:getPOs(c).map(p=>({...p})),
       items:c.items.map((i,n)=>({
         masterCode: (state.castingMasters.find(m=>m.itemName===i.itemName)||{}).itemCode || ('legacy-'+n),
@@ -1836,6 +1872,31 @@ document.addEventListener('keydown', e => {
   if(e.target.closest('#po-form, #entry-form')){
     e.preventDefault();
     e.target.blur();
+  }
+});
+
+/* Foundry dropdown on the challan, and P/O number auto-fill */
+document.addEventListener('change', e => {
+  const el = e.target;
+  if(el.id === 'sel-foundry' && state.entryForm){
+    if(el.value === '__new__'){ state.entryForm.newFoundry = true; state.entryForm.foundryName = ''; }
+    else { state.entryForm.foundryName = el.value; }
+    render(); return;
+  }
+  /* choosing a known P/O number fills its date in for you */
+  if(el.dataset.pofield === 'purchaseOrderNumber' && state.entryForm){
+    const i = Number(el.dataset.po);
+    const hit = posForFoundry(state.entryForm.foundryName).find(x => x.poNumber === el.value);
+    if(hit){
+      state.entryForm.purchaseOrders[i].purchaseOrderDate = hit.poDate;
+      render();
+      toast('P/O date filled from ' + hit.poNumber, 'info');
+    }
+  }
+});
+document.addEventListener('click', e => {
+  if(e.target.closest('#foundry-pick') && state.entryForm){
+    state.entryForm.newFoundry = false; state.entryForm.foundryName = ''; render();
   }
 });
 
@@ -2073,6 +2134,171 @@ document.addEventListener('click', e => {
 
 /* Forms no longer submit at all — the buttons do the work */
 document.addEventListener('submit', e => e.preventDefault());
+
+/* ==========================================================================
+   7b. EXCEL IMPORT — Pattern Master
+   ========================================================================== */
+const XLS_COLUMNS = ['Pattern Name','Pattern Type','Pattern Material','Pattern Construction',
+                     'Core Box','Number of Cores','Pattern Group','Total Sets'];
+
+/* Spreadsheets are typed by hand, so match loosely: ignore case, spaces and
+   common spellings, and fall back to a sensible default rather than refusing. */
+function matchOption(value, options, fallback){
+  const norm = t => String(t ?? '').trim().toLowerCase().replace(/[\s._-]+/g,'');
+  const v = norm(value);
+  if(!v) return {value: fallback, guessed: false};
+  let hit = options.find(o => norm(o) === v);
+  if(hit) return {value: hit, guessed: false};
+  hit = options.find(o => norm(o).startsWith(v) || v.startsWith(norm(o)));
+  if(hit) return {value: hit, guessed: false};
+  /* "aluminum" vs "Aluminium" — compare a short prefix so spelling variants land */
+  hit = options.find(o => norm(o).slice(0,5) === v.slice(0,5) && v.length > 3);
+  if(hit) return {value: hit, guessed: false};
+  return {value: fallback, guessed: true};   // supplied but not recognised
+}
+
+function normaliseCore(value){
+  const v = String(value ?? '').trim().toLowerCase();
+  if(!v) return 'Without core';
+  if(v.startsWith('with') && !v.startsWith('without')) return 'With core box';
+  if(v === 'yes' || v === 'y' || v === 'core' || v === 'true') return 'With core box';
+  return 'Without core';
+}
+
+function downloadXlsTemplate(){
+  try{
+    const rows = [
+      XLS_COLUMNS,
+      ['SN 511','Cap','Aluminium','Split Type','Without core',0,'SN',1],
+      ['SNH 520-617','Housing','Wooden','Non-Split Type','With core box',2,'SNH',2]
+    ];
+    const ws = XLSX.utils.aoa_to_sheet(rows);
+    ws['!cols'] = [{wch:26},{wch:16},{wch:18},{wch:20},{wch:16},{wch:16},{wch:16},{wch:12}];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Patterns');
+    XLSX.writeFile(wb, 'JAYCO-Pattern-Master-Template.xlsx');
+    toast('Template downloaded. Keep the header row exactly as it is.','success');
+  }catch(err){ toast('Could not build the template: ' + err.message,'error'); }
+}
+
+/* Parse the sheet, then show what WILL happen before anything is written. */
+async function previewXlsImport(file){
+  let rows;
+  try{
+    const wb = XLSX.read(await file.arrayBuffer(), {type:'array'});
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    rows = XLSX.utils.sheet_to_json(ws, {defval:''});
+  }catch(err){ return toast('That file could not be read: ' + err.message,'error'); }
+
+  if(!rows.length) return toast('The first sheet has no rows under the header.','error');
+
+  const key = r => (r.itemName + '|' + r.itemType).toLowerCase();
+  const existing = new Set(state.castingMasters.map(m => key({itemName:m.itemName, itemType:m.itemType})));
+  const seen = new Set();
+  const types = allTypes();
+
+  const parsed = rows.map((raw, n) => {
+    const pick = (...names) => {
+      for(const nm of names){
+        const hit = Object.keys(raw).find(k => k.trim().toLowerCase() === nm.toLowerCase());
+        if(hit && String(raw[hit]).trim() !== '') return raw[hit];
+      }
+      return '';
+    };
+    const name = String(pick('Pattern Name','Name','Item','Casting Item Name')).trim();
+    const warn = [];
+    const take = (raw, options, fallback, fieldName) => {
+      const r = matchOption(raw, options, fallback);
+      if(r.guessed) warn.push(fieldName + ' "' + String(raw).trim() + '" not recognised');
+      return r.value;
+    };
+    const rec = {
+      row: n + 2,
+      itemName: name,
+      itemType: take(pick('Pattern Type','Type'), types, types[0], 'Type'),
+      patternMaterial: take(pick('Pattern Material','Material'), PATTERN_MATERIALS, 'Wooden', 'Material'),
+      patternConstruction: take(pick('Pattern Construction','Construction'), PATTERN_CONSTRUCTION, 'Split Type', 'Construction'),
+      coreBox: normaliseCore(pick('Core Box','Core')),
+      coreCount: num(pick('Number of Cores','Cores','Core Count')),
+      patternGroup: String(pick('Pattern Group','Group')).trim(),
+      totalSets: num(pick('Total Sets','Sets')) || 1
+    };
+    if(rec.coreBox === 'Without core') rec.coreCount = 0;
+    else if(rec.coreCount < 1) rec.coreCount = 1;
+
+    rec.warn = warn;
+    if(!rec.itemName)            rec.skip = 'No pattern name';
+    else if(existing.has(key(rec))) rec.skip = 'Already in Pattern Master';
+    else if(seen.has(key(rec)))     rec.skip = 'Duplicated in this file';
+    else seen.add(key(rec));
+    return rec;
+  });
+
+  const ok = parsed.filter(r => !r.skip);
+  const skipped = parsed.filter(r => r.skip);
+  window.__xlsQueue = ok;
+
+  openModal(`<div class="modal-head">
+      <h3>Import ${ok.length} pattern${ok.length===1?'':'s'}</h3>
+      <p>${parsed.length} row${parsed.length===1?'':'s'} read from <b>${esc(file.name)}</b>${skipped.length?` · ${skipped.length} skipped`:''}${ok.filter(r=>r.warn.length).length?` · ${ok.filter(r=>r.warn.length).length} need checking`:''}. Nothing is saved until you confirm.</p>
+    </div>
+    <div style="padding:0 28px;overflow-y:auto;flex:1 1 auto;min-height:0">
+      <div class="table-scroll" style="border:1px solid var(--card-border);border-radius:var(--r-md)">
+        <table><thead><tr><th>Row</th><th>Pattern name</th><th>Type</th><th>Material</th><th>Construction</th><th>Core</th><th class="num">Sets</th><th>Group</th><th>Result</th></tr></thead>
+        <tbody>${ parsed.slice(0,200).map(r=>`<tr style="${r.skip?'opacity:.55':''}">
+          <td class="mono">${r.row}</td><td><b>${esc(r.itemName)||'—'}</b></td><td>${esc(r.itemType)}</td>
+          <td>${esc(r.patternMaterial)}</td><td>${esc(r.patternConstruction)}</td>
+          <td>${r.coreBox==='With core box'?num(r.coreCount)+' cores':'No core'}</td>
+          <td class="num">${num(r.totalSets)}</td><td>${esc(r.patternGroup)||'—'}</td>
+          <td>${ r.skip ? `<span class="badge warn">${esc(r.skip)}</span>`
+                 : (r.warn.length ? `<span class="badge warn">Check: ${esc(r.warn.join('; '))}</span>`
+                                  : '<span class="badge ok">Will import</span>') }</td>
+        </tr>`).join('') }</tbody></table>
+      </div>
+      ${ parsed.length > 200 ? `<p style="margin:12px 0 0;font-size:12px;color:var(--ink-faint)">Showing the first 200 rows. All ${ok.length} valid rows will be imported.</p>` : '' }
+    </div>
+    <div class="modal-foot">
+      <button type="button" class="btn" data-close>Cancel</button>
+      <button type="button" class="btn primary" id="btn-xls-confirm" ${ok.length?'':'disabled'}>Import ${ok.length} pattern${ok.length===1?'':'s'}</button>
+    </div>`, true);
+}
+
+async function runXlsImport(){
+  const queue = window.__xlsQueue || [];
+  if(!queue.length) return;
+  const btn = document.getElementById('btn-xls-confirm');
+  btn.disabled = true;
+  let done = 0, failed = 0;
+  for(const r of queue){
+    btn.textContent = 'Importing ' + (done + 1) + ' of ' + queue.length + '…';
+    try{
+      await DB.create('casting_masters', {
+        itemName:r.itemName, itemType:r.itemType,
+        patternMaterial:r.patternMaterial, patternConstruction:r.patternConstruction,
+        coreBox:r.coreBox, coreCount:r.coreCount, totalSets:r.totalSets,
+        patternGroup:r.patternGroup, drawingPdf:'', drawingPdfName:'', patternPhoto:'',
+        material:'Cast Iron', status:'Active', averageWeight:0,
+        itemCode:'CAST-' + Math.random().toString(36).slice(2,10).toUpperCase()
+      });
+      done++;
+    }catch(err){ failed++; }
+  }
+  window.__xlsQueue = [];
+  closeModal();
+  toast(failed ? `Imported ${done}, ${failed} failed.` : `Imported ${done} pattern${done===1?'':'s'}.`, failed ? 'error' : 'success');
+  await loadAll();
+}
+
+document.addEventListener('click', e => {
+  if(e.target.closest('#btn-xls-template')) downloadXlsTemplate();
+  if(e.target.closest('#btn-xls-import'))   document.getElementById('file-xls').click();
+  if(e.target.closest('#btn-xls-confirm'))  runXlsImport();
+});
+document.getElementById('file-xls').addEventListener('change', async e => {
+  const file = e.target.files[0];
+  if(file) await previewXlsImport(file);
+  e.target.value = '';
+});
 
 /* ==========================================================================
    8. BACKUP / SEED
