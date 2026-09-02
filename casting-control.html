@@ -1698,6 +1698,17 @@ document.addEventListener('click', e => {
 document.getElementById('lightbox').addEventListener('click', () =>
   document.getElementById('lightbox').classList.remove('open'));
 
+/* Enter inside the challan or P/O grids used to submit the whole form,
+   which closed or cleared it. Enter now just moves off the field. */
+document.addEventListener('keydown', e => {
+  if(e.key !== 'Enter') return;
+  if(e.target.tagName === 'TEXTAREA') return;
+  if(e.target.closest('#po-form, #entry-form')){
+    e.preventDefault();
+    e.target.blur();
+  }
+});
+
 /* Pattern Master save button */
 document.addEventListener('click', e => {
   if(e.target.closest('#btn-save-pattern')) savePattern();
@@ -1719,20 +1730,20 @@ document.getElementById('toggle-sidebar').addEventListener('click', () => docume
 /* entry form live binding */
 document.addEventListener('input', e => {
   const el = e.target;
-  if(!state.entryForm) return;
-  if(el.name && ['challanNumber','challanDate','foundryName'].includes(el.name) && el.closest('#entry-form')){
+  if(el.name && ['challanNumber','challanDate','foundryName'].includes(el.name) && el.closest('#entry-form') && state.entryForm){
     state.entryForm[el.name] = el.value; return;   // no re-render: keeps focus
   }
   if(el.name && ['poNumber','poDate','foundryName','notes'].includes(el.name) && el.closest('#po-form') && state.poForm){
     state.poForm[el.name] = el.value; return;
   }
-  if(el.dataset.po !== undefined){ state.entryForm.purchaseOrders[Number(el.dataset.po)][el.dataset.pofield] = el.value; return; }
+  if(el.dataset.po !== undefined && state.entryForm){ state.entryForm.purchaseOrders[Number(el.dataset.po)][el.dataset.pofield] = el.value; return; }
   if(el.dataset.poItem !== undefined && state.poForm){
-    state.poForm.items[Number(el.dataset.poItem)][el.dataset.poField] = el.value;
-    if(el.dataset.poField === 'quantity') render();
+    const i = Number(el.dataset.poItem);
+    state.poForm.items[i][el.dataset.poField] = el.value;
+    if(el.dataset.poField === 'quantity') updatePoRow(el, i);
     return;
   }
-  if(el.dataset.item !== undefined){
+  if(el.dataset.item !== undefined && state.entryForm){
     const i = Number(el.dataset.item), field = el.dataset.field;
     state.entryForm.items[i][field] = el.value;
     // live-update the average cell without full re-render
@@ -1744,7 +1755,6 @@ document.addEventListener('input', e => {
 });
 document.addEventListener('change', e => {
   const el = e.target;
-  if(!state.entryForm) return;
   if(el.dataset.poItem !== undefined && state.poForm){
     const i = Number(el.dataset.poItem);
     if(el.dataset.poField === 'masterCode'){
@@ -1752,11 +1762,14 @@ document.addEventListener('change', e => {
       if(m) Object.assign(state.poForm.items[i], {masterCode:m.itemCode, itemName:m.itemName,
         itemType: PO_TYPES.includes(m.itemType) ? m.itemType : state.poForm.items[i].itemType});
       else Object.assign(state.poForm.items[i], {masterCode:'', itemName:''});
+      render();
     } else {
       state.poForm.items[i][el.dataset.poField] = el.value;
+      updatePoRow(el, i);
     }
-    render(); return;
+    return;
   }
+  if(!state.entryForm) return;
   if(el.dataset.item !== undefined && el.dataset.field === 'masterCode'){
     const m = state.castingMasters.find(x=>x.itemCode===el.value);
     const i = Number(el.dataset.item);
@@ -1766,6 +1779,32 @@ document.addEventListener('change', e => {
     state.entryForm.items[Number(el.dataset.item)][el.dataset.field] = el.value;
   }
 });
+
+/* Update one P/O row and the totals in place — no re-render, so the field
+   you are typing in keeps focus and nothing is rebuilt underneath you. */
+function updatePoRow(el, i){
+  const f = state.poForm; if(!f) return;
+  const it = f.items[i];
+  const qty = num(it.quantity);
+  const w = avgWeightFor(it.itemName);
+  const row = el.closest('tr');
+  if(row){
+    const cells = row.querySelectorAll('td.num');
+    if(cells.length >= 2)
+      cells[cells.length-1].innerHTML = '<b>' + (qty*w.avg > 0 ? fmtWt(qty*w.avg) : '—') + '</b>';
+  }
+  let totQty = 0, totWt = 0;
+  for(const line of f.items){
+    const q = num(line.quantity);
+    totQty += q; totWt += q * avgWeightFor(line.itemName).avg;
+  }
+  const cards = document.querySelectorAll('.totals-grid .weight-total-card strong');
+  if(cards.length >= 3){
+    cards[0].textContent = f.items.length;
+    cards[1].textContent = totQty;
+    cards[2].textContent = fmtWt(totWt);
+  }
+}
 
 function updateEntryTotals(){
   const f = state.entryForm; if(!f) return;
