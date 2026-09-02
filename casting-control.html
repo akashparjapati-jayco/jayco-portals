@@ -234,6 +234,16 @@ th.num{text-align:right}
 #gate code{background:rgba(17,17,17,.05);padding:2px 6px;border-radius:5px;font-family:var(--mono);font-size:12px}
 .user-chip{font-size:11.5px;color:rgba(255,255,255,.7);word-break:break-all}
 
+@media print{
+  .sidebar, .topbar, .page-head, footer, #toasts, .modal-back, .btn, .search-wrap{display:none !important}
+  body{background:#fff}
+  .content{padding:0;max-width:none}
+  .data-panel{border:1px solid #ccc;box-shadow:none;break-inside:avoid}
+  .metric-card{box-shadow:none;border:1px solid #ccc;background:#fff !important;color:#111 !important;min-height:0}
+  .metric-card::after{display:none}
+  thead th{background:#f2f2f2 !important}
+}
+
 /* ---------- responsive ---------- */
 @media(max-width:1100px){.two-col{grid-template-columns:1fr}.metrics{grid-template-columns:repeat(2,1fr)}
   .form-grid{grid-template-columns:repeat(2,1fr)}.totals-grid{grid-template-columns:repeat(2,1fr)}}
@@ -286,6 +296,7 @@ th.num{text-align:right}
       <div class="nav-label">Masters</div>
       <button class="nav-btn" data-view="pattern-master"><span><span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="8" width="18" height="12" rx="2"></rect><path d="M7 8V6a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v2"></path><path d="M7 13h10"></path></svg></span><span class="nav-txt">Pattern Master</span></span><span class="count" id="c-patmas">0</span></button>
       <button class="nav-btn" data-view="foundry-master"><span><span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18"></path><path d="M5 21V7l7-4 7 4v14"></path><path d="M9 21v-5h6v5"></path><path d="M9 10h.01M15 10h.01"></path></svg></span><span class="nav-txt">Foundry Master</span></span><span class="count" id="c-foundries">0</span></button>
+      <button class="nav-btn" data-view="pig-iron"><span><span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7h18v4a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3V7Z"></path><path d="M6 7V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v2"></path><path d="M8 14v6M16 14v6M12 14v6"></path></svg></span><span class="nav-txt">Pig Iron Bank</span></span><span class="count" id="c-pig">0</span></button>
       <button class="nav-btn" data-view="type-master"><span><span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7V5h16v2"></path><path d="M9 20h6"></path><path d="M12 5v15"></path></svg></span><span class="nav-txt">Type Master</span></span><span class="count" id="c-types">0</span></button>
       <div class="nav-sep"></div>
       <div class="nav-label">Data</div>
@@ -376,7 +387,8 @@ const COLLECTIONS = [
   'casting_types',
   'control_records',        // legacy pattern movement — kept, no longer shown
   'purchase_orders',        // POs raised on foundries
-  'foundries'               // foundry master
+  'foundries',              // foundry master
+  'pig_iron'                // pig iron receipts and issues
 ];
 
 /* Firestore collection names. Prefixed so this app can share ONE Firebase
@@ -388,7 +400,8 @@ const FS_NAME = {
   casting_types:    'casting_types',
   control_records:  'casting_pattern_movements',
   purchase_orders:  'casting_purchase_orders',
-  foundries:        'casting_foundries'
+  foundries:        'casting_foundries',
+  pig_iron:         'casting_pig_iron'
 };
 
 let app, db, auth;
@@ -462,7 +475,7 @@ const DB = FirebaseAdapter;
 const state = {
   view: 'dashboard',
   search: '',
-  challans: [], patternMasters: [], castingMasters: [], castingTypes: [], patternRecords: [], purchaseOrders: [], foundries: [],
+  challans: [], patternMasters: [], castingMasters: [], castingTypes: [], patternRecords: [], purchaseOrders: [], foundries: [], pigIron: [],
   entryForm: null, editingChallanId: null,
   poForm: null, editingPoId: null,
   saving: false
@@ -631,6 +644,7 @@ const VIEWS = {
   'generate-po':        {eyebrow:'Outward order', title:'Generate P/O', desc:'Raise a purchase order on a foundry. Approximate weight is calculated from your own challan history.'},
   'pattern-master':     {eyebrow:'Master data', title:'Pattern Master', desc:'One record per pattern: item, type, construction, core boxes and drawings.'},
   'foundry-master':     {eyebrow:'Master data', title:'Foundry Master', desc:'Suppliers you raise purchase orders on — address, GSTIN and contact details.'},
+  'pig-iron':           {eyebrow:'Raw material', title:'Pig Iron Bank', desc:'Pig iron received from clients, issued to foundries, and consumed as castings come back.'},
   'type-master':        {eyebrow:'Master data', title:'Type Master', desc:'Casting types used in every pattern, challan and purchase order.'}
 };
 
@@ -684,7 +698,7 @@ function opt(list, sel){ return list.map(v=>`<option value="${esc(v)}" ${v===sel
 
 async function loadAll(notify){
   try{
-    const [ch, pm, cm, ct, cr, po, fd] = await Promise.all(COLLECTIONS.map(c => DB.list(c)));
+    const [ch, pm, cm, ct, cr, po, fd, pi] = await Promise.all(COLLECTIONS.map(c => DB.list(c)));
     state.challans = ch.map(c => ({...c, items: c.items||[], purchaseOrders: c.purchaseOrders||[]}));
     state.patternMasters = pm;
     state.castingMasters = cm;
@@ -692,6 +706,7 @@ async function loadAll(notify){
     state.patternRecords = cr.filter(r => r.module === 'patterns');
     state.purchaseOrders = po.map(x => ({...x, items: x.items || []}));
     state.foundries = fd;
+    state.pigIron = pi;
     document.getElementById('pg-status').className = 'badge ok';
     document.getElementById('pg-status').textContent = '● Live data';
     if(notify) toast('Dashboard refreshed','success');
@@ -723,6 +738,7 @@ function render(){
   document.getElementById('c-patmas').textContent  = state.castingMasters.length;
   document.getElementById('c-types').textContent   = allTypes().length;
   document.getElementById('c-foundries').textContent = state.foundries.length;
+  document.getElementById('c-pig').textContent = state.pigIron.length;
   document.getElementById('c-pos').textContent     = state.purchaseOrders.length;
   document.getElementById('storage-mode').textContent = '◆ ' + DB.name;
   document.getElementById('foot-mode').textContent = 'Test build · ' + DB.name;
@@ -735,6 +751,7 @@ function render(){
     'generate-po': viewGeneratePO,
     'pattern-master': viewPatternMaster,
     'foundry-master': viewFoundryMaster,
+    'pig-iron': viewPigIron,
     'type-master': viewTypeMaster
   })[state.view]();
 }
@@ -861,6 +878,220 @@ function viewCastingRecords(){
 }
 
 /* ---- Pattern Management ---- */
+
+/* ---- Pig Iron Bank ----------------------------------------------------
+   Three movements:
+     Receipt  client  -> JAYCO      (+ JAYCO stock)
+     Issue    JAYCO   -> foundry    (- JAYCO stock, + that foundry's holding)
+     Casting  foundry -> JAYCO      (- that foundry's holding), taken straight
+                                     from closed challans, never keyed by hand.
+   -------------------------------------------------------------------- */
+
+function pigLedger(){
+  const rows = [];
+  for(const r of state.pigIron){
+    rows.push({
+      date: r.date, kind: r.kind,
+      party: r.kind === 'Receipt' ? (r.clientName || '—') : (r.foundryName || '—'),
+      weight: num(r.weight),
+      ref: r.kind === 'Receipt' ? (r.ewayBill || '') : [r.labourBill, r.ewayBill].filter(Boolean).join(' / '),
+      notes: r.notes || '', id: r.id, source: 'manual'
+    });
+  }
+  /* castings coming back consume the pig iron sitting at that foundry */
+  for(const c of state.challans){
+    rows.push({
+      date: c.challanDate, kind: 'Casting received',
+      party: c.foundryName || '—',
+      weight: num(c.actualTotalWeight),
+      ref: 'Challan ' + (c.challanNumber || ''),
+      notes: c.items.map(i => i.itemName).join(', '),
+      id: c.id, source: 'challan'
+    });
+  }
+  rows.sort((a, b) => String(a.date).localeCompare(String(b.date)) || String(a.kind).localeCompare(String(b.kind)));
+
+  let stock = 0;
+  for(const r of rows){
+    if(r.kind === 'Receipt') stock += r.weight;
+    else if(r.kind === 'Issue') stock -= r.weight;
+    r.stock = stock;              // pig iron physically at JAYCO
+  }
+  return rows;
+}
+
+function pigTotals(){
+  const received = state.pigIron.filter(r => r.kind === 'Receipt').reduce((a, r) => a + num(r.weight), 0);
+  const issued   = state.pigIron.filter(r => r.kind === 'Issue').reduce((a, r) => a + num(r.weight), 0);
+  const returned = state.challans.reduce((a, c) => a + num(c.actualTotalWeight), 0);
+  return {received, issued, returned, atJayco: received - issued, atFoundries: issued - returned};
+}
+
+/* how much pig iron each foundry is still holding */
+function pigByFoundry(){
+  const map = new Map();
+  const bump = (name, field, v) => {
+    if(!name) return;
+    const e = map.get(name) || {name, issued:0, returned:0};
+    e[field] += v; map.set(name, e);
+  };
+  state.pigIron.filter(r => r.kind === 'Issue').forEach(r => bump(r.foundryName, 'issued', num(r.weight)));
+  state.challans.forEach(c => bump(c.foundryName, 'returned', num(c.actualTotalWeight)));
+  return [...map.values()]
+    .map(e => ({...e, balance: e.issued - e.returned}))
+    .sort((a, b) => b.balance - a.balance);
+}
+
+function viewPigIron(){
+  const t = pigTotals();
+  const byF = pigByFoundry();
+  const ledger = pigLedger().filter(r => match(r.party, r.kind, r.ref, r.notes)).reverse();
+  const kindBadge = k => k === 'Receipt' ? '<span class="badge ok">Receipt</span>'
+                       : k === 'Issue'   ? '<span class="badge warn">Issued to foundry</span>'
+                                         : '<span class="badge neutral">Casting received</span>';
+  return `
+  <div class="metrics">
+    <div class="metric-card"><p class="lbl">Received from clients</p><p class="val">${fmtWt(t.received)}</p><p class="note">Total inward pig iron</p></div>
+    <div class="metric-card"><p class="lbl">Issued to foundries</p><p class="val">${fmtWt(t.issued)}</p><p class="note">Sent out for casting</p></div>
+    <div class="metric-card dark"><p class="lbl">In stock at JAYCO</p><p class="val">${fmtWt(t.atJayco)}</p><p class="note">Received less issued</p></div>
+    <div class="metric-card red"><p class="lbl">Lying at foundries</p><p class="val">${fmtWt(t.atFoundries)}</p><p class="note">Issued less castings returned</p></div>
+  </div>
+
+  <section class="data-panel">
+    <div class="panel-heading">
+      <div><p class="eyebrow">Balance by foundry</p><h2 class="panel-title">Pig iron with each foundry</h2>
+      <p style="margin:8px 0 0;font-size:13px;color:var(--ink-soft);line-height:1.6">Castings received on a closed challan are deducted automatically — nothing to key in.</p></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn" id="btn-pig-print">Print</button>
+        <button class="btn" id="btn-pig-pdf">PDF</button>
+        <button class="btn green" id="btn-pig-wa">WhatsApp</button>
+        <button class="btn" data-open-pig-issue="">Issue to foundry</button>
+        <button class="btn primary" data-open-pig-receipt="">＋ Receive pig iron</button>
+      </div>
+    </div>
+    <div class="table-scroll"><table>
+      <thead><tr><th>Foundry</th><th class="num">Issued</th><th class="num">Castings returned</th><th class="num">Balance lying there</th></tr></thead>
+      <tbody>${ byF.map(e=>`<tr>
+        <td><b>${esc(e.name)}</b></td>
+        <td class="num">${fmtWt(e.issued)}</td>
+        <td class="num">${fmtWt(e.returned)}</td>
+        <td class="num"><b style="color:${e.balance > 0 ? 'var(--warn)' : 'var(--ok)'}">${fmtWt(e.balance)}</b></td>
+      </tr>`).join('') || emptyRow(4,'No pig iron issued to any foundry yet.') }</tbody>
+    </table></div>
+  </section>
+
+  <section class="data-panel">
+    <div class="panel-heading">
+      <div><p class="eyebrow">Every movement</p><h2 class="panel-title">Pig iron ledger</h2></div>
+      <span class="badge neutral">${ledger.length} entries</span>
+    </div>
+    <div class="table-scroll"><table>
+      <thead><tr><th>Date</th><th>Movement</th><th>Party</th><th>Reference</th><th class="num">Weight</th><th class="num">Stock at JAYCO</th><th class="num">Change</th></tr></thead>
+      <tbody>${ ledger.map(r=>`<tr>
+        <td>${fmtDate(r.date)}</td>
+        <td>${kindBadge(r.kind)}</td>
+        <td><b>${esc(r.party)}</b>${r.notes?`<div style="font-size:11.5px;color:var(--ink-faint);max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(r.notes)}</div>`:''}</td>
+        <td class="mono">${esc(r.ref)||'—'}</td>
+        <td class="num" style="color:${r.kind==='Receipt'?'var(--ok)':(r.kind==='Issue'?'var(--bad)':'var(--ink-soft)')}">
+          ${r.kind==='Receipt'?'+':(r.kind==='Issue'?'−':'')}${fmtWt(r.weight)}</td>
+        <td class="num">${r.kind==='Casting received' ? '—' : fmtWt(r.stock)}</td>
+        <td class="num" style="white-space:nowrap">${ r.source==='challan'
+          ? '<span class="thumb-none">Auto</span>'
+          : `<button class="btn icon" data-edit-pig="${esc(r.id)}" title="Edit">✎</button>
+             <button class="btn icon danger" data-del-pig="${esc(r.id)}" title="Delete">🗑</button>` }</td>
+      </tr>`).join('') || emptyRow(7,'No pig iron movements yet. Start with Receive pig iron.') }</tbody>
+    </table></div>
+  </section>`;
+}
+
+function modalPigReceipt(id){
+  const r = state.pigIron.find(x=>String(x.id)===String(id) && x.kind==='Receipt') || {};
+  const clients = [...new Set(state.pigIron.filter(x=>x.kind==='Receipt').map(x=>x.clientName).filter(Boolean))];
+  openModal(`<form id="f-pig-receipt">
+    <div class="modal-head"><h3>${r.id?'Edit Pig Iron Receipt':'Receive Pig Iron'}</h3>
+    <p>Pig iron coming in from a client. This adds to the stock held at JAYCO.</p></div>
+    <div class="modal-body">
+      <label class="field full">Client Name *<input type="text" maxlength="160" name="clientName" list="dl-clients" value="${esc(r.clientName||'')}" placeholder="Who sent the pig iron">
+        <datalist id="dl-clients">${clients.map(x=>`<option value="${esc(x)}">`).join('')}</datalist></label>
+      <label class="field">Date *<input type="date" name="date" value="${esc(r.date||today())}"></label>
+      <label class="field">Weight (kg) *<input type="number" min="0" step="0.001" name="weight" value="${esc(r.weight ?? '')}" placeholder="0.000"></label>
+      <label class="field">E-way Bill No.<input type="text" maxlength="80" name="ewayBill" value="${esc(r.ewayBill||'')}"></label>
+      <label class="field">Invoice / Ref No.<input type="text" maxlength="80" name="refNo" value="${esc(r.refNo||'')}"></label>
+      <label class="field full">Notes<textarea maxlength="400" name="notes">${esc(r.notes||'')}</textarea></label>
+    </div>
+    <div class="modal-foot"><button type="button" class="btn" data-close>Cancel</button>
+    <button type="button" id="btn-save-pig-receipt" class="btn primary">Save receipt</button></div>
+    <input type="hidden" name="id" value="${esc(r.id||'')}"></form>`);
+}
+
+function modalPigIssue(id){
+  const r = state.pigIron.find(x=>String(x.id)===String(id) && x.kind==='Issue') || {};
+  const t = pigTotals();
+  const names = [...new Set([...state.foundries.map(f=>f.name), ...foundryOptions().all].filter(Boolean))];
+  openModal(`<form id="f-pig-issue">
+    <div class="modal-head"><h3>${r.id?'Edit Pig Iron Issue':'Issue Pig Iron to a Foundry'}</h3>
+    <p>Stock at JAYCO right now: <b>${fmtWt(t.atJayco)}</b>. Castings returned against this foundry reduce its balance automatically.</p></div>
+    <div class="modal-body">
+      <label class="field full">Foundry *<select name="foundryName">
+        <option value="">Select foundry</option>
+        ${names.map(x=>`<option value="${esc(x)}" ${x===r.foundryName?'selected':''}>${esc(x)}</option>`).join('')}
+      </select></label>
+      <label class="field">Date *<input type="date" name="date" value="${esc(r.date||today())}"></label>
+      <label class="field">Weight (kg) *<input type="number" min="0" step="0.001" name="weight" value="${esc(r.weight ?? '')}" placeholder="0.000"></label>
+      <label class="field">Labour Bill No.<input type="text" maxlength="80" name="labourBill" value="${esc(r.labourBill||'')}"></label>
+      <label class="field">E-way Bill No.<input type="text" maxlength="80" name="ewayBill" value="${esc(r.ewayBill||'')}"></label>
+      <label class="field full">Notes<textarea maxlength="400" name="notes">${esc(r.notes||'')}</textarea></label>
+    </div>
+    <div class="modal-foot"><button type="button" class="btn" data-close>Cancel</button>
+    <button type="button" id="btn-save-pig-issue" class="btn primary">Save issue</button></div>
+    <input type="hidden" name="id" value="${esc(r.id||'')}"></form>`);
+}
+
+async function savePigReceipt(){
+  const ctx = formData('f-pig-receipt'); if(!ctx) return toast('The form is no longer open.','error');
+  const {f, data} = ctx;
+  const btn = document.getElementById('btn-save-pig-receipt');
+  if(!(data.clientName||'').trim()) return fieldError(f,'clientName','Client Name is required.');
+  if(num(data.weight) <= 0)         return fieldError(f,'weight','Weight must be more than zero.');
+  btn.disabled = true; btn.textContent = 'Saving…';
+  try{
+    const rec = {kind:'Receipt', clientName:data.clientName.trim(), date:data.date||today(),
+                 weight:num(data.weight), ewayBill:(data.ewayBill||'').trim(),
+                 refNo:(data.refNo||'').trim(), notes:(data.notes||'').trim()};
+    if(data.id) await DB.update('pig_iron', data.id, rec);
+    else        await DB.create('pig_iron', rec);
+    toast(`Received ${fmtWt(rec.weight)} from ${rec.clientName}`,'success');
+    closeModal(); await loadAll();
+  }catch(err){
+    btn.disabled = false; btn.textContent = 'Save receipt';
+    toast('Could not save: ' + (err.code ? err.code + ' — ' : '') + (err.message || err),'error');
+  }
+}
+
+async function savePigIssue(){
+  const ctx = formData('f-pig-issue'); if(!ctx) return toast('The form is no longer open.','error');
+  const {f, data} = ctx;
+  const btn = document.getElementById('btn-save-pig-issue');
+  if(!(data.foundryName||'').trim()) return fieldError(f,'foundryName','Pick the foundry this is going to.');
+  const wt = num(data.weight);
+  if(wt <= 0) return fieldError(f,'weight','Weight must be more than zero.');
+  const avail = pigTotals().atJayco + (data.id ? num((state.pigIron.find(x=>String(x.id)===String(data.id))||{}).weight) : 0);
+  if(wt > avail && !confirm(`This issues ${fmtWt(wt)} but only ${fmtWt(avail)} is in stock at JAYCO.\n\nSave anyway and let the stock go negative?`)) return;
+
+  btn.disabled = true; btn.textContent = 'Saving…';
+  try{
+    const rec = {kind:'Issue', foundryName:data.foundryName.trim(), date:data.date||today(),
+                 weight:wt, labourBill:(data.labourBill||'').trim(),
+                 ewayBill:(data.ewayBill||'').trim(), notes:(data.notes||'').trim()};
+    if(data.id) await DB.update('pig_iron', data.id, rec);
+    else        await DB.create('pig_iron', rec);
+    toast(`Issued ${fmtWt(rec.weight)} to ${rec.foundryName}`,'success');
+    closeModal(); await loadAll();
+  }catch(err){
+    btn.disabled = false; btn.textContent = 'Save issue';
+    toast('Could not save: ' + (err.code ? err.code + ' — ' : '') + (err.message || err),'error');
+  }
+}
 
 /* ---- Foundry Master ---- */
 function viewFoundryMaster(){
@@ -1904,7 +2135,7 @@ async function savePattern(){
    7. EVENTS
    ========================================================================== */
 document.addEventListener('click', async (e) => {
-  const t = e.target.closest('[data-view],[data-go],[data-new-challan],[data-view-challan],[data-edit-challan],[data-del-challan],[data-open-casting],[data-del-casting],[data-open-type],[data-del-type],[data-open-foundry],[data-del-foundry],[data-close],[data-rm-po],[data-rm-item],[data-quick-add],[data-quick-add-po],[data-open-pdf],[data-row-pdf],[data-pdf-challan],[data-wa-challan],[data-edit-po],[data-del-po],[data-pdf-po],[data-wa-po],[data-rm-po-item]');
+  const t = e.target.closest('[data-view],[data-go],[data-new-challan],[data-view-challan],[data-edit-challan],[data-del-challan],[data-open-casting],[data-del-casting],[data-open-type],[data-del-type],[data-open-foundry],[data-del-foundry],[data-close],[data-rm-po],[data-rm-item],[data-quick-add],[data-quick-add-po],[data-open-pdf],[data-row-pdf],[data-open-pig-receipt],[data-open-pig-issue],[data-edit-pig],[data-del-pig],[data-pdf-challan],[data-wa-challan],[data-edit-po],[data-del-po],[data-pdf-po],[data-wa-po],[data-rm-po-item]');
   if(!t) return;
   const d = t.dataset;
 
@@ -1943,6 +2174,14 @@ document.addEventListener('click', async (e) => {
   if(d.openCasting !== undefined){ modalCasting(d.openCasting, null); return; }
   if(d.openType !== undefined){ modalType(d.openType); return; }
   if(d.openFoundry !== undefined){ modalFoundry(d.openFoundry); return; }
+  if(d.openPigReceipt !== undefined){ modalPigReceipt(d.openPigReceipt); return; }
+  if(d.openPigIssue !== undefined){ modalPigIssue(d.openPigIssue); return; }
+  if(d.editPig){
+    const r = state.pigIron.find(x=>String(x.id)===d.editPig); if(!r) return;
+    r.kind === 'Receipt' ? modalPigReceipt(r.id) : modalPigIssue(r.id);
+    return;
+  }
+  if(d.delPig){ if(confirm('Delete this pig iron entry permanently?')){ await DB.remove('pig_iron', d.delPig); toast('Entry deleted','success'); loadAll(); } return; }
   if(d.quickAdd !== undefined){ modalCasting('', Number(d.quickAdd), 'challan'); return; }
   if(d.quickAddPo !== undefined){ modalCasting('', Number(d.quickAddPo), 'po'); return; }
 
@@ -2307,12 +2546,122 @@ async function saveChallan(){
 document.addEventListener('click', e => {
   if(e.target.closest('#btn-save-type'))      saveType();
   if(e.target.closest('#btn-save-foundry'))   saveFoundry();
+  if(e.target.closest('#btn-save-pig-receipt')) savePigReceipt();
+  if(e.target.closest('#btn-save-pig-issue'))   savePigIssue();
+  if(e.target.closest('#btn-pig-pdf'))   downloadPigPdf();
+  if(e.target.closest('#btn-pig-wa'))    sharePigWhatsApp();
+  if(e.target.closest('#btn-pig-print')) window.print();
   if(e.target.closest('#btn-close-challan'))  saveChallan();
   if(e.target.closest('#btn-close-po'))       savePo('Closed');
 });
 
 /* Forms no longer submit at all — the buttons do the work */
 document.addEventListener('submit', e => e.preventDefault());
+
+/* ---- Pig iron statement ---- */
+function buildPigPdf(){
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({orientation:'portrait', unit:'pt', format:'a4'});
+  const W = doc.internal.pageSize.getWidth(), H = doc.internal.pageSize.getHeight();
+  const M = 40, CW = W - M*2, rx = W - M;
+  const INK=[26,26,26], MUT=[128,133,138], LINE=[214,218,221], RED=[206,42,38], SOFT=[247,248,249];
+  const label = (t,x,y,a) => { doc.setFont('helvetica','bold'); doc.setFontSize(6.2); doc.setTextColor(...MUT); doc.text(t,x,y,a?{align:a}:undefined); };
+
+  let y = 46, logoDrawn = false;
+  try{ const l = document.querySelector('.brand-logo');
+       if(l && l.src){ doc.addImage(l.src,'PNG',M,y-18,100,22); logoDrawn = true; } }catch(e){}
+  if(!logoDrawn){ doc.setFont('helvetica','bold'); doc.setFontSize(19); doc.setTextColor(...RED); doc.text('JAYCO', M, y); }
+
+  doc.setFont('helvetica','bold'); doc.setFontSize(11.5); doc.setTextColor(...INK);
+  doc.text(COMPANY.name, M, y + 22);
+  doc.setFont('helvetica','normal'); doc.setFontSize(7.2); doc.setTextColor(...MUT);
+  doc.text([COMPANY.addr1, COMPANY.addr3], M, y + 34, {lineHeightFactor:1.4});
+  doc.setFontSize(8); doc.setTextColor(...INK);
+  const g = COMPANY.gstin; const gw = doc.getTextWidth(g);
+  doc.text(g, rx, y - 12, {align:'right'}); label('GSTIN', rx - gw - 8, y - 12, 'right');
+  doc.text(COMPANY.phone, rx, y + 3, {align:'right'});
+
+  y += 62;
+  doc.setDrawColor(...RED); doc.setLineWidth(1.4); doc.line(M, y, W - M, y); doc.setLineWidth(0.6);
+  y += 28;
+  doc.setFont('helvetica','bold'); doc.setFontSize(16); doc.setTextColor(...INK);
+  doc.text('PIG IRON STATEMENT', M, y);
+  doc.setFont('helvetica','normal'); doc.setFontSize(8); doc.setTextColor(...MUT);
+  doc.text('As on ' + fmtDate(today()), rx, y, {align:'right'});
+
+  const t = pigTotals();
+  y += 14;
+  const bw = (CW - 30) / 4;
+  [['RECEIVED', fmtWt(t.received)], ['ISSUED', fmtWt(t.issued)],
+   ['AT JAYCO', fmtWt(t.atJayco)], ['AT FOUNDRIES', fmtWt(t.atFoundries)]]
+  .forEach(([k,v],n)=>{
+    const x = M + n*(bw+10);
+    doc.setDrawColor(...(n>1?RED:LINE)); doc.setFillColor(...SOFT);
+    doc.roundedRect(x,y,bw,44,3,3, n>1?'S':'FD');
+    label(k, x+12, y+16);
+    doc.setFont('helvetica','bold'); doc.setFontSize(11); doc.setTextColor(...(n>1?RED:INK));
+    doc.text(v, x+12, y+33);
+  });
+
+  y += 60;
+  doc.setFont('helvetica','bold'); doc.setFontSize(9); doc.setTextColor(...INK);
+  doc.text('Balance lying with each foundry', M, y);
+  doc.autoTable({
+    startY: y + 8, margin:{left:M,right:M},
+    head: [['FOUNDRY','ISSUED','CASTINGS RETURNED','BALANCE']],
+    body: pigByFoundry().map(e => [e.name, fmtWt(e.issued), fmtWt(e.returned), fmtWt(e.balance)]),
+    styles:{fontSize:8.4, cellPadding:6.5, lineColor:LINE, lineWidth:0.5, textColor:INK},
+    headStyles:{fillColor:SOFT, textColor:MUT, fontStyle:'bold', fontSize:6.4, halign:'center', cellPadding:7, lineColor:LINE, lineWidth:0.5},
+    columnStyles:{1:{halign:'right'},2:{halign:'right'},3:{halign:'right',fontStyle:'bold'}}
+  });
+
+  y = doc.lastAutoTable.finalY + 20;
+  doc.setFont('helvetica','bold'); doc.setFontSize(9); doc.setTextColor(...INK);
+  doc.text('Ledger', M, y);
+  doc.autoTable({
+    startY: y + 8, margin:{left:M,right:M},
+    head: [['DATE','MOVEMENT','PARTY','REFERENCE','WEIGHT']],
+    body: pigLedger().slice(-60).reverse().map(r => [
+      fmtDate(r.date), r.kind, r.party, r.ref || '—',
+      (r.kind==='Receipt'?'+':(r.kind==='Issue'?'-':'')) + fmtWt(r.weight)
+    ]),
+    styles:{fontSize:7.8, cellPadding:5.5, lineColor:LINE, lineWidth:0.5, textColor:INK, overflow:'linebreak'},
+    headStyles:{fillColor:SOFT, textColor:MUT, fontStyle:'bold', fontSize:6.2, halign:'center', cellPadding:6, lineColor:LINE, lineWidth:0.5},
+    columnStyles:{0:{cellWidth:62},1:{cellWidth:84},3:{cellWidth:96},4:{halign:'right',fontStyle:'bold'}}
+  });
+
+  const pages = doc.internal.getNumberOfPages();
+  for(let i = 1; i <= pages; i++){
+    doc.setPage(i);
+    doc.setDrawColor(...LINE); doc.line(M, H-40, W-M, H-40);
+    doc.setFont('helvetica','normal'); doc.setFontSize(6.4); doc.setTextColor(...MUT);
+    doc.text('Pig iron statement — castings returned are deducted automatically from closed challans.', M, H-27);
+    doc.text('Page ' + i + ' of ' + pages, rx, H-27, {align:'right'});
+  }
+  return doc;
+}
+
+function downloadPigPdf(){
+  try{ buildPigPdf().save('JAYCO-Pig-Iron-Statement-' + today() + '.pdf');
+       toast('Pig iron statement downloaded','success'); }
+  catch(e){ toast('The PDF could not be created: ' + e.message,'error'); }
+}
+
+function sharePigWhatsApp(){
+  const t = pigTotals();
+  const lines = [
+    '*JAYCO ENGINEERING INDIA*','*Pig Iron Statement*', 'As on ' + fmtDate(today()), '',
+    `Received from clients: ${fmtWt(t.received)}`,
+    `Issued to foundries: ${fmtWt(t.issued)}`,
+    `In stock at JAYCO: ${fmtWt(t.atJayco)}`,
+    `Lying at foundries: ${fmtWt(t.atFoundries)}`,
+    '', '*Balance by foundry*',
+    ...pigByFoundry().map(e => `${e.name}: ${fmtWt(e.balance)} (issued ${fmtWt(e.issued)}, returned ${fmtWt(e.returned)})`),
+    '', 'Castings returned are deducted automatically from closed challans.'
+  ];
+  window.open('https://wa.me/?text=' + encodeURIComponent(lines.join('\n')), '_blank', 'noopener');
+  toast('WhatsApp opened. Attach the PDF if you need the full ledger.','info');
+}
 
 /* ==========================================================================
    7b. EXCEL IMPORT — Pattern Master
