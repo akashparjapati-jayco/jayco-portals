@@ -1055,12 +1055,12 @@ function modalCasting(id, quickIndex, quickTarget){
     <div class="modal-head"><h3>${isEdit?'Edit Pattern': quickIndex!=null ? 'Save New Pattern':'Add Pattern'}</h3>
     <p>${quickIndex!=null?'Save this to Pattern Master and select it on the line you were filling.':'One record per pattern — item, type, construction, core boxes and where it is right now.'}</p></div>
     <div class="modal-body">
-      <label class="field full">Pattern Name *<input type="text" required maxlength="180" name="itemName" value="${esc(r.itemName||'')}" placeholder="e.g. SNH 520-617 housing"></label>
-      <label class="field">Pattern Type *<select name="itemType" required>${!typeOptions.includes(cur)&&cur?`<option value="${esc(cur)}" selected>${esc(cur)}</option>`:''}${opt(typeOptions,cur)}</select></label>
-      <label class="field">Pattern Material *<select name="patternMaterial" required>${opt(PATTERN_MATERIALS, r.patternMaterial||'Wooden')}</select></label>
-      <label class="field">Pattern Construction *<select name="patternConstruction" required>${opt(PATTERN_CONSTRUCTION, r.patternConstruction||'Split Type')}</select></label>
-      <label class="field">Core Box *<select name="coreBox" id="sel-corebox" required>${opt(CORE_OPTIONS, r.coreBox||'Without core')}</select></label>
-      <label class="field">Number of Cores *<input type="number" required min="0" max="20" name="coreCount" id="inp-corecount" value="${esc(r.coreCount ?? 0)}" ${ (r.coreBox||'Without core')==='Without core' ? 'readonly' : '' }></label>
+      <label class="field full">Pattern Name *<input type="text" maxlength="180" name="itemName" value="${esc(r.itemName||'')}" placeholder="e.g. SNH 520-617 housing"></label>
+      <label class="field">Pattern Type *<select name="itemType">${!typeOptions.includes(cur)&&cur?`<option value="${esc(cur)}" selected>${esc(cur)}</option>`:''}${opt(typeOptions,cur)}</select></label>
+      <label class="field">Pattern Material *<select name="patternMaterial">${opt(PATTERN_MATERIALS, r.patternMaterial||'Wooden')}</select></label>
+      <label class="field">Pattern Construction *<select name="patternConstruction">${opt(PATTERN_CONSTRUCTION, r.patternConstruction||'Split Type')}</select></label>
+      <label class="field">Core Box *<select name="coreBox" id="sel-corebox">${opt(CORE_OPTIONS, r.coreBox||'Without core')}</select></label>
+      <label class="field">Number of Cores *<input type="number" min="0" max="20" name="coreCount" id="inp-corecount" value="${esc(r.coreCount ?? 0)}" ${ (r.coreBox||'Without core')==='Without core' ? 'readonly' : '' }></label>
       <label class="field">Total Sets<input type="number" min="0" max="999" name="totalSets" value="${esc(r.totalSets ?? 1)}"></label>
       <label class="field full">Pattern Group<input type="text" maxlength="80" name="patternGroup" list="dl-pg" value="${esc(r.patternGroup || r.patternCode || '')}" placeholder="e.g. SNH 500 series">
         <datalist id="dl-pg">${[...new Set(state.castingMasters.map(m=>m.patternGroup).filter(Boolean))].map(x=>`<option value="${esc(x)}">`).join('')}</datalist></label>
@@ -1096,7 +1096,7 @@ function modalCasting(id, quickIndex, quickTarget){
       <p class="full" style="margin:0;font-size:12px;color:var(--ink-faint);line-height:1.6">The whole record must fit in 1 MB, so the PDF is capped near 400 KB and the image is compressed automatically. Larger drawings belong on Drive.</p>
     </div>
     <div class="modal-foot"><button type="button" class="btn" data-close>Cancel</button>
-    <button type="submit" class="btn primary">${quickIndex!=null?'Save &amp; select':'Save pattern'}</button></div>
+    <button type="button" id="btn-save-pattern" class="btn primary">${quickIndex!=null?'Save &amp; select':'Save pattern'}</button></div>
     <input type="hidden" name="id" value="${esc(r.id||'')}">
     <input type="hidden" name="quickIndex" value="${quickIndex??''}">
     <input type="hidden" name="quickTarget" value="${quickTarget||'challan'}"></form>`);
@@ -1468,6 +1468,75 @@ async function savePo(status){
   }catch(err){ toast('Could not save: ' + err.message,'error'); }
 }
 
+/* Pattern Master save. Called straight from the button, so nothing the browser
+   does with native form validation can stop it silently. */
+async function savePattern(){
+  const f = document.getElementById('f-casting');
+  if(!f) return toast('The form is no longer open.','error');
+  const data = Object.fromEntries(new FormData(f).entries());
+  const btn = document.getElementById('btn-save-pattern');
+
+  const name = (data.itemName || '').trim();
+  if(!name){
+    const el = f.querySelector('[name=itemName]');
+    try{
+      el.scrollIntoView({behavior:'smooth', block:'center'});
+      el.focus({preventScroll:true});
+      el.style.borderColor = 'var(--orange)';
+      el.style.boxShadow = '0 0 0 3px rgba(229,50,45,.18)';
+      el.addEventListener('input', () => { el.style.borderColor=''; el.style.boxShadow=''; }, {once:true});
+    }catch{}
+    return toast('Pattern Name is required.','error');
+  }
+
+  const c = {
+    itemName: name,
+    itemType: data.itemType || DEFAULT_TYPES[0],
+    patternMaterial: data.patternMaterial || PATTERN_MATERIALS[0],
+    patternConstruction: data.patternConstruction || PATTERN_CONSTRUCTION[0],
+    coreBox: data.coreBox || 'Without core',
+    coreCount: (data.coreBox === 'Without core') ? 0 : num(data.coreCount),
+    totalSets: num(data.totalSets),
+    patternGroup: (data.patternGroup || '').trim(),
+    drawingPdf: pendingAttach.drawingPdf || '',
+    drawingPdfName: pendingAttach.drawingPdfName || '',
+    patternPhoto: pendingAttach.patternPhoto || '',
+    material: 'Cast Iron', status: 'Active', averageWeight: 0
+  };
+
+  const bytes = c.drawingPdf.length + c.patternPhoto.length;
+  if(bytes > DOC_BUDGET)
+    return toast('The PDF and image together are ' + Math.round(bytes/1024) + ' KB. One record cannot exceed 1 MB.','error');
+
+  btn.disabled = true; btn.textContent = 'Saving…';
+  try{
+    let saved;
+    if(data.id){
+      saved = await DB.update('casting_masters', data.id, c);
+    } else {
+      c.itemCode = 'CAST-' + Math.random().toString(36).slice(2,10).toUpperCase();
+      saved = await DB.create('casting_masters', c);
+    }
+
+    if(data.quickIndex !== '' && data.quickTarget === 'po' && state.poForm){
+      Object.assign(state.poForm.items[Number(data.quickIndex)],
+        {masterCode:saved.itemCode, itemName:saved.itemName, itemType:saved.itemType});
+      toast('Pattern saved and selected on the P/O','success');
+    } else if(data.quickIndex !== '' && state.entryForm){
+      Object.assign(state.entryForm.items[Number(data.quickIndex)],
+        {masterCode:saved.itemCode, itemName:saved.itemName, itemType:saved.itemType});
+      toast('Pattern saved and selected on the challan','success');
+    } else {
+      toast(data.id ? 'Pattern updated' : 'Pattern saved: ' + saved.itemName, 'success');
+    }
+    closeModal();
+    await loadAll();
+  }catch(err){
+    btn.disabled = false; btn.textContent = 'Save pattern';
+    toast('Could not save: ' + (err.code ? err.code + ' — ' : '') + (err.message || err), 'error');
+  }
+}
+
 /* ==========================================================================
    7. EVENTS
    ========================================================================== */
@@ -1545,8 +1614,7 @@ document.addEventListener('invalid', e => {
   const el = e.target;
   if(!el.closest('.modal')) return;
   e.preventDefault();
-  el.scrollIntoView({behavior:'smooth', block:'center'});
-  el.focus({preventScroll:true});
+  try{ el.scrollIntoView({behavior:'smooth', block:'center'}); el.focus({preventScroll:true}); }catch{}
   el.style.borderColor = 'var(--orange)';
   el.style.boxShadow = '0 0 0 3px rgba(229,50,45,.18)';
   el.addEventListener('input', () => { el.style.borderColor = ''; el.style.boxShadow = ''; }, {once:true});
@@ -1629,6 +1697,16 @@ document.addEventListener('click', e => {
 });
 document.getElementById('lightbox').addEventListener('click', () =>
   document.getElementById('lightbox').classList.remove('open'));
+
+/* Pattern Master save button */
+document.addEventListener('click', e => {
+  if(e.target.closest('#btn-save-pattern')) savePattern();
+});
+document.addEventListener('keydown', e => {
+  if(e.key === 'Enter' && e.target.closest('#f-casting') && e.target.tagName !== 'TEXTAREA'){
+    e.preventDefault(); savePattern();
+  }
+});
 
 /* modal backdrop click */
 document.getElementById('modal-back').addEventListener('click', e => { if(e.target.id==='modal-back') closeModal(); });
@@ -1741,30 +1819,6 @@ document.addEventListener('submit', async e => {
     }
 
     if(f.id === 'po-form'){ await savePo('Closed'); return; }
-
-    if(f.id === 'f-casting'){
-      const c = {itemName:data.itemName.trim(), itemType:data.itemType,
-                 patternMaterial:data.patternMaterial, patternConstruction:data.patternConstruction,
-                 coreBox:data.coreBox, coreCount: data.coreBox==='Without core' ? 0 : num(data.coreCount),
-                 totalSets:num(data.totalSets), patternGroup:data.patternGroup.trim(),
-                 drawingPdf:pendingAttach.drawingPdf||'', drawingPdfName:pendingAttach.drawingPdfName||'',
-                 patternPhoto:pendingAttach.patternPhoto||'',
-                 material:'Cast Iron', status:'Active', averageWeight:0};
-      const bytes = (c.drawingPdf.length + c.patternPhoto.length);
-      if(bytes > DOC_BUDGET) return toast('The PDF and image together are ' + Math.round(bytes/1024) + ' KB. A record cannot exceed 1 MB — remove one or use a smaller file.','error');
-      let saved;
-      if(data.id){ saved = await DB.update('casting_masters', data.id, c); }
-      else { c.itemCode = 'CAST-' + Math.random().toString(36).slice(2,10).toUpperCase(); saved = await DB.create('casting_masters', c); }
-      if(data.quickIndex !== '' && data.quickTarget === 'po' && state.poForm){
-        const i = Number(data.quickIndex);
-        Object.assign(state.poForm.items[i], {masterCode:saved.itemCode, itemName:saved.itemName, itemType:saved.itemType});
-        toast('Pattern saved and selected on the P/O','success');
-      } else if(data.quickIndex !== '' && state.entryForm){
-        const i = Number(data.quickIndex);
-        Object.assign(state.entryForm.items[i], {masterCode:saved.itemCode, itemName:saved.itemName, itemType:saved.itemType});
-        toast('Pattern saved and selected on the challan','success');
-      } else toast(data.id?'Pattern updated':'Pattern added to master','success');
-    }
 
     if(f.id === 'f-type'){
       const t = {typeName:data.typeName.trim(), status:data.status, notes:data.notes.trim()};
