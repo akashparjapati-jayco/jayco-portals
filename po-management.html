@@ -431,6 +431,7 @@ tr.clickable:hover td{background:var(--blue-100)!important;}
       <input id="custSearch" placeholder="Search customer, item, or PO no…"/>
       <button class="btn btn-primary" id="addCustBtn">+ Add customer</button>
       <button class="btn btn-secondary" id="exportCustomersBtn">Export to Excel</button>
+      <button class="btn btn-secondary" id="exportPendingDetailsBtn">Export Pending Details</button>
     </div>
     <div class="card"><div class="table-wrap"><table id="custTable"></table></div></div>
   </section>
@@ -629,7 +630,10 @@ service cloud.firestore {
         <h3 id="lineListModalTitle" style="margin-bottom:2px;"></h3>
         <div class="hint" id="lineListModalSubtitle"></div>
       </div>
-      <button class="btn btn-secondary" id="lineListModalClose">Close</button>
+      <div style="display:flex;gap:8px;">
+        <button class="btn btn-secondary" id="lineListModalExport">Export to Excel</button>
+        <button class="btn btn-secondary" id="lineListModalClose">Close</button>
+      </div>
     </div>
     <div class="table-wrap" style="margin-top:14px;max-height:60vh;overflow-y:auto;">
       <table id="lineListModalTable"></table>
@@ -1666,7 +1670,11 @@ function renderTrendReport(){
 }
 
 /* ---- Drill-down modals (shared across Dashboard + Reports) ---- */
+let lastLineListRows = [];
+let lastLineListTitle = 'Pending Details';
 function openLineListModal(title, subtitle, rows){
+  lastLineListRows = rows;
+  lastLineListTitle = title;
   document.getElementById('lineListModalTitle').textContent = title;
   document.getElementById('lineListModalSubtitle').textContent = subtitle || '';
   document.getElementById('lineListModalTable').innerHTML =
@@ -1691,6 +1699,14 @@ function openLineListModal(title, subtitle, rows){
   document.getElementById('lineListModalBg').classList.add('show');
 }
 document.getElementById('lineListModalClose').onclick = ()=> document.getElementById('lineListModalBg').classList.remove('show');
+document.getElementById('lineListModalExport').onclick = ()=>{
+  const headers = ['PO Date','Customer','PO No','Item','Material','Ordered','Despatched','Pending','Status'];
+  const rows = lastLineListRows.map(i=>[
+    fmtDate(i.poDate), i.customerName, i.poNo, i.itemCode, i.material||'',
+    i.orderedQty, i.despatchedQty, i.pendingQty, statusFor(i)
+  ]);
+  exportRowsToExcel(headers, rows, lastLineListTitle.replace(/[^\w -]+/g,'').trim() || 'Pending Details');
+};
 
 async function openDespatchHistoryModal(item){
   document.getElementById('despHistModalTitle').textContent = `${item.customerName} — PO ${item.poNo} — ${item.itemCode}`;
@@ -1854,6 +1870,19 @@ document.getElementById('exportCustomersBtn').onclick = ()=>{
     return [c.name, c.isExclusive ? 'Exclusive' : 'Standard', openLines.length, pending];
   });
   exportRowsToExcel(headers, rows, 'Customers');
+};
+
+document.getElementById('exportPendingDetailsBtn').onclick = ()=>{
+  const custIds = new Set(lastCustomersList.map(c=>c.id));
+  const rows = PO_ITEMS
+    .filter(i=>i.pendingQty>0 && custIds.has(i.customerId))
+    .sort((a,b)=> a.customerName.localeCompare(b.customerName) || new Date(b.poDate) - new Date(a.poDate));
+  const headers = ['PO Date','Customer','PO No','Item','Material','Ordered','Despatched','Pending','Status'];
+  const data = rows.map(i=>[
+    fmtDate(i.poDate), i.customerName, i.poNo, i.itemCode, i.material||'',
+    i.orderedQty, i.despatchedQty, i.pendingQty, statusFor(i)
+  ]);
+  exportRowsToExcel(headers, data, 'Pending Details');
 };
 
 let editingCustomerId = null;
