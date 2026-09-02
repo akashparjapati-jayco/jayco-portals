@@ -281,12 +281,11 @@ th.num{text-align:right}
       <div class="nav-label">Operations</div>
       <button class="nav-btn" data-view="dashboard"><span><span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9" rx="1.5"></rect><rect x="14" y="3" width="7" height="5" rx="1.5"></rect><rect x="14" y="12" width="7" height="9" rx="1.5"></rect><rect x="3" y="16" width="7" height="5" rx="1.5"></rect></svg></span><span class="nav-txt">Dashboard</span></span></button>
       <button class="nav-btn" data-view="casting-records"><span><span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 20h18"></path><path d="M6 20V9l6-4 6 4v11"></path><path d="M10 20v-5h4v5"></path></svg></span><span class="nav-txt">Casting Management</span></span><span class="count" id="c-challans">0</span></button>
-      <button class="nav-btn" data-view="pattern-management"><span><span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><circle cx="12" cy="12" r="9"></circle><path d="M12 3v3M12 18v3M3 12h3M18 12h3"></path></svg></span><span class="nav-txt">Pattern Management</span></span><span class="count" id="c-patrec">0</span></button>
-      <button class="nav-btn" data-view="insert-casting"><span><span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"></path></svg></span><span class="nav-txt">Insert Casting Details</span></span></button>
       <div class="nav-sep"></div>
       <button class="nav-btn" data-view="generate-po"><span><span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3h6a1 1 0 0 1 1 1v1H8V4a1 1 0 0 1 1-1Z"></path><rect x="5" y="5" width="14" height="16" rx="2"></rect><path d="M9 12h6M9 16h6M9 8h2"></path></svg></span><span class="nav-txt">Generate P/O</span></span><span class="count" id="c-pos">0</span></button>
       <div class="nav-label">Masters</div>
       <button class="nav-btn" data-view="pattern-master"><span><span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="8" width="18" height="12" rx="2"></rect><path d="M7 8V6a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v2"></path><path d="M7 13h10"></path></svg></span><span class="nav-txt">Pattern Master</span></span><span class="count" id="c-patmas">0</span></button>
+      <button class="nav-btn" data-view="foundry-master"><span><span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18"></path><path d="M5 21V7l7-4 7 4v14"></path><path d="M9 21v-5h6v5"></path><path d="M9 10h.01M15 10h.01"></path></svg></span><span class="nav-txt">Foundry Master</span></span><span class="count" id="c-foundries">0</span></button>
       <button class="nav-btn" data-view="type-master"><span><span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7V5h16v2"></path><path d="M9 20h6"></path><path d="M12 5v15"></path></svg></span><span class="nav-txt">Type Master</span></span><span class="count" id="c-types">0</span></button>
       <div class="nav-sep"></div>
       <div class="nav-label">Data</div>
@@ -375,8 +374,9 @@ const COLLECTIONS = [
   'pattern_masters',
   'casting_masters',
   'casting_types',
-  'control_records',        // pattern movement (module: "patterns")
-  'purchase_orders'         // POs raised on foundries
+  'control_records',        // legacy pattern movement — kept, no longer shown
+  'purchase_orders',        // POs raised on foundries
+  'foundries'               // foundry master
 ];
 
 /* Firestore collection names. Prefixed so this app can share ONE Firebase
@@ -387,7 +387,8 @@ const FS_NAME = {
   casting_masters:  'casting_item_masters',
   casting_types:    'casting_types',
   control_records:  'casting_pattern_movements',
-  purchase_orders:  'casting_purchase_orders'
+  purchase_orders:  'casting_purchase_orders',
+  foundries:        'casting_foundries'
 };
 
 let app, db, auth;
@@ -461,7 +462,7 @@ const DB = FirebaseAdapter;
 const state = {
   view: 'dashboard',
   search: '',
-  challans: [], patternMasters: [], castingMasters: [], castingTypes: [], patternRecords: [], purchaseOrders: [],
+  challans: [], patternMasters: [], castingMasters: [], castingTypes: [], patternRecords: [], purchaseOrders: [], foundries: [],
   entryForm: null, editingChallanId: null,
   poForm: null, editingPoId: null,
   saving: false
@@ -494,11 +495,64 @@ const PATTERN_MATERIALS = ['Wooden','Aluminium'];
 /* Foundries you have raised a P/O on come first — a challan almost always
    arrives against an order. Foundries seen only on past challans follow. */
 function foundryOptions(){
-  const fromPo = [...new Set(state.purchaseOrders.map(p => p.foundryName).filter(Boolean))];
+  const master = [...new Set(state.foundries.map(f => f.name).filter(Boolean))];
+  const fromPo = [...new Set(state.purchaseOrders.map(p => p.foundryName).filter(Boolean))]
+                   .filter(n => !master.includes(n));
   const fromCh = [...new Set(state.challans.map(c => c.foundryName).filter(Boolean))]
-                   .filter(n => !fromPo.includes(n));
-  return {fromPo, fromCh, all: [...fromPo, ...fromCh]};
+                   .filter(n => !master.includes(n) && !fromPo.includes(n));
+  return {master, fromPo, fromCh, all: [...master, ...fromPo, ...fromCh]};
 }
+function foundryRecord(name){ return state.foundries.find(f => f.name === name) || null; }
+/* ---- P/O fulfilment ----------------------------------------------------
+   A challan lists the JAYCO P/O numbers it was received against. Matching a
+   challan line to a P/O line on P/O number + item + type gives the quantity
+   received so far, and therefore what is still pending.                    */
+function receivedFor(poNumber, itemName, itemType){
+  let qty = 0, wt = 0;
+  for(const c of state.challans){
+    const nums = getPOs(c).map(x => String(x.purchaseOrderNumber).trim());
+    if(!nums.includes(String(poNumber).trim())) continue;
+    for(const i of c.items){
+      if(i.itemName === itemName && i.itemType === itemType){
+        qty += num(i.quantity); wt += num(i.actualTotalWeight);
+      }
+    }
+  }
+  return {qty, wt};
+}
+
+function poProgress(po){
+  const lines = po.items.map(it => {
+    const got = receivedFor(po.poNumber, it.itemName, it.itemType);
+    const ordered = num(it.quantity);
+    const received = Math.min(got.qty, ordered * 5);   // guard against runaway data
+    return {...it, ordered, received, pending: Math.max(0, ordered - received), receivedWeight: got.wt};
+  });
+  const ordered  = lines.reduce((a,l) => a + l.ordered, 0);
+  const received = lines.reduce((a,l) => a + Math.min(l.received, l.ordered), 0);
+  const pending  = Math.max(0, ordered - received);
+  const pendingWeight = lines.reduce((a,l) => a + l.pending * num(l.avgWeight), 0);
+  const stage = received === 0 ? 'Open' : (pending === 0 ? 'Completed' : 'Partially received');
+  const pct = ordered > 0 ? Math.round(received / ordered * 100) : 0;
+  return {lines, ordered, received, pending, pendingWeight, stage, pct};
+}
+
+function stageBadge(stage){
+  const cls = stage === 'Completed' ? 'ok' : (stage === 'Open' ? 'neutral' : 'warn');
+  return `<span class="badge ${cls}">${esc(stage)}</span>`;
+}
+
+/* After a challan is saved, any P/O it satisfies is closed automatically. */
+async function reconcilePos(poNumbers){
+  const touched = state.purchaseOrders.filter(p => poNumbers.includes(String(p.poNumber).trim()));
+  for(const po of touched){
+    const pr = poProgress(po);
+    if(pr.stage !== (po.status || 'Open')){
+      try{ await DB.update('purchase_orders', po.id, {status: pr.stage}); }catch(e){}
+    }
+  }
+}
+
 /* Open P/Os for one foundry, newest first */
 function posForFoundry(name){
   return state.purchaseOrders
@@ -573,11 +627,11 @@ function allTypes(){
 const VIEWS = {
   'dashboard':          {eyebrow:'Operations overview', title:'Dashboard', desc:'Casting receipts, pattern position and master-data readiness.'},
   'casting-records':    {eyebrow:'Closed challans', title:'Casting Management', desc:'Review closed foundry challans, items and weight differences.'},
-  'pattern-management': {eyebrow:'Pattern movement', title:'Pattern Management', desc:'Track every pattern set at JAYCO or with a foundry.'},
   'insert-casting':     {eyebrow:'Goods receipt entry', title:'Insert Casting Details', desc:'Enter one foundry challan with one or more casting items.'},
   'generate-po':        {eyebrow:'Outward order', title:'Generate P/O', desc:'Raise a purchase order on a foundry. Approximate weight is calculated from your own challan history.'},
-  'pattern-master':     {eyebrow:'Master data', title:'Pattern Master', desc:'One record per pattern: item, type, construction, core boxes and current location.'},
-  'type-master':        {eyebrow:'Master data', title:'Type Master', desc:'Create or edit the casting types used throughout the system.'}
+  'pattern-master':     {eyebrow:'Master data', title:'Pattern Master', desc:'One record per pattern: item, type, construction, core boxes and drawings.'},
+  'foundry-master':     {eyebrow:'Master data', title:'Foundry Master', desc:'Suppliers you raise purchase orders on — address, GSTIN and contact details.'},
+  'type-master':        {eyebrow:'Master data', title:'Type Master', desc:'Casting types used in every pattern, challan and purchase order.'}
 };
 
 function uid(){ return 'id-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2,8); }
@@ -630,13 +684,14 @@ function opt(list, sel){ return list.map(v=>`<option value="${esc(v)}" ${v===sel
 
 async function loadAll(notify){
   try{
-    const [ch, pm, cm, ct, cr, po] = await Promise.all(COLLECTIONS.map(c => DB.list(c)));
+    const [ch, pm, cm, ct, cr, po, fd] = await Promise.all(COLLECTIONS.map(c => DB.list(c)));
     state.challans = ch.map(c => ({...c, items: c.items||[], purchaseOrders: c.purchaseOrders||[]}));
     state.patternMasters = pm;
     state.castingMasters = cm;
     state.castingTypes = ct;
     state.patternRecords = cr.filter(r => r.module === 'patterns');
     state.purchaseOrders = po.map(x => ({...x, items: x.items || []}));
+    state.foundries = fd;
     document.getElementById('pg-status').className = 'badge ok';
     document.getElementById('pg-status').textContent = '● Live data';
     if(notify) toast('Dashboard refreshed','success');
@@ -665,9 +720,9 @@ function render(){
   document.querySelectorAll('.nav-btn[data-view]').forEach(b =>
     b.classList.toggle('active', b.dataset.view === state.view));
   document.getElementById('c-challans').textContent = state.challans.length;
-  document.getElementById('c-patrec').textContent  = state.patternRecords.length;
   document.getElementById('c-patmas').textContent  = state.castingMasters.length;
   document.getElementById('c-types').textContent   = allTypes().length;
+  document.getElementById('c-foundries').textContent = state.foundries.length;
   document.getElementById('c-pos').textContent     = state.purchaseOrders.length;
   document.getElementById('storage-mode').textContent = '◆ ' + DB.name;
   document.getElementById('foot-mode').textContent = 'Test build · ' + DB.name;
@@ -676,10 +731,10 @@ function render(){
   host.innerHTML = ({
     'dashboard': viewDashboard,
     'casting-records': viewCastingRecords,
-    'pattern-management': viewPatternManagement,
     'insert-casting': viewInsertCasting,
     'generate-po': viewGeneratePO,
     'pattern-master': viewPatternMaster,
+    'foundry-master': viewFoundryMaster,
     'type-master': viewTypeMaster
   })[state.view]();
 }
@@ -690,17 +745,57 @@ function emptyRow(cols, msg){ return `<tr class="empty-row"><td colspan="${cols}
 
 /* ---- Dashboard ---- */
 function viewDashboard(){
-  const totalQty = state.challans.reduce((s,c)=>s+num(c.totalQuantity),0);
-  const totalFW  = state.challans.reduce((s,c)=>s+num(c.foundryTotalWeight),0);
-  const totalAW  = state.challans.reduce((s,c)=>s+num(c.actualTotalWeight),0);
-  const recent = state.challans.slice(0,6);
+  const progs = state.purchaseOrders.map(p => ({po:p, pr:poProgress(p)}));
+  const open    = progs.filter(x => x.pr.stage === 'Open');
+  const partial = progs.filter(x => x.pr.stage === 'Partially received');
+  const done    = progs.filter(x => x.pr.stage === 'Completed');
+  const pendingQty = progs.reduce((a,x) => a + x.pr.pending, 0);
+  const pendingWt  = progs.reduce((a,x) => a + x.pr.pendingWeight, 0);
+  const receivedQty = state.challans.reduce((a,c) => a + num(c.totalQuantity), 0);
+  const receivedWt  = state.challans.reduce((a,c) => a + num(c.actualTotalWeight), 0);
+
+  const stageRow = (title, list, tone) => `
+    <div class="data-panel" style="margin-bottom:0">
+      <div class="panel-heading" style="padding:18px 22px">
+        <div><p class="eyebrow">${esc(title)}</p>
+        <h2 class="panel-title" style="font-size:15px">${list.length} purchase order${list.length===1?'':'s'}</h2></div>
+        <span class="badge ${tone}">${list.reduce((a,x)=>a+x.pr.pending,0)} pcs pending</span>
+      </div>
+      <div class="table-scroll"><table>
+        <thead><tr><th>P/O No.</th><th>Foundry</th><th class="num">Ordered</th><th class="num">Received</th><th class="num">Pending</th><th>Progress</th></tr></thead>
+        <tbody>${ list.slice(0,6).map(({po,pr})=>`<tr>
+          <td class="mono">${esc(po.poNumber)}</td>
+          <td>${esc(po.foundryName)}</td>
+          <td class="num">${pr.ordered}</td>
+          <td class="num">${pr.received}</td>
+          <td class="num"><b>${pr.pending}</b></td>
+          <td style="min-width:120px"><div class="progress"><i style="width:${pr.pct}%"></i></div></td>
+        </tr>`).join('') || emptyRow(6,'Nothing at this stage.') }</tbody>
+      </table></div>
+      ${ list.length > 6 ? `<div style="padding:12px 22px;border-top:1px solid var(--line);font-size:12px;color:var(--ink-faint)">and ${list.length-6} more</div>` : '' }
+    </div>`;
+
   return `
   <div class="metrics">
-    <div class="metric-card dark"><p class="lbl">Closed challans</p><p class="val">${state.challans.length}</p><p class="note">${totalQty} total pieces</p></div>
-    <div class="metric-card red"><p class="lbl">Total quantity</p><p class="val">${totalQty}</p><p class="note">Across closed challans</p></div>
-    <div class="metric-card"><p class="lbl">Foundry weight</p><p class="val">${fmtWt(totalFW)}</p><p class="note">Declared total weight</p></div>
-    <div class="metric-card"><p class="lbl">JAYCO weight</p><p class="val">${fmtWt(totalAW)}</p><p class="note">Verified total weight</p></div>
+    <div class="metric-card dark"><p class="lbl">Open orders</p><p class="val">${open.length}</p><p class="note">Nothing received yet</p></div>
+    <div class="metric-card red"><p class="lbl">Pending material</p><p class="val">${pendingQty}</p><p class="note">${fmtWt(pendingWt)} approx. still due</p></div>
+    <div class="metric-card"><p class="lbl">Partially received</p><p class="val">${partial.length}</p><p class="note">Orders part-delivered</p></div>
+    <div class="metric-card"><p class="lbl">Completed</p><p class="val">${done.length}</p><p class="note">Fully received and closed</p></div>
   </div>
+
+  <div class="metrics" style="grid-template-columns:repeat(4,1fr)">
+    <div class="metric-card"><p class="lbl">Challans received</p><p class="val">${state.challans.length}</p><p class="note">${receivedQty} pieces inward</p></div>
+    <div class="metric-card"><p class="lbl">JAYCO weight received</p><p class="val" style="font-size:22px">${fmtWt(receivedWt)}</p><p class="note">Verified at JAYCO</p></div>
+    <div class="metric-card"><p class="lbl">Patterns</p><p class="val">${state.castingMasters.length}</p><p class="note">In Pattern Master</p></div>
+    <div class="metric-card"><p class="lbl">Foundries</p><p class="val">${state.foundries.length}</p><p class="note">In Foundry Master</p></div>
+  </div>
+
+  <div style="display:grid;gap:22px;margin-bottom:22px">
+    ${stageRow('Stage 1 — ordered, awaiting material', open, 'neutral')}
+    ${stageRow('Stage 2 — part received', partial, 'warn')}
+    ${stageRow('Stage 3 — fully received', done, 'ok')}
+  </div>
+
   <div class="two-col">
     <div class="data-panel">
       <div class="panel-heading">
@@ -709,22 +804,20 @@ function viewDashboard(){
       </div>
       <div class="table-scroll"><table>
         <thead><tr><th>Challan No.</th><th>Date</th><th>Foundry</th><th class="num">Items</th><th class="num">JAYCO Weight</th></tr></thead>
-        <tbody>${ recent.map(c=>`<tr>
+        <tbody>${ state.challans.slice(0,6).map(c=>`<tr>
           <td class="mono">${esc(c.challanNumber)}</td><td>${fmtDate(c.challanDate)}</td>
           <td>${esc(c.foundryName)}</td><td class="num">${c.items.length}</td>
           <td class="num">${fmtWt(c.actualTotalWeight)}</td></tr>`).join('')
-          || emptyRow(5,'No closed casting challans yet.') }</tbody>
+          || emptyRow(5,'No challans received yet.') }</tbody>
       </table></div>
     </div>
-    <div class="data-panel" style="padding:1.25rem">
-      <p class="eyebrow">System readiness</p>
-      <h2 class="panel-title" style="margin-bottom:1.25rem">Master completion</h2>
-      <div style="margin-bottom:1.4rem">
-        <div style="display:flex;justify-content:space-between;font-size:.78rem"><b>Pattern master</b><span class="mono">${state.castingMasters.length}</span></div>
-        <div class="progress dark"><i style="width:${Math.min(100,state.castingMasters.length*10)}%"></i></div>
-      </div>
-      <div style="display:grid;gap:.5rem">
-        <button class="btn primary" data-new-challan style="justify-content:flex-start">＋ Insert casting details</button>
+    <div class="data-panel" style="padding:22px">
+      <p class="eyebrow">Quick actions</p>
+      <h2 class="panel-title" style="margin-bottom:18px">Start something</h2>
+      <div style="display:grid;gap:10px">
+        <button class="btn primary" data-go="generate-po" style="justify-content:flex-start">＋ Raise a purchase order</button>
+        <button class="btn" data-new-challan style="justify-content:flex-start">＋ Receive a challan</button>
+        <button class="btn" data-open-foundry="" style="justify-content:flex-start">＋ Add foundry</button>
         <button class="btn" data-open-casting="" style="justify-content:flex-start">＋ Add pattern</button>
       </div>
     </div>
@@ -768,29 +861,86 @@ function viewCastingRecords(){
 }
 
 /* ---- Pattern Management ---- */
-function viewPatternManagement(){
-  const rows = state.patternRecords.filter(r => match(r.reference, r.item, r.foundry, r.notes));
+
+/* ---- Foundry Master ---- */
+function viewFoundryMaster(){
+  const rows = state.foundries.filter(r => match(r.name, r.gstin, r.city, r.contactName, r.phone, r.email));
   return `<section class="data-panel">
     <div class="panel-heading">
-      <div><p class="eyebrow">Stock and location</p><h2 class="panel-title">Pattern movement register</h2></div>
-      <button class="btn primary" data-open-move="">＋ Add pattern position</button>
+      <div><p class="eyebrow">Supplier list</p><h2 class="panel-title">Foundry Master</h2>
+      <p style="margin:8px 0 0;font-size:13px;color:var(--ink-soft);line-height:1.6">These foundries appear in the purchase order and challan dropdowns, and their address and GSTIN print on the P/O.</p></div>
+      <button class="btn primary" data-open-foundry="">＋ Add foundry</button>
     </div>
     <div class="table-scroll"><table>
-      <thead><tr><th>Pattern reference</th><th>Pattern / item</th><th>Current location</th><th class="num">Total sets</th>
-      <th class="num">In-house</th><th>Record date</th><th>Status</th><th class="num">Change</th></tr></thead>
-      <tbody>${ rows.map(r=>`<tr>
-        <td class="mono">${esc(r.reference)}</td><td><b>${esc(r.item)}</b></td><td>${esc(r.foundry)}</td>
-        <td class="num">${num(r.quantity)}</td><td class="num">${num(r.received)}</td>
-        <td>${fmtDate(r.dueDate)}</td><td>${statusBadge(r.status)}</td>
+      <thead><tr><th>Foundry name</th><th>GSTIN</th><th>City</th><th>Contact</th><th>Phone</th><th>Status</th><th class="num">Open P/Os</th><th class="num">Change</th></tr></thead>
+      <tbody>${ rows.map(r=>{
+        const open = state.purchaseOrders.filter(p => p.foundryName === r.name && poProgress(p).stage !== 'Completed').length;
+        return `<tr>
+        <td><b>${esc(r.name)}</b>${r.address1?`<div style="font-size:11.5px;color:var(--ink-faint)">${esc(r.address1)}</div>`:''}</td>
+        <td class="mono">${esc(r.gstin)||'—'}</td>
+        <td>${esc(r.city)||'—'}</td>
+        <td>${esc(r.contactName)||'—'}</td>
+        <td class="mono">${esc(r.phone)||'—'}</td>
+        <td>${statusBadge(r.status||'Active')}</td>
+        <td class="num">${open||'—'}</td>
         <td class="num" style="white-space:nowrap">
-          <button class="btn icon" data-open-move="${esc(r.id)}" title="Edit">✎</button>
-          <button class="btn icon danger" data-del-move="${esc(r.id)}" title="Delete">🗑</button>
-        </td></tr>`).join('')
-        || emptyRow(8, state.patternRecords.length ? 'No pattern records match the search.' : 'No pattern movement records yet.') }
+          <button class="btn icon" data-open-foundry="${esc(r.id)}" title="Edit">✎</button>
+          <button class="btn icon danger" data-del-foundry="${esc(r.id)}" title="Delete">🗑</button>
+        </td></tr>`; }).join('')
+        || emptyRow(8, state.foundries.length ? 'No foundries match the search.' : 'Foundry Master is blank. Select Add foundry to begin.') }
       </tbody></table></div></section>`;
 }
 
-/* ---- Pattern Master ---- */
+function modalFoundry(id){
+  const r = state.foundries.find(x=>String(x.id)===String(id)) || {};
+  openModal(`<form id="f-foundry">
+    <div class="modal-head"><h3>${r.id?'Edit Foundry':'Add Foundry'}</h3>
+    <p>Name, address, GSTIN and contact. Printed on purchase orders raised on this foundry.</p></div>
+    <div class="modal-body">
+      <label class="field full">Foundry Name *<input type="text" maxlength="160" name="name" value="${esc(r.name||'')}" placeholder="e.g. Krishna Alloys"></label>
+      <label class="field full">Address Line 1<input type="text" maxlength="160" name="address1" value="${esc(r.address1||'')}" placeholder="Plot / street"></label>
+      <label class="field full">Address Line 2<input type="text" maxlength="160" name="address2" value="${esc(r.address2||'')}" placeholder="Area / landmark"></label>
+      <label class="field">City<input type="text" maxlength="80" name="city" value="${esc(r.city||'')}"></label>
+      <label class="field">State<input type="text" maxlength="80" name="state" value="${esc(r.state||'Gujarat')}"></label>
+      <label class="field">PIN Code<input type="text" maxlength="10" name="pin" value="${esc(r.pin||'')}"></label>
+      <label class="field">GSTIN<input type="text" maxlength="15" name="gstin" value="${esc(r.gstin||'')}" placeholder="15 characters" style="text-transform:uppercase"></label>
+      <label class="field">Contact Person<input type="text" maxlength="80" name="contactName" value="${esc(r.contactName||'')}"></label>
+      <label class="field">Phone<input type="text" maxlength="60" name="phone" value="${esc(r.phone||'')}" placeholder="+91 ..."></label>
+      <label class="field full">Email<input type="text" maxlength="120" name="email" value="${esc(r.email||'')}"></label>
+      <label class="field">Status<select name="status">${opt(MASTER_STATUS, r.status||'Active')}</select></label>
+      <label class="field full">Notes<textarea maxlength="400" name="notes">${esc(r.notes||'')}</textarea></label>
+    </div>
+    <div class="modal-foot"><button type="button" class="btn" data-close>Cancel</button>
+    <button type="button" id="btn-save-foundry" class="btn primary">Save foundry</button></div>
+    <input type="hidden" name="id" value="${esc(r.id||'')}"></form>`);
+}
+
+async function saveFoundry(){
+  const ctx = formData('f-foundry'); if(!ctx) return toast('The form is no longer open.','error');
+  const {f, data} = ctx;
+  const btn = document.getElementById('btn-save-foundry');
+  const name = (data.name||'').trim();
+  if(!name) return fieldError(f, 'name', 'Foundry Name is required.');
+  const dup = state.foundries.find(x => String(x.name).toLowerCase() === name.toLowerCase() && String(x.id) !== String(data.id));
+  if(dup) return fieldError(f, 'name', 'That foundry is already in the master.');
+  const gst = (data.gstin||'').trim().toUpperCase();
+  if(gst && gst.length !== 15) return fieldError(f, 'gstin', 'A GSTIN is 15 characters. Leave it blank if you do not have it yet.');
+
+  btn.disabled = true; btn.textContent = 'Saving…';
+  try{
+    const rec = {name, address1:(data.address1||'').trim(), address2:(data.address2||'').trim(),
+                 city:(data.city||'').trim(), state:(data.state||'').trim(), pin:(data.pin||'').trim(),
+                 gstin:gst, contactName:(data.contactName||'').trim(), phone:(data.phone||'').trim(),
+                 email:(data.email||'').trim(), status:data.status||'Active', notes:(data.notes||'').trim()};
+    if(data.id) await DB.update('foundries', data.id, rec);
+    else        await DB.create('foundries', rec);
+    toast(data.id ? 'Foundry updated: ' + name : 'Foundry saved: ' + name, 'success');
+    closeModal(); await loadAll();
+  }catch(err){
+    btn.disabled = false; btn.textContent = 'Save foundry';
+    toast('Could not save: ' + (err.code ? err.code + ' — ' : '') + (err.message || err), 'error');
+  }
+}
 
 /* ---- Pattern Master ---- */
 function viewPatternMaster(){
@@ -875,7 +1025,7 @@ function viewGeneratePO(){
   const f = state.poForm;
   const editing = !!state.editingPoId;
   const masters = [...state.castingMasters].sort((a,b)=>String(a.itemName).localeCompare(String(b.itemName),'en',{numeric:true}));
-  const foundries = [...new Set([...state.challans.map(c=>c.foundryName), ...state.purchaseOrders.map(p=>p.foundryName)].filter(Boolean))];
+  const foundries = foundryOptions().all;
   const typeOptions = allTypes();
 
   let totQty = 0, totWt = 0, anyMissing = false;
@@ -905,21 +1055,26 @@ function viewGeneratePO(){
     </tr>`;
   }).join('');
 
-  const register = state.purchaseOrders.map(p=>`<tr>
+  const register = state.purchaseOrders.map(p=>{
+      const pr = poProgress(p);
+      return `<tr>
       <td class="mono">${esc(p.poNumber)}</td>
       <td>${fmtDate(p.poDate)}</td>
       <td>${esc(p.foundryName)}</td>
       <td class="num">${p.items.length}</td>
-      <td class="num">${num(p.totalQuantity)}</td>
-      <td class="num">${fmtWt(p.totalApproxWeight)}</td>
+      <td class="num">${pr.ordered}</td>
+      <td class="num">${pr.received}</td>
+      <td class="num"><b style="color:${pr.pending>0?'var(--warn)':'var(--ok)'}">${pr.pending}</b></td>
+      <td style="min-width:110px"><div class="progress"><i style="width:${pr.pct}%"></i></div>
+        <div style="font-size:10.5px;color:var(--ink-faint);margin-top:4px">${pr.pct}%</div></td>
       <td>${esc(p.generatedBy)||'—'}</td>
-      <td>${statusBadge(p.status||'Open')}</td>
+      <td>${stageBadge(pr.stage)}</td>
       <td class="num" style="white-space:nowrap">
         <button class="btn icon" data-edit-po="${esc(p.id)}" title="Edit">✎</button>
         <button class="btn icon" data-pdf-po="${esc(p.id)}" title="PDF">⬇</button>
         <button class="btn icon green" data-wa-po="${esc(p.id)}" title="WhatsApp">✆</button>
         <button class="btn icon danger" data-del-po="${esc(p.id)}" title="Delete">🗑</button>
-      </td></tr>`).join('');
+      </td></tr>`; }).join('');
 
   return `<section class="data-panel">
     <div class="panel-heading">
@@ -983,8 +1138,9 @@ function viewGeneratePO(){
     </div>
     <div class="table-scroll"><table>
       <thead><tr><th>P/O No.</th><th>Date</th><th>Foundry</th><th class="num">Items</th>
-      <th class="num">Qty</th><th class="num">Approx. Weight</th><th>Generated by</th><th>Status</th><th class="num">Actions</th></tr></thead>
-      <tbody>${ register || emptyRow(9,'No purchase orders raised yet.') }</tbody>
+      <th class="num">Ordered</th><th class="num">Received</th><th class="num">Pending</th><th>Progress</th>
+      <th>Generated by</th><th>Stage</th><th class="num">Actions</th></tr></thead>
+      <tbody>${ register || emptyRow(11,'No purchase orders raised yet.') }</tbody>
     </table></div>
   </section>`;
 }
@@ -1027,7 +1183,8 @@ function viewInsertCasting(){
                </div>`
             : `<select name="foundryName" id="sel-foundry">
                  <option value="">Select foundry</option>
-                 ${ fo.fromPo.length ? `<optgroup label="With purchase orders">${fo.fromPo.map(x=>`<option value="${esc(x)}" ${x===f.foundryName?'selected':''}>${esc(x)}</option>`).join('')}</optgroup>` : '' }
+                 ${ fo.master.length ? `<optgroup label="Foundry Master">${fo.master.map(x=>`<option value="${esc(x)}" ${x===f.foundryName?'selected':''}>${esc(x)}</option>`).join('')}</optgroup>` : '' }
+                 ${ fo.fromPo.length ? `<optgroup label="On purchase orders">${fo.fromPo.map(x=>`<option value="${esc(x)}" ${x===f.foundryName?'selected':''}>${esc(x)}</option>`).join('')}</optgroup>` : '' }
                  ${ fo.fromCh.length ? `<optgroup label="Previously supplied">${fo.fromCh.map(x=>`<option value="${esc(x)}" ${x===f.foundryName?'selected':''}>${esc(x)}</option>`).join('')}</optgroup>` : '' }
                  <option value="__new__">＋ New foundry…</option>
                </select>` }
@@ -1185,26 +1342,6 @@ function modalType(id){
     <input type="hidden" name="id" value="${esc(r.id||'')}"></form>`);
 }
 
-function modalMovement(id){
-  const r = state.patternRecords.find(x=>String(x.id)===String(id)) || {};
-  openModal(`<form id="f-move">
-    <div class="modal-head"><h3>${r.id?'Edit':'Add'} Pattern Position</h3>
-    <p>Record the current physical location and availability of a pattern set.</p></div>
-    <div class="modal-body">
-      <label class="field">Pattern Reference *<input type="text" maxlength="80" name="reference" list="dl-pr" value="${esc(r.reference||'')}" placeholder="Pattern code">
-        <datalist id="dl-pr">${state.castingMasters.map(m=>`<option value="${esc(m.itemName)}">`).join('')}</datalist></label>
-      <label class="field">Record Date<input type="date" name="dueDate" value="${esc(r.dueDate||today())}"></label>
-      <label class="field full">Pattern / Item *<input type="text" maxlength="180" name="item" value="${esc(r.item||'')}"></label>
-      <label class="field full">Current Foundry / Location *<input type="text" maxlength="180" name="foundry" value="${esc(r.foundry||'In-house')}"></label>
-      <label class="field">Total Sets *<input type="number" min="0" name="quantity" value="${esc(r.quantity ?? 1)}"></label>
-      <label class="field">In-house Sets<input type="number" min="0" name="received" value="${esc(r.received ?? 1)}"></label>
-      <label class="field">Status<select name="status">${opt(MOVE_STATUS, r.status||'Available')}</select></label>
-      <label class="field full">Notes<textarea maxlength="500" name="notes">${esc(r.notes||'')}</textarea></label>
-    </div>
-    <div class="modal-foot"><button type="button" class="btn" data-close>Cancel</button>
-    <button type="button" id="btn-save-move" class="btn primary">Save pattern position</button></div>
-    <input type="hidden" name="id" value="${esc(r.id||'')}"></form>`);
-}
 
 function modalViewChallan(id){
   const c = state.challans.find(x=>String(x.id)===String(id));
@@ -1243,100 +1380,161 @@ function modalViewChallan(id){
 /* ==========================================================================
    6. PDF + WHATSAPP
    ========================================================================== */
+/* Casting inward challan — same light, print-economical layout as the P/O. */
 function buildChallanPdf(c){
   const { jsPDF } = window.jspdf;
-  const doc = new jsPDF({orientation:'landscape', unit:'pt', format:'a4'});
+  const doc = new jsPDF({orientation:'portrait', unit:'pt', format:'a4'});
   const W = doc.internal.pageSize.getWidth();
-  const RED = [201,35,45], DARK = [24,33,38], SLATE = [110,124,132];
+  const H = doc.internal.pageSize.getHeight();
+  const M = 40, CW = W - M*2, rx = W - M;
+  const INK=[26,26,26], MUT=[128,133,138], LINE=[214,218,221], RED=[206,42,38], SOFT=[247,248,249];
   const fc = foundryComplete(c), pos = getPOs(c);
+  const diff = num(c.actualTotalWeight) - num(c.foundryTotalWeight);
 
-  // header band
-  doc.setFillColor(...DARK); doc.rect(0,0,W,54,'F');
-  doc.setFillColor(...RED); doc.rect(0,54,W,4,'F');
-  doc.setTextColor(255,255,255);
-  doc.setFont('helvetica','bold'); doc.setFontSize(20); doc.text('JAYCO', 30, 34);
-  doc.setFontSize(13); doc.text('JAYCO ENGINEERING INDIA', W-30, 28, {align:'right'});
-  doc.setFont('helvetica','normal'); doc.setFontSize(8);
-  doc.text('Ahmedabad-Indore Highway, Dist. Kheda, Gujarat  ·  www.jaycohousing.com', W-30, 42, {align:'right'});
+  const fit = (text, maxW, size, style='normal') => {
+    let sz = size; doc.setFont('helvetica', style); doc.setFontSize(sz);
+    let t = String(text ?? '—');
+    while(sz > 6 && doc.getTextWidth(t) > maxW){ sz -= 0.5; doc.setFontSize(sz); }
+    while(t.length > 4 && doc.getTextWidth(t) > maxW) t = t.slice(0, -2) + '…';
+    return t;
+  };
+  const label = (txt, x, y, align) => {
+    doc.setFont('helvetica','bold'); doc.setFontSize(6.2); doc.setTextColor(...MUT);
+    doc.text(txt, x, y, align ? {align} : undefined);
+  };
 
-  // title
-  doc.setTextColor(...DARK); doc.setFont('helvetica','bold'); doc.setFontSize(13);
-  doc.text('CASTING INWARD CHALLAN', 30, 80);
+  /* letterhead */
+  let y = 46, logoDrawn = false;
+  try{
+    const logo = document.querySelector('.brand-logo');
+    if(logo && logo.src){ doc.addImage(logo.src, 'PNG', M, y - 18, 100, 22); logoDrawn = true; }
+  }catch(e){ logoDrawn = false; }
+  if(!logoDrawn){ doc.setFont('helvetica','bold'); doc.setFontSize(19); doc.setTextColor(...RED); doc.text('JAYCO', M, y); }
 
-  // meta
-  doc.setFontSize(8); doc.setTextColor(...SLATE);
-  const meta = [['CHALLAN NO.', c.challanNumber], ['CHALLAN DATE', fmtDate(c.challanDate)], ['FOUNDRY NAME', c.foundryName]];
-  let mx = 30;
-  meta.forEach(([l,v])=>{
-    doc.setDrawColor(215,222,226); doc.rect(mx, 90, 250, 34);
-    doc.setFont('helvetica','bold'); doc.setFontSize(6.5); doc.setTextColor(...SLATE); doc.text(l, mx+8, 102);
-    doc.setFontSize(10); doc.setTextColor(...DARK); doc.text(String(v||'—').slice(0,42), mx+8, 116);
-    mx += 258;
+  doc.setFont('helvetica','bold'); doc.setFontSize(11.5); doc.setTextColor(...INK);
+  doc.text(COMPANY.name, M, y + 22);
+  doc.setFont('helvetica','normal'); doc.setFontSize(7); doc.setTextColor(...RED);
+  doc.text(COMPANY.tagline, M, y + 33);
+  doc.setTextColor(...MUT); doc.setFontSize(7.2);
+  doc.text([COMPANY.addr1, COMPANY.addr2, COMPANY.addr3], M, y + 45, {lineHeightFactor:1.4});
+
+  let ry = y - 12;
+  [['GSTIN', COMPANY.gstin], ['PAN', COMPANY.pan], ['PHONE', COMPANY.phone], ['WEB', COMPANY.web]]
+  .forEach(([k, v]) => {
+    doc.setFont('helvetica','normal'); doc.setFontSize(8); doc.setTextColor(...INK);
+    const vw = doc.getTextWidth(v);
+    doc.text(v, rx, ry, {align:'right'});
+    label(k, rx - vw - 8, ry, 'right');
+    ry += 15;
   });
 
-  // POs
-  let py = 132;
-  pos.forEach((p,i)=>{
-    const col = i % 3, row = Math.floor(i/3);
-    const x = 30 + col*258, y = py + row*34;
-    doc.setDrawColor(215,222,226); doc.rect(x, y, 250, 30);
-    doc.setFont('helvetica','bold'); doc.setFontSize(6.2); doc.setTextColor(...SLATE);
-    doc.text(`JAYCO P/O ${i+1}`, x+8, y+11);
-    doc.setFontSize(9); doc.setTextColor(...DARK);
-    doc.text(String(p.purchaseOrderNumber||'—').slice(0,26), x+8, y+23);
-    doc.setFontSize(7); doc.setTextColor(...SLATE);
-    doc.text(fmtDate(p.purchaseOrderDate), x+160, y+23);
-  });
-  const tableTop = py + Math.ceil(pos.length/3)*34 + 14;
+  y += 82;
+  doc.setDrawColor(...RED); doc.setLineWidth(1.4); doc.line(M, y, W - M, y);
+  doc.setLineWidth(0.6);
 
-  doc.setFont('helvetica','bold'); doc.setFontSize(7.5); doc.setTextColor(...RED);
-  doc.text('CALCULATION: AVERAGE WEIGHT/PC = JAYCO WEIGHT / QTY', 30, tableTop - 4);
+  /* title + meta */
+  y += 30;
+  doc.setFont('helvetica','bold'); doc.setFontSize(16); doc.setTextColor(...INK);
+  doc.text('CASTING INWARD CHALLAN', M, y);
+
+  y += 14;
+  const bw = (CW - 20) / 3, bh = 44;
+  [['CHALLAN NO.', c.challanNumber], ['CHALLAN DATE', fmtDate(c.challanDate)], ['FOUNDRY NAME', c.foundryName]]
+  .forEach(([k, v], n) => {
+    const x = M + n * (bw + 10);
+    doc.setDrawColor(...LINE); doc.setFillColor(...SOFT);
+    doc.roundedRect(x, y, bw, bh, 3, 3, 'FD');
+    label(k, x + 12, y + 16);
+    doc.setTextColor(...INK);
+    doc.text(fit(v, bw - 24, 11.5, 'bold'), x + 12, y + 33);
+  });
+
+  /* purchase orders */
+  y += bh + 14;
+  const pw = (CW - 20) / 3;
+  pos.slice(0, 6).forEach((po, n) => {
+    const col = n % 3, row = Math.floor(n / 3);
+    const x = M + col * (pw + 10), yy = y + row * 40;
+    doc.setDrawColor(...LINE);
+    doc.roundedRect(x, yy, pw, 34, 3, 3, 'S');
+    label('JAYCO P/O ' + (n + 1), x + 12, yy + 13);
+    doc.setTextColor(...INK);
+    doc.text(fit(po.purchaseOrderNumber, pw - 80, 9.5, 'bold'), x + 12, yy + 26);
+    doc.setFont('helvetica','normal'); doc.setFontSize(7); doc.setTextColor(...MUT);
+    doc.text(fmtDate(po.purchaseOrderDate), x + pw - 12, yy + 26, {align:'right'});
+  });
+  y += Math.ceil(Math.max(1, pos.length) / 3) * 40 + 8;
+
+  /* items */
+  doc.setFont('helvetica','bold'); doc.setFontSize(6.4); doc.setTextColor(...RED);
+  doc.text('AVERAGE WEIGHT/PC = JAYCO WEIGHT ÷ QTY. JAYCO WEIGHT IS THE VERIFIED WEIGHT ON RECEIPT.', M, y);
 
   doc.autoTable({
-    startY: tableTop,
-    margin: {left:30, right:30},
-    head: [['SR','CASTING ITEM','TYPE','MATERIAL','QTY','FOUNDRY WEIGHT','JAYCO WEIGHT','AVERAGE WEIGHT/PC']],
-    body: c.items.map((i,n)=>[
-      n+1, i.itemName, i.itemType, i.material, num(i.quantity),
-      num(i.foundryTotalWeight)>0 ? fmtWt(i.foundryTotalWeight) : 'Not entered',
+    startY: y + 8,
+    margin: {left: M, right: M},
+    head: [['SR','CASTING ITEM','TYPE','MATERIAL','QTY','FOUNDRY WT','JAYCO WT','AVG WT/PC']],
+    body: c.items.map((i, n) => [
+      n + 1, i.itemName, i.itemType, i.material, num(i.quantity),
+      num(i.foundryTotalWeight) > 0 ? fmtWt(i.foundryTotalWeight) : '—',
       fmtWt(i.actualTotalWeight),
-      num(i.quantity)>0 ? fmtWt(num(i.actualTotalWeight)/num(i.quantity)) : '—'
+      num(i.quantity) > 0 ? fmtWt(num(i.actualTotalWeight) / num(i.quantity)) : '—'
     ]),
-    styles:{fontSize:8, cellPadding:5, lineColor:[215,222,226], lineWidth:.4},
-    headStyles:{fillColor:RED, textColor:255, fontStyle:'bold', fontSize:7.5, halign:'center'},
-    columnStyles:{0:{halign:'center',cellWidth:28},4:{halign:'right'},5:{halign:'right'},6:{halign:'right',fontStyle:'bold'},7:{halign:'right'}},
-    alternateRowStyles:{fillColor:[248,250,252]}
+    styles: {fontSize: 8, cellPadding: 6.5, lineColor: LINE, lineWidth: 0.5, textColor: INK, overflow:'linebreak'},
+    headStyles: {fillColor: SOFT, textColor: MUT, fontStyle:'bold', fontSize: 6.2,
+                 halign:'center', cellPadding: 7, lineColor: LINE, lineWidth: 0.5},
+    columnStyles: {
+      0:{halign:'center', cellWidth:24}, 1:{cellWidth:118}, 2:{cellWidth:52}, 3:{cellWidth:56},
+      4:{halign:'right', cellWidth:34}, 5:{halign:'right'}, 6:{halign:'right', fontStyle:'bold'}, 7:{halign:'right'}
+    }
   });
 
-  // totals
-  let ty = doc.lastAutoTable.finalY + 14;
-  const cards = [
-    ['TOTAL QUANTITY', String(num(c.totalQuantity)), null],
-    ['FOUNDRY TOTAL WEIGHT', fc?fmtWt(c.foundryTotalWeight):'Not entered', null],
-    ['JAYCO TOTAL WEIGHT', fmtWt(c.actualTotalWeight), DARK],
-    ['DIFFERENCE', fc?fmtWt(num(c.actualTotalWeight)-num(c.foundryTotalWeight)):'Not available', RED]
-  ];
-  const cw = (W - 60 - 3*10) / 4;
-  cards.forEach(([l,v,fill],i)=>{
-    const x = 30 + i*(cw+10);
-    if(fill){ doc.setFillColor(...fill); doc.rect(x,ty,cw,42,'F'); doc.setTextColor(255,255,255); }
-    else { doc.setDrawColor(215,222,226); doc.setFillColor(248,250,252); doc.rect(x,ty,cw,42,'FD'); doc.setTextColor(...SLATE); }
-    doc.setFont('helvetica','bold'); doc.setFontSize(6.5); doc.text(l, x+8, ty+14);
-    doc.setFontSize(11); if(!fill) doc.setTextColor(...DARK);
-    doc.text(v, x+8, ty+31);
+  /* totals */
+  y = doc.lastAutoTable.finalY + 16;
+  const tW = 178;
+  doc.setDrawColor(...LINE);
+  doc.roundedRect(M, y, CW - tW - 10, 44, 3, 3, 'S');
+  label('TOTAL QUANTITY', M + 14, y + 16);
+  label('FOUNDRY TOTAL', M + 108, y + 16);
+  label('DIFFERENCE', M + 216, y + 16);
+  doc.setFont('helvetica','bold'); doc.setFontSize(11.5); doc.setTextColor(...INK);
+  doc.text(String(num(c.totalQuantity)), M + 14, y + 34);
+  doc.text(fc ? fmtWt(c.foundryTotalWeight) : '—', M + 108, y + 34);
+  doc.setTextColor(...(fc && diff > 0 ? RED : [21,128,61]));
+  doc.text(fc ? fmtWt(diff) : '—', M + 216, y + 34);
+
+  doc.setDrawColor(...RED); doc.setLineWidth(1);
+  doc.roundedRect(W - M - tW, y, tW, 44, 3, 3, 'S');
+  doc.setLineWidth(0.6);
+  label('JAYCO TOTAL WEIGHT', W - M - tW + 14, y + 16);
+  doc.setFont('helvetica','bold'); doc.setTextColor(...RED);
+  doc.text(fit(fmtWt(c.actualTotalWeight), tW - 28, 14, 'bold'), W - M - tW + 14, y + 34);
+
+  /* signatures */
+  const py = Math.max(y + 60, H - 160);
+  doc.setDrawColor(...LINE);
+  doc.roundedRect(M, py, CW, 92, 3, 3, 'S');
+  doc.line(M, py + 20, W - M, py + 20);
+  label('VERIFICATION', M + 14, py + 14);
+  const colW = CW / 3;
+  [['RECEIVED BY', c.changedBy || ''], ['CHECKED BY', ''], ['AUTHORISED SIGNATORY', '']]
+  .forEach(([k, v], n) => {
+    const x = M + n * colW;
+    if(n){ doc.setDrawColor(...LINE); doc.line(x, py + 20, x, py + 92); }
+    if(v){ doc.setTextColor(...INK); doc.text(fit(v, colW - 32, 10.5, 'bold'), x + 16, py + 58); }
+    doc.setDrawColor(175,180,185);
+    doc.line(x + 16, py + 64, x + colW - 16, py + 64);
+    label(k, x + 16, py + 78);
   });
 
-  // signatures + footer
-  ty += 66;
-  doc.setDrawColor(180,190,196);
-  ['RECEIVED BY','CHECKED BY','AUTHORISED SIGNATORY'].forEach((l,i)=>{
-    const x = 30 + i*((W-60)/3);
-    doc.line(x, ty+26, x+((W-60)/3)-40, ty+26);
-    doc.setFont('helvetica','bold'); doc.setFontSize(6.5); doc.setTextColor(...SLATE);
-    doc.text(l, x, ty+38);
-  });
-  doc.setFont('helvetica','normal'); doc.setFontSize(7); doc.setTextColor(...SLATE);
-  doc.text('Generated from JAYCO Casting & Pattern Control System', 30, doc.internal.pageSize.getHeight()-16);
+  /* footer */
+  doc.setDrawColor(...LINE);
+  doc.line(M, H - 44, W - M, H - 44);
+  doc.setFont('helvetica','normal'); doc.setFontSize(6.4); doc.setTextColor(...MUT);
+  doc.text('Generated from the JAYCO Casting & Pattern Control System', M, H - 31);
+  doc.text(COMPANY.web + '  |  GSTIN ' + COMPANY.gstin, rx, H - 31, {align:'right'});
+  doc.setFontSize(6);
+  doc.text('System-generated inward challan — weights recorded at JAYCO on receipt.', M, H - 21);
+
   return doc;
 }
 
@@ -1706,7 +1904,7 @@ async function savePattern(){
    7. EVENTS
    ========================================================================== */
 document.addEventListener('click', async (e) => {
-  const t = e.target.closest('[data-view],[data-go],[data-new-challan],[data-view-challan],[data-edit-challan],[data-del-challan],[data-open-casting],[data-del-casting],[data-open-type],[data-del-type],[data-open-move],[data-del-move],[data-close],[data-rm-po],[data-rm-item],[data-quick-add],[data-quick-add-po],[data-open-pdf],[data-row-pdf],[data-pdf-challan],[data-wa-challan],[data-edit-po],[data-del-po],[data-pdf-po],[data-wa-po],[data-rm-po-item]');
+  const t = e.target.closest('[data-view],[data-go],[data-new-challan],[data-view-challan],[data-edit-challan],[data-del-challan],[data-open-casting],[data-del-casting],[data-open-type],[data-del-type],[data-open-foundry],[data-del-foundry],[data-close],[data-rm-po],[data-rm-item],[data-quick-add],[data-quick-add-po],[data-open-pdf],[data-row-pdf],[data-pdf-challan],[data-wa-challan],[data-edit-po],[data-del-po],[data-pdf-po],[data-wa-po],[data-rm-po-item]');
   if(!t) return;
   const d = t.dataset;
 
@@ -1740,11 +1938,11 @@ document.addEventListener('click', async (e) => {
   if(d.delChallan){ if(confirm('Delete this challan permanently?')){ await DB.remove('casting_challans', d.delChallan); toast('Challan deleted','success'); loadAll(); } return; }
   if(d.delCasting){ if(confirm('Delete this casting item from the master?')){ await DB.remove('casting_masters', d.delCasting); toast('Casting item deleted','success'); loadAll(); } return; }
   if(d.delType){ if(confirm('Delete this casting type?')){ await DB.remove('casting_types', d.delType); toast('Type deleted','success'); loadAll(); } return; }
-  if(d.delMove){ if(confirm('Delete this pattern position record?')){ await DB.remove('control_records', d.delMove); toast('Pattern position deleted','success'); loadAll(); } return; }
+  if(d.delFoundry){ if(confirm('Delete this foundry from the master? Existing purchase orders keep the name.')){ await DB.remove('foundries', d.delFoundry); toast('Foundry deleted','success'); loadAll(); } return; }
 
   if(d.openCasting !== undefined){ modalCasting(d.openCasting, null); return; }
   if(d.openType !== undefined){ modalType(d.openType); return; }
-  if(d.openMove !== undefined){ modalMovement(d.openMove); return; }
+  if(d.openFoundry !== undefined){ modalFoundry(d.openFoundry); return; }
   if(d.quickAdd !== undefined){ modalCasting('', Number(d.quickAdd), 'challan'); return; }
   if(d.quickAddPo !== undefined){ modalCasting('', Number(d.quickAddPo), 'po'); return; }
 
@@ -1886,6 +2084,7 @@ document.addEventListener('change', e => {
   /* choosing a known P/O number fills its date in for you */
   if(el.dataset.pofield === 'purchaseOrderNumber' && state.entryForm){
     const i = Number(el.dataset.po);
+    state.entryForm.purchaseOrders[i].purchaseOrderNumber = el.value;
     const hit = posForFoundry(state.entryForm.foundryName).find(x => x.poNumber === el.value);
     if(hit){
       state.entryForm.purchaseOrders[i].purchaseOrderDate = hit.poDate;
@@ -2073,30 +2272,6 @@ async function saveType(){
   }
 }
 
-async function saveMovement(){
-  const ctx = formData('f-move'); if(!ctx) return toast('The form is no longer open.','error');
-  const {f, data} = ctx;
-  const btn = document.getElementById('btn-save-move');
-  if(!(data.reference||'').trim()) return fieldError(f, 'reference', 'Pattern Reference is required.');
-  if(!(data.item||'').trim())      return fieldError(f, 'item', 'Pattern / Item is required.');
-  if(!(data.foundry||'').trim())   return fieldError(f, 'foundry', 'Current Foundry / Location is required.');
-
-  btn.disabled = true; btn.textContent = 'Saving…';
-  try{
-    const m = {module:'patterns', reference:data.reference.trim(), item:data.item.trim(), foundry:data.foundry.trim(),
-               quantity:num(data.quantity), received:Math.min(num(data.quantity), num(data.received)),
-               dueDate:data.dueDate || today(), status:data.status || 'Available',
-               notes:(data.notes||'').trim(), changedBy: authUser()};
-    if(data.id) await DB.update('control_records', data.id, m);
-    else        await DB.create('control_records', m);
-    toast(data.id ? 'Pattern position updated' : 'Pattern position saved: ' + m.item, 'success');
-    closeModal(); await loadAll();
-  }catch(err){
-    btn.disabled = false; btn.textContent = 'Save pattern position';
-    toast('Could not save: ' + (err.code ? err.code + ' — ' : '') + (err.message || err), 'error');
-  }
-}
-
 async function saveChallan(){
   const c = currentFormChallan(); if(!c) return;
   const btn = document.getElementById('btn-close-challan');
@@ -2116,8 +2291,12 @@ async function saveChallan(){
       await DB.create('casting_challans', payload);
       toast('Challan closed: ' + payload.challanNumber, 'success');
     }
+    const nums = c.purchaseOrders.map(x => String(x.purchaseOrderNumber).trim());
     state.entryForm = blankEntry(); state.editingChallanId = null; state.view = 'casting-records';
-    await loadAll(); window.scrollTo(0,0);
+    await loadAll();
+    await reconcilePos(nums);
+    await loadAll();
+    window.scrollTo(0,0);
   }catch(err){
     if(btn){ btn.disabled = false; btn.textContent = 'Close Challan'; }
     toast('Could not save: ' + (err.code ? err.code + ' — ' : '') + (err.message || err), 'error');
@@ -2127,7 +2306,7 @@ async function saveChallan(){
 /* One place that routes every save button */
 document.addEventListener('click', e => {
   if(e.target.closest('#btn-save-type'))      saveType();
-  if(e.target.closest('#btn-save-move'))      saveMovement();
+  if(e.target.closest('#btn-save-foundry'))   saveFoundry();
   if(e.target.closest('#btn-close-challan'))  saveChallan();
   if(e.target.closest('#btn-close-po'))       savePo('Closed');
 });
