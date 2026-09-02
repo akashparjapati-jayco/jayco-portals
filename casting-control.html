@@ -637,7 +637,7 @@ function render(){
   document.getElementById('c-challans').textContent = state.challans.length;
   document.getElementById('c-patrec').textContent  = state.patternRecords.length;
   document.getElementById('c-patmas').textContent  = state.castingMasters.length;
-  document.getElementById('c-types').textContent   = state.castingTypes.length;
+  document.getElementById('c-types').textContent   = allTypes().length;
   document.getElementById('c-pos').textContent     = state.purchaseOrders.length;
   document.getElementById('storage-mode').textContent = '◆ ' + DB.name;
   document.getElementById('foot-mode').textContent = 'Test build · ' + DB.name;
@@ -792,21 +792,33 @@ function viewPatternMaster(){
 
 /* ---- Type Master ---- */
 function viewTypeMaster(){
-  const rows = state.castingTypes.filter(r => match(r.typeName, r.status, r.notes));
+  /* The nine built-in types are always in the system. Custom types saved here
+     are added on top, and a custom type of the same name overrides the built-in. */
+  const custom = state.castingTypes;
+  const customNames = new Set(custom.map(t => String(t.typeName).toLowerCase()));
+  const builtIn = DEFAULT_TYPES
+    .filter(n => !customNames.has(n.toLowerCase()))
+    .map(n => ({typeName:n, status:'Active', notes:'Built-in — always available', builtIn:true}));
+  const all = [...builtIn, ...custom].filter(r => match(r.typeName, r.status, r.notes));
+
   return `<section class="data-panel">
     <div class="panel-heading">
-      <div><p class="eyebrow">Casting classification</p><h2 class="panel-title">Type Master</h2></div>
+      <div><p class="eyebrow">Casting classification</p><h2 class="panel-title">Type Master</h2>
+      <p style="margin:8px 0 0;font-size:13px;color:var(--ink-soft);line-height:1.6">Every type here appears in the Pattern Type dropdown on Pattern Master, Insert Casting Details and Generate P/O.</p></div>
       <button class="btn primary" data-open-type="">＋ Add type</button>
     </div>
     <div class="table-scroll"><table>
-      <thead><tr><th>Type Name</th><th>Status</th><th>Notes</th><th class="num">Change</th></tr></thead>
-      <tbody>${ rows.map(r=>`<tr>
-        <td><b>${esc(r.typeName)}</b></td><td>${statusBadge(r.status)}</td><td style="color:#5b6a72">${esc(r.notes)||'—'}</td>
-        <td class="num" style="white-space:nowrap">
+      <thead><tr><th>Type Name</th><th>Source</th><th>Status</th><th>Notes</th><th class="num">Change</th></tr></thead>
+      <tbody>${ all.map(r=>`<tr>
+        <td><b>${esc(r.typeName)}</b></td>
+        <td>${ r.builtIn ? '<span class="badge neutral">Built-in</span>' : '<span class="badge ok">Custom</span>' }</td>
+        <td>${statusBadge(r.status)}</td>
+        <td style="color:var(--ink-soft)">${esc(r.notes)||'—'}</td>
+        <td class="num" style="white-space:nowrap">${ r.builtIn ? '<span class="thumb-none">—</span>' : `
           <button class="btn icon" data-open-type="${esc(r.id)}" title="Edit">✎</button>
-          <button class="btn icon danger" data-del-type="${esc(r.id)}" title="Delete">🗑</button>
+          <button class="btn icon danger" data-del-type="${esc(r.id)}" title="Delete">🗑</button>` }
         </td></tr>`).join('')
-        || emptyRow(4, state.castingTypes.length ? 'No casting types match the search.' : 'Type Master is blank. Select Add type to begin.') }
+        || emptyRow(5,'No types match the search.') }
       </tbody></table></div></section>`;
 }
 
