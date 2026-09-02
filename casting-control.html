@@ -191,6 +191,9 @@ th.num{text-align:right}
   height:132px;display:grid;place-items:center;overflow:hidden}
 .attach-img{width:100%;height:100%;object-fit:contain;background:#fff;cursor:zoom-in}
 .attach-empty{margin:0;font-size:12px;color:var(--ink-faint)}
+.attach-file{margin:0;display:flex;align-items:center;gap:6px;font-size:13px;padding:0 14px}
+.attach-file i{font-style:normal;color:var(--orange)}
+.attach-name{font-weight:600;max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .thumb{width:42px;height:32px;object-fit:cover;border-radius:6px;border:1px solid var(--card-border);
   background:#fff;cursor:zoom-in;display:block}
 .thumb-none{font-size:11px;color:var(--ink-faint)}
@@ -473,24 +476,47 @@ const PO_TYPES = DEFAULT_TYPES;
 const PATTERN_MATERIALS = ['Wooden','Aluminium'];
 const PATTERN_CONSTRUCTION = ['Split Type','Non-Split Type'];
 const CORE_OPTIONS = ['With core box','Without core'];
-const HOME_LOCATION = 'JAYCO (In-house)';
-/* Every place a pattern could be: JAYCO, plus every foundry you've dealt with. */
-function allLocations(){
-  return [...new Set([HOME_LOCATION,
-    ...state.challans.map(c=>c.foundryName),
-    ...state.purchaseOrders.map(p=>p.foundryName),
-    ...state.castingMasters.map(m=>m.currentLocation)].filter(Boolean))];
-}
 
 /* Attachments are stored inside the Firestore document as compressed
    data URLs. Firestore caps a document at 1 MiB, so each image is
    shrunk until it fits a 320 KB budget. Held here while the modal is open. */
-const ATTACH_BUDGET = 320000;
-let pendingAttach = {drawingImage:'', patternPhoto:''};
+const IMAGE_BUDGET = 280000;   // ~205 KB of actual JPG
+const PDF_BUDGET   = 560000;   // ~410 KB of actual PDF
+const DOC_BUDGET   = 900000;   // both together, under Firestore's 1 MiB record cap
+let pendingAttach = {drawingPdf:'', drawingPdfName:'', patternPhoto:''};
+
+function readAsDataUrl(file){
+  return new Promise((res, rej) => {
+    const r = new FileReader();
+    r.onload = () => res(r.result);
+    r.onerror = () => rej(new Error('That file could not be read.'));
+    r.readAsDataURL(file);
+  });
+}
+
+async function loadPdf(file){
+  if(file.type !== 'application/pdf')
+    throw new Error('The drawing must be a PDF file.');
+  const data = await readAsDataUrl(file);
+  if(data.length > PDF_BUDGET)
+    throw new Error('That PDF is ' + Math.round(file.size/1024) + ' KB. The limit is about 400 KB because the whole record must fit in 1 MB. Export it at lower resolution, or split it.');
+  return data;
+}
+
+/* data: URLs cannot be opened directly by the browser, so convert to a blob */
+function openAttachment(dataUrl, name){
+  const [meta, b64] = dataUrl.split(',');
+  const mime = meta.match(/:(.*?);/)[1];
+  const bin = atob(b64), arr = new Uint8Array(bin.length);
+  for(let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+  const url = URL.createObjectURL(new Blob([arr], {type: mime}));
+  window.open(url, '_blank', 'noopener');
+  setTimeout(() => URL.revokeObjectURL(url), 60000);
+}
 
 async function compressImage(file){
   if(!file.type.startsWith('image/'))
-    throw new Error('Only image files can be attached (JPG, PNG, WEBP). For a PDF drawing, keep the drawing number and store the PDF on Drive.');
+    throw new Error('The image must be a JPG or PNG.');
   const bmp = await createImageBitmap(file);
   let dim = 1400, q = 0.75, out = '';
   for(let pass = 0; pass < 7; pass++){
@@ -502,7 +528,7 @@ async function compressImage(file){
     cx.fillStyle = '#fff'; cx.fillRect(0,0,w,h);
     cx.drawImage(bmp, 0, 0, w, h);
     out = cv.toDataURL('image/jpeg', q);
-    if(out.length <= ATTACH_BUDGET) return out;
+    if(out.length <= IMAGE_BUDGET) return out;
     if(q > 0.45) q -= 0.1; else dim = Math.round(dim * 0.75);
   }
   throw new Error('That image is too large even after compression. Crop it or use a smaller photo.');
@@ -726,27 +752,29 @@ function viewPatternManagement(){
 
 /* ---- Pattern Master ---- */
 function viewPatternMaster(){
-  const rows = state.castingMasters.filter(r => match(r.itemName, r.itemType, r.material, r.drawingNumber, r.patternCode, r.patternMaterial, r.patternConstruction, r.currentLocation, r.coreBox));
+  const rows = state.castingMasters.filter(r => match(r.itemName, r.itemType, r.patternGroup, r.patternMaterial, r.patternConstruction, r.coreBox));
   return `<section class="data-panel">
     <div class="panel-heading">
       <div><p class="eyebrow">Approved pattern list</p><h2 class="panel-title">Pattern Master</h2></div>
       <button class="btn primary" data-open-casting="">＋ Add pattern</button>
     </div>
     <div class="table-scroll"><table>
-      <thead><tr><th>Photo</th><th>Item / pattern name</th><th>Type</th><th>Casting mat.</th><th>Pattern mat.</th><th>Construction</th><th>Core</th><th class="num">Sets</th><th>Current location</th><th>Pattern code</th><th>Status</th><th class="num">Change</th></tr></thead>
+      <thead><tr><th>Image</th><th>Pattern name</th><th>Type</th><th>Material</th><th>Construction</th><th>Core</th><th class="num">Sets</th><th>Pattern group</th><th>Drawing</th><th class="num">Change</th></tr></thead>
       <tbody>${ rows.map(r=>`<tr>
         <td>${ r.patternPhoto ? `<img class="thumb" src="${r.patternPhoto}" alt="">` : '<span class="thumb-none">—</span>' }</td>
-        <td><b>${esc(r.itemName)}</b></td><td>${esc(r.itemType)}</td><td>${esc(r.material)}</td>
-        <td>${esc(r.patternMaterial)||'—'}</td><td>${esc(r.patternConstruction)||'—'}</td>
+        <td><b>${esc(r.itemName)}</b></td>
+        <td>${esc(r.itemType)}</td>
+        <td>${esc(r.patternMaterial)||'—'}</td>
+        <td>${esc(r.patternConstruction)||'—'}</td>
         <td>${ r.coreBox==='With core box' ? `<span class="badge neutral">${num(r.coreCount)} core${num(r.coreCount)===1?'':'s'}</span>` : '<span class="thumb-none">No core</span>' }</td>
         <td class="num">${num(r.totalSets ?? 1)}</td>
-        <td>${ (r.currentLocation||HOME_LOCATION)===HOME_LOCATION ? '<span class="badge ok">JAYCO</span>' : `<span class="badge warn">${esc(r.currentLocation)}</span>` }</td>
-        <td class="mono">${esc(r.patternCode)||'—'}${ r.drawingImage ? `<img class="thumb" src="${r.drawingImage}" alt="" style="margin-top:4px">` : '' }</td><td>${statusBadge(r.status)}</td>
+        <td>${esc(r.patternGroup)||'—'}</td>
+        <td>${ r.drawingPdf ? `<button class="btn" data-row-pdf="${esc(r.id)}" style="padding:4px 12px;font-size:12px">Open PDF</button>` : '<span class="thumb-none">—</span>' }</td>
         <td class="num" style="white-space:nowrap">
           <button class="btn icon" data-open-casting="${esc(r.id)}" title="Edit">✎</button>
           <button class="btn icon danger" data-del-casting="${esc(r.id)}" title="Delete">🗑</button>
         </td></tr>`).join('')
-        || emptyRow(12, state.castingMasters.length ? 'No patterns match the search.' : 'Pattern Master is blank. Select Add pattern to begin.') }
+        || emptyRow(10, state.castingMasters.length ? 'No patterns match the search.' : 'Pattern Master is blank. Select Add pattern to begin.') }
       </tbody></table></div></section>`;
 }
 
@@ -1007,7 +1035,7 @@ function closeModal(){ document.getElementById('modal-back').classList.remove('o
 
 function modalCasting(id, quickIndex, quickTarget){
   const r = state.castingMasters.find(x=>String(x.id)===String(id)) || {};
-  pendingAttach = {drawingImage: r.drawingImage || '', patternPhoto: r.patternPhoto || ''};
+  pendingAttach = {drawingPdf: r.drawingPdf || '', drawingPdfName: r.drawingPdfName || '', patternPhoto: r.patternPhoto || ''};
   const isEdit = !!r.id;
   const typeOptions = allTypes();
   const cur = r.itemType || typeOptions[0] || DEFAULT_TYPES[0];
@@ -1015,51 +1043,45 @@ function modalCasting(id, quickIndex, quickTarget){
     <div class="modal-head"><h3>${isEdit?'Edit Pattern': quickIndex!=null ? 'Save New Pattern':'Add Pattern'}</h3>
     <p>${quickIndex!=null?'Save this to Pattern Master and select it on the line you were filling.':'One record per pattern — item, type, construction, core boxes and where it is right now.'}</p></div>
     <div class="modal-body">
-      <label class="field full">Casting Item Name *<input type="text" required maxlength="180" name="itemName" value="${esc(r.itemName||'')}" placeholder="e.g. SNH 520-617 bearing housing"></label>
-      <label class="field">Type *<select name="itemType" required>${!typeOptions.includes(cur)&&cur?`<option value="${esc(cur)}" selected>${esc(cur)}</option>`:''}${opt(typeOptions,cur)}</select></label>
-      <label class="field">Casting Material<select name="material">${opt(MATERIALS, r.material||'Cast Iron')}</select></label>
-      <label class="field">Pattern Material<select name="patternMaterial">${opt(PATTERN_MATERIALS, r.patternMaterial||'Wooden')}</select></label>
-      <label class="field">Pattern Construction<select name="patternConstruction">${opt(PATTERN_CONSTRUCTION, r.patternConstruction||'Split Type')}</select></label>
-      <label class="field">Core Box<select name="coreBox" id="sel-corebox">${opt(CORE_OPTIONS, r.coreBox||'Without core')}</select></label>
-      <label class="field">Number of Cores<input type="number" min="0" max="20" name="coreCount" id="inp-corecount" value="${esc(r.coreCount ?? 0)}" ${ (r.coreBox||'Without core')==='Without core' ? 'disabled' : '' }></label>
-      <label class="field">Pattern Code<input type="text" maxlength="80" name="patternCode" list="dl-pc" value="${esc(r.patternCode||'')}" placeholder="e.g. PTN-SNH-520">
-        <datalist id="dl-pc">${state.castingMasters.map(m=>`<option value="${esc(m.patternCode)}">`).join('')}</datalist></label>
+      <label class="field full">Pattern Name *<input type="text" required maxlength="180" name="itemName" value="${esc(r.itemName||'')}" placeholder="e.g. SNH 520-617 housing"></label>
+      <label class="field">Pattern Type *<select name="itemType" required>${!typeOptions.includes(cur)&&cur?`<option value="${esc(cur)}" selected>${esc(cur)}</option>`:''}${opt(typeOptions,cur)}</select></label>
+      <label class="field">Pattern Material *<select name="patternMaterial" required>${opt(PATTERN_MATERIALS, r.patternMaterial||'Wooden')}</select></label>
+      <label class="field">Pattern Construction *<select name="patternConstruction" required>${opt(PATTERN_CONSTRUCTION, r.patternConstruction||'Split Type')}</select></label>
+      <label class="field">Core Box *<select name="coreBox" id="sel-corebox" required>${opt(CORE_OPTIONS, r.coreBox||'Without core')}</select></label>
+      <label class="field">Number of Cores *<input type="number" required min="0" max="20" name="coreCount" id="inp-corecount" value="${esc(r.coreCount ?? 0)}" ${ (r.coreBox||'Without core')==='Without core' ? 'readonly' : '' }></label>
       <label class="field">Total Sets<input type="number" min="0" max="999" name="totalSets" value="${esc(r.totalSets ?? 1)}"></label>
-      <label class="field">Current Location<input type="text" maxlength="160" name="currentLocation" list="dl-loc" value="${esc(r.currentLocation||HOME_LOCATION)}" placeholder="JAYCO or foundry name">
-        <datalist id="dl-loc">${allLocations().map(x=>`<option value="${esc(x)}">`).join('')}</datalist></label>
-      <label class="field">Drawing No.<input type="text" maxlength="100" name="drawingNumber" value="${esc(r.drawingNumber||'')}" placeholder="e.g. DRG-520-617"></label>
+      <label class="field full">Pattern Group<input type="text" maxlength="80" name="patternGroup" list="dl-pg" value="${esc(r.patternGroup || r.patternCode || '')}" placeholder="e.g. SNH 500 series">
+        <datalist id="dl-pg">${[...new Set(state.castingMasters.map(m=>m.patternGroup).filter(Boolean))].map(x=>`<option value="${esc(x)}">`).join('')}</datalist></label>
 
-      <div class="full" style="display:grid;grid-template-columns:1fr 1fr;gap:18px">
-        <div class="attach" data-slot="drawingImage">
-          <p class="field" style="margin:0 0 8px">Drawing (image)</p>
-          <div class="attach-box">
-            <img class="attach-img" alt="" style="${pendingAttach.drawingImage?'':'display:none'}" src="${pendingAttach.drawingImage||''}">
-            <p class="attach-empty" style="${pendingAttach.drawingImage?'display:none':''}">No drawing attached</p>
-          </div>
-          <div style="display:flex;gap:8px;margin-top:10px">
-            <label class="btn" style="flex:1;justify-content:center">Choose file
-              <input type="file" accept="image/*" data-attach="drawingImage" style="display:none"></label>
-            <button type="button" class="btn icon danger" data-clear-attach="drawingImage" title="Remove">🗑</button>
-          </div>
+      <div class="attach full" data-slot="drawingPdf">
+        <p class="field" style="margin:0 0 8px">Drawing (PDF)</p>
+        <div class="attach-box" style="height:74px">
+          <p class="attach-file" style="${pendingAttach.drawingPdf?'':'display:none'}">
+            <i>▤</i> <span class="attach-name">${esc(pendingAttach.drawingPdfName||'drawing.pdf')}</span>
+            <button type="button" class="btn" data-open-pdf style="margin-left:10px;padding:4px 12px;font-size:12px">Open</button>
+          </p>
+          <p class="attach-empty" style="${pendingAttach.drawingPdf?'display:none':''}">No PDF attached</p>
         </div>
-
-        <div class="attach" data-slot="patternPhoto">
-          <p class="field" style="margin:0 0 8px">Pattern Photo</p>
-          <div class="attach-box">
-            <img class="attach-img" alt="" style="${pendingAttach.patternPhoto?'':'display:none'}" src="${pendingAttach.patternPhoto||''}">
-            <p class="attach-empty" style="${pendingAttach.patternPhoto?'display:none':''}">No photo attached</p>
-          </div>
-          <div style="display:flex;gap:8px;margin-top:10px">
-            <label class="btn" style="flex:1;justify-content:center">Choose file
-              <input type="file" accept="image/*" data-attach="patternPhoto" style="display:none"></label>
-            <button type="button" class="btn icon danger" data-clear-attach="patternPhoto" title="Remove">🗑</button>
-          </div>
+        <div style="display:flex;gap:8px;margin-top:10px">
+          <label class="btn" style="flex:1;justify-content:center">Choose PDF
+            <input type="file" accept="application/pdf" data-attach="drawingPdf" style="display:none"></label>
+          <button type="button" class="btn icon danger" data-clear-attach="drawingPdf" title="Remove">🗑</button>
         </div>
       </div>
-      <p class="full" style="margin:0;font-size:12px;color:var(--ink-faint);line-height:1.6">Images are resized and compressed automatically before saving. Photographs work well; a multi-page PDF drawing does not — keep the drawing number for that.</p>
 
-      <label class="field">Status<select name="status">${opt(MASTER_STATUS, r.status||'Active')}</select></label>
-      <label class="field full">Notes<textarea maxlength="500" name="notes">${esc(r.notes||'')}</textarea></label>
+      <div class="attach full" data-slot="patternPhoto">
+        <p class="field" style="margin:0 0 8px">Image (JPG)</p>
+        <div class="attach-box">
+          <img class="attach-img" alt="" style="${pendingAttach.patternPhoto?'':'display:none'}" src="${pendingAttach.patternPhoto||''}">
+          <p class="attach-empty" style="${pendingAttach.patternPhoto?'display:none':''}">No image attached</p>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:10px">
+          <label class="btn" style="flex:1;justify-content:center">Choose image
+            <input type="file" accept="image/*" data-attach="patternPhoto" style="display:none"></label>
+          <button type="button" class="btn icon danger" data-clear-attach="patternPhoto" title="Remove">🗑</button>
+        </div>
+      </div>
+      <p class="full" style="margin:0;font-size:12px;color:var(--ink-faint);line-height:1.6">The whole record must fit in 1 MB, so the PDF is capped near 400 KB and the image is compressed automatically. Larger drawings belong on Drive.</p>
     </div>
     <div class="modal-foot"><button type="button" class="btn" data-close>Cancel</button>
     <button type="submit" class="btn primary">${quickIndex!=null?'Save &amp; select':'Save pattern'}</button></div>
@@ -1090,7 +1112,7 @@ function modalMovement(id){
     <p>Record the current physical location and availability of a pattern set.</p></div>
     <div class="modal-body">
       <label class="field">Pattern Reference *<input type="text" required maxlength="80" name="reference" list="dl-pr" value="${esc(r.reference||'')}" placeholder="Pattern code">
-        <datalist id="dl-pr">${state.castingMasters.map(m=>`<option value="${esc(m.patternCode)}">`).join('')}</datalist></label>
+        <datalist id="dl-pr">${state.castingMasters.map(m=>`<option value="${esc(m.itemName)}">`).join('')}</datalist></label>
       <label class="field">Record Date<input type="date" name="dueDate" value="${esc(r.dueDate||today())}"></label>
       <label class="field full">Pattern / Item *<input type="text" required maxlength="180" name="item" value="${esc(r.item||'')}"></label>
       <label class="field full">Current Foundry / Location *<input type="text" required maxlength="180" name="foundry" value="${esc(r.foundry||'In-house')}"></label>
@@ -1438,7 +1460,7 @@ async function savePo(status){
    7. EVENTS
    ========================================================================== */
 document.addEventListener('click', async (e) => {
-  const t = e.target.closest('[data-view],[data-go],[data-new-challan],[data-view-challan],[data-edit-challan],[data-del-challan],[data-open-casting],[data-del-casting],[data-open-type],[data-del-type],[data-open-move],[data-del-move],[data-close],[data-rm-po],[data-rm-item],[data-quick-add],[data-quick-add-po],[data-pdf-challan],[data-wa-challan],[data-edit-po],[data-del-po],[data-pdf-po],[data-wa-po],[data-rm-po-item]');
+  const t = e.target.closest('[data-view],[data-go],[data-new-challan],[data-view-challan],[data-edit-challan],[data-del-challan],[data-open-casting],[data-del-casting],[data-open-type],[data-del-type],[data-open-move],[data-del-move],[data-close],[data-rm-po],[data-rm-item],[data-quick-add],[data-quick-add-po],[data-open-pdf],[data-row-pdf],[data-pdf-challan],[data-wa-challan],[data-edit-po],[data-del-po],[data-pdf-po],[data-wa-po],[data-rm-po-item]');
   if(!t) return;
   const d = t.dataset;
 
@@ -1524,8 +1546,8 @@ document.addEventListener('invalid', e => {
 document.addEventListener('change', e => {
   if(e.target.id === 'sel-corebox'){
     const n = document.getElementById('inp-corecount');
-    if(e.target.value === 'Without core'){ n.value = 0; n.disabled = true; }
-    else { n.disabled = false; if(num(n.value) < 1) n.value = 1; }
+    if(e.target.value === 'Without core'){ n.value = 0; n.readOnly = true; }
+    else { n.readOnly = false; if(num(n.value) < 1) n.value = 1; }
   }
 });
 
@@ -1535,16 +1557,29 @@ document.addEventListener('change', async e => {
   if(!inp || !inp.files || !inp.files[0]) return;
   const slot = inp.dataset.attach, file = inp.files[0];
   const wrap = document.querySelector(`.attach[data-slot="${slot}"]`);
-  const img = wrap.querySelector('.attach-img'), ph = wrap.querySelector('.attach-empty');
-  ph.textContent = 'Compressing…'; ph.style.display = ''; img.style.display = 'none';
+  const ph = wrap.querySelector('.attach-empty');
+  const img = wrap.querySelector('.attach-img');
+  const fileRow = wrap.querySelector('.attach-file');
+  ph.textContent = slot === 'drawingPdf' ? 'Reading…' : 'Compressing…';
+  ph.style.display = ''; if(img) img.style.display = 'none'; if(fileRow) fileRow.style.display = 'none';
   try{
-    const data = await compressImage(file);
-    pendingAttach[slot] = data;
-    img.src = data; img.style.display = ''; ph.style.display = 'none';
-    toast('Image attached (' + Math.round(data.length/1024) + ' KB)','success');
+    if(slot === 'drawingPdf'){
+      const data = await loadPdf(file);
+      pendingAttach.drawingPdf = data; pendingAttach.drawingPdfName = file.name;
+      wrap.querySelector('.attach-name').textContent = file.name;
+      fileRow.style.display = ''; ph.style.display = 'none';
+      toast('PDF attached (' + Math.round(data.length/1024) + ' KB)','success');
+    } else {
+      const data = await compressImage(file);
+      pendingAttach[slot] = data;
+      img.src = data; img.style.display = ''; ph.style.display = 'none';
+      toast('Image attached (' + Math.round(data.length/1024) + ' KB)','success');
+    }
   }catch(err){
-    pendingAttach[slot] = '';
-    ph.textContent = 'No file attached'; ph.style.display = ''; img.style.display = 'none';
+    if(slot === 'drawingPdf'){ pendingAttach.drawingPdf = ''; pendingAttach.drawingPdfName = ''; }
+    else pendingAttach[slot] = '';
+    ph.textContent = 'No file attached'; ph.style.display = '';
+    if(img) img.style.display = 'none'; if(fileRow) fileRow.style.display = 'none';
     toast(err.message,'error');
   }
   inp.value = '';
@@ -1555,10 +1590,22 @@ document.addEventListener('click', e => {
   if(clr){
     const slot = clr.dataset.clearAttach;
     pendingAttach[slot] = '';
+    if(slot === 'drawingPdf') pendingAttach.drawingPdfName = '';
     const wrap = document.querySelector(`.attach[data-slot="${slot}"]`);
-    wrap.querySelector('.attach-img').style.display = 'none';
+    const im = wrap.querySelector('.attach-img'); if(im) im.style.display = 'none';
+    const fr = wrap.querySelector('.attach-file'); if(fr) fr.style.display = 'none';
     const ph = wrap.querySelector('.attach-empty');
     ph.textContent = 'No file attached'; ph.style.display = '';
+    return;
+  }
+  if(e.target.closest('[data-open-pdf]')){
+    if(pendingAttach.drawingPdf) openAttachment(pendingAttach.drawingPdf, pendingAttach.drawingPdfName);
+    return;
+  }
+  const rowPdf = e.target.closest('[data-row-pdf]');
+  if(rowPdf){
+    const m = state.castingMasters.find(x=>String(x.id)===rowPdf.dataset.rowPdf);
+    if(m && m.drawingPdf) openAttachment(m.drawingPdf, m.drawingPdfName);
     return;
   }
   const zoom = e.target.closest('.attach-img, .thumb');
@@ -1623,7 +1670,7 @@ document.addEventListener('change', e => {
   if(el.dataset.item !== undefined && el.dataset.field === 'masterCode'){
     const m = state.castingMasters.find(x=>x.itemCode===el.value);
     const i = Number(el.dataset.item);
-    if(m) Object.assign(state.entryForm.items[i], {masterCode:m.itemCode, itemName:m.itemName, itemType:m.itemType, material:m.material});
+    if(m) Object.assign(state.entryForm.items[i], {masterCode:m.itemCode, itemName:m.itemName, itemType:m.itemType});
     render();
   } else if(el.dataset.item !== undefined){
     state.entryForm.items[Number(el.dataset.item)][el.dataset.field] = el.value;
@@ -1684,13 +1731,15 @@ document.addEventListener('submit', async e => {
     if(f.id === 'po-form'){ await savePo('Closed'); return; }
 
     if(f.id === 'f-casting'){
-      const c = {itemName:data.itemName.trim(), itemType:data.itemType, material:data.material,
+      const c = {itemName:data.itemName.trim(), itemType:data.itemType,
                  patternMaterial:data.patternMaterial, patternConstruction:data.patternConstruction,
                  coreBox:data.coreBox, coreCount: data.coreBox==='Without core' ? 0 : num(data.coreCount),
-                 totalSets:num(data.totalSets), currentLocation:data.currentLocation.trim()||HOME_LOCATION,
-                 drawingNumber:data.drawingNumber.trim(), patternCode:data.patternCode.trim(),
-                 drawingImage:pendingAttach.drawingImage || '', patternPhoto:pendingAttach.patternPhoto || '',
-                 status:data.status, notes:data.notes.trim(), averageWeight:0};
+                 totalSets:num(data.totalSets), patternGroup:data.patternGroup.trim(),
+                 drawingPdf:pendingAttach.drawingPdf||'', drawingPdfName:pendingAttach.drawingPdfName||'',
+                 patternPhoto:pendingAttach.patternPhoto||'',
+                 material:'Cast Iron', status:'Active', averageWeight:0};
+      const bytes = (c.drawingPdf.length + c.patternPhoto.length);
+      if(bytes > DOC_BUDGET) return toast('The PDF and image together are ' + Math.round(bytes/1024) + ' KB. A record cannot exceed 1 MB — remove one or use a smaller file.','error');
       let saved;
       if(data.id){ saved = await DB.update('casting_masters', data.id, c); }
       else { c.itemCode = 'CAST-' + Math.random().toString(36).slice(2,10).toUpperCase(); saved = await DB.create('casting_masters', c); }
@@ -1700,7 +1749,7 @@ document.addEventListener('submit', async e => {
         toast('Pattern saved and selected on the P/O','success');
       } else if(data.quickIndex !== '' && state.entryForm){
         const i = Number(data.quickIndex);
-        Object.assign(state.entryForm.items[i], {masterCode:saved.itemCode, itemName:saved.itemName, itemType:saved.itemType, material:saved.material});
+        Object.assign(state.entryForm.items[i], {masterCode:saved.itemCode, itemName:saved.itemName, itemType:saved.itemType});
         toast('Pattern saved and selected on the challan','success');
       } else toast(data.id?'Pattern updated':'Pattern added to master','success');
     }
