@@ -1018,7 +1018,33 @@ async function runDuplicateCleanup(){
   await loadAll();
 }
 
+/* Full JSON copy of every collection. Firestore has no automatic backup on the
+   free plan, so this is the only way back if a bulk delete goes wrong. */
+async function downloadBackup(){
+  const btn = document.getElementById('btn-backup');
+  if(btn){ btn.disabled = true; btn.textContent = 'Reading…'; }
+  try{
+    const dump = {exportedAt: new Date().toISOString(), project: firebaseConfig.projectId};
+    for(const c of COLLECTIONS){
+      try { dump[c] = await DB.list(c); } catch(err){ dump[c] = []; }
+    }
+    const counts = COLLECTIONS.map(c => c + ': ' + dump[c].length).join(', ');
+    const blob = new Blob([JSON.stringify(dump, null, 2)], {type:'application/json'});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'JAYCO-casting-backup-' + today() + '.json';
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 30000);
+    toast('Backup downloaded — ' + counts, 'success');
+  }catch(err){
+    toast('Backup failed: ' + (err.message || err), 'error');
+  }finally{
+    if(btn){ btn.disabled = false; btn.textContent = 'Backup all data'; }
+  }
+}
+
 document.addEventListener('click', e => {
+  if(e.target.closest('#btn-backup'))        downloadBackup();
   if(e.target.closest('#btn-find-dupes'))    previewDuplicates();
   if(e.target.closest('#btn-dupes-confirm')) runDuplicateCleanup();
 });
@@ -1324,6 +1350,7 @@ function viewPatternMaster(){
     <div class="panel-heading">
       <div><p class="eyebrow">Approved pattern list</p><h2 class="panel-title">Pattern Master</h2></div>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn" id="btn-backup">Backup all data</button>
         <button class="btn danger" id="btn-find-dupes">Find duplicates</button>
         <button class="btn" id="btn-xls-template">Excel template</button>
         <button class="btn" id="btn-xls-import">Import from Excel</button>
