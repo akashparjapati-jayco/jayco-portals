@@ -626,28 +626,6 @@ async function compressImage(file){
   throw new Error('That image is too large even after compression. Crop it or use a smaller photo.');
 }
 /* Built-ins first, then any Active types from Type Master, de-duplicated. */
-/* A pattern is the same pattern if name, type, material and construction match.
-   Compared case- and space-insensitively so "SN 511" and "sn511" collide.     */
-function patternKey(r){
-  const n = t => String(t ?? '').trim().toLowerCase().replace(/\s+/g,' ');
-  return [n(r.itemName), n(r.itemType), n(r.patternMaterial), n(r.patternConstruction)].join(' | ');
-}
-function findPatternDuplicates(){
-  const groups = new Map();
-  for(const r of state.castingMasters){
-    const k = patternKey(r);
-    if(!groups.has(k)) groups.set(k, []);
-    groups.get(k).push(r);
-  }
-  /* keep the one with a drawing or photo, else the oldest */
-  const score = r => (r.drawingPdf ? 2 : 0) + (r.patternPhoto ? 2 : 0);
-  return [...groups.values()].filter(g => g.length > 1).map(g => {
-    const sorted = [...g].sort((a,b) =>
-      score(b) - score(a) || String(a.createdAt||'').localeCompare(String(b.createdAt||'')));
-    return {keep: sorted[0], remove: sorted.slice(1)};
-  });
-}
-
 /* A pattern is the same pattern if name, type, material and construction all
    match. Case and spacing are ignored so "SN 511" and "sn  511" collide.      */
 function patternKey(r){
@@ -666,8 +644,11 @@ function findDuplicateGroups(){
     .filter(([, rows]) => rows.length > 1)
     .map(([k, rows]) => ({
       key: k,
-      /* keep the oldest — it is the one other records were built against */
-      rows: rows.sort((a,b) => String(a.createdAt||'').localeCompare(String(b.createdAt||'')))
+      /* keep the one carrying a drawing or photo, otherwise the oldest */
+      rows: rows.sort((a,b) => {
+        const score = r => (r.drawingPdf ? 2 : 0) + (r.patternPhoto ? 2 : 0);
+        return score(b) - score(a) || String(a.createdAt||'').localeCompare(String(b.createdAt||''));
+      })
     }));
 }
 
