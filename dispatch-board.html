@@ -49,7 +49,7 @@
 <style>
   :root {
     --bg:#f4f6f9; --panel:#ffffff; --panel2:#eef2f7; --line:#dde3ec;
-    --red:#E5322D; --red-dim:#f3b0ad; --yellow:#b45309; --green:#15803d;
+    --red:#EA580C; --red-dim:#fdba74; --yellow:#b45309; --green:#15803d;
     --text:#101828; --text-dim:#64748b;
   }
   * { box-sizing: border-box; }
@@ -216,11 +216,61 @@ function Gate({ children }) {
   );
 }
 
+const USER_NAME_KEY = "jaycoDispatchBoardUserName";
+
+function NameGate({ children }) {
+  const [name, setName] = useState(() => {
+    try { return localStorage.getItem(USER_NAME_KEY) || ""; } catch (e) { return ""; }
+  });
+  const [draft, setDraft] = useState("");
+
+  if (name) return children;
+
+  const submit = () => {
+    const v = draft.trim();
+    if (!v) return;
+    try { localStorage.setItem(USER_NAME_KEY, v); } catch (e) {}
+    setName(v);
+  };
+
+  return (
+    <div style={{ minHeight:"100vh", display:"flex", alignItems:"center", justifyContent:"center", background:"linear-gradient(160deg,#111111,#262626)", fontFamily:"'Inter','Helvetica Neue',Arial,sans-serif", padding:"20px", boxSizing:"border-box" }}>
+      <div style={{ background:"var(--panel)", borderRadius:"18px", padding:"36px 34px", width:"340px", maxWidth:"90vw", boxShadow:"0 30px 70px -20px rgba(0,0,0,0.45)", border:"1px solid rgba(255,255,255,0.08)", boxSizing:"border-box" }}>
+        <div style={{ textAlign:"center", marginBottom:"22px" }}>
+          <div style={{ fontFamily:"'Space Grotesk','Inter',sans-serif", fontWeight:700, fontSize:"18px", color:"var(--text)" }}>Who's this?</div>
+          <div style={{ fontSize:"12.5px", color:"var(--text-dim)", marginTop:"2px" }}>Your name is stamped on entries you create</div>
+        </div>
+        <div style={{ marginBottom:"14px" }}>
+          <label style={{ display:"block", fontSize:"12px", fontWeight:600, color:"var(--text)", marginBottom:"4px" }}>Your Name</label>
+          <input
+            autoFocus
+            value={draft}
+            onChange={e => setDraft(e.target.value)}
+            onKeyDown={e => { if (e.key === "Enter") submit(); }}
+            placeholder="e.g. Ramesh"
+            style={{ width:"100%", padding:"9px 11px", border:"1px solid var(--line)", borderRadius:"8px", fontSize:"13px", boxSizing:"border-box" }}
+          />
+        </div>
+        <button onClick={submit} style={{ width:"100%", padding:"10px", background:"var(--red)", color:"#fff", border:"none", borderRadius:"8px", fontWeight:600, fontSize:"13px", cursor:"pointer" }}>
+          Continue
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function App() {
   const [tab, setTab] = useState("overview");
   const [data, setData] = useState(null);
   const [saveState, setSaveState] = useState("idle");
   const [connMode, setConnMode] = useState(firebaseReady ? "connecting" : "unconfigured");
+  const [userName] = useState(() => {
+    try { return localStorage.getItem(USER_NAME_KEY) || ""; } catch (e) { return ""; }
+  });
+  const changeUserName = () => {
+    try { localStorage.removeItem(USER_NAME_KEY); } catch (e) {}
+    if (typeof window !== "undefined" && window.location) window.location.reload();
+  };
 
   const [entryMode, setEntryMode] = useState("paint");
   const [challanDraft, setChallanDraft] = useState({ date:today(), painterName:"", items:[] });
@@ -239,6 +289,7 @@ function App() {
   const [importMsg, setImportMsg] = useState("");
   const [masterForms, setMasterForms] = useState({ plummerSeries: "", pillowBlocks: "", adapterSleeves: "", locatingRings: "", bearings: "", sealTypes: "", woodenBoxSizes: "", corrugatedBoxSizes: "" });
   const [editMasterItem, setEditMasterItem] = useState(null);
+  const [masterSearch, setMasterSearch] = useState({});
   const paintItemRef = useRef(null);
   const [saleDraft, setSaleDraft] = useState({ date:today(), billNo:"", vendorName:"", items:[] });
   const [saleRowForm, setSaleRowForm] = useState({ category:"Adapter Sleeve", item:"", qty:"", unit:"Nos", notes:"" });
@@ -395,12 +446,12 @@ function App() {
       const original = paintLog.find(p => p.id === editingChallanId);
       let nextStock = original ? reverseStockForItems(original.items, stock) : stock;
       nextStock = applyStockForItems(challanDraft.items, nextStock);
-      const updated = { id:editingChallanId, slipNo: original ? original.slipNo : nextSlipNo(), date:challanDraft.date || today(), painterName:challanDraft.painterName, items:challanDraft.items };
+      const updated = { id:editingChallanId, slipNo: original ? original.slipNo : nextSlipNo(), date:challanDraft.date || today(), painterName:challanDraft.painterName, items:challanDraft.items, createdBy: original ? original.createdBy : userName };
       persist({ ...data, paintLog: paintLog.map(p => p.id === editingChallanId ? updated : p), stock: nextStock });
       setEditingChallanId(null);
     } else {
       const slipNo = nextSlipNo();
-      const challan = { id:uid(), slipNo, date:challanDraft.date || today(), painterName:challanDraft.painterName, items:challanDraft.items };
+      const challan = { id:uid(), slipNo, date:challanDraft.date || today(), painterName:challanDraft.painterName, items:challanDraft.items, createdBy:userName };
       const nextStock = applyStockForItems(challanDraft.items, stock);
       persist({ ...data, paintLog: [challan, ...paintLog], stock: nextStock });
     }
@@ -469,11 +520,11 @@ function App() {
       const original = readyToSaleLog.find(s => s.id === editingSaleId);
       let nextStock = original ? reverseStockForSaleItems(original.items, stock) : stock;
       nextStock = applyStockForSaleItems(saleDraft.items, nextStock);
-      const updated = { id:editingSaleId, date:saleDraft.date || today(), billNo:saleDraft.billNo, vendorName:saleDraft.vendorName, items:saleDraft.items };
+      const updated = { id:editingSaleId, date:saleDraft.date || today(), billNo:saleDraft.billNo, vendorName:saleDraft.vendorName, items:saleDraft.items, createdBy: original ? original.createdBy : userName };
       persist({ ...data, readyToSaleLog: readyToSaleLog.map(s => s.id === editingSaleId ? updated : s), stock: nextStock });
       setEditingSaleId(null);
     } else {
-      const slip = { id:uid(), date:saleDraft.date || today(), billNo:saleDraft.billNo, vendorName:saleDraft.vendorName, items:saleDraft.items };
+      const slip = { id:uid(), date:saleDraft.date || today(), billNo:saleDraft.billNo, vendorName:saleDraft.vendorName, items:saleDraft.items, createdBy:userName };
       const nextStock = applyStockForSaleItems(saleDraft.items, stock);
       persist({ ...data, readyToSaleLog: [slip, ...readyToSaleLog], stock: nextStock });
     }
@@ -503,7 +554,7 @@ function App() {
 
   const addStock = () => {
     if (!sForm.item || sForm.qty === "") return;
-    persist({ ...data, stock: [{ id:uid(), ...sForm, qty:Number(sForm.qty), reorder:Number(sForm.reorder || 0) }, ...stock] });
+    persist({ ...data, stock: [{ id:uid(), ...sForm, qty:Number(sForm.qty), reorder:Number(sForm.reorder || 0), createdBy:userName }, ...stock] });
     setSForm({ category:"Plummer Block", item:"", qty:"", unit:"Nos", location:"", reorder:"" });
   };
   const delStock = (id) => {
@@ -598,13 +649,14 @@ function App() {
     if (dispatchDraft.items.length === 0) return;
     const totals = computeSlipTotals(dispatchDraft.items);
     if (editingSlipId) {
+      const original = dispatchSlips.find(d => d.id === editingSlipId);
       const updated = { id:editingSlipId, date:dispatchDraft.date || today(), invoiceNo:dispatchDraft.invoiceNo, transportName:dispatchDraft.transportName,
-        lrNo:dispatchDraft.lrNo, driverName:dispatchDraft.driverName, dest:dispatchDraft.dest, items:dispatchDraft.items, ...totals };
+        lrNo:dispatchDraft.lrNo, driverName:dispatchDraft.driverName, dest:dispatchDraft.dest, items:dispatchDraft.items, ...totals, createdBy: original ? original.createdBy : userName };
       persist({ ...data, dispatchSlips: dispatchSlips.map(d => d.id === editingSlipId ? updated : d) });
       setEditingSlipId(null);
     } else {
       const slip = { id:uid(), date:dispatchDraft.date || today(), invoiceNo:dispatchDraft.invoiceNo, transportName:dispatchDraft.transportName,
-        lrNo:dispatchDraft.lrNo, driverName:dispatchDraft.driverName, dest:dispatchDraft.dest, items:dispatchDraft.items, ...totals };
+        lrNo:dispatchDraft.lrNo, driverName:dispatchDraft.driverName, dest:dispatchDraft.dest, items:dispatchDraft.items, ...totals, createdBy:userName };
       persist({ ...data, dispatchSlips: [slip, ...dispatchSlips] });
     }
     setDispatchDraft({ date:today(), invoiceNo:"", transportName:"", lrNo:"", driverName:"", dest:"", items:[] });
@@ -633,7 +685,7 @@ function App() {
     const pageW = 210;
     const marginX = 12;
     const contentW = pageW - marginX * 2;
-    const red = [196, 30, 42];
+    const red = [234, 88, 12];
     const grayLine = [200, 200, 200];
     const darkText = [30, 30, 30];
     const dimText = [110, 110, 110];
@@ -769,7 +821,7 @@ function App() {
 
   const addBox = () => {
     if (bForm.qty === "" || !bForm.party) return;
-    persist({ ...data, boxLog: [{ id:uid(), ...bForm, date:bForm.date || today(), qty:Number(bForm.qty) }, ...boxLog] });
+    persist({ ...data, boxLog: [{ id:uid(), ...bForm, date:bForm.date || today(), qty:Number(bForm.qty), createdBy:userName }, ...boxLog] });
     setBForm({ date:today(), direction:"in", type:"Wooden Box", size:BOX_TYPES[0].sizes[0], qty:"", party:"" });
   };
   const delBox = (id) => persist({ ...data, boxLog: boxLog.filter(b => b.id !== id) });
@@ -872,6 +924,9 @@ function App() {
         <div className="mono" style={{fontSize:"11px",color: connMode==="live" ? "#7fe0ab" : connMode==="error" ? "#ff9d92" : "#9a9a9a",marginBottom:"10px",display:"flex",alignItems:"center",gap:"6px"}}>
           {saveState === "saving" ? <><span className="spin">⟳</span> Saving…</> : connLabel.text}
         </div>
+        <div style={{fontSize:"11px",color:"#c9c9c9",marginBottom:"8px"}}>
+          Working as <strong>{userName || "Unknown"}</strong> · <button onClick={changeUserName} style={{background:"none",border:"none",color:"#9a9a9a",fontSize:"11px",textDecoration:"underline",cursor:"pointer",padding:0}}>change</button>
+        </div>
         <div style={{fontSize:"11px",color:"#8a8a8a"}}>
           Plummer Block &amp; Bearing Housing Division<br/>Dharti Industrial Park, Kheda
         </div>
@@ -890,6 +945,7 @@ function App() {
           <button onClick={() => { setTab("entries"); setEntryMode("paint"); }} style={{...btnPrimary, textTransform:"none", letterSpacing:0, fontSize:"12.5px", padding:"9px 16px"}}>+ Paint Challan</button>
           <button onClick={() => { setTab("entries"); setEntryMode("purchase"); }} style={{...iconBtn, fontWeight:600, fontSize:"12.5px", padding:"9px 16px"}}>+ Vendor Bill</button>
           <button onClick={() => setTab("packing")} style={{...iconBtn, fontWeight:600, fontSize:"12.5px", padding:"9px 16px"}}>+ Dispatch Slip</button>
+          <button onClick={() => setTab("packing")} style={{...iconBtn, fontWeight:600, fontSize:"12.5px", padding:"9px 16px"}}>📦 View Packing / Dispatch Slips</button>
           <button onClick={() => setTab("stock")} style={{...iconBtn, fontWeight:600, fontSize:"12.5px", padding:"9px 16px"}}>View Finish Stock</button>
         </div>
 
@@ -1047,6 +1103,7 @@ function App() {
                   <span className="mono" style={{fontWeight:600,fontSize:"13px"}}>{p.slipNo}</span>
                   <span style={{fontSize:"13px",color:"var(--text-dim)",marginLeft:"12px"}}>{fmtDate(p.date)}</span>
                   <span style={{fontSize:"13px",color:"var(--text-dim)",marginLeft:"12px"}}>{p.painterName || "—"}</span>
+                  {p.createdBy && <span style={{fontSize:"11px",color:"var(--text-dim)",marginLeft:"12px"}}>· created by {p.createdBy}</span>}
                 </div>
                 <div style={{display:"flex",gap:"8px"}}>
                   <button className="row-btn" onClick={() => startEditChallan(p)} style={{...iconBtn,fontWeight:600}}>✎ Edit</button>
@@ -1138,6 +1195,7 @@ function App() {
                   <span className="mono" style={{fontWeight:600,fontSize:"13px"}}>{slip.billNo || "—"}</span>
                   <span style={{fontSize:"13px",color:"var(--text-dim)",marginLeft:"12px"}}>{fmtDate(slip.date)}</span>
                   <span style={{fontSize:"13px",color:"var(--text-dim)",marginLeft:"12px"}}>{slip.vendorName || "—"}</span>
+                  {slip.createdBy && <span style={{fontSize:"11px",color:"var(--text-dim)",marginLeft:"12px"}}>· created by {slip.createdBy}</span>}
                 </div>
                 <div style={{display:"flex",gap:"8px"}}>
                   <button className="row-btn" onClick={() => startEditSale(slip)} style={{...iconBtn,fontWeight:600}}>✎ Edit</button>
@@ -1205,7 +1263,7 @@ function App() {
             <button onClick={addStock} style={btnPrimary}>+</button>
           </div>
         </div>
-        <TableBlock headers={["Category","Item","Qty","Unit","Location","Reorder @",""]} emptyText={stockFilter ? `No ${stockFilter} items in Finish Stock.` : "No stock recorded."}
+        <TableBlock headers={["Category","Item","Qty","Unit","Location","Reorder @","By",""]} emptyText={stockFilter ? `No ${stockFilter} items in Finish Stock.` : "No stock recorded."}
           rows={stock.filter(s => !stockFilter || s.category === stockFilter).map(s => {
             const isEditing = editStock && editStock.id === s.id;
             if (isEditing) return [
@@ -1227,6 +1285,7 @@ function App() {
               <input type="number" value={editStock.reorder} onChange={e => setEditStock({...editStock, reorder:e.target.value})}
                 onKeyDown={e => { if (e.key === "Enter") saveEditStock(); if (e.key === "Escape") cancelEditStock(); }}
                 style={{...inputStyle, padding:"5px 6px"}} />,
+              <span style={{fontSize:"11px",color:"var(--text-dim)"}}>{s.createdBy || "—"}</span>,
               <div style={{display:"flex",gap:"4px"}}>
                 <button className="row-btn" onClick={saveEditStock} style={iconBtnSmall} title="Save">✓ Save</button>
                 <button className="row-btn" onClick={cancelEditStock} style={iconBtnSmall} title="Cancel">✕</button>
@@ -1236,6 +1295,7 @@ function App() {
               s.category, s.item,
               <span className="mono" style={{color: s.qty<=s.reorder?"var(--red)":"var(--text)",fontWeight:600}}>{s.qty}</span>,
               s.unit, s.location || "—", s.reorder,
+              <span style={{fontSize:"11px",color:"var(--text-dim)"}}>{s.createdBy || "—"}</span>,
               <div style={{display:"flex",gap:"4px"}}>
                 <button className="row-btn" onClick={() => startEditStock(s)} style={iconBtnSmall} title="Edit">✎</button>
                 <button className="row-btn" onClick={() => delStock(s.id)} style={iconBtnSmall} title="Delete">✕</button>
@@ -1325,6 +1385,7 @@ function App() {
                 <div className="mono" style={{fontSize:"11px",color:"var(--text-dim)",marginTop:"2px"}}>
                   {d.transportName || "—"} · LR {d.lrNo || "—"} · Driver {d.driverName || "—"} {d.dest && <>· → {d.dest}</>}
                 </div>
+                {d.createdBy && <div style={{fontSize:"11px",color:"var(--text-dim)",marginTop:"2px"}}>Created by {d.createdBy}</div>}
               </div>
               <div style={{display:"flex",gap:"8px"}}>
                 <button className="row-btn" onClick={() => generateDispatchPdf(d)} style={{...iconBtn,fontWeight:600}}>⭳ PDF for WhatsApp</button>
@@ -1362,32 +1423,42 @@ function App() {
             <button onClick={addBox} style={btnPrimary}>+</button>
           </div>
         </div>
-        <TableBlock headers={["Date","Direction","Box Type","Size","Qty","Party / Ref",""]} emptyText="No box movement recorded."
+        <TableBlock headers={["Date","Direction","Box Type","Size","Qty","Party / Ref","By",""]} emptyText="No box movement recorded."
           rows={boxLog.map(b => [
             fmtDate(b.date),
             <span style={{color: b.direction==="in"?"var(--green)":"var(--yellow)"}}>{b.direction==="in" ? "↓ Inward" : "↑ Outward"}</span>,
             b.type, b.size,
             <span className="mono">{b.qty}</span>,
             b.party || "—",
+            <span style={{fontSize:"11px",color:"var(--text-dim)"}}>{b.createdBy || "—"}</span>,
             <button className="row-btn" onClick={() => delBox(b.id)} style={iconBtn}>✕</button>,
           ])} />
       </div>}
 
       {tab === "masters" && <div>
         <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit, minmax(280px, 1fr))",gap:"16px"}}>
-          {Object.entries(MASTER_KEYS).map(([key, label]) => (
+          {Object.entries(MASTER_KEYS).map(([key, label]) => {
+            const search = (masterSearch[key] || "").trim().toLowerCase();
+            const visibleItems = search ? masters[key].filter(item => item.toLowerCase().includes(search)) : masters[key];
+            return (
             <div key={key} style={{background:"var(--panel)",border:"1px solid var(--line)",padding:"16px"}}>
-              <div style={{fontWeight:600,fontSize:"13px",marginBottom:"12px"}}>{label}</div>
-              <div style={{display:"flex",gap:"6px",marginBottom:"12px"}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",marginBottom:"12px"}}>
+                <div style={{fontWeight:600,fontSize:"13px"}}>{label}</div>
+                <div className="mono" style={{fontSize:"11px",color:"var(--text-dim)"}}>{masters[key].length} item{masters[key].length === 1 ? "" : "s"}</div>
+              </div>
+              <div style={{display:"flex",gap:"6px",marginBottom:"8px"}}>
                 <input placeholder={`Add new ${label.toLowerCase()}`} value={masterForms[key]}
                   onChange={e => setMasterForms({ ...masterForms, [key]: e.target.value })}
                   onKeyDown={e => { if (e.key === "Enter") { addMasterItem(key, masterForms[key]); setMasterForms({ ...masterForms, [key]: "" }); } }}
                   style={inputStyle} />
                 <button onClick={() => { addMasterItem(key, masterForms[key]); setMasterForms({ ...masterForms, [key]: "" }); }} style={btnPrimary}>+</button>
               </div>
+              {masters[key].length > 5 && <input placeholder="🔍 Filter this list…" value={masterSearch[key] || ""}
+                onChange={e => setMasterSearch({ ...masterSearch, [key]: e.target.value })}
+                style={{ ...inputStyle, marginBottom:"12px", fontSize:"12.5px", padding:"6px 10px" }} />}
               <div style={{display:"flex",flexDirection:"column",gap:"6px",maxHeight:"260px",overflowY:"auto"}}>
-                {masters[key].length === 0 && <div style={{fontSize:"12px",color:"var(--text-dim)"}}>No items yet.</div>}
-                {masters[key].map(item => {
+                {visibleItems.length === 0 && <div style={{fontSize:"12px",color:"var(--text-dim)"}}>{search ? `No items match "${masterSearch[key]}".` : "No items yet."}</div>}
+                {visibleItems.map(item => {
                   const isEditing = editMasterItem && editMasterItem.key === key && editMasterItem.original === item;
                   return (
                     <div key={item} style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:"6px",padding:"6px 10px",background:"var(--bg)",border:`1px solid ${isEditing ? "var(--red)" : "var(--line)"}`,fontSize:"13px"}}>
@@ -1416,7 +1487,8 @@ function App() {
                 })}
               </div>
             </div>
-          ))}
+            );
+          })}
         </div>
       </div>}
     </div>
@@ -1425,7 +1497,7 @@ function App() {
 }
 
 try {
-  ReactDOM.createRoot(document.getElementById("root")).render(<Gate><App /></Gate>);
+  ReactDOM.createRoot(document.getElementById("root")).render(<Gate><NameGate><App /></NameGate></Gate>);
 } catch (e) {
   document.getElementById("root").innerHTML =
     '<div style="padding:24px;color:#101828;background:#f4f6f9;font-family:monospace;white-space:pre-wrap;min-height:100vh;">Dashboard failed to load.\n\nError: ' +
