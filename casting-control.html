@@ -626,6 +626,51 @@ async function compressImage(file){
   throw new Error('That image is too large even after compression. Crop it or use a smaller photo.');
 }
 /* Built-ins first, then any Active types from Type Master, de-duplicated. */
+/* A pattern is the same pattern if name, type, material and construction match.
+   Compared case- and space-insensitively so "SN 511" and "sn511" collide.     */
+function patternKey(r){
+  const n = t => String(t ?? '').trim().toLowerCase().replace(/\s+/g,' ');
+  return [n(r.itemName), n(r.itemType), n(r.patternMaterial), n(r.patternConstruction)].join(' | ');
+}
+function findPatternDuplicates(){
+  const groups = new Map();
+  for(const r of state.castingMasters){
+    const k = patternKey(r);
+    if(!groups.has(k)) groups.set(k, []);
+    groups.get(k).push(r);
+  }
+  /* keep the one with a drawing or photo, else the oldest */
+  const score = r => (r.drawingPdf ? 2 : 0) + (r.patternPhoto ? 2 : 0);
+  return [...groups.values()].filter(g => g.length > 1).map(g => {
+    const sorted = [...g].sort((a,b) =>
+      score(b) - score(a) || String(a.createdAt||'').localeCompare(String(b.createdAt||'')));
+    return {keep: sorted[0], remove: sorted.slice(1)};
+  });
+}
+
+/* A pattern is the same pattern if name, type, material and construction all
+   match. Case and spacing are ignored so "SN 511" and "sn  511" collide.      */
+function patternKey(r){
+  return [r.itemName, r.itemType, r.patternMaterial, r.patternConstruction]
+    .map(v => String(v ?? '').trim().toLowerCase().replace(/\s+/g,' '))
+    .join(' | ');
+}
+function findDuplicateGroups(){
+  const map = new Map();
+  for(const m of state.castingMasters){
+    const k = patternKey(m);
+    if(!map.has(k)) map.set(k, []);
+    map.get(k).push(m);
+  }
+  return [...map.entries()]
+    .filter(([, rows]) => rows.length > 1)
+    .map(([k, rows]) => ({
+      key: k,
+      /* keep the oldest — it is the one other records were built against */
+      rows: rows.sort((a,b) => String(a.createdAt||'').localeCompare(String(b.createdAt||'')))
+    }));
+}
+
 function allTypes(){
   return [...new Set([...DEFAULT_TYPES,
     ...state.castingTypes.filter(t => t.status === 'Active').map(t => t.typeName)])];
@@ -917,6 +962,66 @@ function viewCastingRecords(){
 }
 
 /* ---- Pattern Management ---- */
+
+/* ---- Duplicate cleanup ------------------------------------------------
+   Groups patterns that share name + type + material + construction, keeps
+   the oldest of each group and deletes the rest. Shows exactly what will go
+   before anything is removed, and never touches a group of one.
+   -------------------------------------------------------------------- */
+function previewDuplicates(){
+  const groups = findDuplicateGroups();
+  if(!groups.length) return toast('No duplicates found — every pattern is unique.','success');
+
+  const toDelete = groups.flatMap(g => g.rows.slice(1));
+  window.__dupQueue = toDelete;
+
+  openModal(`<div class="modal-head">
+      <h3>${toDelete.length} duplicate${toDelete.length===1?'':'s'} to remove</h3>
+      <p>${groups.length} pattern${groups.length===1?'':'s'} appear more than once. The oldest of each is kept, the rest are deleted. Nothing is removed until you confirm.</p>
+    </div>
+    <div style="padding:0 28px;overflow-y:auto;flex:1 1 auto;min-height:0">
+      <div class="table-scroll" style="border:1px solid var(--card-border);border-radius:var(--r-md)">
+        <table><thead><tr><th>Pattern name</th><th>Type</th><th>Material</th><th>Construction</th><th>Created by</th><th>Action</th></tr></thead>
+        <tbody>${ groups.slice(0,80).map(g => g.rows.map((r,i)=>`<tr style="${i?'':'background:rgba(29,170,92,.05)'}">
+          <td><b>${esc(r.itemName)}</b></td><td>${esc(r.itemType)}</td>
+          <td>${esc(r.patternMaterial)||'—'}</td><td>${esc(r.patternConstruction)||'—'}</td>
+          <td>${esc(r.createdBy || r.changedBy)||'—'}</td>
+          <td>${ i === 0 ? '<span class="badge ok">Keep</span>' : '<span class="badge bad">Delete</span>' }</td>
+        </tr>`).join('')).join('') }</tbody></table>
+      </div>
+      ${ groups.length > 80 ? `<p style="margin:12px 0 0;font-size:12px;color:var(--ink-faint)">Showing the first 80 groups. All ${toDelete.length} duplicates will be removed.</p>` : '' }
+      <div style="margin-top:14px;border-left:3px solid var(--orange);background:rgba(229,50,45,.05);padding:14px 16px;font-size:13px;line-height:1.6">
+        Deleting cannot be undone. Challans and purchase orders reference patterns by name, so they are unaffected — but check the list before confirming.
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button type="button" class="btn" data-close>Cancel</button>
+      <button type="button" class="btn primary" id="btn-dupes-confirm">Delete ${toDelete.length} duplicate${toDelete.length===1?'':'s'}</button>
+    </div>`, true);
+}
+
+async function runDuplicateCleanup(){
+  const queue = window.__dupQueue || [];
+  if(!queue.length) return;
+  const btn = document.getElementById('btn-dupes-confirm');
+  btn.disabled = true;
+  let done = 0, failed = 0;
+  for(const r of queue){
+    btn.textContent = 'Deleting ' + (done + 1) + ' of ' + queue.length + '…';
+    try{ await DB.remove('casting_masters', r.id); done++; }
+    catch(err){ failed++; }
+  }
+  window.__dupQueue = [];
+  closeModal();
+  toast(failed ? `Deleted ${done}, ${failed} failed.` : `Deleted ${done} duplicate pattern${done===1?'':'s'}.`,
+        failed ? 'error' : 'success');
+  await loadAll();
+}
+
+document.addEventListener('click', e => {
+  if(e.target.closest('#btn-find-dupes'))    previewDuplicates();
+  if(e.target.closest('#btn-dupes-confirm')) runDuplicateCleanup();
+});
 
 /* ---- Pig Iron Bank ----------------------------------------------------
    Three movements:
@@ -1219,13 +1324,14 @@ function viewPatternMaster(){
     <div class="panel-heading">
       <div><p class="eyebrow">Approved pattern list</p><h2 class="panel-title">Pattern Master</h2></div>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn danger" id="btn-find-dupes">Find duplicates</button>
         <button class="btn" id="btn-xls-template">Excel template</button>
         <button class="btn" id="btn-xls-import">Import from Excel</button>
         <button class="btn primary" data-open-casting="">＋ Add pattern</button>
       </div>
     </div>
     <div class="table-scroll"><table>
-      <thead><tr><th>Image</th><th>Pattern name</th><th>Type</th><th>Material</th><th>Construction</th><th>Core</th><th class="num">Sets</th><th>Pattern group</th><th>Drawing</th><th class="num">Change</th></tr></thead>
+      <thead><tr><th>Image</th><th>Pattern name</th><th>Type</th><th>Material</th><th>Construction</th><th>Core</th><th class="num">Sets</th><th>Pattern group</th><th>Drawing</th><th>Created by</th><th class="num">Change</th></tr></thead>
       <tbody>${ rows.map(r=>`<tr>
         <td>${ r.patternPhoto ? `<img class="thumb" src="${r.patternPhoto}" alt="">` : '<span class="thumb-none">—</span>' }</td>
         <td><b>${esc(r.itemName)}</b></td>
@@ -1236,11 +1342,12 @@ function viewPatternMaster(){
         <td class="num">${num(r.totalSets ?? 1)}</td>
         <td>${esc(r.patternGroup)||'—'}</td>
         <td>${ r.drawingPdf ? `<button class="btn" data-row-pdf="${esc(r.id)}" style="padding:4px 12px;font-size:12px">Open PDF</button>` : '<span class="thumb-none">—</span>' }</td>
+        <td>${ esc(r.createdBy || r.changedBy) || '<span class="thumb-none">—</span>' }${ r.createdOn ? `<div style="font-size:11px;color:var(--ink-faint)">${fmtDate(r.createdOn)}</div>` : '' }</td>
         <td class="num" style="white-space:nowrap">
           <button class="btn icon" data-open-casting="${esc(r.id)}" title="Edit">✎</button>
           <button class="btn icon danger" data-del-casting="${esc(r.id)}" title="Delete">🗑</button>
         </td></tr>`).join('')
-        || emptyRow(10, state.castingMasters.length ? 'No patterns match the search.' : 'Pattern Master is blank. Select Add pattern to begin.') }
+        || emptyRow(11, state.castingMasters.length ? 'No patterns match the search.' : 'Pattern Master is blank. Select Add pattern to begin.') }
       </tbody></table></div></section>`;
 }
 
@@ -2137,6 +2244,17 @@ async function savePattern(){
     material: 'Cast Iron', status: 'Active', averageWeight: 0
   };
 
+  const clash = state.castingMasters.find(m =>
+    String(m.id) !== String(data.id) && patternKey(m) === patternKey(c));
+  if(clash){
+    const el = f.querySelector('[name=itemName]');
+    try{ el.scrollIntoView({behavior:'smooth',block:'center'}); el.focus({preventScroll:true});
+         el.style.borderColor='var(--orange)'; el.style.boxShadow='0 0 0 3px rgba(229,50,45,.18)';
+         el.addEventListener('input',()=>{el.style.borderColor='';el.style.boxShadow='';},{once:true}); }catch{}
+    return toast('Already in Pattern Master: ' + c.itemName + ' · ' + c.itemType + ' · ' +
+                 c.patternMaterial + ' · ' + c.patternConstruction + '. Edit that record instead.', 'error');
+  }
+
   const bytes = c.drawingPdf.length + c.patternPhoto.length;
   if(bytes > DOC_BUDGET)
     return toast('The PDF and image together are ' + Math.round(bytes/1024) + ' KB. One record cannot exceed 1 MB.','error');
@@ -2148,6 +2266,8 @@ async function savePattern(){
       saved = await DB.update('casting_masters', data.id, c);
     } else {
       c.itemCode = 'CAST-' + Math.random().toString(36).slice(2,10).toUpperCase();
+      c.createdBy = authUser();
+      c.createdOn = today();
       saved = await DB.create('casting_masters', c);
     }
 
@@ -2759,8 +2879,8 @@ async function previewXlsImport(file){
 
   if(!rows.length) return toast('The first sheet has no rows under the header.','error');
 
-  const key = r => (r.itemName + '|' + r.itemType).toLowerCase();
-  const existing = new Set(state.castingMasters.map(m => key({itemName:m.itemName, itemType:m.itemType})));
+  const key = patternKey;
+  const existing = new Set(state.castingMasters.map(patternKey));
   const seen = new Set();
   const types = allTypes();
 
@@ -2840,6 +2960,7 @@ async function runXlsImport(){
     btn.textContent = 'Importing ' + (done + 1) + ' of ' + queue.length + '…';
     try{
       await DB.create('casting_masters', {
+        createdBy: authUser(), createdOn: today(),
         itemName:r.itemName, itemType:r.itemType,
         patternMaterial:r.patternMaterial, patternConstruction:r.patternConstruction,
         coreBox:r.coreBox, coreCount:r.coreCount, totalSets:r.totalSets,
