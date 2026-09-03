@@ -225,7 +225,9 @@ function App() {
   const [entryMode, setEntryMode] = useState("paint");
   const [challanDraft, setChallanDraft] = useState({ date:today(), painterName:"", items:[] });
   const [rowForm, setRowForm] = useState({ item:"", qty:"", paintType:"New Paint", notes:"" });
+  const [editingChallanId, setEditingChallanId] = useState(null);
   const [sForm, setSForm] = useState({ category:"Plummer Block", item:"", qty:"", unit:"Nos", location:"", reorder:"" });
+  const [editStock, setEditStock] = useState(null);
   const [stockFilter, setStockFilter] = useState(null);
   const [dashSearch, setDashSearch] = useState("");
   const [dispatchDraft, setDispatchDraft] = useState({ date:today(), invoiceNo:"", transportName:"", lrNo:"", driverName:"", dest:"", items:[] });
@@ -241,6 +243,7 @@ function App() {
   const [saleDraft, setSaleDraft] = useState({ date:today(), billNo:"", vendorName:"", items:[] });
   const [saleRowForm, setSaleRowForm] = useState({ category:"Adapter Sleeve", item:"", qty:"", unit:"Nos", notes:"" });
   const saleItemRef = useRef(null);
+  const [editingSaleId, setEditingSaleId] = useState(null);
 
   // ---------- live sync from Firestore, or local fallback ----------
   useEffect(() => {
@@ -388,10 +391,31 @@ function App() {
 
   const saveChallan = () => {
     if (challanDraft.items.length === 0) return;
-    const slipNo = nextSlipNo();
-    const challan = { id:uid(), slipNo, date:challanDraft.date || today(), painterName:challanDraft.painterName, items:challanDraft.items };
-    const nextStock = applyStockForItems(challanDraft.items, stock);
-    persist({ ...data, paintLog: [challan, ...paintLog], stock: nextStock });
+    if (editingChallanId) {
+      const original = paintLog.find(p => p.id === editingChallanId);
+      let nextStock = original ? reverseStockForItems(original.items, stock) : stock;
+      nextStock = applyStockForItems(challanDraft.items, nextStock);
+      const updated = { id:editingChallanId, slipNo: original ? original.slipNo : nextSlipNo(), date:challanDraft.date || today(), painterName:challanDraft.painterName, items:challanDraft.items };
+      persist({ ...data, paintLog: paintLog.map(p => p.id === editingChallanId ? updated : p), stock: nextStock });
+      setEditingChallanId(null);
+    } else {
+      const slipNo = nextSlipNo();
+      const challan = { id:uid(), slipNo, date:challanDraft.date || today(), painterName:challanDraft.painterName, items:challanDraft.items };
+      const nextStock = applyStockForItems(challanDraft.items, stock);
+      persist({ ...data, paintLog: [challan, ...paintLog], stock: nextStock });
+    }
+    setChallanDraft({ date:today(), painterName:"", items:[] });
+    setRowForm({ item:"", qty:"", paintType:"New Paint", notes:"" });
+  };
+
+  const startEditChallan = (challan) => {
+    setChallanDraft({ date:challan.date || today(), painterName:challan.painterName || "", items:challan.items });
+    setEditingChallanId(challan.id);
+    if (typeof window !== "undefined" && window.scrollTo) window.scrollTo({ top:0, behavior:"smooth" });
+  };
+
+  const cancelEditChallan = () => {
+    setEditingChallanId(null);
     setChallanDraft({ date:today(), painterName:"", items:[] });
     setRowForm({ item:"", qty:"", paintType:"New Paint", notes:"" });
   };
@@ -400,6 +424,7 @@ function App() {
     const challan = paintLog.find(p => p.id === id);
     let nextStock = stock;
     if (challan) nextStock = reverseStockForItems(challan.items, stock);
+    if (editingChallanId === id) cancelEditChallan();
     persist({ ...data, paintLog: paintLog.filter(p => p.id !== id), stock: nextStock });
   };
 
@@ -440,9 +465,30 @@ function App() {
 
   const saveReadyToSale = () => {
     if (saleDraft.items.length === 0) return;
-    const slip = { id:uid(), date:saleDraft.date || today(), billNo:saleDraft.billNo, vendorName:saleDraft.vendorName, items:saleDraft.items };
-    const nextStock = applyStockForSaleItems(saleDraft.items, stock);
-    persist({ ...data, readyToSaleLog: [slip, ...readyToSaleLog], stock: nextStock });
+    if (editingSaleId) {
+      const original = readyToSaleLog.find(s => s.id === editingSaleId);
+      let nextStock = original ? reverseStockForSaleItems(original.items, stock) : stock;
+      nextStock = applyStockForSaleItems(saleDraft.items, nextStock);
+      const updated = { id:editingSaleId, date:saleDraft.date || today(), billNo:saleDraft.billNo, vendorName:saleDraft.vendorName, items:saleDraft.items };
+      persist({ ...data, readyToSaleLog: readyToSaleLog.map(s => s.id === editingSaleId ? updated : s), stock: nextStock });
+      setEditingSaleId(null);
+    } else {
+      const slip = { id:uid(), date:saleDraft.date || today(), billNo:saleDraft.billNo, vendorName:saleDraft.vendorName, items:saleDraft.items };
+      const nextStock = applyStockForSaleItems(saleDraft.items, stock);
+      persist({ ...data, readyToSaleLog: [slip, ...readyToSaleLog], stock: nextStock });
+    }
+    setSaleDraft({ date:today(), billNo:"", vendorName:"", items:[] });
+    setSaleRowForm({ category:"Adapter Sleeve", item:"", qty:"", unit:"Nos", notes:"" });
+  };
+
+  const startEditSale = (slip) => {
+    setSaleDraft({ date:slip.date || today(), billNo:slip.billNo || "", vendorName:slip.vendorName || "", items:slip.items });
+    setEditingSaleId(slip.id);
+    if (typeof window !== "undefined" && window.scrollTo) window.scrollTo({ top:0, behavior:"smooth" });
+  };
+
+  const cancelEditSale = () => {
+    setEditingSaleId(null);
     setSaleDraft({ date:today(), billNo:"", vendorName:"", items:[] });
     setSaleRowForm({ category:"Adapter Sleeve", item:"", qty:"", unit:"Nos", notes:"" });
   };
@@ -451,6 +497,7 @@ function App() {
     const slip = readyToSaleLog.find(s => s.id === id);
     let nextStock = stock;
     if (slip) nextStock = reverseStockForSaleItems(slip.items, stock);
+    if (editingSaleId === id) cancelEditSale();
     persist({ ...data, readyToSaleLog: readyToSaleLog.filter(s => s.id !== id), stock: nextStock });
   };
 
@@ -459,8 +506,18 @@ function App() {
     persist({ ...data, stock: [{ id:uid(), ...sForm, qty:Number(sForm.qty), reorder:Number(sForm.reorder || 0) }, ...stock] });
     setSForm({ category:"Plummer Block", item:"", qty:"", unit:"Nos", location:"", reorder:"" });
   };
-  const delStock = (id) => persist({ ...data, stock: stock.filter(s => s.id !== id) });
+  const delStock = (id) => {
+    if (editStock && editStock.id === id) setEditStock(null);
+    persist({ ...data, stock: stock.filter(s => s.id !== id) });
+  };
   const adjustStock = (id, delta) => persist({ ...data, stock: stock.map(s => s.id === id ? { ...s, qty: Math.max(0, s.qty + delta) } : s) });
+  const startEditStock = (s) => setEditStock({ id:s.id, category:s.category, item:s.item, qty:String(s.qty), unit:s.unit, location:s.location || "", reorder:String(s.reorder || 0) });
+  const cancelEditStock = () => setEditStock(null);
+  const saveEditStock = () => {
+    if (!editStock || !editStock.item.trim() || editStock.qty === "") return;
+    persist({ ...data, stock: stock.map(s => s.id === editStock.id ? { ...s, category:editStock.category, item:editStock.item.trim(), qty:Number(editStock.qty), unit:editStock.unit, location:editStock.location, reorder:Number(editStock.reorder || 0) } : s) });
+    setEditStock(null);
+  };
 
   const exportToExcel = () => {
     const wb = XLSX.utils.book_new();
@@ -932,10 +989,12 @@ function App() {
         </div>
 
         {entryMode === "paint" && <div>
-          <div style={{background:"var(--panel)",border:"1px solid var(--line)",padding:"16px",marginBottom:"20px"}}>
+          <div style={{background:"var(--panel)",border:`1px solid ${editingChallanId ? "var(--red)" : "var(--line)"}`,padding:"16px",marginBottom:"20px"}}>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"12px"}}>
-              <div style={{fontWeight:600,fontSize:"13px"}}>New Paint / Repaint Challan</div>
-              <div className="mono" style={{fontSize:"12px",color:"var(--text-dim)"}}>Next Slip: {nextSlipNo()}</div>
+              <div style={{fontWeight:600,fontSize:"13px"}}>{editingChallanId ? "Edit Paint / Repaint Challan" : "New Paint / Repaint Challan"}</div>
+              {editingChallanId
+                ? <button className="row-btn" onClick={cancelEditChallan} style={{...iconBtn,fontSize:"12px",fontWeight:600}}>✕ Cancel Edit</button>
+                : <div className="mono" style={{fontSize:"12px",color:"var(--text-dim)"}}>Next Slip: {nextSlipNo()}</div>}
             </div>
 
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"8px",marginBottom:"14px"}}>
@@ -976,20 +1035,23 @@ function App() {
                 "New Paint" adds to Finish Stock. "Repaint" only logs — stock is unchanged. Add all items, then Save Challan.
               </div>
               <button onClick={saveChallan} style={{...btnPrimary, opacity: challanDraft.items.length ? 1 : 0.5}} disabled={!challanDraft.items.length}>
-                Save Challan ({challanDraft.items.length} item{challanDraft.items.length === 1 ? "" : "s"})
+                {editingChallanId ? "Update" : "Save"} Challan ({challanDraft.items.length} item{challanDraft.items.length === 1 ? "" : "s"})
               </button>
             </div>
           </div>
 
           {paintLog.map(p => (
-            <div key={p.id} style={{background:"var(--panel)",border:"1px solid var(--line)",padding:"16px",marginBottom:"14px"}}>
+            <div key={p.id} style={{background:"var(--panel)",border:`1px solid ${editingChallanId === p.id ? "var(--red)" : "var(--line)"}`,padding:"16px",marginBottom:"14px"}}>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"10px"}}>
                 <div>
                   <span className="mono" style={{fontWeight:600,fontSize:"13px"}}>{p.slipNo}</span>
                   <span style={{fontSize:"13px",color:"var(--text-dim)",marginLeft:"12px"}}>{fmtDate(p.date)}</span>
                   <span style={{fontSize:"13px",color:"var(--text-dim)",marginLeft:"12px"}}>{p.painterName || "—"}</span>
                 </div>
-                <button className="row-btn" onClick={() => delChallan(p.id)} style={iconBtn}>✕ Delete Challan</button>
+                <div style={{display:"flex",gap:"8px"}}>
+                  <button className="row-btn" onClick={() => startEditChallan(p)} style={{...iconBtn,fontWeight:600}}>✎ Edit</button>
+                  <button className="row-btn" onClick={() => delChallan(p.id)} style={iconBtn}>✕ Delete Challan</button>
+                </div>
               </div>
               <TableBlock headers={["Item","Qty","Type","Notes"]} emptyText="No items."
                 rows={p.items.map(row => [
@@ -1002,8 +1064,11 @@ function App() {
         </div>}
 
         {entryMode === "purchase" && <div>
-          <div style={{background:"var(--panel)",border:"1px solid var(--line)",padding:"16px",marginBottom:"20px"}}>
-            <div style={{fontWeight:600,fontSize:"13px",marginBottom:"12px"}}>Ready to Sale — Vendor Bill Entry</div>
+          <div style={{background:"var(--panel)",border:`1px solid ${editingSaleId ? "var(--red)" : "var(--line)"}`,padding:"16px",marginBottom:"20px"}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"12px"}}>
+              <div style={{fontWeight:600,fontSize:"13px"}}>{editingSaleId ? "Edit Vendor Bill Entry" : "Ready to Sale — Vendor Bill Entry"}</div>
+              {editingSaleId && <button className="row-btn" onClick={cancelEditSale} style={{...iconBtn,fontSize:"12px",fontWeight:600}}>✕ Cancel Edit</button>}
+            </div>
 
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1.5fr",gap:"8px",marginBottom:"14px"}}>
               <div>
@@ -1061,20 +1126,23 @@ function App() {
                 Add each item from the vendor bill, then Save &amp; Close Slip — quantities are added into Finish Stock and the slip is logged below.
               </div>
               <button onClick={saveReadyToSale} style={{...btnPrimary, opacity: saleDraft.items.length ? 1 : 0.5}} disabled={!saleDraft.items.length}>
-                Save &amp; Close Slip ({saleDraft.items.length} item{saleDraft.items.length === 1 ? "" : "s"})
+                {editingSaleId ? "Update Slip" : <>Save &amp; Close Slip</>} ({saleDraft.items.length} item{saleDraft.items.length === 1 ? "" : "s"})
               </button>
             </div>
           </div>
 
           {readyToSaleLog.map(slip => (
-            <div key={slip.id} style={{background:"var(--panel)",border:"1px solid var(--line)",padding:"16px",marginBottom:"14px"}}>
+            <div key={slip.id} style={{background:"var(--panel)",border:`1px solid ${editingSaleId === slip.id ? "var(--red)" : "var(--line)"}`,padding:"16px",marginBottom:"14px"}}>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"10px"}}>
                 <div>
                   <span className="mono" style={{fontWeight:600,fontSize:"13px"}}>{slip.billNo || "—"}</span>
                   <span style={{fontSize:"13px",color:"var(--text-dim)",marginLeft:"12px"}}>{fmtDate(slip.date)}</span>
                   <span style={{fontSize:"13px",color:"var(--text-dim)",marginLeft:"12px"}}>{slip.vendorName || "—"}</span>
                 </div>
-                <button className="row-btn" onClick={() => delReadyToSaleSlip(slip.id)} style={iconBtn}>✕ Delete Slip</button>
+                <div style={{display:"flex",gap:"8px"}}>
+                  <button className="row-btn" onClick={() => startEditSale(slip)} style={{...iconBtn,fontWeight:600}}>✎ Edit</button>
+                  <button className="row-btn" onClick={() => delReadyToSaleSlip(slip.id)} style={iconBtn}>✕ Delete Slip</button>
+                </div>
               </div>
               <TableBlock headers={["Category","Item","Qty","Unit","Notes"]} emptyText="No items."
                 rows={slip.items.map(row => [
@@ -1138,12 +1206,42 @@ function App() {
           </div>
         </div>
         <TableBlock headers={["Category","Item","Qty","Unit","Location","Reorder @",""]} emptyText={stockFilter ? `No ${stockFilter} items in Finish Stock.` : "No stock recorded."}
-          rows={stock.filter(s => !stockFilter || s.category === stockFilter).map(s => [
-            s.category, s.item,
-            <span className="mono" style={{color: s.qty<=s.reorder?"var(--red)":"var(--text)",fontWeight:600}}>{s.qty}</span>,
-            s.unit, s.location || "—", s.reorder,
-            <button className="row-btn" onClick={() => delStock(s.id)} style={iconBtn}>✕</button>,
-          ])} />
+          rows={stock.filter(s => !stockFilter || s.category === stockFilter).map(s => {
+            const isEditing = editStock && editStock.id === s.id;
+            if (isEditing) return [
+              <select value={editStock.category} onChange={e => setEditStock({...editStock, category:e.target.value})} style={{...inputStyle, padding:"5px 6px"}}>
+                {["Plummer Block","Pillow Block","Adapter Sleeve","Locating Ring","Bearing","Seal","End Cover","Lock Nut","Lock Washer"].map(c => <option key={c}>{c}</option>)}
+              </select>,
+              <input autoFocus value={editStock.item} onChange={e => setEditStock({...editStock, item:e.target.value})}
+                onKeyDown={e => { if (e.key === "Enter") saveEditStock(); if (e.key === "Escape") cancelEditStock(); }}
+                style={{...inputStyle, padding:"5px 6px"}} />,
+              <input type="number" value={editStock.qty} onChange={e => setEditStock({...editStock, qty:e.target.value})}
+                onKeyDown={e => { if (e.key === "Enter") saveEditStock(); if (e.key === "Escape") cancelEditStock(); }}
+                style={{...inputStyle, padding:"5px 6px"}} />,
+              <select value={editStock.unit} onChange={e => setEditStock({...editStock, unit:e.target.value})} style={{...inputStyle, padding:"5px 6px"}}>
+                {["Nos","Sets","Pairs","Kg"].map(u => <option key={u}>{u}</option>)}
+              </select>,
+              <input value={editStock.location} onChange={e => setEditStock({...editStock, location:e.target.value})}
+                onKeyDown={e => { if (e.key === "Enter") saveEditStock(); if (e.key === "Escape") cancelEditStock(); }}
+                style={{...inputStyle, padding:"5px 6px"}} />,
+              <input type="number" value={editStock.reorder} onChange={e => setEditStock({...editStock, reorder:e.target.value})}
+                onKeyDown={e => { if (e.key === "Enter") saveEditStock(); if (e.key === "Escape") cancelEditStock(); }}
+                style={{...inputStyle, padding:"5px 6px"}} />,
+              <div style={{display:"flex",gap:"4px"}}>
+                <button className="row-btn" onClick={saveEditStock} style={iconBtnSmall} title="Save">✓ Save</button>
+                <button className="row-btn" onClick={cancelEditStock} style={iconBtnSmall} title="Cancel">✕</button>
+              </div>,
+            ];
+            return [
+              s.category, s.item,
+              <span className="mono" style={{color: s.qty<=s.reorder?"var(--red)":"var(--text)",fontWeight:600}}>{s.qty}</span>,
+              s.unit, s.location || "—", s.reorder,
+              <div style={{display:"flex",gap:"4px"}}>
+                <button className="row-btn" onClick={() => startEditStock(s)} style={iconBtnSmall} title="Edit">✎</button>
+                <button className="row-btn" onClick={() => delStock(s.id)} style={iconBtnSmall} title="Delete">✕</button>
+              </div>,
+            ];
+          })} />
       </div>}
 
       {tab === "packing" && <div>
