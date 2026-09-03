@@ -908,7 +908,10 @@ function viewDashboard(){
 
 /* ---- Casting Management ---- */
 function viewCastingRecords(){
-  const rows = state.challans.filter(c => match(c.challanNumber, c.foundryName,
+  const rows = [...state.challans]
+    .sort((a,b) => String(b.challanDate||'').localeCompare(String(a.challanDate||''))
+                || String(b.challanNumber||'').localeCompare(String(a.challanNumber||''), 'en', {numeric:true}))
+    .filter(c => match(c.challanNumber, c.foundryName,
     getPOs(c).map(p=>p.purchaseOrderNumber).join(' '),
     c.items.map(i=>i.itemName+' '+i.material).join(' ')));
   return `<section class="data-panel">
@@ -1246,7 +1249,9 @@ async function savePigIssue(){
 
 /* ---- Foundry Master ---- */
 function viewFoundryMaster(){
-  const rows = state.foundries.filter(r => match(r.name, r.gstin, r.city, r.contactName, r.phone, r.email));
+  const rows = [...state.foundries]
+    .sort((a,b) => String(a.name||'').localeCompare(String(b.name||''), 'en', {numeric:true}))
+    .filter(r => match(r.name, r.gstin, r.city, r.contactName, r.phone, r.email));
   return `<section class="data-panel">
     <div class="panel-heading">
       <div><p class="eyebrow">Supplier list</p><h2 class="panel-title">Foundry Master</h2>
@@ -1326,7 +1331,10 @@ async function saveFoundry(){
 
 /* ---- Pattern Master ---- */
 function viewPatternMaster(){
-  const rows = state.castingMasters.filter(r => match(r.itemName, r.itemType, r.patternGroup, r.patternMaterial, r.patternConstruction, r.coreBox));
+  const rows = [...state.castingMasters]
+    .sort((a,b) => String(a.itemName||'').localeCompare(String(b.itemName||''), 'en', {numeric:true})
+                || String(a.itemType||'').localeCompare(String(b.itemType||'')))
+    .filter(r => match(r.itemName, r.itemType, r.patternGroup, r.patternMaterial, r.patternConstruction, r.coreBox));
   return `<section class="data-panel">
     <div class="panel-heading">
       <div><p class="eyebrow">Approved pattern list</p><h2 class="panel-title">Pattern Master</h2></div>
@@ -1440,7 +1448,11 @@ function viewGeneratePO(){
     </tr>`;
   }).join('');
 
-  const register = state.purchaseOrders.map(p=>{
+  /* newest order first; same-day orders fall back to P/O number, high to low */
+  const register = [...state.purchaseOrders]
+    .sort((a,b) => String(b.poDate||'').localeCompare(String(a.poDate||''))
+                || String(b.poNumber||'').localeCompare(String(a.poNumber||''), 'en', {numeric:true}))
+    .map(p=>{
       const pr = poProgress(p);
       return `<tr>
       <td class="mono">${esc(p.poNumber)}</td>
