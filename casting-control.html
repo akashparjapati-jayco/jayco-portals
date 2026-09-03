@@ -298,13 +298,7 @@ th.num{text-align:right}
       <button class="nav-btn" data-view="foundry-master"><span><span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18"></path><path d="M5 21V7l7-4 7 4v14"></path><path d="M9 21v-5h6v5"></path><path d="M9 10h.01M15 10h.01"></path></svg></span><span class="nav-txt">Foundry Master</span></span><span class="count" id="c-foundries">0</span></button>
       <button class="nav-btn" data-view="pig-iron"><span><span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7h18v4a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3V7Z"></path><path d="M6 7V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v2"></path><path d="M8 14v6M16 14v6M12 14v6"></path></svg></span><span class="nav-txt">Pig Iron Bank</span></span><span class="count" id="c-pig">0</span></button>
       <button class="nav-btn" data-view="type-master"><span><span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7V5h16v2"></path><path d="M9 20h6"></path><path d="M12 5v15"></path></svg></span><span class="nav-txt">Type Master</span></span><span class="count" id="c-types">0</span></button>
-      <div class="nav-sep"></div>
-      <div class="nav-label">Data</div>
-      <button class="nav-btn" id="btn-export"><span><span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><path d="m7 10 5 5 5-5"></path><path d="M12 15V3"></path></svg></span><span class="nav-txt">Export JSON backup</span></span></button>
-      <button class="nav-btn" id="btn-import"><span><span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><path d="m7 8 5-5 5 5"></path><path d="M12 3v12"></path></svg></span><span class="nav-txt">Import JSON backup</span></span></button>
-      <button class="nav-btn" id="btn-selftest"><span><span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 12l2 2 4-4"></path><circle cx="12" cy="12" r="9"></circle></svg></span><span class="nav-txt">Run connection test</span></span></button>
-      <button class="nav-btn" id="btn-seed"><span><span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 4.5 12.5H11l-1 9.5 8.5-10.5H12l1-9.5Z"></path></svg></span><span class="nav-txt">Load demo data</span></span></button>
-      <button class="nav-btn" id="btn-wipe"><span><span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"></path><path d="M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2"></path><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"></path><path d="M10 11v6M14 11v6"></path></svg></span><span class="nav-txt">Clear all data</span></span></button>
+
     </div>
     <div class="sidebar-foot">
       <div id="storage-mode">◆ Firebase Firestore</div>
@@ -783,77 +777,107 @@ function viewDashboard(){
   const done    = progs.filter(x => x.pr.stage === 'Completed');
   const pendingQty = progs.reduce((a,x) => a + x.pr.pending, 0);
   const pendingWt  = progs.reduce((a,x) => a + x.pr.pendingWeight, 0);
-  const receivedQty = state.challans.reduce((a,c) => a + num(c.totalQuantity), 0);
-  const receivedWt  = state.challans.reduce((a,c) => a + num(c.actualTotalWeight), 0);
+  const receivedWt = state.challans.reduce((a,c) => a + num(c.actualTotalWeight), 0);
+  const pig = pigTotals();
+  const live = [...open, ...partial]
+    .sort((a,b) => String(a.po.poDate).localeCompare(String(b.po.poDate)));
+  const recent = [...state.challans]
+    .sort((a,b) => String(b.challanDate).localeCompare(String(a.challanDate))).slice(0,6);
 
-  const stageRow = (title, list, tone) => `
-    <div class="data-panel" style="margin-bottom:0">
-      <div class="panel-heading" style="padding:18px 22px">
-        <div><p class="eyebrow">${esc(title)}</p>
-        <h2 class="panel-title" style="font-size:15px">${list.length} purchase order${list.length===1?'':'s'}</h2></div>
-        <span class="badge ${tone}">${list.reduce((a,x)=>a+x.pr.pending,0)} pcs pending</span>
+  const flowStep = (n, title, value, sub, tone) => `
+    <div style="flex:1;min-width:190px;position:relative;border:1px solid ${tone==='red'?'rgba(229,50,45,.3)':'var(--card-border)'};
+      border-radius:var(--r-lg);padding:20px 22px;background:${tone==='dark'
+        ? 'linear-gradient(155deg,#2E2E2E,#000)' : tone==='red' ? 'rgba(229,50,45,.05)' : 'var(--card)'};
+      color:${tone==='dark'?'#fff':'inherit'}">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px">
+        <span style="width:20px;height:20px;border-radius:50%;display:grid;place-items:center;font-size:10px;font-weight:700;
+          background:${tone==='dark'?'rgba(255,255,255,.16)':tone==='red'?'var(--orange)':'rgba(17,17,17,.06)'};
+          color:${tone==='red'?'#fff':'inherit'}">${n}</span>
+        <p class="lbl" style="margin:0;${tone==='dark'?'color:rgba(255,255,255,.6)':''}">${esc(title)}</p>
       </div>
-      <div class="table-scroll"><table>
-        <thead><tr><th>P/O No.</th><th>Foundry</th><th class="num">Ordered</th><th class="num">Received</th><th class="num">Pending</th><th>Progress</th></tr></thead>
-        <tbody>${ list.slice(0,6).map(({po,pr})=>`<tr>
-          <td class="mono">${esc(po.poNumber)}</td>
-          <td>${esc(po.foundryName)}</td>
-          <td class="num">${pr.ordered}</td>
-          <td class="num">${pr.received}</td>
-          <td class="num"><b>${pr.pending}</b></td>
-          <td style="min-width:120px"><div class="progress"><i style="width:${pr.pct}%"></i></div></td>
-        </tr>`).join('') || emptyRow(6,'Nothing at this stage.') }</tbody>
-      </table></div>
-      ${ list.length > 6 ? `<div style="padding:12px 22px;border-top:1px solid var(--line);font-size:12px;color:var(--ink-faint)">and ${list.length-6} more</div>` : '' }
+      <p style="margin:0;font-family:var(--display);font-size:26px;font-weight:700;letter-spacing:-1px">${value}</p>
+      <p style="margin:6px 0 0;font-size:12.5px;opacity:.62">${sub}</p>
     </div>`;
 
   return `
-  <div class="metrics">
-    <div class="metric-card dark"><p class="lbl">Open orders</p><p class="val">${open.length}</p><p class="note">Nothing received yet</p></div>
-    <div class="metric-card red"><p class="lbl">Pending material</p><p class="val">${pendingQty}</p><p class="note">${fmtWt(pendingWt)} approx. still due</p></div>
-    <div class="metric-card"><p class="lbl">Partially received</p><p class="val">${partial.length}</p><p class="note">Orders part-delivered</p></div>
-    <div class="metric-card"><p class="lbl">Completed</p><p class="val">${done.length}</p><p class="note">Fully received and closed</p></div>
+  <!-- how work moves through the business -->
+  <p class="eyebrow" style="margin-bottom:12px">Order to receipt</p>
+  <div style="display:flex;flex-wrap:wrap;gap:14px;margin-bottom:26px">
+    ${flowStep(1,'Pig iron at JAYCO', fmtWt(pig.atJayco), 'Ready to issue', '')}
+    ${flowStep(2,'Lying at foundries', fmtWt(pig.atFoundries), 'Issued, not yet returned', 'red')}
+    ${flowStep(3,'Orders in progress', open.length + partial.length, pendingQty + ' pcs still due', '')}
+    ${flowStep(4,'Castings received', fmtWt(receivedWt), state.challans.length + ' challans closed', 'dark')}
   </div>
 
-  <div class="metrics" style="grid-template-columns:repeat(4,1fr)">
-    <div class="metric-card"><p class="lbl">Challans received</p><p class="val">${state.challans.length}</p><p class="note">${receivedQty} pieces inward</p></div>
-    <div class="metric-card"><p class="lbl">JAYCO weight received</p><p class="val" style="font-size:22px">${fmtWt(receivedWt)}</p><p class="note">Verified at JAYCO</p></div>
-    <div class="metric-card"><p class="lbl">Patterns</p><p class="val">${state.castingMasters.length}</p><p class="note">In Pattern Master</p></div>
-    <div class="metric-card"><p class="lbl">Foundries</p><p class="val">${state.foundries.length}</p><p class="note">In Foundry Master</p></div>
-  </div>
-
-  <div style="display:grid;gap:22px;margin-bottom:22px">
-    ${stageRow('Stage 1 — ordered, awaiting material', open, 'neutral')}
-    ${stageRow('Stage 2 — part received', partial, 'warn')}
-    ${stageRow('Stage 3 — fully received', done, 'ok')}
+  <!-- stage counts -->
+  <div class="metrics" style="margin-bottom:26px">
+    <div class="metric-card"><p class="lbl">Awaiting material</p><p class="val">${open.length}</p><p class="note">Nothing received yet</p></div>
+    <div class="metric-card"><p class="lbl">Part received</p><p class="val">${partial.length}</p><p class="note">Balance still due</p></div>
+    <div class="metric-card"><p class="lbl">Completed</p><p class="val">${done.length}</p><p class="note">Fully received</p></div>
+    <div class="metric-card red"><p class="lbl">Pending weight</p><p class="val" style="font-size:24px">${fmtWt(pendingWt)}</p><p class="note">Approx. still to come</p></div>
   </div>
 
   <div class="two-col">
-    <div class="data-panel">
+    <section class="data-panel">
       <div class="panel-heading">
-        <div><p class="eyebrow">Latest inward</p><h2 class="panel-title">Recent casting challans</h2></div>
-        <button class="btn" data-go="casting-records">View all</button>
+        <div><p class="eyebrow">Needs attention</p><h2 class="panel-title">Open and part-received orders</h2></div>
+        <button class="btn" data-go="generate-po">All orders</button>
       </div>
       <div class="table-scroll"><table>
-        <thead><tr><th>Challan No.</th><th>Date</th><th>Foundry</th><th class="num">Items</th><th class="num">JAYCO Weight</th></tr></thead>
-        <tbody>${ state.challans.slice(0,6).map(c=>`<tr>
-          <td class="mono">${esc(c.challanNumber)}</td><td>${fmtDate(c.challanDate)}</td>
-          <td>${esc(c.foundryName)}</td><td class="num">${c.items.length}</td>
-          <td class="num">${fmtWt(c.actualTotalWeight)}</td></tr>`).join('')
-          || emptyRow(5,'No challans received yet.') }</tbody>
+        <thead><tr><th>P/O No.</th><th>Foundry</th><th class="num">Ordered</th><th class="num">Received</th><th class="num">Pending</th><th style="min-width:110px">Progress</th></tr></thead>
+        <tbody>${ live.slice(0,8).map(({po,pr})=>`<tr>
+          <td class="mono">${esc(po.poNumber)}<div style="font-size:11px;color:var(--ink-faint);font-family:var(--font)">${fmtDate(po.poDate)}</div></td>
+          <td>${esc(po.foundryName)}</td>
+          <td class="num">${pr.ordered}</td>
+          <td class="num">${pr.received}</td>
+          <td class="num"><b style="color:var(--bad)">${pr.pending}</b></td>
+          <td><div class="progress"><i style="width:${pr.pct}%"></i></div>
+              <div style="font-size:11px;color:var(--ink-faint);margin-top:4px">${pr.pct}%</div></td>
+        </tr>`).join('') || emptyRow(6,'No orders outstanding — everything raised has been received.') }</tbody>
       </table></div>
+      ${ live.length > 8 ? `<div style="padding:14px 26px;border-top:1px solid var(--line);font-size:12px;color:var(--ink-faint)">and ${live.length-8} more</div>` : '' }
+    </section>
+
+    <div style="display:grid;gap:22px;align-content:start">
+      <section class="data-panel" style="margin:0;padding:26px">
+        <p class="eyebrow">Quick actions</p>
+        <div style="display:grid;gap:10px;margin-top:16px">
+          <button class="btn primary" data-new-challan style="justify-content:flex-start">＋ Receive a challan</button>
+          <button class="btn" data-go="generate-po" style="justify-content:flex-start">＋ Raise a purchase order</button>
+          <button class="btn" data-open-pig-receipt="" style="justify-content:flex-start">＋ Receive pig iron</button>
+          <button class="btn" data-open-casting="" style="justify-content:flex-start">＋ Add a pattern</button>
+        </div>
+      </section>
+
+      <section class="data-panel" style="margin:0;padding:26px">
+        <p class="eyebrow">Master data</p>
+        <div style="display:grid;gap:14px;margin-top:16px">
+          ${[['Patterns', state.castingMasters.length, 'pattern-master'],
+             ['Foundries', state.foundries.length, 'foundry-master'],
+             ['Casting types', allTypes().length, 'type-master'],
+             ['Pig iron entries', state.pigIron.length, 'pig-iron']]
+            .map(([k,v,view])=>`<div style="display:flex;justify-content:space-between;align-items:center;cursor:pointer" data-go="${view}">
+              <span style="font-size:13.5px">${k}</span>
+              <b class="mono" style="font-size:15px">${v}</b></div>`).join('') }
+        </div>
+      </section>
     </div>
-    <div class="data-panel" style="padding:22px">
-      <p class="eyebrow">Quick actions</p>
-      <h2 class="panel-title" style="margin-bottom:18px">Start something</h2>
-      <div style="display:grid;gap:10px">
-        <button class="btn primary" data-go="generate-po" style="justify-content:flex-start">＋ Raise a purchase order</button>
-        <button class="btn" data-new-challan style="justify-content:flex-start">＋ Receive a challan</button>
-        <button class="btn" data-open-foundry="" style="justify-content:flex-start">＋ Add foundry</button>
-        <button class="btn" data-open-casting="" style="justify-content:flex-start">＋ Add pattern</button>
-      </div>
+  </div>
+
+  <section class="data-panel">
+    <div class="panel-heading">
+      <div><p class="eyebrow">Latest inward</p><h2 class="panel-title">Recent casting challans</h2></div>
+      <button class="btn" data-go="casting-records">View all</button>
     </div>
-  </div>`;
+    <div class="table-scroll"><table>
+      <thead><tr><th>Challan No.</th><th>Date</th><th>Foundry</th><th class="num">Items</th><th class="num">Qty</th><th class="num">JAYCO Weight</th></tr></thead>
+      <tbody>${ recent.map(c=>`<tr>
+        <td class="mono">${esc(c.challanNumber)}</td><td>${fmtDate(c.challanDate)}</td>
+        <td>${esc(c.foundryName)}</td><td class="num">${c.items.length}</td>
+        <td class="num">${num(c.totalQuantity)}</td><td class="num"><b>${fmtWt(c.actualTotalWeight)}</b></td>
+      </tr>`).join('') || emptyRow(6,'No challans received yet.') }</tbody>
+    </table></div>
+  </section>`;
 }
 
 /* ---- Casting Management ---- */
@@ -2848,7 +2872,7 @@ document.getElementById('file-xls').addEventListener('change', async e => {
    ========================================================================== */
 /* Writes a throwaway record, reads it back, deletes it — and reports the exact
    Firestore error code at whichever step fails. */
-document.getElementById('btn-selftest').addEventListener('click', async () => {
+document.getElementById('btn-selftest')?.addEventListener('click', async () => {
   const steps = [];
   let id = null;
   try{
@@ -2874,7 +2898,7 @@ document.getElementById('btn-selftest').addEventListener('click', async () => {
   loadAll();
 });
 
-document.getElementById('btn-export').addEventListener('click', async () => {
+document.getElementById('btn-export')?.addEventListener('click', async () => {
   const dump = {};
   for(const c of COLLECTIONS) dump[c] = await DB.list(c);
   const blob = new Blob([JSON.stringify(dump,null,2)],{type:'application/json'});
@@ -2884,11 +2908,11 @@ document.getElementById('btn-export').addEventListener('click', async () => {
   a.click();
   toast('Backup downloaded','success');
 });
-document.getElementById('btn-import').addEventListener('click', () => {
+document.getElementById('btn-import')?.addEventListener('click', () => {
   if(!confirm('This will WRITE every record from the backup file into Firestore as new documents. Continue?')) return;
   document.getElementById('file-import').click();
 });
-document.getElementById('file-import').addEventListener('change', async e => {
+document.getElementById('file-import')?.addEventListener('change', async e => {
   const file = e.target.files[0]; if(!file) return;
   try{
     const dump = JSON.parse(await file.text());
@@ -2900,7 +2924,7 @@ document.getElementById('file-import').addEventListener('change', async e => {
   }catch(err){ toast('Import failed: ' + err.message,'error'); }
   e.target.value = '';
 });
-document.getElementById('btn-wipe').addEventListener('click', async () => {
+document.getElementById('btn-wipe')?.addEventListener('click', async () => {
   if(!confirm('Delete ALL casting records from Firestore? This cannot be undone.')) return;
   if(prompt('Type DELETE to confirm.') !== 'DELETE') return toast('Cancelled','info');
   try{
@@ -2908,7 +2932,7 @@ document.getElementById('btn-wipe').addEventListener('click', async () => {
     toast('All casting data deleted','success'); loadAll();
   }catch(err){ toast('Delete failed: ' + err.message,'error'); }
 });
-document.getElementById('btn-seed').addEventListener('click', async () => {
+document.getElementById('btn-seed')?.addEventListener('click', async () => {
   if(!confirm('Load demo data on top of what is already stored?')) return;
   for(const t of ['Cap','Base','Housing','Pillow Block','Lock Nut','Adapter Sleeve'])
     await DB.create('casting_types', {typeName:t, status:'Active', notes:''});
