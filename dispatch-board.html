@@ -227,6 +227,7 @@ function App() {
   const [rowForm, setRowForm] = useState({ item:"", qty:"", paintType:"New Paint", notes:"" });
   const [sForm, setSForm] = useState({ category:"Plummer Block", item:"", qty:"", unit:"Nos", location:"", reorder:"" });
   const [stockFilter, setStockFilter] = useState(null);
+  const [dashSearch, setDashSearch] = useState("");
   const [dispatchDraft, setDispatchDraft] = useState({ date:today(), invoiceNo:"", transportName:"", lrNo:"", driverName:"", dest:"", items:[] });
   const [dispatchRowForm, setDispatchRowForm] = useState({ item:"", qty:"", packingStyle:"Corrugated Box", boxSize:DEFAULT_CORRUGATED_BOX_SIZES[0], boxQty:"" });
   const dispatchItemRef = useRef(null);
@@ -322,6 +323,11 @@ function App() {
       { label:"Corrugated Box", qty: sumByCategory("Corrugated Box") + sumBoxBalance("Corrugated Box") },
     ];
   }, [stock, boxBalance]);
+  const dashSearchResults = useMemo(() => {
+    const q = dashSearch.trim().toLowerCase();
+    if (!q) return [];
+    return stock.filter(s => s.item.toLowerCase().includes(q) || s.category.toLowerCase().includes(q) || (s.location || "").toLowerCase().includes(q));
+  }, [dashSearch, stock]);
   const todaysPaint = useMemo(() => paintLog.filter(p => p.date === today()).flatMap(p => p.items), [paintLog]);
   const todaysDispatch = dispatchSlips.filter(d => d.date === today()).length;
 
@@ -797,6 +803,33 @@ function App() {
           <button onClick={() => { setTab("entries"); setEntryMode("purchase"); }} style={{...iconBtn, fontWeight:600, fontSize:"12.5px", padding:"9px 16px"}}>+ Vendor Bill</button>
           <button onClick={() => setTab("packing")} style={{...iconBtn, fontWeight:600, fontSize:"12.5px", padding:"9px 16px"}}>+ Dispatch Slip</button>
           <button onClick={() => setTab("stock")} style={{...iconBtn, fontWeight:600, fontSize:"12.5px", padding:"9px 16px"}}>View Finish Stock</button>
+        </div>
+
+        <div style={{position:"relative", maxWidth:"460px", marginBottom:"22px"}}>
+          <input
+            value={dashSearch}
+            onChange={e => setDashSearch(e.target.value)}
+            onKeyDown={e => { if (e.key === "Escape") setDashSearch(""); }}
+            placeholder="🔍 Search Finish Stock — item, SKU or category…"
+            style={{...inputStyle, padding:"11px 12px", fontSize:"13px"}}
+          />
+          {dashSearch.trim() && <div style={{position:"absolute", top:"calc(100% + 4px)", left:0, right:0, background:"var(--panel)", border:"1px solid var(--line)", borderRadius:"6px", boxShadow:"0 6px 18px rgba(16,24,40,0.12)", maxHeight:"340px", overflowY:"auto", zIndex:20}}>
+            {dashSearchResults.length === 0 && <div style={{padding:"14px", fontSize:"13px", color:"var(--text-dim)"}}>No item in Finish Stock matches "{dashSearch}".</div>}
+            {dashSearchResults.map(s => (
+              <div key={s.id} className="row-btn"
+                onClick={() => { setTab("stock"); setStockFilter(s.category); setDashSearch(""); }}
+                style={{display:"flex", justifyContent:"space-between", alignItems:"center", gap:"10px", padding:"10px 12px", borderBottom:"1px solid var(--line)", cursor:"pointer"}}>
+                <div style={{minWidth:0}}>
+                  <div style={{fontSize:"13px", fontWeight:600, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap"}}>{s.item}</div>
+                  <div style={{fontSize:"11px", color:"var(--text-dim)"}}>{s.category} · {s.location || "no location set"}</div>
+                </div>
+                <div style={{textAlign:"right", flexShrink:0}}>
+                  <div className="mono" style={{fontSize:"14px", fontWeight:700, color: s.qty<=s.reorder ? "var(--red)" : "var(--text)"}}>{s.qty} {s.unit}</div>
+                  {s.qty<=s.reorder && <div style={{fontSize:"10px", color:"var(--yellow)"}}>below reorder</div>}
+                </div>
+              </div>
+            ))}
+          </div>}
         </div>
 
         {lowStock.length > 0 && <div style={{background:"var(--panel)",border:"1px solid var(--red-dim)",borderRadius:"6px",padding:"16px",marginBottom:"20px"}}>
