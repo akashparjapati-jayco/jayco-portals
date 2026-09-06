@@ -727,6 +727,20 @@ function getPOs(ch){
   if(ch.purchaseOrders && ch.purchaseOrders.length) return ch.purchaseOrders;
   return ch.purchaseOrderNumber ? [{purchaseOrderNumber:ch.purchaseOrderNumber, purchaseOrderDate:ch.purchaseOrderDate}] : [];
 }
+/* Items carry which JAYCO P/O they were received against (poNumber). Group them
+   here so the challan — on screen, in the PDF and on WhatsApp — always shows a
+   subtotal under each particular P/O line, the way P/O generation totals a line.
+   Older challans saved before this field existed simply fall into the first P/O. */
+function groupChallanItems(ch){
+  const pos = getPOs(ch);
+  const groups = pos.map(po => ({po, items: []}));
+  if(!groups.length) groups.push({po: null, items: []});
+  ch.items.forEach(it => {
+    const idx = it.poNumber ? groups.findIndex(g => g.po && g.po.purchaseOrderNumber === it.poNumber) : -1;
+    (idx >= 0 ? groups[idx] : groups[0]).items.push(it);
+  });
+  return groups.filter(g => g.items.length);
+}
 function foundryComplete(ch){ return ch.items.length > 0 && ch.items.every(i => num(i.foundryTotalWeight) > 0); }
 function opt(list, sel){ return list.map(v=>`<option value="${esc(v)}" ${v===sel?'selected':''}>${esc(v)}</option>`).join(''); }
 
@@ -1637,7 +1651,7 @@ function viewGeneratePO(){
 }
 
 /* ---- Insert Casting Details ---- */
-function blankLine(){ return {masterCode:'', itemName:'', itemType:DEFAULT_TYPES[0], material:'Cast Iron', quantity:'', foundryWeight:'', actualWeight:''}; }
+function blankLine(){ return {masterCode:'', itemName:'', itemType:DEFAULT_TYPES[0], material:'Cast Iron', quantity:'', foundryWeight:'', actualWeight:'', poNumber:''}; }
 function blankPO(){ return {purchaseOrderNumber:'', purchaseOrderDate: today()}; }
 function blankEntry(){ return {challanNumber:'', challanDate: today(), foundryName:'', newFoundry:false, purchaseOrders:[blankPO()], items:[blankLine()]}; }
 
@@ -1704,7 +1718,7 @@ function viewInsertCasting(){
           <button type="button" class="btn" id="add-item">＋ Add Item</button>
         </div>
         <div class="item-table-wrap"><table class="item-table">
-          <thead><tr><th style="min-width:230px">Item</th><th style="min-width:130px">Type</th><th style="min-width:130px">Material</th>
+          <thead><tr>${ f.purchaseOrders.length>1 ? '<th style="min-width:130px">JAYCO P/O</th>' : '' }<th style="min-width:230px">Design</th><th style="min-width:130px">Make</th><th style="min-width:130px">Material</th>
           <th class="num" style="min-width:80px">Qty</th><th class="num" style="min-width:150px">Foundry Weight (Optional)</th>
           <th class="num" style="min-width:140px">JAYCO Weight</th><th class="num" style="min-width:140px">Average Weight/Pc</th><th></th></tr></thead>
           <tbody>${ f.items.map((it,i)=>{
@@ -1712,6 +1726,10 @@ function viewInsertCasting(){
             const avg = qty>0 ? num(it.actualWeight)/qty : 0;
             const known = masters.some(m=>m.itemCode===it.masterCode);
             return `<tr>
+              ${ f.purchaseOrders.length>1 ? `<td><select data-item="${i}" data-field="poNumber" required>
+                <option value="">Select P/O</option>
+                ${f.purchaseOrders.filter(p=>p.purchaseOrderNumber.trim()).map(p=>`<option value="${esc(p.purchaseOrderNumber)}" ${p.purchaseOrderNumber===it.poNumber?'selected':''}>${esc(p.purchaseOrderNumber)}</option>`).join('')}
+              </select></td>` : '' }
               <td><div style="display:flex;gap:.4rem">
                 <select data-item="${i}" data-field="masterCode" required style="flex:1">
                   <option value="">${masters.length?'Select pattern':'Save your first pattern'}</option>
@@ -1731,6 +1749,7 @@ function viewInsertCasting(){
               <td><button type="button" class="btn icon danger" data-rm-item="${i}" ${f.items.length===1?'disabled':''}>🗑</button></td>
             </tr>`; }).join('') }
           </tbody></table></div>
+        ${ f.purchaseOrders.length>1 ? '<p style="margin:.5rem 0 0;font-size:.75rem;color:var(--muted)">More than one P/O on this challan — tag each line with the P/O it was received against. The challan, its view, PDF and WhatsApp message will group items and show a total under each P/O.</p>' : '' }
 
         <div class="totals-grid">
           <div class="weight-total-card"><span>Total Quantity</span><strong>${totals.quantity}</strong></div>
@@ -1837,7 +1856,7 @@ function modalType(id){
 function modalViewChallan(id){
   const c = state.challans.find(x=>String(x.id)===String(id));
   if(!c) return;
-  const fc = foundryComplete(c), pos = getPOs(c);
+  const fc = foundryComplete(c), pos = getPOs(c), groups = groupChallanItems(c);
   openModal(`<div class="modal-head"><h3>Challan ${esc(c.challanNumber)}</h3>
     <p>${fmtDate(c.challanDate)} · ${esc(c.foundryName)} · ${pos.length} P/O${pos.length===1?'':'s'} · ${c.items.length} item${c.items.length===1?'':'s'}</p></div>
     <div style="padding:0 1.25rem;overflow-y:auto;flex:1 1 auto;min-height:0">
@@ -1847,13 +1866,28 @@ function modalViewChallan(id){
           <p class="mono" style="margin:.3rem 0 0;font-size:.85rem">${esc(p.purchaseOrderNumber)}</p>
           <p style="margin:.25rem 0 0;font-size:.75rem;color:var(--muted)">P/O Date: ${fmtDate(p.purchaseOrderDate)}</p></div>`).join('')}
       </div>
-      <div class="table-scroll" style="border:1px solid var(--border)"><table>
-        <thead><tr><th>Item</th><th>Type</th><th>Material</th><th class="num">Qty</th><th class="num">Foundry Weight</th><th class="num">JAYCO Weight</th><th class="num">Average Weight/Pc</th></tr></thead>
-        <tbody>${c.items.map(i=>`<tr><td><b>${esc(i.itemName)}</b></td><td>${esc(i.itemType)}</td><td>${esc(i.material)}</td>
-          <td class="num">${num(i.quantity)}</td><td class="num">${num(i.foundryTotalWeight)>0?fmtWt(i.foundryTotalWeight):'Not entered'}</td>
-          <td class="num"><b>${fmtWt(i.actualTotalWeight)}</b></td>
-          <td class="num">${num(i.quantity)>0?fmtWt(num(i.actualTotalWeight)/num(i.quantity)):'—'}</td></tr>`).join('')}</tbody>
-      </table></div>
+      ${groups.map(g => {
+        const gQty = g.items.reduce((s,i)=>s+num(i.quantity),0);
+        const gFw  = g.items.reduce((s,i)=>s+num(i.foundryTotalWeight),0);
+        const gAw  = g.items.reduce((s,i)=>s+num(i.actualTotalWeight),0);
+        return `<div style="margin-bottom:1rem">
+          ${ pos.length>1 ? `<p class="eyebrow" style="margin:0 0 .4rem">JAYCO P/O ${esc(g.po ? g.po.purchaseOrderNumber : '—')}</p>` : '' }
+          <div class="table-scroll" style="border:1px solid var(--border)"><table>
+            <thead><tr><th>Design</th><th>Make</th><th>Material</th><th class="num">Qty</th><th class="num">Foundry Weight</th><th class="num">JAYCO Weight</th><th class="num">Average Weight/Pc</th></tr></thead>
+            <tbody>${g.items.map(i=>`<tr><td><b>${esc(i.itemName)}</b></td><td>${esc(i.itemType)}</td><td>${esc(i.material)}</td>
+              <td class="num">${num(i.quantity)}</td><td class="num">${num(i.foundryTotalWeight)>0?fmtWt(i.foundryTotalWeight):'Not entered'}</td>
+              <td class="num"><b>${fmtWt(i.actualTotalWeight)}</b></td>
+              <td class="num">${num(i.quantity)>0?fmtWt(num(i.actualTotalWeight)/num(i.quantity)):'—'}</td></tr>`).join('')}
+            <tr style="font-weight:600;background:#f8fafc">
+              <td colspan="3">Line total</td>
+              <td class="num">${gQty}</td>
+              <td class="num">${gFw>0?fmtWt(gFw):'—'}</td>
+              <td class="num">${fmtWt(gAw)}</td>
+              <td class="num">—</td>
+            </tr></tbody>
+          </table></div>
+        </div>`;
+      }).join('')}
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:.75rem;margin-top:1rem">
         <div class="weight-total-card"><span>Total Quantity</span><strong>${num(c.totalQuantity)}</strong></div>
         <div class="weight-total-card"><span>Foundry Total Weight</span><strong>${fc?fmtWt(c.foundryTotalWeight):'Not entered'}</strong></div>
@@ -1956,31 +1990,52 @@ function buildChallanPdf(c){
   });
   y += Math.ceil(Math.max(1, pos.length) / 3) * 40 + 8;
 
-  /* items */
+  /* items — grouped under each JAYCO P/O, with a subtotal line for that P/O */
   doc.setFont('helvetica','bold'); doc.setFontSize(6.4); doc.setTextColor(...RED);
   doc.text('AVERAGE WEIGHT/PC = JAYCO WEIGHT ÷ QTY. JAYCO WEIGHT IS THE VERIFIED WEIGHT ON RECEIPT.', M, y);
+  y += 10;
 
-  doc.autoTable({
-    startY: y + 8,
-    margin: {left: M, right: M},
-    head: [['SR','CASTING ITEM','TYPE','MATERIAL','QTY','FOUNDRY WT','JAYCO WT','AVG WT/PC']],
-    body: c.items.map((i, n) => [
-      n + 1, i.itemName, i.itemType, i.material, num(i.quantity),
-      num(i.foundryTotalWeight) > 0 ? fmtWt(i.foundryTotalWeight) : '—',
-      fmtWt(i.actualTotalWeight),
-      num(i.quantity) > 0 ? fmtWt(num(i.actualTotalWeight) / num(i.quantity)) : '—'
-    ]),
-    styles: {fontSize: 8, cellPadding: 6.5, lineColor: LINE, lineWidth: 0.5, textColor: INK, overflow:'linebreak'},
-    headStyles: {fillColor: SOFT, textColor: MUT, fontStyle:'bold', fontSize: 6.2,
-                 halign:'center', cellPadding: 7, lineColor: LINE, lineWidth: 0.5},
-    columnStyles: {
-      0:{halign:'center', cellWidth:24}, 1:{cellWidth:118}, 2:{cellWidth:52}, 3:{cellWidth:56},
-      4:{halign:'right', cellWidth:34}, 5:{halign:'right'}, 6:{halign:'right', fontStyle:'bold'}, 7:{halign:'right'}
-    }
+  groupChallanItems(c).forEach(g => {
+    if(y > H - 140){ doc.addPage(); y = 56; }
+    doc.setFont('helvetica','bold'); doc.setFontSize(8); doc.setTextColor(...INK);
+    doc.text('JAYCO P/O ' + (g.po ? g.po.purchaseOrderNumber : '—')
+      + (g.po && g.po.purchaseOrderDate ? '   ·   ' + fmtDate(g.po.purchaseOrderDate) : ''), M, y);
+    y += 6;
+
+    const gQty = g.items.reduce((s,i) => s + num(i.quantity), 0);
+    const gFw  = g.items.reduce((s,i) => s + num(i.foundryTotalWeight), 0);
+    const gAw  = g.items.reduce((s,i) => s + num(i.actualTotalWeight), 0);
+
+    doc.autoTable({
+      startY: y + 4,
+      margin: {left: M, right: M},
+      head: [['SR','DESIGN','MAKE','MATERIAL','QTY','FOUNDRY WT','JAYCO WT','AVG WT/PC']],
+      body: g.items.map((i, n) => [
+        n + 1, i.itemName, i.itemType, i.material, num(i.quantity),
+        num(i.foundryTotalWeight) > 0 ? fmtWt(i.foundryTotalWeight) : '—',
+        fmtWt(i.actualTotalWeight),
+        num(i.quantity) > 0 ? fmtWt(num(i.actualTotalWeight) / num(i.quantity)) : '—'
+      ]),
+      foot: [[
+        {content:'LINE TOTAL', colSpan:4, styles:{halign:'right'}},
+        gQty, gFw > 0 ? fmtWt(gFw) : '—', fmtWt(gAw), ''
+      ]],
+      styles: {fontSize: 8, cellPadding: 6.5, lineColor: LINE, lineWidth: 0.5, textColor: INK, overflow:'linebreak'},
+      headStyles: {fillColor: SOFT, textColor: MUT, fontStyle:'bold', fontSize: 6.2,
+                   halign:'center', cellPadding: 7, lineColor: LINE, lineWidth: 0.5},
+      footStyles: {fillColor: SOFT, textColor: INK, fontStyle:'bold', fontSize: 7.6,
+                   cellPadding: 6.5, lineColor: LINE, lineWidth: 0.5},
+      columnStyles: {
+        0:{halign:'center', cellWidth:24}, 1:{cellWidth:118}, 2:{cellWidth:52}, 3:{cellWidth:56},
+        4:{halign:'right', cellWidth:34}, 5:{halign:'right'}, 6:{halign:'right', fontStyle:'bold'}, 7:{halign:'right'}
+      }
+    });
+    y = doc.lastAutoTable.finalY + 14;
   });
 
   /* totals */
-  y = doc.lastAutoTable.finalY + 16;
+  if(y + 160 > H){ doc.addPage(); y = 56; }
+  y += 2;
   const tW = 178;
   doc.setDrawColor(...LINE);
   doc.roundedRect(M, y, CW - tW - 10, 44, 3, 3, 'S');
@@ -2037,19 +2092,29 @@ function downloadPdf(c){
 }
 
 function shareWhatsApp(c){
-  const fc = foundryComplete(c), pos = getPOs(c);
+  const fc = foundryComplete(c), pos = getPOs(c), groups = groupChallanItems(c);
   const lines = [
     '*JAYCO ENGINEERING INDIA*','*Casting Inward Challan*',
     `Challan: ${c.challanNumber}`, `Date: ${fmtDate(c.challanDate)}`, `Foundry: ${c.foundryName}`,
     ...pos.map((p,i)=>`JAYCO P/O ${i+1}: ${p.purchaseOrderNumber} | Date: ${fmtDate(p.purchaseOrderDate)}`),
-    '',
-    ...c.items.map((i,n)=>`${n+1}. ${i.itemName} - ${i.itemType} - ${i.material}\nQty: ${num(i.quantity)} | Foundry Weight: ${num(i.foundryTotalWeight)>0?fmtWt(i.foundryTotalWeight):'Not entered'} | JAYCO Weight: ${fmtWt(i.actualTotalWeight)} | Average/Pc: ${num(i.quantity)>0?fmtWt(num(i.actualTotalWeight)/num(i.quantity)):'-'}`),
-    '',
+    ''
+  ];
+  groups.forEach(g => {
+    if(pos.length > 1) lines.push(`*Against JAYCO P/O ${g.po ? g.po.purchaseOrderNumber : '—'}*`);
+    g.items.forEach((i,n) => lines.push(
+      `${n+1}. ${i.itemName} - ${i.itemType} - ${i.material}\nQty: ${num(i.quantity)} | Foundry Weight: ${num(i.foundryTotalWeight)>0?fmtWt(i.foundryTotalWeight):'Not entered'} | JAYCO Weight: ${fmtWt(i.actualTotalWeight)} | Average/Pc: ${num(i.quantity)>0?fmtWt(num(i.actualTotalWeight)/num(i.quantity)):'-'}`
+    ));
+    const gQty = g.items.reduce((s,i)=>s+num(i.quantity),0);
+    const gFw  = g.items.reduce((s,i)=>s+num(i.foundryTotalWeight),0);
+    const gAw  = g.items.reduce((s,i)=>s+num(i.actualTotalWeight),0);
+    lines.push(`Line Total — Qty: ${gQty}${gFw>0?' | Foundry Weight: '+fmtWt(gFw):''} | JAYCO Weight: ${fmtWt(gAw)}`, '');
+  });
+  lines.push(
     `Total Qty: ${num(c.totalQuantity)}`,
     `Foundry Total Weight: ${fc?fmtWt(c.foundryTotalWeight):'Not entered'}`,
     `JAYCO Total Weight: ${fmtWt(c.actualTotalWeight)}`,
     `Difference: ${fc?fmtWt(num(c.actualTotalWeight)-num(c.foundryTotalWeight)):'Not available'}`
-  ];
+  );
   window.open('https://wa.me/?text=' + encodeURIComponent(lines.join('\n')), '_blank', 'noopener');
   toast('WhatsApp opened. Attach the downloaded PDF manually if required.','info');
 }
@@ -2057,16 +2122,24 @@ function shareWhatsApp(c){
 /* Build a challan object from the current entry form (with validation) */
 function currentFormChallan(){
   const f = state.entryForm;
+  const singlePo = f.purchaseOrders.length === 1;
   const items = f.items.map(i=>{
     const qty = num(i.quantity), fw = num(i.foundryWeight), aw = num(i.actualWeight);
     return {itemName:i.itemName, itemType:i.itemType, material:i.material, quantity:qty,
-            foundryWeight:fw, actualWeight:aw, foundryTotalWeight:fw, actualTotalWeight:aw};
+            foundryWeight:fw, actualWeight:aw, foundryTotalWeight:fw, actualTotalWeight:aw,
+            poNumber: singlePo ? f.purchaseOrders[0].purchaseOrderNumber : (i.poNumber||'')};
   });
+  const missingPo = !singlePo && items.some(i=>!i.poNumber);
   const bad = !f.challanNumber.trim() || !f.challanDate || !f.foundryName.trim()
     || !f.purchaseOrders.length
     || f.purchaseOrders.some(p=>!p.purchaseOrderNumber.trim() || !p.purchaseOrderDate)
-    || items.some(i=>!i.itemName || !i.itemType || !i.material || i.quantity<=0 || i.actualWeight<=0);
-  if(bad){ toast('Complete the challan, JAYCO P/O, item, quantity and JAYCO weight fields first. Foundry weight is optional.','error'); return null; }
+    || items.some(i=>!i.itemName || !i.itemType || !i.material || i.quantity<=0 || i.actualWeight<=0)
+    || missingPo;
+  if(bad){
+    toast(missingPo ? 'Select the JAYCO P/O each item line was received against.'
+                     : 'Complete the challan, JAYCO P/O, item, quantity and JAYCO weight fields first. Foundry weight is optional.', 'error');
+    return null;
+  }
   return {
     id: state.editingChallanId || 'draft',
     challanNumber: f.challanNumber, challanDate: f.challanDate, foundryName: f.foundryName,
@@ -2540,7 +2613,8 @@ document.addEventListener('click', async (e) => {
         masterCode: (state.castingMasters.find(m=>m.itemName===i.itemName)||{}).itemCode || ('legacy-'+n),
         itemName:i.itemName, itemType:i.itemType, material:i.material,
         quantity:String(i.quantity), foundryWeight: num(i.foundryTotalWeight)>0?String(i.foundryTotalWeight):'',
-        actualWeight:String(i.actualTotalWeight)}))
+        actualWeight:String(i.actualTotalWeight),
+        poNumber: i.poNumber || (getPOs(c)[0] || {}).purchaseOrderNumber || ''}))
     };
     state.view='insert-casting'; render(); window.scrollTo(0,0); return;
   }
@@ -2833,7 +2907,13 @@ function updateEntryTotals(){
 /* form buttons inside the entry view */
 document.addEventListener('click', e => {
   if(e.target.closest('#add-po')){ state.entryForm.purchaseOrders.push(blankPO()); render(); }
-  if(e.target.closest('#add-item')){ state.entryForm.items.push(blankLine()); render(); }
+  if(e.target.closest('#add-item')){
+    const line = blankLine();
+    const firstPo = state.entryForm.purchaseOrders[0];
+    if(firstPo) line.poNumber = firstPo.purchaseOrderNumber;
+    state.entryForm.items.push(line);
+    render();
+  }
   if(e.target.closest('#form-pdf')){ const c = currentFormChallan(); if(c) downloadPdf(c); }
   if(e.target.closest('#form-wa')){ const c = currentFormChallan(); if(c) shareWhatsApp(c); }
   if(e.target.closest('#add-po-item')){ state.poForm.items.push(blankPoLine()); render(); }
@@ -3378,8 +3458,8 @@ document.getElementById('btn-seed')?.addEventListener('click', async () => {
       {itemCode:'CAST-'+Math.random().toString(36).slice(2,10).toUpperCase(), itemName, itemType, material, drawingNumber, patternCode, status:'Active', notes:'', averageWeight:0}));
   await DB.create('control_records', {module:'patterns', reference:'PTN-SNH-520', item:'SNH 520-617 housing pattern', foundry:'Bharat Steel Foundry', quantity:2, received:1, dueDate:today(), status:'At foundry', notes:'One set sent for trial casting', changedBy: authUser()});
   const demoItems = [
-    {itemName:saved[0].itemName, itemType:saved[0].itemType, material:saved[0].material, quantity:50, foundryWeight:1250, actualWeight:1268.5, foundryTotalWeight:1250, actualTotalWeight:1268.5},
-    {itemName:saved[1].itemName, itemType:saved[1].itemType, material:saved[1].material, quantity:50, foundryWeight:640, actualWeight:651.2, foundryTotalWeight:640, actualTotalWeight:651.2}
+    {itemName:saved[0].itemName, itemType:saved[0].itemType, material:saved[0].material, quantity:50, foundryWeight:1250, actualWeight:1268.5, foundryTotalWeight:1250, actualTotalWeight:1268.5, poNumber:'JAY/PO/2026/118'},
+    {itemName:saved[1].itemName, itemType:saved[1].itemType, material:saved[1].material, quantity:50, foundryWeight:640, actualWeight:651.2, foundryTotalWeight:640, actualTotalWeight:651.2, poNumber:'JAY/PO/2026/118'}
   ];
   await DB.create('casting_challans', {
     challanNumber:'BSF/CH/1024', challanDate:today(), foundryName:'Bharat Steel Foundry',
