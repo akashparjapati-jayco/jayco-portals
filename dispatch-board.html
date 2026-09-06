@@ -276,6 +276,7 @@ function App() {
   const [challanDraft, setChallanDraft] = useState({ date:today(), painterName:"", items:[] });
   const [rowForm, setRowForm] = useState({ item:"", qty:"", paintType:"New Paint", notes:"" });
   const [editingChallanId, setEditingChallanId] = useState(null);
+  const [expandedChallans, setExpandedChallans] = useState({});
   const [sForm, setSForm] = useState({ category:"Plummer Block", item:"", qty:"", unit:"Nos", location:"", reorder:"" });
   const [editStock, setEditStock] = useState(null);
   const [stockFilter, setStockFilter] = useState(null);
@@ -820,6 +821,135 @@ function App() {
     doc.save(`dispatch-slip-${slip.invoiceNo || slip.id}.pdf`);
   };
 
+  const generateChallanPdf = (challan) => {
+    const doc = new jspdf.jsPDF();
+    const pageW = 210;
+    const marginX = 12;
+    const contentW = pageW - marginX * 2;
+    const red = [234, 88, 12];
+    const grayLine = [200, 200, 200];
+    const darkText = [30, 30, 30];
+    const dimText = [110, 110, 110];
+    let y = 12;
+
+    try { doc.addImage("data:image/jpeg;base64," + COMPANY_LOGO_B64, "JPEG", marginX, y, 42, 8); } catch (e) {}
+    doc.setFontSize(15);
+    doc.setFont(undefined, "bold");
+    doc.setTextColor(...darkText);
+    doc.text("PAINT / REPAINT CHALLAN", pageW - marginX, y + 6, { align: "right" });
+    y += 14;
+
+    doc.setDrawColor(...red);
+    doc.setLineWidth(0.8);
+    doc.line(marginX, y, pageW - marginX, y);
+    y += 5;
+
+    doc.setFont(undefined, "normal");
+    doc.setFontSize(8.5);
+    doc.setTextColor(...dimText);
+    doc.text("JAYCO Engineering India | Plot 18-20, Dharti Industrial Park, Ahmedabad-Indore Highway,", marginX, y);
+    y += 4;
+    doc.text("PO Mirjapur, Dist. Kheda, Gujarat 387610", marginX, y);
+    y += 4;
+    doc.text("Email: office@jaycohousing.com / info@jaycohousing.com", marginX, y);
+    y += 8;
+
+    const headerFields = [
+      ["Slip No", challan.slipNo || "—"], ["Date", fmtDate(challan.date)],
+      ["Painter Name", challan.painterName || "—"],
+    ];
+    const colW = contentW / 2;
+    const rowH = 7;
+    doc.setDrawColor(...grayLine);
+    doc.setLineWidth(0.2);
+    doc.rect(marginX, y, contentW, rowH * 2);
+    doc.line(marginX + colW, y, marginX + colW, y + rowH * 2);
+    doc.line(marginX, y + rowH, marginX + contentW, y + rowH);
+    headerFields.forEach((f, i) => {
+      const col = i % 2, row = Math.floor(i / 2);
+      const cx = marginX + col * colW + 3;
+      const cy = y + row * rowH + 4.8;
+      doc.setFont(undefined, "bold"); doc.setFontSize(8); doc.setTextColor(...dimText);
+      doc.text(f[0] + ":", cx, cy);
+      doc.setFont(undefined, "normal"); doc.setTextColor(...darkText);
+      doc.text(String(f[1]), cx + doc.getTextWidth(f[0] + ":  "), cy);
+    });
+    y += rowH * 2 + 8;
+
+    const cols = [
+      { label: "Item", w: 0.32 }, { label: "Qty", w: 0.14 }, { label: "Type", w: 0.24 }, { label: "Notes", w: 0.30 },
+    ];
+    const colWidths = cols.map(c => c.w * contentW);
+    const colX = [marginX];
+    colWidths.forEach(w => colX.push(colX[colX.length - 1] + w));
+
+    const headH = 8;
+    doc.setFillColor(...red);
+    doc.rect(marginX, y, contentW, headH, "F");
+    doc.setTextColor(255, 255, 255);
+    doc.setFont(undefined, "bold");
+    doc.setFontSize(8.5);
+    cols.forEach((c, i) => doc.text(c.label, colX[i] + 2, y + 5.5));
+    y += headH;
+
+    const bodyRowH = 7;
+    doc.setFont(undefined, "normal");
+    doc.setFontSize(8.5);
+    challan.items.forEach((row, idx) => {
+      if (y + bodyRowH > 275) {
+        doc.addPage();
+        y = 16;
+        doc.setFillColor(...red);
+        doc.rect(marginX, y, contentW, headH, "F");
+        doc.setTextColor(255, 255, 255);
+        doc.setFont(undefined, "bold");
+        cols.forEach((c, i) => doc.text(c.label, colX[i] + 2, y + 5.5));
+        doc.setFont(undefined, "normal");
+        y += headH;
+      }
+      if (idx % 2 === 1) { doc.setFillColor(246, 246, 246); doc.rect(marginX, y, contentW, bodyRowH, "F"); }
+      doc.setTextColor(...darkText);
+      const values = [String(row.item), String(row.qty), String(row.paintType), String(row.notes || "—")];
+      values.forEach((v, i) => doc.text(v, colX[i] + 2, y + 4.8));
+      y += bodyRowH;
+    });
+
+    doc.setDrawColor(...grayLine);
+    doc.rect(marginX, y - challan.items.length * bodyRowH - headH, contentW, challan.items.length * bodyRowH + headH);
+    colX.slice(1, -1).forEach(x => doc.line(x, y - challan.items.length * bodyRowH - headH, x, y));
+    for (let i = 0; i <= challan.items.length; i++) {
+      doc.line(marginX, y - i * bodyRowH, marginX + contentW, y - i * bodyRowH);
+    }
+    y += 8;
+
+    const totalQty = challan.items.reduce((s, r) => s + Number(r.qty || 0), 0);
+    const totalsW = 60;
+    const totalsX = pageW - marginX - totalsW;
+    doc.setDrawColor(...red);
+    doc.setLineWidth(0.4);
+    doc.rect(totalsX, y, totalsW, 8);
+    doc.setFontSize(8.5);
+    doc.setFont(undefined, "bold");
+    doc.setTextColor(...darkText);
+    doc.text(`Total Qty:`, totalsX + 3, y + 5.5);
+    doc.setFont(undefined, "normal");
+    doc.text(String(totalQty), totalsX + totalsW - 5, y + 5.5, { align: "right" });
+    y += 22;
+
+    if (y > 260) { doc.addPage(); y = 240; }
+    else y = Math.max(y, 250);
+    doc.setDrawColor(...grayLine);
+    doc.setLineWidth(0.2);
+    doc.line(marginX, y, marginX + 60, y);
+    doc.line(pageW - marginX - 60, y, pageW - marginX, y);
+    doc.setFontSize(8);
+    doc.setTextColor(...dimText);
+    doc.text("Painter Signature", marginX, y + 5);
+    doc.text("Authorized Signatory — JAYCO Engineering India", pageW - marginX - 60, y + 5);
+
+    doc.save(`paint-challan-${challan.slipNo || challan.id}.pdf`);
+  };
+
   const addBox = () => {
     if (bForm.qty === "" || !bForm.party) return;
     persist({ ...data, boxLog: [{ id:uid(), ...bForm, date:bForm.date || today(), qty:Number(bForm.qty), createdBy:userName }, ...boxLog] });
@@ -1107,16 +1237,18 @@ function App() {
                   {p.createdBy && <span style={{fontSize:"11px",color:"var(--text-dim)",marginLeft:"12px"}}>· created by {p.createdBy}</span>}
                 </div>
                 <div style={{display:"flex",gap:"8px"}}>
+                  <button className="row-btn" onClick={() => setExpandedChallans({...expandedChallans, [p.id]: !expandedChallans[p.id]})} style={iconBtn}>{expandedChallans[p.id] ? "▲ Hide Details" : "▼ View Details"}</button>
                   <button className="row-btn" onClick={() => startEditChallan(p)} style={{...iconBtn,fontWeight:600}}>✎ Edit</button>
+                  <button className="row-btn" onClick={() => generateChallanPdf(p)} style={{...iconBtn,fontWeight:600}}>⭳ PDF for WhatsApp</button>
                   <button className="row-btn" onClick={() => delChallan(p.id)} style={iconBtn}>✕ Delete Challan</button>
                 </div>
               </div>
-              <TableBlock headers={["Item","Qty","Type","Notes"]} emptyText="No items."
+              {expandedChallans[p.id] && <TableBlock headers={["Item","Qty","Type","Notes"]} emptyText="No items."
                 rows={p.items.map(row => [
                   row.item, row.qty,
                   <span style={{color: row.paintType==="Repaint" ? "var(--yellow)" : "var(--green)"}}>{row.paintType}</span>,
                   row.notes || "—",
-                ])} />
+                ])} />}
             </div>
           ))}
         </div>}
