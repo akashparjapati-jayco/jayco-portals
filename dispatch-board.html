@@ -284,6 +284,7 @@ function App() {
   const [dispatchRowForm, setDispatchRowForm] = useState({ item:"", qty:"", packingStyle:"Corrugated Box", boxSize:DEFAULT_CORRUGATED_BOX_SIZES[0], boxQty:"" });
   const dispatchItemRef = useRef(null);
   const [editingSlipId, setEditingSlipId] = useState(null);
+  const [expandedSlips, setExpandedSlips] = useState({});
   const [bForm, setBForm] = useState({ date:today(), direction:"in", type:"Wooden Box", size:DEFAULT_WOODEN_BOX_SIZES[0], qty:"", party:"" });
   const [copiedId, setCopiedId] = useState(null);
   const [importMsg, setImportMsg] = useState("");
@@ -1388,18 +1389,21 @@ function App() {
                 {d.createdBy && <div style={{fontSize:"11px",color:"var(--text-dim)",marginTop:"2px"}}>Created by {d.createdBy}</div>}
               </div>
               <div style={{display:"flex",gap:"8px"}}>
+                <button className="row-btn" onClick={() => setExpandedSlips({...expandedSlips, [d.id]: !expandedSlips[d.id]})} style={iconBtn}>{expandedSlips[d.id] ? "▲ Hide Details" : "▼ View Details"}</button>
                 <button className="row-btn" onClick={() => generateDispatchPdf(d)} style={{...iconBtn,fontWeight:600}}>⭳ PDF for WhatsApp</button>
                 <button className="row-btn" onClick={() => startEditSlip(d)} style={{...iconBtn,fontWeight:600}}>✎ Edit</button>
                 <button className="row-btn" onClick={() => delDispatchSlip(d.id)} style={iconBtn}>✕ Delete Slip</button>
               </div>
             </div>
-            <TableBlock headers={["Item","Qty","Packing","Box Size","Box/Bag Qty"]} emptyText="No items."
-              rows={d.items.map(row => [row.item, row.qty, row.packingStyle, row.boxSize || "—", row.boxQty || row.gunnyQty || "—"])} />
-            <div style={{display:"flex",gap:"20px",marginTop:"10px",fontSize:"12px"}}>
-              <span><span style={{color:"var(--text-dim)"}}>Total Qty:</span> <strong>{d.totalQty}</strong></span>
-              <span><span style={{color:"var(--text-dim)"}}>Total Boxes:</span> <strong>{d.totalBoxes}</strong></span>
-              <span><span style={{color:"var(--text-dim)"}}>Total Gunny Bags:</span> <strong>{d.totalGunny}</strong></span>
-            </div>
+            {expandedSlips[d.id] && <>
+              <TableBlock headers={["Item","Qty","Packing","Box Size","Box/Bag Qty"]} emptyText="No items."
+                rows={d.items.map(row => [row.item, row.qty, row.packingStyle, row.boxSize || "—", row.boxQty || row.gunnyQty || "—"])} />
+              <div style={{display:"flex",gap:"20px",marginTop:"10px",fontSize:"12px"}}>
+                <span><span style={{color:"var(--text-dim)"}}>Total Qty:</span> <strong>{d.totalQty}</strong></span>
+                <span><span style={{color:"var(--text-dim)"}}>Total Boxes:</span> <strong>{d.totalBoxes}</strong></span>
+                <span><span style={{color:"var(--text-dim)"}}>Total Gunny Bags:</span> <strong>{d.totalGunny}</strong></span>
+              </div>
+            </>}
           </div>
         ))}
       </div>}
