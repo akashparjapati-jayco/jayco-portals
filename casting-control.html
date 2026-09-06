@@ -469,7 +469,7 @@ const DB = FirebaseAdapter;
 const state = {
   view: 'dashboard',
   search: '',
-  challans: [], patternMasters: [], castingMasters: [], castingTypes: [], patternRecords: [], purchaseOrders: [], foundries: [], pigIron: [],
+  challans: [], patternMasters: [], castingMasters: [], castingTypes: [], patternRecords: [], purchaseOrders: [], foundries: [], pigIron: [], pigParty: 'All',
   entryForm: null, editingChallanId: null,
   poForm: null, editingPoId: null,
   saving: false
@@ -1114,6 +1114,45 @@ function pigByFoundry(){
     .sort((a, b) => b.balance - a.balance);
 }
 
+/* Every party that appears anywhere in the pig iron record: clients who sent
+   material in, and foundries it was issued to. */
+function pigParties(){
+  const clients = [...new Set(state.pigIron.filter(r => r.kind === 'Receipt')
+                    .map(r => r.clientName).filter(Boolean))]
+                  .map(name => ({name, type:'Client'}));
+  const foundries = [...new Set([
+      ...state.pigIron.filter(r => r.kind === 'Issue').map(r => r.foundryName),
+      ...state.challans.map(c => c.foundryName)
+    ].filter(Boolean))].map(name => ({name, type:'Foundry'}));
+  return [...clients, ...foundries];
+}
+
+/* One account, oldest entry first, with a running balance.
+   Client account  — everything they supplied, running total.
+   Foundry account — issued out (debit) less castings returned (credit). */
+function pigPartyLedger(name, type){
+  const rows = [];
+  if(type === 'Client'){
+    state.pigIron.filter(r => r.kind === 'Receipt' && r.clientName === name)
+      .forEach(r => rows.push({date:r.date, what:'Pig iron supplied to JAYCO',
+        ref:[r.refNo, r.ewayBill].filter(Boolean).join(' / '), dr:num(r.weight), cr:0,
+        id:r.id, auto:false}));
+  } else {
+    state.pigIron.filter(r => r.kind === 'Issue' && r.foundryName === name)
+      .forEach(r => rows.push({date:r.date, what:'Pig iron issued by JAYCO',
+        ref:[r.labourBill, r.ewayBill].filter(Boolean).join(' / '), dr:num(r.weight), cr:0,
+        id:r.id, auto:false}));
+    state.challans.filter(c => c.foundryName === name)
+      .forEach(c => rows.push({date:c.challanDate, what:'Castings received — ' + c.items.map(i=>i.itemName).join(', '),
+        ref:'Challan ' + (c.challanNumber||''), dr:0, cr:num(c.actualTotalWeight),
+        id:c.id, auto:true}));
+  }
+  rows.sort((a,b) => String(a.date).localeCompare(String(b.date)));
+  let bal = 0;
+  rows.forEach(r => { bal += r.dr - r.cr; r.balance = bal; });
+  return {rows, totalDr: rows.reduce((a,r)=>a+r.dr,0), totalCr: rows.reduce((a,r)=>a+r.cr,0), closing: bal};
+}
+
 function viewPigIron(){
   const t = pigTotals();
   const byF = pigByFoundry();
@@ -1127,6 +1166,13 @@ function viewPigIron(){
     <div class="metric-card"><p class="lbl">Issued to foundries</p><p class="val">${fmtWt(t.issued)}</p><p class="note">Sent out for casting</p></div>
     <div class="metric-card dark"><p class="lbl">In stock at JAYCO</p><p class="val">${fmtWt(t.atJayco)}</p><p class="note">Received less issued</p></div>
     <div class="metric-card red"><p class="lbl">Lying at foundries</p><p class="val">${fmtWt(t.atFoundries)}</p><p class="note">Issued less castings returned</p></div>
+  </div>
+
+  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:20px;align-items:center">
+    <span class="eyebrow" style="margin-right:4px">Ledger for</span>
+    ${ ['All', ...pigParties().map(p=>p.name)].map(n => `
+      <button class="btn ${ (state.pigParty||'All') === n ? 'primary' : '' }" data-pig-party="${esc(n)}"
+        style="padding:6px 14px;font-size:12.5px">${esc(n)}</button>`).join('') }
   </div>
 
   <section class="data-panel">
@@ -1152,28 +1198,58 @@ function viewPigIron(){
     </table></div>
   </section>
 
+  ${ pigParties()
+      .filter(pt => !state.pigParty || state.pigParty === 'All' || state.pigParty === pt.name)
+      .map(pt => {
+    const L = pigPartyLedger(pt.name, pt.type);
+    const rows = L.rows.filter(r => match(r.what, r.ref, pt.name));
+    const isClient = pt.type === 'Client';
+    return `
   <section class="data-panel">
     <div class="panel-heading">
-      <div><p class="eyebrow">Every movement</p><h2 class="panel-title">Pig iron ledger</h2></div>
-      <span class="badge neutral">${ledger.length} entries</span>
+      <div>
+        <p class="eyebrow">${isClient ? 'Client account' : 'Foundry account'}</p>
+        <h2 class="panel-title">${esc(pt.name)}</h2>
+      </div>
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+        <div style="text-align:right">
+          <div style="font-size:10px;font-weight:700;letter-spacing:1.6px;text-transform:uppercase;color:var(--ink-faint)">
+            ${isClient ? 'Total supplied' : 'Balance lying there'}</div>
+          <div style="font-family:var(--display);font-size:19px;font-weight:700;letter-spacing:-.5px;
+               color:${isClient ? 'var(--ink)' : (L.closing > 0 ? 'var(--bad)' : 'var(--ok)')}">${fmtWt(L.closing)}</div>
+        </div>
+        <button class="btn" data-pig-party-pdf="${esc(pt.name)}">PDF</button>
+      </div>
     </div>
     <div class="table-scroll"><table>
-      <thead><tr><th>Date</th><th>Movement</th><th>Party</th><th>Reference</th><th class="num">Weight</th><th class="num">Stock at JAYCO</th><th class="num">Change</th></tr></thead>
-      <tbody>${ ledger.map(r=>`<tr>
+      <thead><tr>
+        <th style="width:96px">Date</th><th>Particulars</th><th>Reference</th>
+        <th class="num">${isClient ? 'Supplied' : 'Issued (Dr)'}</th>
+        ${isClient ? '' : '<th class="num">Returned (Cr)</th>'}
+        <th class="num">Balance</th><th class="num">Change</th>
+      </tr></thead>
+      <tbody>${ rows.map(r=>`<tr>
         <td>${fmtDate(r.date)}</td>
-        <td>${kindBadge(r.kind)}</td>
-        <td><b>${esc(r.party)}</b>${r.notes?`<div style="font-size:11.5px;color:var(--ink-faint);max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(r.notes)}</div>`:''}</td>
+        <td>${esc(r.what)}</td>
         <td class="mono">${esc(r.ref)||'—'}</td>
-        <td class="num" style="color:${r.kind==='Receipt'?'var(--ok)':(r.kind==='Issue'?'var(--bad)':'var(--ink-soft)')}">
-          ${r.kind==='Receipt'?'+':(r.kind==='Issue'?'−':'')}${fmtWt(r.weight)}</td>
-        <td class="num">${r.kind==='Casting received' ? '—' : fmtWt(r.stock)}</td>
-        <td class="num" style="white-space:nowrap">${ r.source==='challan'
-          ? '<span class="thumb-none">Auto</span>'
+        <td class="num" style="color:${r.dr?'var(--bad)':'var(--ink-faint)'}">${r.dr?fmtWt(r.dr):'—'}</td>
+        ${isClient ? '' : `<td class="num" style="color:${r.cr?'var(--ok)':'var(--ink-faint)'}">${r.cr?fmtWt(r.cr):'—'}</td>`}
+        <td class="num"><b>${fmtWt(r.balance)}</b></td>
+        <td class="num" style="white-space:nowrap">${ r.auto ? '<span class="thumb-none">Auto</span>'
           : `<button class="btn icon" data-edit-pig="${esc(r.id)}" title="Edit">✎</button>
              <button class="btn icon danger" data-del-pig="${esc(r.id)}" title="Delete">🗑</button>` }</td>
-      </tr>`).join('') || emptyRow(7,'No pig iron movements yet. Start with Receive pig iron.') }</tbody>
+      </tr>`).join('') || emptyRow(isClient?6:7,'No movements recorded for this party.') }
+      </tbody>
+      <tfoot><tr style="border-top:2px solid var(--ink)">
+        <td colspan="3" style="text-align:right;font-weight:700">Closing balance</td>
+        <td class="num"><b>${fmtWt(L.totalDr)}</b></td>
+        ${isClient ? '' : `<td class="num"><b>${fmtWt(L.totalCr)}</b></td>`}
+        <td class="num"><b style="color:${isClient ? 'var(--ink)' : (L.closing > 0 ? 'var(--bad)' : 'var(--ok)')}">${fmtWt(L.closing)}</b></td>
+        <td></td>
+      </tr></tfoot>
     </table></div>
   </section>`;
+  }).join('') }`;
 }
 
 function modalPigReceipt(id){
@@ -2438,7 +2514,7 @@ async function savePattern(){
    7. EVENTS
    ========================================================================== */
 document.addEventListener('click', async (e) => {
-  const t = e.target.closest('[data-view],[data-go],[data-new-challan],[data-view-challan],[data-edit-challan],[data-del-challan],[data-open-casting],[data-del-casting],[data-open-type],[data-del-type],[data-open-foundry],[data-del-foundry],[data-close],[data-rm-po],[data-rm-item],[data-quick-add],[data-quick-add-po],[data-open-pdf],[data-row-pdf],[data-open-pig-receipt],[data-open-pig-issue],[data-edit-pig],[data-del-pig],[data-pdf-challan],[data-wa-challan],[data-edit-po],[data-del-po],[data-pdf-po],[data-wa-po],[data-rm-po-item]');
+  const t = e.target.closest('[data-view],[data-go],[data-new-challan],[data-view-challan],[data-edit-challan],[data-del-challan],[data-open-casting],[data-del-casting],[data-open-type],[data-del-type],[data-open-foundry],[data-del-foundry],[data-close],[data-rm-po],[data-rm-item],[data-quick-add],[data-quick-add-po],[data-open-pdf],[data-row-pdf],[data-pig-party],[data-pig-party-pdf],[data-open-pig-receipt],[data-open-pig-issue],[data-edit-pig],[data-del-pig],[data-pdf-challan],[data-wa-challan],[data-edit-po],[data-del-po],[data-pdf-po],[data-wa-po],[data-rm-po-item]');
   if(!t) return;
   const d = t.dataset;
 
@@ -2477,6 +2553,8 @@ document.addEventListener('click', async (e) => {
   if(d.openCasting !== undefined){ modalCasting(d.openCasting, null); return; }
   if(d.openType !== undefined){ modalType(d.openType); return; }
   if(d.openFoundry !== undefined){ modalFoundry(d.openFoundry); return; }
+  if(d.pigParty){ state.pigParty = d.pigParty; render(); window.scrollTo(0,0); return; }
+  if(d.pigPartyPdf){ downloadPartyLedgerPdf(d.pigPartyPdf); return; }
   if(d.openPigReceipt !== undefined){ modalPigReceipt(d.openPigReceipt); return; }
   if(d.openPigIssue !== undefined){ modalPigIssue(d.openPigIssue); return; }
   if(d.editPig){
@@ -2942,6 +3020,93 @@ function buildPigPdf(){
     doc.text('Page ' + i + ' of ' + pages, rx, H-27, {align:'right'});
   }
   return doc;
+}
+
+/* Statement of account for one party, in the same house style. */
+function buildPartyLedgerPdf(name){
+  const pt = pigParties().find(x => x.name === name);
+  if(!pt) throw new Error('No ledger for ' + name);
+  const L = pigPartyLedger(pt.name, pt.type);
+  const isClient = pt.type === 'Client';
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({orientation:'portrait', unit:'pt', format:'a4'});
+  const W = doc.internal.pageSize.getWidth(), H = doc.internal.pageSize.getHeight();
+  const M = 40, CW = W - M*2, rx = W - M;
+  const INK=[26,26,26], MUT=[128,133,138], LINE=[214,218,221], RED=[206,42,38], SOFT=[247,248,249];
+  const label = (t,x,y,a) => { doc.setFont('helvetica','bold'); doc.setFontSize(6.2); doc.setTextColor(...MUT); doc.text(t,x,y,a?{align:a}:undefined); };
+
+  let y = 46, drawn = false;
+  try{ const l = document.querySelector('.brand-logo');
+       if(l && l.src){ doc.addImage(l.src,'PNG',M,y-18,100,22); drawn = true; } }catch(e){}
+  if(!drawn){ doc.setFont('helvetica','bold'); doc.setFontSize(19); doc.setTextColor(...RED); doc.text('JAYCO', M, y); }
+  doc.setFont('helvetica','bold'); doc.setFontSize(11.5); doc.setTextColor(...INK);
+  doc.text(COMPANY.name, M, y + 22);
+  doc.setFont('helvetica','normal'); doc.setFontSize(7.2); doc.setTextColor(...MUT);
+  doc.text([COMPANY.addr1, COMPANY.addr3], M, y + 34, {lineHeightFactor:1.4});
+  doc.setFontSize(8); doc.setTextColor(...INK);
+  const g = COMPANY.gstin, gw = doc.getTextWidth(g);
+  doc.text(g, rx, y - 12, {align:'right'}); label('GSTIN', rx - gw - 8, y - 12, 'right');
+  doc.text(COMPANY.phone, rx, y + 3, {align:'right'});
+
+  y += 62;
+  doc.setDrawColor(...RED); doc.setLineWidth(1.4); doc.line(M, y, W - M, y); doc.setLineWidth(0.6);
+  y += 28;
+  doc.setFont('helvetica','bold'); doc.setFontSize(16); doc.setTextColor(...INK);
+  doc.text('PIG IRON STATEMENT OF ACCOUNT', M, y);
+  doc.setFont('helvetica','normal'); doc.setFontSize(8); doc.setTextColor(...MUT);
+  doc.text('As on ' + fmtDate(today()), rx, y, {align:'right'});
+
+  y += 14;
+  doc.setDrawColor(...LINE); doc.setFillColor(...SOFT);
+  doc.roundedRect(M, y, CW, 48, 3, 3, 'FD');
+  doc.setFillColor(...RED); doc.rect(M, y, 3, 48, 'F');
+  label(isClient ? 'CLIENT' : 'FOUNDRY', M + 14, y + 16);
+  doc.setFont('helvetica','bold'); doc.setFontSize(13); doc.setTextColor(...INK);
+  doc.text(String(name).slice(0,46), M + 14, y + 36);
+  label(isClient ? 'TOTAL SUPPLIED' : 'BALANCE LYING THERE', rx - 150, y + 16);
+  doc.setFont('helvetica','bold'); doc.setFontSize(13);
+  doc.setTextColor(...(!isClient && L.closing > 0 ? RED : INK));
+  doc.text(fmtWt(L.closing), rx - 150, y + 36);
+  y += 64;
+
+  const head = isClient
+    ? [['DATE','PARTICULARS','REFERENCE','SUPPLIED','BALANCE']]
+    : [['DATE','PARTICULARS','REFERENCE','ISSUED (DR)','RETURNED (CR)','BALANCE']];
+  const body = L.rows.map(r => isClient
+    ? [fmtDate(r.date), r.what, r.ref || '—', fmtWt(r.dr), fmtWt(r.balance)]
+    : [fmtDate(r.date), r.what, r.ref || '—', r.dr ? fmtWt(r.dr) : '—', r.cr ? fmtWt(r.cr) : '—', fmtWt(r.balance)]);
+  const foot = isClient
+    ? [[{content:'Closing balance', colSpan:3, styles:{halign:'right'}}, fmtWt(L.totalDr), fmtWt(L.closing)]]
+    : [[{content:'Closing balance', colSpan:3, styles:{halign:'right'}}, fmtWt(L.totalDr), fmtWt(L.totalCr), fmtWt(L.closing)]];
+
+  doc.autoTable({
+    startY: y, margin:{left:M, right:M}, head, body, foot,
+    styles:{fontSize:7.8, cellPadding:5, lineColor:LINE, lineWidth:0.5, textColor:INK, overflow:'linebreak'},
+    headStyles:{fillColor:SOFT, textColor:MUT, fontStyle:'bold', fontSize:6, halign:'center', cellPadding:6, lineColor:LINE, lineWidth:0.5},
+    footStyles:{fillColor:[255,255,255], textColor:RED, fontStyle:'bold', fontSize:8, lineColor:LINE, lineWidth:0.5},
+    columnStyles: isClient
+      ? {0:{cellWidth:62},2:{cellWidth:90},3:{halign:'right'},4:{halign:'right',fontStyle:'bold'}}
+      : {0:{cellWidth:58},2:{cellWidth:80},3:{halign:'right'},4:{halign:'right'},5:{halign:'right',fontStyle:'bold'}}
+  });
+
+  const pages = doc.internal.getNumberOfPages();
+  for(let i = 1; i <= pages; i++){
+    doc.setPage(i);
+    doc.setDrawColor(...LINE); doc.line(M, H-40, W-M, H-40);
+    doc.setFont('helvetica','normal'); doc.setFontSize(6.4); doc.setTextColor(...MUT);
+    doc.text(name + '  ·  ' + COMPANY.web + '  ·  GSTIN ' + COMPANY.gstin, M, H-27);
+    doc.text('Page ' + i + ' of ' + pages, rx, H-27, {align:'right'});
+    doc.setFontSize(6);
+    doc.text('Castings received against a closed challan are credited automatically.', M, H-17);
+  }
+  return doc;
+}
+
+function downloadPartyLedgerPdf(name){
+  try{
+    buildPartyLedgerPdf(name).save('JAYCO-Pig-Iron-' + String(name).replace(/[^a-z0-9]+/gi,'-') + '-' + today() + '.pdf');
+    toast('Statement of account downloaded','success');
+  }catch(e){ toast('The PDF could not be created: ' + e.message,'error'); }
 }
 
 function downloadPigPdf(){
