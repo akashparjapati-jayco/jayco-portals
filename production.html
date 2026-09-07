@@ -495,7 +495,6 @@ document.addEventListener('DOMContentLoaded', function(){
       <div class="nav-label">Employee Register</div>
       <button class="nav-btn tab-btn" onclick="switchTab('employees',this)"><span>🧑‍💼</span><span class="nav-txt">&nbsp;Employees</span></button>
       <button class="nav-btn tab-btn" onclick="switchTab('shifts',this)"><span>⏱</span><span class="nav-txt">&nbsp;Shift Setup</span></button>
-      <button class="nav-btn tab-btn" onclick="switchTab('attendance',this)"><span>🕒</span><span class="nav-txt">&nbsp;Daily In/Out</span></button>
       <button class="nav-btn tab-btn" onclick="switchTab('payroll',this)"><span>💰</span><span class="nav-txt">&nbsp;Salary Slip</span></button>
     </div>
     <div class="sidebar-foot">
@@ -741,7 +740,21 @@ document.addEventListener('DOMContentLoaded', function(){
     <button class="btn" id="er-emp-export-btn">⬇ Export Excel</button>
     <button class="btn btn-primary" onclick="erOpenEmpModal()">+ Add Employee</button>
   </div>
-  <div class="er-card"><div class="grid-wrapper"><table class="er-table" id="er-emp-table"></table></div></div>
+  <div class="er-card" style="margin-bottom:22px"><div class="grid-wrapper"><table class="er-table" id="er-emp-table"></table></div></div>
+
+  <div class="section-title" style="margin-top:4px">Daily Attendance</div>
+  <div class="er-toolbar">
+    <label>Date</label>
+    <input type="date" id="er-att-date">
+    <button class="btn" id="er-att-load-btn">Load</button>
+    <span class="spacer"></span>
+    <button class="btn" id="er-att-fill-btn">Fill all from shift default times</button>
+    <button class="btn" id="er-att-wo-btn">Mark all Weekly Off</button>
+  </div>
+  <div class="er-card"><div class="grid-wrapper"><table class="er-table" id="er-att-table"></table></div></div>
+  <div style="margin-top:14px;text-align:right">
+    <button class="btn btn-primary" id="er-att-save-btn">Save Attendance</button>
+  </div>
 </div>
 
 <!-- TAB: SHIFT SETUP -->
@@ -768,22 +781,6 @@ document.addEventListener('DOMContentLoaded', function(){
       <div class="er-field"><label>ESIC % (of gross, if applicable)</label><input type="number" step="0.01" id="er-set-esic"></div>
     </div>
     <button class="btn btn-primary" id="er-settings-save-btn">Save Settings</button>
-  </div>
-</div>
-
-<!-- TAB: DAILY IN/OUT -->
-<div id="tab-attendance" class="tab-content">
-  <div class="er-toolbar">
-    <label>Date</label>
-    <input type="date" id="er-att-date">
-    <button class="btn" id="er-att-load-btn">Load</button>
-    <span class="spacer"></span>
-    <button class="btn" id="er-att-fill-btn">Fill all from shift default times</button>
-    <button class="btn" id="er-att-wo-btn">Mark all Weekly Off</button>
-  </div>
-  <div class="er-card"><div class="grid-wrapper"><table class="er-table" id="er-att-table"></table></div></div>
-  <div style="margin-top:14px;text-align:right">
-    <button class="btn btn-primary" id="er-att-save-btn">Save Attendance</button>
   </div>
 </div>
 
@@ -1059,7 +1056,7 @@ function hexToRgba(hex, a) {
 
 /* ===== TABS ===== */
 var TAB_TITLES = { entry:'Entry Form', dash:'Dashboard', flow:'Flow Report', layout:'Edit Layout',
-  employees:'Employee Register', shifts:'Shift Setup', attendance:'Daily In / Out Entry', payroll:'Salary Slip' };
+  employees:'Employee Register & Attendance', shifts:'Shift Setup', payroll:'Salary Slip' };
 function switchTab(name, btn) {
   document.querySelectorAll('.tab-content').forEach(function(el){ el.classList.remove('active'); });
   document.querySelectorAll('.tab-btn').forEach(function(el){ el.classList.remove('active'); });
@@ -1071,9 +1068,8 @@ function switchTab(name, btn) {
   if (name === 'dash') loadDashboard();
   if (name === 'layout') renderLayoutEditor();
   if (name === 'flow') initFlowTab();
-  if (name === 'employees') erRenderEmployees();
+  if (name === 'employees') { erRenderEmployees(); erRenderAttendanceTab(); }
   if (name === 'shifts') erRenderShifts();
-  if (name === 'attendance') erRenderAttendanceTab();
   if (name === 'payroll') erRenderPayrollTab();
 }
 
