@@ -164,8 +164,12 @@ document.addEventListener('DOMContentLoaded', function(){
   .row-remove:hover{background:#fdecea;border-radius:4px}
 
   /* EMPLOYEE MASTER */
-  .master-grid{display:grid;grid-template-columns:1.4fr 1fr;gap:16px}
+  .master-grid{display:grid;grid-template-columns:1.3fr 1fr;gap:16px;align-items:start}
   @media(max-width:1000px){.master-grid{grid-template-columns:1fr}}
+  .right-col{display:flex;flex-direction:column;gap:16px}
+  .add-shift-row{display:flex;gap:6px;margin-top:14px;flex-wrap:wrap}
+  .add-shift-row input[type=text]{flex:1;min-width:120px;border:1px solid var(--border);border-radius:6px;padding:7px 9px;font-size:12px}
+  .add-shift-row input[type=time]{border:1px solid var(--border);border-radius:6px;padding:6px 7px;font-size:12px;width:100px}
   .settings-card{padding:18px}
   .settings-card h3{font-size:12px;font-weight:700;color:var(--text2);margin-bottom:12px;text-transform:uppercase;letter-spacing:.5px}
   .settings-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 0;border-bottom:1px solid var(--bg3)}
@@ -176,6 +180,7 @@ document.addEventListener('DOMContentLoaded', function(){
   .add-emp-row input{border:1px solid var(--border);border-radius:6px;padding:7px 9px;font-size:12px}
   .add-emp-row input[name=empName]{flex:1;min-width:140px}
   .add-emp-row input[name=empWage]{width:110px}
+  .add-emp-row select,.shift-select{border:1px solid var(--border);border-radius:6px;padding:6px 7px;font-size:12px;color:var(--text);font-family:'Inter',sans-serif}
   .wage-input{width:90px;border:1px solid var(--border);border-radius:5px;padding:4px 6px;font-size:12px;text-align:right}
   .status-toggle{cursor:pointer;font-size:11px;font-weight:700;padding:2px 8px;border-radius:100px}
   .status-active{background:var(--green-lt);color:#166534}
@@ -394,23 +399,44 @@ document.addEventListener('DOMContentLoaded', function(){
       <h3 style="font-size:12px;font-weight:700;color:var(--text2);margin-bottom:12px;text-transform:uppercase;letter-spacing:.5px">Employee Master</h3>
       <div class="grid-wrapper" style="box-shadow:none">
         <table class="reg-table">
-          <thead><tr><th>Name</th><th>Daily Wage (₹)</th><th>Status</th><th></th></tr></thead>
+          <thead><tr><th>Name</th><th>Shift</th><th>Daily Wage (₹)</th><th>Status</th><th></th></tr></thead>
           <tbody id="master-tbody"></tbody>
         </table>
       </div>
       <div class="add-emp-row">
         <input type="text" name="empName" id="new-emp-name" placeholder="Employee name">
+        <select id="new-emp-shift"></select>
         <input type="number" name="empWage" id="new-emp-wage" placeholder="Daily wage ₹" min="0" step="1">
         <button class="btn btn-primary" onclick="addEmployee()">+ Add Employee</button>
       </div>
     </div>
-    <div class="card settings-card">
-      <h3>Duty &amp; Overtime Settings</h3>
-      <div class="settings-row"><label>Standard Duty Hours</label><input type="number" id="set-std" min="1" step="0.5"></div>
-      <div class="settings-row"><label>Half-Day Threshold (Hrs)</label><input type="number" id="set-half" min="0" step="0.5"></div>
-      <div class="settings-row"><label>Overtime Rate Multiplier</label><input type="number" id="set-ot" min="1" step="0.1"></div>
-      <button class="btn btn-primary" style="width:100%;margin-top:14px" onclick="saveSettings()">Save Settings</button>
-      <div class="help-note" style="margin-top:14px;margin-bottom:0">Per-hour rate = Daily Wage ÷ Standard Hours. Overtime is paid at Per-hour rate × OT Multiplier for every hour worked beyond Standard Hours. A day below the Half-Day Threshold is paid as half a day.</div>
+    <div class="right-col">
+      <div class="card" style="padding:18px">
+        <h3 style="font-size:12px;font-weight:700;color:var(--text2);margin-bottom:12px;text-transform:uppercase;letter-spacing:.5px">Shift Master</h3>
+        <div class="help-note" style="margin-bottom:12px">Define each shift's In Time, Out Time and Lunch Break. Duty hours are calculated automatically (Out − In − Lunch), lunch is deducted from a worker's hours only when their In/Out actually spans the lunch window, and overtime is anything worked beyond the shift's duty hours. Assign a shift to each employee.</div>
+        <div class="grid-wrapper" style="box-shadow:none">
+          <table class="reg-table">
+            <thead><tr><th>Shift</th><th>In</th><th>Out</th><th>Lunch Start</th><th>Lunch End</th><th>Duty Hrs</th><th></th></tr></thead>
+            <tbody id="shift-tbody"></tbody>
+          </table>
+        </div>
+        <div class="add-shift-row">
+          <input type="text" id="new-shift-name" placeholder="Shift name (e.g. General)">
+          <input type="time" id="new-shift-in" title="In Time">
+          <input type="time" id="new-shift-out" title="Out Time">
+          <input type="time" id="new-shift-lunchstart" title="Lunch Start">
+          <input type="time" id="new-shift-lunchend" title="Lunch End">
+          <button class="btn btn-primary" onclick="addShift()">+ Add Shift</button>
+        </div>
+      </div>
+      <div class="card settings-card">
+        <h3>Overtime Settings</h3>
+        <div class="settings-row"><label>Default Standard Hours <span style="font-weight:400;color:var(--text3)">(no shift set)</span></label><input type="number" id="set-std" min="1" step="0.5"></div>
+        <div class="settings-row"><label>Half-Day Threshold (Hrs)</label><input type="number" id="set-half" min="0" step="0.5"></div>
+        <div class="settings-row"><label>Overtime Rate Multiplier</label><input type="number" id="set-ot" min="1" step="0.1"></div>
+        <button class="btn btn-primary" style="width:100%;margin-top:14px" onclick="saveSettings()">Save Settings</button>
+        <div class="help-note" style="margin-top:14px;margin-bottom:0">Per-hour rate = Daily Wage ÷ Shift Duty Hours. Overtime is paid at Per-hour rate × OT Multiplier for every hour worked beyond duty hours. A day below the Half-Day Threshold is paid as half a day.</div>
+      </div>
     </div>
   </div>
 </div>
@@ -424,8 +450,9 @@ document.addEventListener('DOMContentLoaded', function(){
 
 <script>
 /* ===== STATE ===== */
-var employees = {};   // { empId: { name, dailyWage, active } }
+var employees = {};   // { empId: { name, dailyWage, active, shiftId } }
 var entries = {};     // { 'YYYY-MM-DD': { empId: { inTime, outTime } } }
+var shifts = {};      // { shiftId: { name, inTime, outTime, lunchStart, lunchEnd } }
 var settings = { standardHours: 8, halfDayThreshold: 4, otMultiplier: 1.5 };
 
 /* ===== UTILITIES ===== */
@@ -445,13 +472,41 @@ function fmtNum(n) { return (Math.round((n||0)*100)/100).toString(); }
 function toMinutes(t) { if(!t) return null; var p = t.split(':'); return (+p[0])*60 + (+p[1]); }
 function slugify(name) { return name.trim().toUpperCase().replace(/[.#$\[\]\/]/g, '').replace(/\s+/g, '_'); }
 
-function calcEntry(inTime, outTime, dailyWage) {
+function shiftFor(emp) {
+  return (emp && emp.shiftId && shifts[emp.shiftId]) ? shifts[emp.shiftId] : null;
+}
+// Duty hours for a shift = (Out − In) − Lunch break, in hours.
+function shiftDutyHours(shift) {
+  if (!shift) return null;
+  var inMin = toMinutes(shift.inTime), outMin = toMinutes(shift.outTime);
+  if (inMin == null || outMin == null) return null;
+  var span = outMin - inMin; if (span <= 0) span += 24*60;
+  var lunchMin = shiftLunchMinutes(shift);
+  return Math.max(span - lunchMin, 0) / 60;
+}
+function shiftLunchMinutes(shift) {
+  if (!shift || !shift.lunchStart || !shift.lunchEnd) return 0;
+  var ls = toMinutes(shift.lunchStart), le = toMinutes(shift.lunchEnd);
+  return (ls != null && le != null && le > ls) ? (le - ls) : 0;
+}
+
+function calcEntry(inTime, outTime, dailyWage, shift) {
   if (!inTime || !outTime) return { present:false, workedHours:0, regularHours:0, otHours:0, dayFactor:0, dayWage:0, otWage:0, totalWage:0 };
   var inMin = toMinutes(inTime), outMin = toMinutes(outTime);
   var workedMin = outMin - inMin;
   if (workedMin <= 0) workedMin += 24*60;
-  var workedHours = workedMin / 60;
-  var std = settings.standardHours || 8;
+  // Deduct the shift's lunch break, but only the portion actually spanned by this In/Out.
+  if (shift) {
+    var lunchMin = shiftLunchMinutes(shift);
+    if (lunchMin > 0) {
+      var ls = toMinutes(shift.lunchStart), le = toMinutes(shift.lunchEnd);
+      var overlap = Math.min(outMin, le) - Math.max(inMin, ls);
+      if (overlap > 0) workedMin -= Math.min(overlap, lunchMin);
+    }
+  }
+  var workedHours = Math.max(workedMin, 0) / 60;
+  var std = (shift ? shiftDutyHours(shift) : null);
+  if (std == null) std = settings.standardHours || 8;
   var half = (settings.halfDayThreshold != null) ? settings.halfDayThreshold : 4;
   var otMult = settings.otMultiplier || 1.5;
   var regularHours = Math.min(workedHours, std);
@@ -466,6 +521,13 @@ function calcEntry(inTime, outTime, dailyWage) {
 function activeEmployees() {
   return Object.keys(employees).filter(function(id){ return employees[id].active !== false; })
     .sort(function(a,b){ return employees[a].name.localeCompare(employees[b].name); });
+}
+function shiftOptionsHtml(selectedId) {
+  var html = '<option value="">— No shift —</option>';
+  Object.keys(shifts).sort(function(a,b){ return shifts[a].name.localeCompare(shifts[b].name); }).forEach(function(id){
+    html += '<option value="' + id + '"' + (id===selectedId?' selected':'') + '>' + shifts[id].name + '</option>';
+  });
+  return html;
 }
 
 /* ===== TABS ===== */
@@ -496,7 +558,7 @@ function renderEntryTab() {
   activeEmployees().forEach(function(empId){
     var emp = employees[empId];
     var rec = dayData[empId] || {};
-    var calc = calcEntry(rec.inTime, rec.outTime, emp.dailyWage || 0);
+    var calc = calcEntry(rec.inTime, rec.outTime, emp.dailyWage || 0, shiftFor(emp));
     var tr = document.createElement('tr');
     tr.innerHTML =
       '<td>' + emp.name + '</td>' +
@@ -522,7 +584,7 @@ function refreshEntryRow(empId) {
   var inTime = document.getElementById('in-' + empId).value;
   var outTime = document.getElementById('out-' + empId).value;
   var emp = employees[empId];
-  var calc = calcEntry(inTime, outTime, emp.dailyWage || 0);
+  var calc = calcEntry(inTime, outTime, emp.dailyWage || 0, shiftFor(emp));
   document.getElementById('calc-' + empId + '-hrs').textContent = fmtNum(calc.workedHours);
   document.getElementById('calc-' + empId + '-reg').textContent = fmtNum(calc.regularHours);
   document.getElementById('calc-' + empId + '-ot').textContent = fmtNum(calc.otHours);
@@ -561,7 +623,7 @@ function renderDailyTab() {
   activeEmployees().forEach(function(empId){
     var emp = employees[empId];
     var rec = dayData[empId] || {};
-    var calc = calcEntry(rec.inTime, rec.outTime, emp.dailyWage || 0);
+    var calc = calcEntry(rec.inTime, rec.outTime, emp.dailyWage || 0, shiftFor(emp));
     if (calc.present) { present += calc.dayFactor; totOt += calc.otHours; totWage += calc.totalWage; } else { absent++; }
     var tr = document.createElement('tr');
     tr.innerHTML =
@@ -590,7 +652,7 @@ function exportDaily() {
   activeEmployees().forEach(function(empId){
     var emp = employees[empId];
     var rec = dayData[empId] || {};
-    var calc = calcEntry(rec.inTime, rec.outTime, emp.dailyWage || 0);
+    var calc = calcEntry(rec.inTime, rec.outTime, emp.dailyWage || 0, shiftFor(emp));
     aoa.push([emp.name, rec.inTime||'', rec.outTime||'', fmtNum(calc.workedHours), fmtNum(calc.otHours),
       calc.present ? (calc.dayFactor>=1?'Present':'Half Day') : 'Absent', calc.dayWage.toFixed(2), calc.otWage.toFixed(2), calc.totalWage.toFixed(2)]);
   });
@@ -613,7 +675,7 @@ function monthlyAggregate(monthStr) {
       var emp = employees[empId];
       if (!emp) return;
       var rec = dayData[empId];
-      var calc = calcEntry(rec.inTime, rec.outTime, emp.dailyWage || 0);
+      var calc = calcEntry(rec.inTime, rec.outTime, emp.dailyWage || 0, shiftFor(emp));
       if (!calc.present) return;
       if (!result[empId]) result[empId] = { presentDays:0, halfDays:0, regHours:0, otHours:0, grossWage:0, otWage:0, total:0 };
       var r = result[empId];
@@ -719,23 +781,27 @@ function renderMaster() {
     var active = emp.active !== false;
     tr.innerHTML =
       '<td>' + emp.name + '</td>' +
+      '<td><select class="shift-select" onchange="updateEmployeeShift(\'' + empId + '\', this.value)">' + shiftOptionsHtml(emp.shiftId) + '</select></td>' +
       '<td><input class="wage-input" type="number" min="0" step="1" value="' + (emp.dailyWage||0) + '" onchange="updateEmployeeWage(\'' + empId + '\', this.value)"></td>' +
       '<td><span class="status-toggle ' + (active?'status-active':'status-inactive') + '" onclick="toggleEmployeeActive(\'' + empId + '\')">' + (active?'Active':'Inactive') + '</span></td>' +
       '<td><button class="row-remove" title="Remove" onclick="removeEmployee(\'' + empId + '\')">✕</button></td>';
     tbody.appendChild(tr);
   });
+  document.getElementById('new-emp-shift').innerHTML = shiftOptionsHtml('');
   document.getElementById('set-std').value = settings.standardHours;
   document.getElementById('set-half').value = settings.halfDayThreshold;
   document.getElementById('set-ot').value = settings.otMultiplier;
+  renderShiftMaster();
 }
 function addEmployee() {
   var nameInp = document.getElementById('new-emp-name');
   var wageInp = document.getElementById('new-emp-wage');
+  var shiftInp = document.getElementById('new-emp-shift');
   var name = nameInp.value.trim().toUpperCase();
   if (!name) { toast('Enter employee name', 'error'); return; }
   var id = slugify(name);
   if (employees[id]) { toast('Employee already exists', 'error'); return; }
-  employees[id] = { name: name, dailyWage: Number(wageInp.value) || 0, active: true };
+  employees[id] = { name: name, dailyWage: Number(wageInp.value) || 0, active: true, shiftId: shiftInp.value || null };
   showLoad();
   DB.ref('timeRegister/employees/' + id).set(employees[id])
     .then(function(){ hideLoad(); nameInp.value=''; wageInp.value=''; renderMaster(); toast('Employee added ✓', 'success'); })
@@ -745,6 +811,71 @@ function updateEmployeeWage(empId, val) {
   employees[empId].dailyWage = Number(val) || 0;
   DB.ref('timeRegister/employees/' + empId + '/dailyWage').set(employees[empId].dailyWage)
     .then(function(){ toast('Wage updated ✓', 'success'); })
+    .catch(function(err){ toast('Error: ' + err.message, 'error'); });
+}
+function updateEmployeeShift(empId, shiftId) {
+  employees[empId].shiftId = shiftId || null;
+  DB.ref('timeRegister/employees/' + empId + '/shiftId').set(employees[empId].shiftId)
+    .then(function(){ toast('Shift updated ✓', 'success'); })
+    .catch(function(err){ toast('Error: ' + err.message, 'error'); });
+}
+
+/* ---- Shift Master ---- */
+function renderShiftMaster() {
+  var tbody = document.getElementById('shift-tbody');
+  tbody.innerHTML = '';
+  Object.keys(shifts).sort(function(a,b){ return shifts[a].name.localeCompare(shifts[b].name); }).forEach(function(shiftId){
+    var s = shifts[shiftId];
+    var duty = shiftDutyHours(s);
+    var tr = document.createElement('tr');
+    tr.innerHTML =
+      '<td>' + s.name + '</td>' +
+      '<td>' + (s.inTime||'—') + '</td>' +
+      '<td>' + (s.outTime||'—') + '</td>' +
+      '<td>' + (s.lunchStart||'—') + '</td>' +
+      '<td>' + (s.lunchEnd||'—') + '</td>' +
+      '<td>' + (duty!=null ? fmtNum(duty) : '—') + '</td>' +
+      '<td><button class="row-remove" title="Remove" onclick="removeShift(\'' + shiftId + '\')">✕</button></td>';
+    tbody.appendChild(tr);
+  });
+}
+function addShift() {
+  var nameInp = document.getElementById('new-shift-name');
+  var inInp = document.getElementById('new-shift-in');
+  var outInp = document.getElementById('new-shift-out');
+  var lsInp = document.getElementById('new-shift-lunchstart');
+  var leInp = document.getElementById('new-shift-lunchend');
+  var name = nameInp.value.trim();
+  if (!name) { toast('Enter a shift name', 'error'); return; }
+  if (!inInp.value || !outInp.value) { toast('Enter shift In and Out time', 'error'); return; }
+  var id = slugify(name);
+  if (shifts[id]) { toast('Shift already exists', 'error'); return; }
+  shifts[id] = { name: name, inTime: inInp.value, outTime: outInp.value, lunchStart: lsInp.value || '', lunchEnd: leInp.value || '' };
+  showLoad();
+  DB.ref('timeRegister/shifts/' + id).set(shifts[id])
+    .then(function(){
+      hideLoad();
+      nameInp.value=''; inInp.value=''; outInp.value=''; lsInp.value=''; leInp.value='';
+      renderMaster();
+      toast('Shift added ✓', 'success');
+    })
+    .catch(function(err){ hideLoad(); toast('Error: ' + err.message, 'error'); });
+}
+function removeShift(shiftId) {
+  if (!confirm('Remove shift "' + shifts[shiftId].name + '"? Employees on this shift will fall back to the default standard hours.')) return;
+  var affected = Object.keys(employees).filter(function(empId){ return employees[empId].shiftId === shiftId; });
+  DB.ref('timeRegister/shifts/' + shiftId).remove()
+    .then(function(){
+      return Promise.all(affected.map(function(empId){
+        employees[empId].shiftId = null;
+        return DB.ref('timeRegister/employees/' + empId + '/shiftId').set(null);
+      }));
+    })
+    .then(function(){
+      delete shifts[shiftId];
+      renderMaster();
+      toast('Shift removed', 'info');
+    })
     .catch(function(err){ toast('Error: ' + err.message, 'error'); });
 }
 function toggleEmployeeActive(empId) {
@@ -775,12 +906,14 @@ function loadAll() {
   Promise.all([
     DB.ref('timeRegister/employees').once('value'),
     DB.ref('timeRegister/entries').once('value'),
-    DB.ref('timeRegister/settings').once('value')
+    DB.ref('timeRegister/settings').once('value'),
+    DB.ref('timeRegister/shifts').once('value')
   ]).then(function(snaps){
     employees = snaps[0].val() || {};
     entries = snaps[1].val() || {};
     var savedSettings = snaps[2].val();
     if (savedSettings) settings = savedSettings;
+    shifts = snaps[3].val() || {};
     hideLoad();
     renderEntryTab();
   }).catch(function(err){ hideLoad(); toast('Load error: ' + err.message, 'error'); });
