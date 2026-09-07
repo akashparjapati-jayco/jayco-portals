@@ -243,6 +243,9 @@ document.addEventListener('DOMContentLoaded', function(){
   .add-person-row input{flex:1;border:1px solid var(--border);border-radius:4px;padding:5px 8px;font-size:12px}
   .add-person-row button{padding:5px 10px;background:var(--navy-dark);color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:11px;font-weight:700}
   .add-person-row button:hover{background:var(--navy-mid)}
+  .add-stage-row{display:flex;gap:8px;align-items:center;margin-top:18px;padding-top:16px;border-top:1px solid var(--border)}
+  .add-stage-row input[type=text]{flex:0 1 280px;border:1px solid var(--border);border-radius:6px;padding:8px 10px;font-size:12px}
+  .add-stage-row input[type=color]{width:38px;height:34px;border:1px solid var(--border);border-radius:6px;padding:2px;cursor:pointer;background:#fff}
 
   /* MODAL */
   .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:999;display:none;align-items:center;justify-content:center}
@@ -663,6 +666,11 @@ document.addEventListener('DOMContentLoaded', function(){
     <button class="btn btn-primary" onclick="saveLayout()">Save Layout ↑</button>
   </div>
   <div class="stage-cards" id="stage-cards"></div>
+  <div class="add-stage-row">
+    <input type="text" id="new-stage-name" placeholder="New stage/department name (e.g. Helper)">
+    <input type="color" id="new-stage-color" value="#5d6d7e" title="Stage color">
+    <button class="btn btn-primary" onclick="addStage()">+ Add Stage</button>
+  </div>
 </div>
 
     </div><!-- /content -->
@@ -1915,6 +1923,20 @@ function addPerson(si) {
   if (currentStages[si].persons.indexOf(name) >= 0) { toast('Already exists', 'error'); return; }
   currentStages[si].persons.push(name);
   renderLayoutEditor();
+}
+
+function addStage() {
+  var nameInp = document.getElementById('new-stage-name');
+  var colorInp = document.getElementById('new-stage-color');
+  var name = nameInp.value.trim();
+  if (!name) { toast('Enter a stage name', 'error'); return; }
+  if (currentStages.some(function(s){ return s.stage.toLowerCase() === name.toLowerCase(); })) {
+    toast('Stage already exists', 'error'); return;
+  }
+  currentStages.push({ stage: name, color: colorInp.value || '#5d6d7e', persons: [] });
+  nameInp.value = '';
+  renderLayoutEditor();
+  toast('Stage added — click "Save Layout" to make it permanent', 'info');
 }
 
 function saveLayout() {
