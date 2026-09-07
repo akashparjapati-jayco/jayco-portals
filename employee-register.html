@@ -5,26 +5,20 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <!--
   ============================================================
-  ONE-TIME SETUP REQUIRED
-  ------------------------------------------------------------
-  This portal needs its own Firebase project before it will work
-  (same pattern as jayco-po-management). Full step-by-step
-  instructions are in the "Firebase Setup" tab inside the app —
-  open this file in a browser after signing in is enabled, or
-  just read the setup-box markup below the login screen further
-  down this file. In short: create a Firebase project named
-  jayco-employee-register, enable Firestore + Email/Password
-  Auth, create one shared staff user, then paste the config
-  object into `firebaseConfig` near the bottom of this file.
+  This portal signs in with the same staff password already used
+  for Production Management, and stores its data in the same
+  jayco-production Firebase Realtime Database, under a separate
+  /employeeRegister branch — so there is no separate Firebase
+  project to create and nothing new to configure.
   ============================================================
 -->
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%23111111'/%3E%3Ctext x='32' y='43' font-family='Arial,Helvetica,sans-serif' font-size='30' font-weight='700' fill='%23E5322D' text-anchor='middle'%3EJE%3C/text%3E%3C/svg%3E">
 <title>Jayco Employee Register</title>
 
 <!-- Firebase (compat build — simplest for a single-file app) -->
-<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -361,53 +355,23 @@ tr:hover td{background:#f9fbfd;}
     </div>
   </section>
 
-  <!-- ============ FIREBASE SETUP ============ -->
-  <section class="page" id="page-setup">
-    <div class="page-head"><div><h1>Firebase Setup</h1><p>Do this once — takes about 10 minutes.</p></div></div>
+  <!-- ============ ABOUT / DATA ============ -->
+  <section class="page" id="page-about">
+    <div class="page-head"><div><h1>About This Portal</h1><p>How sign-in and data storage work here.</p></div></div>
     <div class="setup-box">
-      <strong>Step 1 — Create the project</strong><br/>
-      Go to <code>console.firebase.google.com</code> → <strong>Add project</strong> → name it e.g.
-      <code>jayco-employee-register</code> → you can skip Google Analytics → <strong>Create project</strong>.<br/><br/>
+      <strong>Sign-in</strong><br/>
+      This portal uses the same shared staff password as <strong>Production Management</strong> — sign in with
+      the same password staff already use there. There is nothing new to set up.<br/><br/>
 
-      <strong>Step 2 — Create the database</strong><br/>
-      In the left menu open <strong>Build → Firestore Database</strong> → <strong>Create database</strong> →
-      choose a location close to you (e.g. <code>asia-south1</code>) → start in <strong>production mode</strong>.<br/><br/>
+      <strong>Data storage</strong><br/>
+      Employees, shifts, attendance and payroll settings are stored in the same Firebase project as Production
+      Management (<code>jayco-production</code>), under a separate <code>employeeRegister/</code> branch of the
+      database — so it doesn't touch or overwrite any production records.<br/><br/>
 
-      <strong>Step 3 — Set security rules</strong><br/>
-      In the Firestore <strong>Rules</strong> tab, paste the rules shown below and click <strong>Publish</strong>.
-      These require a signed-in user for every read and write — no login, no data, even if someone finds the URL.<br/><br/>
-
-      <strong>Step 4 — Register a web app</strong><br/>
-      Project settings (gear icon) → scroll to <strong>Your apps</strong> → click the <code>&lt;/&gt;</code> web icon →
-      name it anything → <strong>Register app</strong>. Firebase shows you a <code>firebaseConfig</code> object —
-      copy the whole thing.<br/><br/>
-
-      <strong>Step 5 — Paste it into this file</strong><br/>
-      Open <code>employee-register.html</code> in a text editor, find <code>const firebaseConfig = {…}</code>
-      near the bottom of the file, and replace it with what you copied.<br/><br/>
-
-      <strong>Step 6 — Turn on Email/Password sign-in</strong><br/>
-      In the left menu, <strong>Build → Authentication → Get started</strong> → under Sign-in method, enable
-      <strong>Email/Password</strong> → Save.<br/><br/>
-
-      <strong>Step 7 — Create the one shared staff account</strong><br/>
-      Still in Authentication, go to the <strong>Users</strong> tab → <strong>Add user</strong>. For the email,
-      use exactly <code id="staffEmailDisplay">staff@jayco-employee-register.local</code> (this isn't a real inbox —
-      it's just the login ID everyone will share). Set whatever password your team should use — that's the
-      password staff will type on the sign-in screen. Save, re-upload the file to GitHub Pages, and reload.
-    </div>
-    <div class="card card-pad">
-      <strong style="font-size:13px;">Firestore security rules to paste</strong>
-      <pre style="background:#111111;color:#e8e8e8;padding:14px;border-radius:8px;font-size:12px;overflow-x:auto;margin-top:10px;">rules_version = '2';
-service cloud.firestore {
-  match /databases/{database}/documents {
-    match /{document=**} {
-      allow read, write: if request.auth != null;
-    }
-  }
-}</pre>
-      <p class="hint">Everyone on staff signs in with the same email/password (Step 7). If you ever want individual
-      named logins instead of one shared account, that's a small follow-up — just ask.</p>
+      <strong>Adding staff / changing the password</strong><br/>
+      To add a new signed-in user or change the shared password, go to
+      <code>console.firebase.google.com</code> → project <code>jayco-production</code> →
+      <strong>Build → Authentication → Users</strong>.
     </div>
   </section>
 
@@ -492,22 +456,25 @@ service cloud.firestore {
 
 <script>
 /* =====================================================================
-   FIREBASE CONFIG — replace with your own project's config.
-   See the "Firebase Setup" tab in this app for step-by-step instructions.
+   FIREBASE CONFIG — shared with Production Management (jayco-production).
+   Data for this portal lives under the employeeRegister/ branch of the
+   same Realtime Database, so it doesn't touch production's own records.
    ===================================================================== */
 const firebaseConfig = {
-  apiKey: "REPLACE_ME",
-  authDomain: "jayco-employee-register.firebaseapp.com",
-  projectId: "jayco-employee-register",
-  storageBucket: "jayco-employee-register.firebasestorage.app",
-  messagingSenderId: "REPLACE_ME",
-  appId: "REPLACE_ME"
+  apiKey:            "AIzaSyA-g_9GoUg3W1dfxjxFsvH-w130S6y_eAU",
+  authDomain:        "jayco-production.firebaseapp.com",
+  databaseURL:       "https://jayco-production-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId:         "jayco-production",
+  storageBucket:     "jayco-production.firebasestorage.app",
+  messagingSenderId: "1064982683384",
+  appId:             "1:1064982683384:web:00786a7d04ac6f6728650d"
 };
+const ROOT = "employeeRegister"; // keeps this portal's data separate from production's own records
 
 let db = null;
 let firebaseReady = false;
-// One shared staff account for this portal — created once in Firebase Console → Authentication → Users.
-const STAFF_EMAIL = "staff@jayco-employee-register.local";
+// Same shared staff account already used to sign in to Production Management.
+const STAFF_EMAIL = "staff@jayco-production.local";
 
 const PAGES = [
   {id:'dashboard',  label:'Dashboard',           icon:'📊'},
@@ -515,7 +482,7 @@ const PAGES = [
   {id:'shifts',     label:'Shift Setup',         icon:'⏱'},
   {id:'attendance', label:'Daily In / Out Entry',icon:'🕒'},
   {id:'payroll',    label:'Salary Slip',         icon:'💰'},
-  {id:'setup',      label:'Firebase Setup',      icon:'⚙'},
+  {id:'about',      label:'About',               icon:'ℹ'},
 ];
 
 const STATUS_LABEL = {P:'Present',A:'Absent',HD:'Half Day',WO:'Weekly Off',H:'Holiday',PL:'Paid Leave',LWP:'Leave w/o Pay'};
@@ -616,24 +583,14 @@ function setConn(ok, msg){
 }
 function initFirebase(){
   try{
-    if(firebaseConfig.apiKey === 'REPLACE_ME'){
-      setConn(false, 'Not configured — open the Firebase Setup tab');
-      document.getElementById('loginStatus').textContent = 'Firebase not configured yet. See the "Firebase Setup" instructions inside this file (open it in a text editor).';
-      return;
-    }
     firebase.initializeApp(firebaseConfig);
     firebase.auth().onAuthStateChanged(user=>{
       if(user){
         document.getElementById('loginScreen').style.display = 'none';
-        db = firebase.firestore();
-        db.collection('employees').limit(1).get().then(()=>{
-          firebaseReady = true;
-          setConn(true, 'Connected');
-          loadAll();
-        }).catch(err=>{
-          setConn(false, 'Connection error — check config / rules');
-          console.error(err);
-        });
+        db = firebase.database();
+        firebaseReady = true;
+        setConn(true, 'Connected');
+        loadAll();
       } else {
         document.getElementById('loginScreen').style.display = 'flex';
         firebaseReady = false;
@@ -647,11 +604,6 @@ function initFirebase(){
 document.getElementById('loginBtn').onclick = doLogin;
 document.getElementById('loginPassword').addEventListener('keydown', e=>{ if(e.key==='Enter') doLogin(); });
 function doLogin(){
-  if(firebaseConfig.apiKey === 'REPLACE_ME'){
-    document.getElementById('loginError').textContent = "Firebase isn't configured on this deployment yet.";
-    document.getElementById('loginError').style.display = 'block';
-    return;
-  }
   const pwd = document.getElementById('loginPassword').value;
   const errEl = document.getElementById('loginError');
   const btn = document.getElementById('loginBtn');
@@ -668,21 +620,23 @@ function doLogin(){
 }
 document.getElementById('logoutBtn').onclick = ()=> firebase.auth().signOut();
 
+function objToArray(obj){ return obj ? Object.keys(obj).map(id=>({id, ...obj[id]})) : []; }
+
 function loadAll(){
-  db.collection('employees').onSnapshot(snap=>{
-    employees = snap.docs.map(d=>({id:d.id, ...d.data()}));
+  db.ref(ROOT+'/employees').on('value', snap=>{
+    employees = objToArray(snap.val());
     if(currentPage==='dashboard') renderDashboard();
     if(currentPage==='employees') renderEmployees();
     if(currentPage==='attendance') renderAttendanceTable(document.getElementById('attDate').value);
   }, err=>console.error(err));
-  db.collection('shifts').onSnapshot(snap=>{
-    shifts = snap.docs.map(d=>({id:d.id, ...d.data()}));
+  db.ref(ROOT+'/shifts').on('value', snap=>{
+    shifts = objToArray(snap.val());
     if(currentPage==='shifts') renderShifts();
     if(currentPage==='employees') renderEmployees();
     if(currentPage==='attendance') renderAttendanceTable(document.getElementById('attDate').value);
   }, err=>console.error(err));
-  db.collection('settings').doc('payroll').onSnapshot(doc=>{
-    if(doc.exists) settings = Object.assign(settings, doc.data());
+  db.ref(ROOT+'/settings/payroll').on('value', snap=>{
+    if(snap.val()) settings = Object.assign(settings, snap.val());
     if(currentPage==='shifts') fillSettingsForm();
   }, err=>console.error(err));
   document.getElementById('attDate').value = todayStr();
@@ -705,8 +659,8 @@ function renderDashboard(){
     <div class="card kpi accent" id="kpiOt"><div class="label">OT Hours This Month</div><div class="value">–</div></div>
   `;
   if(!db) return;
-  db.collection('attendance').where('date','==',today).get().then(snap=>{
-    const recs = snap.docs.map(d=>d.data());
+  db.ref(ROOT+'/attendance/'+today).once('value').then(snap=>{
+    const recs = objToArray(snap.val());
     let present=0, absent=0, leave=0;
     recs.forEach(r=>{
       if(r.status==='P'||r.status==='HD') present++;
@@ -731,8 +685,13 @@ function renderDashboard(){
     }
   });
   const monthStr = today.slice(0,7);
-  db.collection('attendance').where('date','>=',monthStr+'-01').where('date','<=',monthStr+'-31').get().then(snap=>{
-    let otMin=0; snap.forEach(d=>{ otMin += Number(d.data().otMinutes)||0; });
+  db.ref(ROOT+'/attendance').orderByKey().startAt(monthStr+'-01').endAt(monthStr+'-31').once('value').then(snap=>{
+    let otMin=0;
+    const byDate = snap.val() || {};
+    Object.keys(byDate).forEach(date=>{
+      const dayRecs = byDate[date] || {};
+      Object.keys(dayRecs).forEach(empId=>{ otMin += Number(dayRecs[empId].otMinutes)||0; });
+    });
     document.getElementById('kpiOt').querySelector('.value').textContent = (otMin/60).toFixed(1);
   });
 }
@@ -823,14 +782,14 @@ document.getElementById('empSaveBtn').onclick = ()=>{
     status: document.getElementById('empStatus').value,
   };
   const p = editingEmpId
-    ? db.collection('employees').doc(editingEmpId).set(data, {merge:true})
-    : db.collection('employees').add(Object.assign({createdAt: firebase.firestore.FieldValue.serverTimestamp()}, data));
+    ? db.ref(ROOT+'/employees/'+editingEmpId).update(data)
+    : db.ref(ROOT+'/employees').push(Object.assign({createdAt: firebase.database.ServerValue.TIMESTAMP}, data));
   p.then(()=>{ toast('Employee saved','success'); closeModal('empModalBg'); })
    .catch(err=>toast('Save failed: '+err.message,'error'));
 };
 function deleteEmployee(id){
   if(!confirm('Delete this employee? Their past attendance records will remain but will no longer show a name.')) return;
-  db.collection('employees').doc(id).delete().then(()=>toast('Employee deleted','success'));
+  db.ref(ROOT+'/employees/'+id).remove().then(()=>toast('Employee deleted','success'));
 }
 document.getElementById('exportEmpBtn').onclick = ()=>{
   const rows = employees.map(e=>({
@@ -910,14 +869,14 @@ document.getElementById('shiftSaveBtn').onclick = ()=>{
     otBuffer: Number(document.getElementById('shiftOtBuffer').value)||0,
   };
   const p = editingShiftId
-    ? db.collection('shifts').doc(editingShiftId).set(data, {merge:true})
-    : db.collection('shifts').add(data);
+    ? db.ref(ROOT+'/shifts/'+editingShiftId).update(data)
+    : db.ref(ROOT+'/shifts').push(data);
   p.then(()=>{ toast('Shift saved','success'); closeModal('shiftModalBg'); })
    .catch(err=>toast('Save failed: '+err.message,'error'));
 };
 function deleteShift(id){
   if(!confirm('Delete this shift? Employees assigned to it will need a new shift.')) return;
-  db.collection('shifts').doc(id).delete().then(()=>toast('Shift deleted','success'));
+  db.ref(ROOT+'/shifts/'+id).remove().then(()=>toast('Shift deleted','success'));
 }
 document.getElementById('saveSettingsBtn').onclick = ()=>{
   const data = {
@@ -926,7 +885,7 @@ document.getElementById('saveSettingsBtn').onclick = ()=>{
     pfPercent: Number(document.getElementById('setPfPercent').value)||0,
     esicPercent: Number(document.getElementById('setEsicPercent').value)||0,
   };
-  db.collection('settings').doc('payroll').set(data, {merge:true}).then(()=>toast('Settings saved','success'));
+  db.ref(ROOT+'/settings/payroll').update(data).then(()=>toast('Settings saved','success'));
 };
 
 /* ---------------------------------------------------------------------
@@ -938,9 +897,8 @@ document.getElementById('attDate').addEventListener('change', e=> loadAttendance
 
 function loadAttendanceForDate(date){
   if(!db || !date) return;
-  db.collection('attendance').where('date','==',date).get().then(snap=>{
-    attRecords = {};
-    snap.forEach(doc=>{ attRecords[doc.data().empId] = doc.data(); });
+  db.ref(ROOT+'/attendance/'+date).once('value').then(snap=>{
+    attRecords = snap.val() || {};
     renderAttendanceTable(date);
   });
 }
@@ -1013,7 +971,7 @@ document.getElementById('attSaveBtn').onclick = ()=>{
   const date = document.getElementById('attDate').value;
   if(!date){ toast('Pick a date first','error'); return; }
   const activeEmps = employees.filter(e=>e.status!=='Inactive');
-  const batch = db.batch();
+  const updates = {};
   let count = 0;
   activeEmps.forEach(e=>{
     const inTime = document.getElementById('in_'+e.id).value;
@@ -1026,16 +984,15 @@ document.getElementById('attSaveBtn').onclick = ()=>{
     const status = manualStatus || calc.status;
     const workedMinutes = manualStatus && !inTime && !outTime ? 0 : calc.workedMinutes;
     const otMinutes = manualStatus && !inTime && !outTime ? 0 : calc.otMinutes;
-    const docId = date + '_' + e.id;
-    batch.set(db.collection('attendance').doc(docId), {
+    updates[ROOT+'/attendance/'+date+'/'+e.id] = {
       date, empId: e.id, shiftId: e.shiftId||'', inTime, outTime, manualStatus,
       status, workedMinutes, otMinutes, remarks,
-      updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-    });
+      updatedAt: firebase.database.ServerValue.TIMESTAMP
+    };
     count++;
   });
   if(!count){ toast('Nothing to save — no rows filled in','error'); return; }
-  batch.commit().then(()=>{ toast(count+' attendance record(s) saved','success'); loadAttendanceForDate(date); })
+  db.ref().update(updates).then(()=>{ toast(count+' attendance record(s) saved','success'); loadAttendanceForDate(date); })
     .catch(err=>toast('Save failed: '+err.message,'error'));
 };
 
@@ -1060,8 +1017,13 @@ function generateSlip(){
   const [year, month] = monthVal.split('-').map(Number);
   const dim = new Date(year, month, 0).getDate();
   const start = monthVal+'-01', end = monthVal+'-'+String(dim).padStart(2,'0');
-  db.collection('attendance').where('date','>=',start).where('date','<=',end).get().then(snap=>{
-    const recs = snap.docs.map(d=>d.data()).filter(r=>r.empId===empId);
+  db.ref(ROOT+'/attendance').orderByKey().startAt(start).endAt(end).once('value').then(snap=>{
+    const byDate = snap.val() || {};
+    const recs = [];
+    Object.keys(byDate).forEach(date=>{
+      const rec = (byDate[date]||{})[empId];
+      if(rec) recs.push(rec);
+    });
     renderSlip(emp, monthVal, dim, recs);
   }).catch(err=>toast('Failed to load attendance: '+err.message,'error'));
 }
@@ -1168,7 +1130,6 @@ function renderSlip(emp, monthVal, dim, recs){
 /* ---------------------------------------------------------------------
    INIT
    --------------------------------------------------------------------- */
-document.getElementById('staffEmailDisplay').textContent = STAFF_EMAIL;
 buildNav();
 initFirebase();
 </script>
