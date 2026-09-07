@@ -402,6 +402,56 @@ document.addEventListener('DOMContentLoaded', function(){
   .flow-chart-card h3{font-size:12px;font-weight:700;color:var(--text2);margin-bottom:10px;text-transform:uppercase;letter-spacing:.5px}
   /* stage arrows in header */
   .arrow-cell{background:var(--navy-dark)!important;color:rgba(255,255,255,.3)!important;font-size:14px;width:18px;padding:4px 0!important}
+
+  /* ── EMPLOYEE REGISTER ── */
+  .er-toolbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:#fff;border-radius:var(--radius);padding:10px 14px;box-shadow:var(--shadow);margin-bottom:14px;border:1px solid var(--border)}
+  .er-toolbar label{font-weight:600;font-size:12px;color:var(--text2)}
+  .er-toolbar input,.er-toolbar select{border:1px solid var(--border);border-radius:6px;padding:6px 9px;font-size:12px;color:var(--text);font-family:'Inter',sans-serif}
+  .er-card{background:var(--surface);border-radius:var(--radius-lg);box-shadow:var(--shadow);border:1px solid var(--border)}
+  .er-field-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:12px}
+  .er-field label{display:block;font-size:11.5px;font-weight:700;color:var(--text2);margin-bottom:4px;text-transform:uppercase;letter-spacing:.3px}
+  .er-field input,.er-field select{width:100%;border:1px solid var(--border);border-radius:6px;padding:8px 10px;font-size:13px;color:var(--text);font-family:'Inter',sans-serif}
+  table.er-table{width:100%;border-collapse:collapse;min-width:640px}
+  table.er-table th{background:var(--navy-dark);color:#fff;padding:8px 10px;text-align:left;font-size:10.5px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;white-space:nowrap;position:sticky;top:0;z-index:5}
+  table.er-table td{padding:7px 10px;border-bottom:1px solid var(--border);font-size:12.5px;color:var(--text);vertical-align:middle}
+  table.er-table tbody tr:hover{background:rgba(52,152,219,0.05)}
+  .er-badge{display:inline-block;padding:2px 9px;border-radius:100px;font-size:10.5px;font-weight:700;white-space:nowrap}
+  .er-badge-p{background:var(--green-lt);color:#166534}
+  .er-badge-a{background:#fee2e2;color:#991b1b}
+  .er-badge-hd{background:#fef9c3;color:#854d0e}
+  .er-badge-wo{background:var(--bg3);color:var(--text3)}
+  .er-badge-h{background:#f1ebfe;color:#7c3aed}
+  .er-badge-pl{background:var(--blue-lt);color:var(--blue)}
+  .er-badge-lwp{background:#fee2e2;color:#991b1b}
+  .er-badge-active{background:var(--green-lt);color:#166534}
+  .er-badge-inactive{background:var(--bg3);color:var(--text3)}
+  .er-time-input{width:86px;padding:4px 5px;font-size:12px}
+  .er-remarks{width:110px;padding:4px 5px;font-size:12px}
+  .er-select-sm{width:90px;padding:4px 5px;font-size:12px}
+  .er-fill-btn{background:none;border:1px solid var(--border);border-radius:5px;font-size:10px;padding:2px 5px;cursor:pointer;color:var(--text3);margin-left:4px}
+  .er-fill-btn:hover{background:var(--blue-lt);color:var(--blue);border-color:var(--blue)}
+  .er-empty{padding:36px 20px;text-align:center;color:var(--text3);font-size:12.5px}
+  #er-slip-area{padding:26px 30px;max-width:760px;margin:0 auto}
+  #er-slip-area .er-slip-head{text-align:center;border-bottom:2px solid var(--navy-dark);padding-bottom:12px;margin-bottom:16px}
+  #er-slip-area .er-cname{font-size:18px;font-weight:800;color:var(--navy-dark);letter-spacing:.3px}
+  #er-slip-area .er-caddr{font-size:11.5px;color:var(--text3);margin-top:2px}
+  #er-slip-area .er-stitle{font-size:12px;font-weight:700;margin-top:8px;letter-spacing:1.2px;text-transform:uppercase;color:var(--orange)}
+  #er-slip-area .er-slip-meta{display:grid;grid-template-columns:1fr 1fr;gap:4px 24px;font-size:12.5px;margin-bottom:16px}
+  #er-slip-area .er-slip-meta div span{color:var(--text3)}
+  #er-slip-area table{width:100%;border-collapse:collapse;margin-bottom:14px;font-size:12.5px}
+  #er-slip-area th{background:var(--bg3);padding:6px 9px;text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.4px;color:var(--text2)}
+  #er-slip-area td{padding:7px 9px;border-bottom:1px solid var(--bg3)}
+  #er-slip-area .er-net-row td{font-weight:800;font-size:14px;background:#f0f4ff}
+  #er-slip-area .er-words{font-size:12px;font-style:italic;color:var(--text3);margin:8px 0 18px}
+  #er-slip-area .er-sign-row{display:flex;justify-content:space-between;margin-top:50px;font-size:12px}
+  #er-slip-area .er-sign-row div{border-top:1px solid var(--text3);padding-top:6px;width:170px;text-align:center}
+  @media print{
+    .sidebar,.topbar,.er-no-print,footer{display:none!important}
+    .content{padding:0!important}
+    #er-slip-area{box-shadow:none;border:none;padding:0}
+    .tab-content{display:none!important}
+    .tab-content:has(#er-slip-area){display:block!important}
+  }
 </style>
 </head>
 <body>
@@ -442,6 +492,11 @@ document.addEventListener('DOMContentLoaded', function(){
       <button class="nav-btn tab-btn" onclick="switchTab('dash',this)"><span>📊</span><span class="nav-txt">&nbsp;Dashboard</span></button>
       <button class="nav-btn tab-btn" onclick="switchTab('flow',this)"><span>🔍</span><span class="nav-txt">&nbsp;Flow Report</span></button>
       <button class="nav-btn tab-btn" onclick="switchTab('layout',this)"><span>⚙</span><span class="nav-txt">&nbsp;Edit Layout</span></button>
+      <div class="nav-label">Employee Register</div>
+      <button class="nav-btn tab-btn" onclick="switchTab('employees',this)"><span>🧑‍💼</span><span class="nav-txt">&nbsp;Employees</span></button>
+      <button class="nav-btn tab-btn" onclick="switchTab('shifts',this)"><span>⏱</span><span class="nav-txt">&nbsp;Shift Setup</span></button>
+      <button class="nav-btn tab-btn" onclick="switchTab('attendance',this)"><span>🕒</span><span class="nav-txt">&nbsp;Daily In/Out</span></button>
+      <button class="nav-btn tab-btn" onclick="switchTab('payroll',this)"><span>💰</span><span class="nav-txt">&nbsp;Salary Slip</span></button>
     </div>
     <div class="sidebar-foot">
       <div style="display:flex;flex-direction:column;gap:2px;margin-bottom:10px">
@@ -673,6 +728,84 @@ document.addEventListener('DOMContentLoaded', function(){
   </div>
 </div>
 
+<!-- TAB: EMPLOYEE REGISTER -->
+<div id="tab-employees" class="tab-content">
+  <div class="er-toolbar">
+    <input type="text" id="er-emp-search" placeholder="Search name or code…" oninput="erRenderEmployees()">
+    <select id="er-emp-status-filter" onchange="erRenderEmployees()">
+      <option value="">All statuses</option>
+      <option value="Active">Active</option>
+      <option value="Inactive">Inactive</option>
+    </select>
+    <span class="spacer"></span>
+    <button class="btn" id="er-emp-export-btn">⬇ Export Excel</button>
+    <button class="btn btn-primary" onclick="erOpenEmpModal()">+ Add Employee</button>
+  </div>
+  <div class="er-card"><div class="grid-wrapper"><table class="er-table" id="er-emp-table"></table></div></div>
+</div>
+
+<!-- TAB: SHIFT SETUP -->
+<div id="tab-shifts" class="tab-content">
+  <div class="er-toolbar">
+    <span class="spacer"></span>
+    <button class="btn btn-primary" onclick="erOpenShiftModal()">+ Add Shift</button>
+  </div>
+  <div class="er-card" style="margin-bottom:18px"><div class="grid-wrapper"><table class="er-table" id="er-shift-table"></table></div></div>
+
+  <div class="er-card" style="padding:18px;max-width:640px">
+    <div class="section-title">Payroll Settings</div>
+    <p style="font-size:11.5px;color:var(--text3);margin-bottom:14px">Applies to overtime pay and per-day salary calculation for every employee.</p>
+    <div class="er-field-row">
+      <div class="er-field"><label>Overtime rate multiplier</label><input type="number" step="0.1" id="er-set-ot"></div>
+      <div class="er-field"><label>Per-day salary basis (monthly staff)</label>
+        <select id="er-set-basis">
+          <option value="calendar">Actual days in month</option>
+          <option value="fixed26">Fixed 26 days</option>
+          <option value="fixed30">Fixed 30 days</option>
+        </select>
+      </div>
+      <div class="er-field"><label>PF % (of gross, if applicable)</label><input type="number" step="0.1" id="er-set-pf"></div>
+      <div class="er-field"><label>ESIC % (of gross, if applicable)</label><input type="number" step="0.01" id="er-set-esic"></div>
+    </div>
+    <button class="btn btn-primary" id="er-settings-save-btn">Save Settings</button>
+  </div>
+</div>
+
+<!-- TAB: DAILY IN/OUT -->
+<div id="tab-attendance" class="tab-content">
+  <div class="er-toolbar">
+    <label>Date</label>
+    <input type="date" id="er-att-date">
+    <button class="btn" id="er-att-load-btn">Load</button>
+    <span class="spacer"></span>
+    <button class="btn" id="er-att-fill-btn">Fill all from shift default times</button>
+    <button class="btn" id="er-att-wo-btn">Mark all Weekly Off</button>
+  </div>
+  <div class="er-card"><div class="grid-wrapper"><table class="er-table" id="er-att-table"></table></div></div>
+  <div style="margin-top:14px;text-align:right">
+    <button class="btn btn-primary" id="er-att-save-btn">Save Attendance</button>
+  </div>
+</div>
+
+<!-- TAB: SALARY SLIP -->
+<div id="tab-payroll" class="tab-content">
+  <div class="er-card" style="padding:18px;margin-bottom:18px">
+    <div class="er-field-row">
+      <div class="er-field"><label>Employee</label><select id="er-slip-emp"></select></div>
+      <div class="er-field"><label>Month</label><input type="month" id="er-slip-month"></div>
+      <div class="er-field"><label>Other deduction (₹)</label><input type="number" id="er-slip-other-ded" value="0"></div>
+    </div>
+    <button class="btn btn-primary" id="er-slip-generate-btn" style="margin-top:10px">Generate Slip</button>
+  </div>
+  <div class="er-card" id="er-slip-card" style="display:none">
+    <div id="er-slip-area"></div>
+    <div style="padding:0 20px 20px;text-align:right;display:flex;gap:8px;justify-content:flex-end" class="er-no-print">
+      <button class="btn" id="er-slip-export-btn">⬇ Export Excel</button>
+      <button class="btn btn-primary" onclick="window.print()">🖨 Print / Save PDF</button>
+    </div>
+  </div>
+</div>
+
     </div><!-- /content -->
   </div><!-- /main -->
 </div><!-- /shell -->
@@ -799,6 +932,80 @@ document.addEventListener('DOMContentLoaded', function(){
   </div>
 </div>
 
+<!-- EMPLOYEE MODAL -->
+<div class="modal-overlay" id="er-emp-modal">
+  <div class="modal-box" style="width:560px;max-height:90vh;overflow-y:auto">
+    <h3 id="er-emp-modal-title">Add Employee</h3>
+    <div class="er-field-row">
+      <div class="er-field"><label>Employee Code</label><input id="er-emp-code" placeholder="e.g. EMP-014"></div>
+      <div class="er-field"><label>Status</label>
+        <select id="er-emp-status"><option value="Active">Active</option><option value="Inactive">Inactive</option></select>
+      </div>
+    </div>
+    <div class="er-field-row" style="grid-template-columns:1fr">
+      <div class="er-field"><label>Full Name</label><input id="er-emp-name" placeholder="Employee name"></div>
+    </div>
+    <div class="er-field-row">
+      <div class="er-field"><label>Father / Husband Name</label><input id="er-emp-father"></div>
+      <div class="er-field"><label>Mobile Number</label><input id="er-emp-mobile"></div>
+    </div>
+    <div class="er-field-row">
+      <div class="er-field"><label>Department</label><input id="er-emp-dept" placeholder="e.g. Machine Shop"></div>
+      <div class="er-field"><label>Designation</label><input id="er-emp-designation" placeholder="e.g. Fitter"></div>
+    </div>
+    <div class="er-field-row">
+      <div class="er-field"><label>Date of Joining</label><input type="date" id="er-emp-doj"></div>
+      <div class="er-field"><label>Assigned Shift</label><select id="er-emp-shift"></select></div>
+    </div>
+    <div class="er-field-row">
+      <div class="er-field"><label>Salary Type</label>
+        <select id="er-emp-salary-type"><option value="Monthly">Monthly</option><option value="Daily">Daily Wage</option></select>
+      </div>
+      <div class="er-field"><label>Salary Amount (₹)</label><input type="number" id="er-emp-salary-amount"></div>
+    </div>
+    <div class="er-field-row">
+      <div class="er-field" style="display:flex;align-items:center;gap:8px"><input type="checkbox" id="er-emp-pf" style="width:auto"><label style="margin:0">PF Applicable</label></div>
+      <div class="er-field" style="display:flex;align-items:center;gap:8px"><input type="checkbox" id="er-emp-esic" style="width:auto"><label style="margin:0">ESIC Applicable</label></div>
+    </div>
+    <div class="er-field-row" style="grid-template-columns:1fr 1fr 1fr">
+      <div class="er-field"><label>Bank Name</label><input id="er-emp-bank-name"></div>
+      <div class="er-field"><label>Account Number</label><input id="er-emp-bank-account"></div>
+      <div class="er-field"><label>IFSC</label><input id="er-emp-ifsc"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('er-emp-modal')">Cancel</button>
+      <button class="btn btn-primary" id="er-emp-save-btn">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- SHIFT MODAL -->
+<div class="modal-overlay" id="er-shift-modal">
+  <div class="modal-box">
+    <h3 id="er-shift-modal-title">Add Shift</h3>
+    <div class="er-field-row" style="grid-template-columns:1fr">
+      <div class="er-field"><label>Shift Name</label><input id="er-shift-name" placeholder="e.g. General Shift"></div>
+    </div>
+    <div class="er-field-row">
+      <div class="er-field"><label>Start Time</label><input type="time" id="er-shift-start"></div>
+      <div class="er-field"><label>End Time</label><input type="time" id="er-shift-end"></div>
+    </div>
+    <p style="font-size:11px;color:var(--text3);margin:-6px 0 12px">If End Time is earlier than Start Time it's treated as an overnight shift.</p>
+    <div class="er-field-row">
+      <div class="er-field"><label>Break (minutes)</label><input type="number" id="er-shift-break" value="60"></div>
+      <div class="er-field"><label>Standard Hours / day</label><input type="number" step="0.25" id="er-shift-std"></div>
+      <div class="er-field"><label>Half-Day below (hrs)</label><input type="number" step="0.25" id="er-shift-half"></div>
+    </div>
+    <div class="er-field-row" style="grid-template-columns:1fr">
+      <div class="er-field"><label>Overtime counted after (minutes beyond standard hours)</label><input type="number" id="er-shift-ot-buffer" value="15"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('er-shift-modal')">Cancel</button>
+      <button class="btn btn-primary" id="er-shift-save-btn">Save</button>
+    </div>
+  </div>
+</div>
+
 <!-- LOADING -->
 <div class="loading-overlay" id="loading">
   <div class="spinner"></div>
@@ -851,7 +1058,8 @@ function hexToRgba(hex, a) {
 }
 
 /* ===== TABS ===== */
-var TAB_TITLES = { entry:'Entry Form', dash:'Dashboard', flow:'Flow Report', layout:'Edit Layout' };
+var TAB_TITLES = { entry:'Entry Form', dash:'Dashboard', flow:'Flow Report', layout:'Edit Layout',
+  employees:'Employee Register', shifts:'Shift Setup', attendance:'Daily In / Out Entry', payroll:'Salary Slip' };
 function switchTab(name, btn) {
   document.querySelectorAll('.tab-content').forEach(function(el){ el.classList.remove('active'); });
   document.querySelectorAll('.tab-btn').forEach(function(el){ el.classList.remove('active'); });
@@ -863,6 +1071,10 @@ function switchTab(name, btn) {
   if (name === 'dash') loadDashboard();
   if (name === 'layout') renderLayoutEditor();
   if (name === 'flow') initFlowTab();
+  if (name === 'employees') erRenderEmployees();
+  if (name === 'shifts') erRenderShifts();
+  if (name === 'attendance') erRenderAttendanceTab();
+  if (name === 'payroll') erRenderPayrollTab();
 }
 
 /* ===== ENTRY FORM ===== */
@@ -2661,6 +2873,502 @@ function resetMigration() {
   document.getElementById('mig-progress-wrap').style.display = 'none';
 }
 
+/* ===== EMPLOYEE REGISTER ===== */
+var ER_ROOT = 'employeeRegister'; // separate branch of the same DB — doesn't touch production's own records
+var erEmployees = [];
+var erShifts = [];
+var erSettings = { otMultiplier:1.5, salaryBasis:'calendar', pfPercent:12, esicPercent:0.75 };
+var ER_STATUS_LABEL = {P:'Present',A:'Absent',HD:'Half Day',WO:'Weekly Off',H:'Holiday',PL:'Paid Leave',LWP:'Leave w/o Pay'};
+var ER_STATUS_BADGE  = {P:'er-badge-p',A:'er-badge-a',HD:'er-badge-hd',WO:'er-badge-wo',H:'er-badge-h',PL:'er-badge-pl',LWP:'er-badge-lwp'};
+var erEditingEmpId = null;
+var erEditingShiftId = null;
+var erAttRecords = {};
+
+function erEsc(s){ return (s==null?'':String(s)).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+function erFmtMoney(n){ return '₹' + (Number(n)||0).toLocaleString('en-IN', {maximumFractionDigits:0}); }
+function erTimeToMin(t){ if(!t) return null; var p=t.split(':'); return Number(p[0])*60+Number(p[1]); }
+function erMinToHrLabel(mins){ mins = Math.round(mins||0); var h=Math.floor(mins/60), m=mins%60; return h+'h '+String(m).padStart(2,'0')+'m'; }
+function erShiftById(id){ return erShifts.find(function(s){ return s.id===id; }); }
+function erEmpById(id){ return erEmployees.find(function(e){ return e.id===id; }); }
+function erObjToArray(obj){ return obj ? Object.keys(obj).map(function(id){ return Object.assign({id:id}, obj[id]); }) : []; }
+
+function erComputeAttendance(shift, inTime, outTime){
+  if(!shift || !inTime || !outTime) return {workedMinutes:0, otMinutes:0, status:'A'};
+  var inMin = erTimeToMin(inTime), outMin = erTimeToMin(outTime);
+  if(outMin <= inMin) outMin += 1440; // overnight shift
+  var worked = outMin - inMin - (Number(shift.breakMinutes)||0);
+  if(worked < 0) worked = 0;
+  var standard = (Number(shift.standardHours)||8) * 60;
+  var halfDay = (Number(shift.halfHours) || (Number(shift.standardHours)||8)/2) * 60;
+  var otBuffer = Number(shift.otBuffer)||0;
+  var ot = worked - standard - otBuffer;
+  if(ot < 0) ot = 0;
+  var status;
+  if(worked <= 0) status = 'A';
+  else if(worked < halfDay) status = 'HD';
+  else status = 'P';
+  return {workedMinutes:worked, otMinutes:ot, status:status};
+}
+
+function erNumberToWordsINR(num){
+  num = Math.round(Number(num)||0);
+  if(num===0) return 'Zero';
+  var ones=['','One','Two','Three','Four','Five','Six','Seven','Eight','Nine','Ten','Eleven','Twelve','Thirteen','Fourteen','Fifteen','Sixteen','Seventeen','Eighteen','Nineteen'];
+  var tens=['','','Twenty','Thirty','Forty','Fifty','Sixty','Seventy','Eighty','Ninety'];
+  function two(n){ if(n<20) return ones[n]; return tens[Math.floor(n/10)] + (n%10? ' '+ones[n%10] : ''); }
+  function three(n){ if(n<100) return two(n); return ones[Math.floor(n/100)]+' Hundred'+(n%100? ' '+two(n%100):''); }
+  var crore = Math.floor(num/10000000); num%=10000000;
+  var lakh = Math.floor(num/100000); num%=100000;
+  var thousand = Math.floor(num/1000); num%=1000;
+  var rest = num;
+  var parts=[];
+  if(crore) parts.push(three(crore)+' Crore');
+  if(lakh) parts.push(three(lakh)+' Lakh');
+  if(thousand) parts.push(three(thousand)+' Thousand');
+  if(rest) parts.push(three(rest));
+  return parts.join(' ');
+}
+
+function erLoadAll(){
+  DB.ref(ER_ROOT+'/employees').on('value', function(snap){
+    erEmployees = erObjToArray(snap.val());
+    erRenderEmployees(); erRenderAttendanceTab();
+  });
+  DB.ref(ER_ROOT+'/shifts').on('value', function(snap){
+    erShifts = erObjToArray(snap.val());
+    erRenderShifts(); erRenderEmployees(); erRenderAttendanceTab();
+  });
+  DB.ref(ER_ROOT+'/settings/payroll').on('value', function(snap){
+    if(snap.val()) erSettings = Object.assign(erSettings, snap.val());
+    erFillSettingsForm();
+  });
+}
+
+/* ---- Employee Register ---- */
+function erRenderEmployees(){
+  var searchEl = document.getElementById('er-emp-search');
+  var filterEl = document.getElementById('er-emp-status-filter');
+  if(!searchEl) return;
+  var q = (searchEl.value||'').toLowerCase();
+  var statusFilter = filterEl.value;
+  var rows = erEmployees.filter(function(e){
+    return (!q || (e.name||'').toLowerCase().indexOf(q)>=0 || (e.code||'').toLowerCase().indexOf(q)>=0) &&
+      (!statusFilter || (e.status||'Active')===statusFilter);
+  }).sort(function(a,b){ return (a.code||'').localeCompare(b.code||''); });
+  var table = document.getElementById('er-emp-table');
+  if(!rows.length){
+    table.innerHTML = '<tr><td class="er-empty">No employees found. Click "Add Employee" to get started.</td></tr>';
+    return;
+  }
+  table.innerHTML = '<tr><th>Code</th><th>Name</th><th>Department</th><th>Designation</th><th>Shift</th><th>Salary</th><th>Status</th><th></th></tr>' +
+    rows.map(function(e){
+      var shift = erShiftById(e.shiftId);
+      var salary = e.salaryType==='Daily' ? erFmtMoney(e.salaryAmount)+'/day' : erFmtMoney(e.salaryAmount)+'/mo';
+      return '<tr>' +
+        '<td>'+erEsc(e.code)+'</td>' +
+        '<td>'+erEsc(e.name)+'</td>' +
+        '<td>'+erEsc(e.dept||'-')+'</td>' +
+        '<td>'+erEsc(e.designation||'-')+'</td>' +
+        '<td>'+erEsc(shift?shift.name:'-')+'</td>' +
+        '<td>'+salary+'</td>' +
+        '<td><span class="er-badge '+(e.status==='Inactive'?'er-badge-inactive':'er-badge-active')+'">'+erEsc(e.status||'Active')+'</span></td>' +
+        '<td style="white-space:nowrap">' +
+          '<button class="btn btn-sm" onclick="erOpenEmpModal(\''+e.id+'\')">Edit</button> ' +
+          '<button class="btn btn-sm" style="color:var(--red)" onclick="erDeleteEmployee(\''+e.id+'\')">Delete</button>' +
+        '</td></tr>';
+    }).join('');
+}
+function erPopulateShiftSelect(sel, selected){
+  sel.innerHTML = '<option value="">— none —</option>' + erShifts.map(function(s){
+    return '<option value="'+s.id+'" '+(s.id===selected?'selected':'')+'>'+erEsc(s.name)+'</option>';
+  }).join('');
+}
+function erOpenEmpModal(id){
+  erEditingEmpId = id || null;
+  var e = id ? erEmpById(id) : {};
+  document.getElementById('er-emp-modal-title').textContent = id ? 'Edit Employee' : 'Add Employee';
+  document.getElementById('er-emp-code').value = e.code||'';
+  document.getElementById('er-emp-name').value = e.name||'';
+  document.getElementById('er-emp-father').value = e.father||'';
+  document.getElementById('er-emp-mobile').value = e.mobile||'';
+  document.getElementById('er-emp-dept').value = e.dept||'';
+  document.getElementById('er-emp-designation').value = e.designation||'';
+  document.getElementById('er-emp-doj').value = e.doj||'';
+  erPopulateShiftSelect(document.getElementById('er-emp-shift'), e.shiftId);
+  document.getElementById('er-emp-salary-type').value = e.salaryType||'Monthly';
+  document.getElementById('er-emp-salary-amount').value = e.salaryAmount||'';
+  document.getElementById('er-emp-pf').checked = !!e.pf;
+  document.getElementById('er-emp-esic').checked = !!e.esic;
+  document.getElementById('er-emp-bank-name').value = e.bankName||'';
+  document.getElementById('er-emp-bank-account').value = e.bankAccount||'';
+  document.getElementById('er-emp-ifsc').value = e.ifsc||'';
+  document.getElementById('er-emp-status').value = e.status||'Active';
+  openModal('er-emp-modal');
+}
+document.getElementById('er-emp-save-btn').onclick = function(){
+  var code = document.getElementById('er-emp-code').value.trim();
+  var name = document.getElementById('er-emp-name').value.trim();
+  if(!code || !name){ toast('Employee code and name are required','error'); return; }
+  var data = {
+    code: code, name: name,
+    father: document.getElementById('er-emp-father').value.trim(),
+    mobile: document.getElementById('er-emp-mobile').value.trim(),
+    dept: document.getElementById('er-emp-dept').value.trim(),
+    designation: document.getElementById('er-emp-designation').value.trim(),
+    doj: document.getElementById('er-emp-doj').value,
+    shiftId: document.getElementById('er-emp-shift').value,
+    salaryType: document.getElementById('er-emp-salary-type').value,
+    salaryAmount: Number(document.getElementById('er-emp-salary-amount').value)||0,
+    pf: document.getElementById('er-emp-pf').checked,
+    esic: document.getElementById('er-emp-esic').checked,
+    bankName: document.getElementById('er-emp-bank-name').value.trim(),
+    bankAccount: document.getElementById('er-emp-bank-account').value.trim(),
+    ifsc: document.getElementById('er-emp-ifsc').value.trim(),
+    status: document.getElementById('er-emp-status').value,
+  };
+  var p = erEditingEmpId
+    ? DB.ref(ER_ROOT+'/employees/'+erEditingEmpId).update(data)
+    : DB.ref(ER_ROOT+'/employees').push(Object.assign({createdAt: firebase.database.ServerValue.TIMESTAMP}, data));
+  p.then(function(){ toast('Employee saved','success'); closeModal('er-emp-modal'); })
+   .catch(function(err){ toast('Save failed: '+err.message,'error'); });
+};
+function erDeleteEmployee(id){
+  if(!confirm('Delete this employee? Their past attendance records will remain but will no longer show a name.')) return;
+  DB.ref(ER_ROOT+'/employees/'+id).remove().then(function(){ toast('Employee deleted','success'); });
+}
+document.getElementById('er-emp-export-btn').onclick = function(){
+  var rows = erEmployees.map(function(e){
+    var shift = erShiftById(e.shiftId);
+    return {
+      'Code':e.code, 'Name':e.name, 'Father/Husband':e.father, 'Mobile':e.mobile, 'Department':e.dept,
+      'Designation':e.designation, 'Date of Joining':e.doj, 'Shift':shift?shift.name:'',
+      'Salary Type':e.salaryType, 'Salary Amount':e.salaryAmount, 'PF':e.pf?'Yes':'No', 'ESIC':e.esic?'Yes':'No',
+      'Bank Name':e.bankName, 'Account No':e.bankAccount, 'IFSC':e.ifsc, 'Status':e.status
+    };
+  });
+  var ws = XLSX.utils.json_to_sheet(rows);
+  var wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Employees');
+  XLSX.writeFile(wb, 'Employee_Register.xlsx');
+};
+
+/* ---- Shift Setup ---- */
+function erRenderShifts(){
+  var table = document.getElementById('er-shift-table');
+  if(!table) return;
+  if(!erShifts.length){
+    table.innerHTML = '<tr><td class="er-empty">No shifts defined yet. Click "Add Shift" to create one.</td></tr>';
+  } else {
+    table.innerHTML = '<tr><th>Name</th><th>Start</th><th>End</th><th>Break</th><th>Std. Hours</th><th>Half-Day &lt;</th><th>OT after</th><th></th></tr>' +
+      erShifts.map(function(s){
+        return '<tr><td>'+erEsc(s.name)+'</td><td>'+erEsc(s.startTime)+'</td><td>'+erEsc(s.endTime)+'</td>' +
+          '<td>'+(s.breakMinutes||0)+'m</td><td>'+(s.standardHours||0)+'h</td>' +
+          '<td>'+(s.halfHours||0)+'h</td><td>'+(s.otBuffer||0)+'m</td>' +
+          '<td style="white-space:nowrap">' +
+            '<button class="btn btn-sm" onclick="erOpenShiftModal(\''+s.id+'\')">Edit</button> ' +
+            '<button class="btn btn-sm" style="color:var(--red)" onclick="erDeleteShift(\''+s.id+'\')">Delete</button>' +
+          '</td></tr>';
+      }).join('');
+  }
+  erFillSettingsForm();
+}
+function erFillSettingsForm(){
+  var el = document.getElementById('er-set-ot');
+  if(!el) return;
+  el.value = erSettings.otMultiplier;
+  document.getElementById('er-set-basis').value = erSettings.salaryBasis;
+  document.getElementById('er-set-pf').value = erSettings.pfPercent;
+  document.getElementById('er-set-esic').value = erSettings.esicPercent;
+}
+function erRecalcShiftDefaults(){
+  var start = document.getElementById('er-shift-start').value;
+  var end = document.getElementById('er-shift-end').value;
+  var brk = Number(document.getElementById('er-shift-break').value)||0;
+  if(!start || !end) return;
+  var s = erTimeToMin(start), e = erTimeToMin(end);
+  if(e<=s) e+=1440;
+  var hrs = Math.max(0,(e-s-brk)/60);
+  if(!document.getElementById('er-shift-std').value) document.getElementById('er-shift-std').value = hrs.toFixed(2);
+  if(!document.getElementById('er-shift-half').value) document.getElementById('er-shift-half').value = (hrs/2).toFixed(2);
+}
+['er-shift-start','er-shift-end','er-shift-break'].forEach(function(id){
+  document.getElementById(id).addEventListener('change', erRecalcShiftDefaults);
+});
+function erOpenShiftModal(id){
+  erEditingShiftId = id || null;
+  var s = id ? erShiftById(id) : {};
+  document.getElementById('er-shift-modal-title').textContent = id ? 'Edit Shift' : 'Add Shift';
+  document.getElementById('er-shift-name').value = s.name || '';
+  document.getElementById('er-shift-start').value = s.startTime || '09:00';
+  document.getElementById('er-shift-end').value = s.endTime || '18:00';
+  document.getElementById('er-shift-break').value = s.breakMinutes!=null ? s.breakMinutes : 60;
+  document.getElementById('er-shift-std').value = s.standardHours || (id?'':'8');
+  document.getElementById('er-shift-half').value = s.halfHours || (id?'':'4');
+  document.getElementById('er-shift-ot-buffer').value = s.otBuffer!=null ? s.otBuffer : 15;
+  openModal('er-shift-modal');
+}
+document.getElementById('er-shift-save-btn').onclick = function(){
+  var name = document.getElementById('er-shift-name').value.trim();
+  if(!name){ toast('Shift name is required','error'); return; }
+  var data = {
+    name: name,
+    startTime: document.getElementById('er-shift-start').value,
+    endTime: document.getElementById('er-shift-end').value,
+    breakMinutes: Number(document.getElementById('er-shift-break').value)||0,
+    standardHours: Number(document.getElementById('er-shift-std').value)||8,
+    halfHours: Number(document.getElementById('er-shift-half').value)||4,
+    otBuffer: Number(document.getElementById('er-shift-ot-buffer').value)||0,
+  };
+  var p = erEditingShiftId
+    ? DB.ref(ER_ROOT+'/shifts/'+erEditingShiftId).update(data)
+    : DB.ref(ER_ROOT+'/shifts').push(data);
+  p.then(function(){ toast('Shift saved','success'); closeModal('er-shift-modal'); })
+   .catch(function(err){ toast('Save failed: '+err.message,'error'); });
+};
+function erDeleteShift(id){
+  if(!confirm('Delete this shift? Employees assigned to it will need a new shift.')) return;
+  DB.ref(ER_ROOT+'/shifts/'+id).remove().then(function(){ toast('Shift deleted','success'); });
+}
+document.getElementById('er-settings-save-btn').onclick = function(){
+  var data = {
+    otMultiplier: Number(document.getElementById('er-set-ot').value)||1.5,
+    salaryBasis: document.getElementById('er-set-basis').value,
+    pfPercent: Number(document.getElementById('er-set-pf').value)||0,
+    esicPercent: Number(document.getElementById('er-set-esic').value)||0,
+  };
+  DB.ref(ER_ROOT+'/settings/payroll').update(data).then(function(){ toast('Settings saved','success'); });
+};
+
+/* ---- Daily In/Out ---- */
+function erRenderAttendanceTab(){
+  var dateEl = document.getElementById('er-att-date');
+  if(!dateEl) return;
+  if(!dateEl.value) dateEl.value = todayStr();
+  erRenderAttendanceTable(dateEl.value);
+}
+document.getElementById('er-att-load-btn').onclick = function(){ erLoadAttendanceForDate(document.getElementById('er-att-date').value); };
+document.getElementById('er-att-date').addEventListener('change', function(e){ erLoadAttendanceForDate(e.target.value); });
+function erLoadAttendanceForDate(date){
+  if(!date) return;
+  DB.ref(ER_ROOT+'/attendance/'+date).once('value').then(function(snap){
+    erAttRecords = snap.val() || {};
+    erRenderAttendanceTable(date);
+  });
+}
+function erRenderAttendanceTable(date){
+  var table = document.getElementById('er-att-table');
+  var activeEmps = erEmployees.filter(function(e){ return e.status!=='Inactive'; })
+    .sort(function(a,b){ return (a.code||'').localeCompare(b.code||''); });
+  if(!activeEmps.length){
+    table.innerHTML = '<tr><td class="er-empty">No active employees. Add employees first in Employee Register.</td></tr>';
+    return;
+  }
+  table.innerHTML = '<tr><th>Employee</th><th>Shift</th><th>In</th><th>Out</th><th>Status</th><th>Worked</th><th>OT</th><th>Remarks</th></tr>' +
+    activeEmps.map(function(e){
+      var rec = erAttRecords[e.id] || {};
+      var shift = erShiftById(e.shiftId);
+      return '<tr id="er-attrow-'+e.id+'">' +
+        '<td>'+erEsc(e.name)+'<div style="font-size:10.5px;color:var(--text3)">'+erEsc(e.code)+'</div></td>' +
+        '<td>'+erEsc(shift?shift.name:'—')+'</td>' +
+        '<td><input class="er-time-input" type="time" id="er-in-'+e.id+'" value="'+erEsc(rec.inTime||'')+'" onchange="erRecomputeRow(\''+e.id+'\')">' +
+          (shift?'<button type="button" class="er-fill-btn" onclick="erFillRowFromShift(\''+e.id+'\')" title="Use shift default times">⏱</button>':'') + '</td>' +
+        '<td><input class="er-time-input" type="time" id="er-out-'+e.id+'" value="'+erEsc(rec.outTime||'')+'" onchange="erRecomputeRow(\''+e.id+'\')"></td>' +
+        '<td><select class="er-select-sm" id="er-status-'+e.id+'" onchange="erRecomputeRow(\''+e.id+'\')">' +
+          '<option value="">Auto</option><option value="P">Present</option><option value="A">Absent</option>' +
+          '<option value="HD">Half Day</option><option value="WO">Weekly Off</option><option value="H">Holiday</option>' +
+          '<option value="PL">Paid Leave</option><option value="LWP">Leave w/o Pay</option></select></td>' +
+        '<td id="er-worked-'+e.id+'">'+(rec.workedMinutes!=null?erMinToHrLabel(rec.workedMinutes):'—')+'</td>' +
+        '<td id="er-ot-'+e.id+'">'+(rec.otMinutes!=null?erMinToHrLabel(rec.otMinutes):'—')+'</td>' +
+        '<td><input class="er-remarks" id="er-remarks-'+e.id+'" value="'+erEsc(rec.remarks||'')+'"></td>' +
+        '</tr>';
+    }).join('');
+  activeEmps.forEach(function(e){
+    var sel = document.getElementById('er-status-'+e.id);
+    if(sel) sel.value = erAttRecords[e.id] ? (erAttRecords[e.id].manualStatus||'') : '';
+  });
+}
+function erFillRowFromShift(empId){
+  var emp = erEmpById(empId), shift = erShiftById(emp.shiftId);
+  if(!shift) return;
+  document.getElementById('er-in-'+empId).value = shift.startTime||'';
+  document.getElementById('er-out-'+empId).value = shift.endTime||'';
+  erRecomputeRow(empId);
+}
+function erRecomputeRow(empId){
+  var emp = erEmpById(empId), shift = erShiftById(emp.shiftId);
+  var inTime = document.getElementById('er-in-'+empId).value;
+  var outTime = document.getElementById('er-out-'+empId).value;
+  var calc = erComputeAttendance(shift, inTime, outTime);
+  document.getElementById('er-worked-'+empId).textContent = erMinToHrLabel(calc.workedMinutes);
+  document.getElementById('er-ot-'+empId).textContent = erMinToHrLabel(calc.otMinutes);
+}
+document.getElementById('er-att-fill-btn').onclick = function(){
+  erEmployees.filter(function(e){ return e.status!=='Inactive'; }).forEach(function(e){
+    if(erShiftById(e.shiftId)) erFillRowFromShift(e.id);
+  });
+};
+document.getElementById('er-att-wo-btn').onclick = function(){
+  erEmployees.filter(function(e){ return e.status!=='Inactive'; }).forEach(function(e){
+    var sel = document.getElementById('er-status-'+e.id);
+    if(sel){ sel.value='WO'; erRecomputeRow(e.id); }
+  });
+};
+document.getElementById('er-att-save-btn').onclick = function(){
+  var date = document.getElementById('er-att-date').value;
+  if(!date){ toast('Pick a date first','error'); return; }
+  var activeEmps = erEmployees.filter(function(e){ return e.status!=='Inactive'; });
+  var updates = {};
+  var count = 0;
+  activeEmps.forEach(function(e){
+    var inTime = document.getElementById('er-in-'+e.id).value;
+    var outTime = document.getElementById('er-out-'+e.id).value;
+    var manualStatus = document.getElementById('er-status-'+e.id).value;
+    var remarks = document.getElementById('er-remarks-'+e.id).value.trim();
+    if(!inTime && !outTime && !manualStatus && !remarks) return; // untouched row — skip
+    var shift = erShiftById(e.shiftId);
+    var calc = erComputeAttendance(shift, inTime, outTime);
+    var status = manualStatus || calc.status;
+    var workedMinutes = manualStatus && !inTime && !outTime ? 0 : calc.workedMinutes;
+    var otMinutes = manualStatus && !inTime && !outTime ? 0 : calc.otMinutes;
+    updates[ER_ROOT+'/attendance/'+date+'/'+e.id] = {
+      date: date, empId: e.id, shiftId: e.shiftId||'', inTime: inTime, outTime: outTime, manualStatus: manualStatus,
+      status: status, workedMinutes: workedMinutes, otMinutes: otMinutes, remarks: remarks,
+      updatedAt: firebase.database.ServerValue.TIMESTAMP
+    };
+    count++;
+  });
+  if(!count){ toast('Nothing to save — no rows filled in','error'); return; }
+  DB.ref().update(updates).then(function(){
+    toast(count+' attendance record(s) saved','success'); erLoadAttendanceForDate(date);
+  }).catch(function(err){ toast('Save failed: '+err.message,'error'); });
+};
+
+/* ---- Salary Slip ---- */
+function erRenderPayrollTab(){
+  erPopulateSlipEmployeeSelect();
+}
+function erPopulateSlipEmployeeSelect(){
+  var sel = document.getElementById('er-slip-emp');
+  var cur = sel.value;
+  sel.innerHTML = erEmployees.filter(function(e){ return e.status!=='Inactive'; })
+    .sort(function(a,b){ return (a.code||'').localeCompare(b.code||''); })
+    .map(function(e){ return '<option value="'+e.id+'">'+erEsc(e.code)+' — '+erEsc(e.name)+'</option>'; }).join('');
+  if(cur) sel.value = cur;
+  if(!document.getElementById('er-slip-month').value) document.getElementById('er-slip-month').value = todayStr().slice(0,7);
+}
+document.getElementById('er-slip-generate-btn').onclick = erGenerateSlip;
+function erGenerateSlip(){
+  var empId = document.getElementById('er-slip-emp').value;
+  var monthVal = document.getElementById('er-slip-month').value;
+  if(!empId || !monthVal){ toast('Choose an employee and a month','error'); return; }
+  var emp = erEmpById(empId);
+  var parts = monthVal.split('-'); var year = Number(parts[0]), month = Number(parts[1]);
+  var dim = new Date(year, month, 0).getDate();
+  var start = monthVal+'-01', end = monthVal+'-'+String(dim).padStart(2,'0');
+  DB.ref(ER_ROOT+'/attendance').orderByKey().startAt(start).endAt(end).once('value').then(function(snap){
+    var byDate = snap.val() || {};
+    var recs = [];
+    Object.keys(byDate).forEach(function(date){
+      var rec = (byDate[date]||{})[empId];
+      if(rec) recs.push(rec);
+    });
+    erRenderSlip(emp, monthVal, dim, recs);
+  }).catch(function(err){ toast('Failed to load attendance: '+err.message,'error'); });
+}
+function erComputeSalary(emp, recs, dim){
+  var shift = erShiftById(emp.shiftId) || {standardHours:8};
+  var present=0, half=0, absent=0, wo=0, holiday=0, paidLeave=0, lwp=0, otMinutes=0, workedMinutes=0;
+  recs.forEach(function(r){
+    otMinutes += Number(r.otMinutes)||0;
+    workedMinutes += Number(r.workedMinutes)||0;
+    switch(r.status){
+      case 'P': present++; break;
+      case 'HD': half++; break;
+      case 'WO': wo++; break;
+      case 'H': holiday++; break;
+      case 'PL': paidLeave++; break;
+      case 'LWP': lwp++; break;
+      default: absent++;
+    }
+  });
+  var notMarked = Math.max(0, dim - recs.length);
+  var totalAbsent = absent + lwp + notMarked;
+  var payableDays = present + half*0.5 + wo + holiday + paidLeave;
+  var divisor = erSettings.salaryBasis==='fixed26'?26 : erSettings.salaryBasis==='fixed30'?30 : dim;
+  var perDayRate = emp.salaryType==='Daily' ? (Number(emp.salaryAmount)||0) : (Number(emp.salaryAmount)||0)/divisor;
+  var perHourRate = perDayRate / (Number(shift.standardHours)||8);
+  var otHours = otMinutes/60;
+  var otAmount = otHours * perHourRate * (Number(erSettings.otMultiplier)||1.5);
+  var basicEarned = perDayRate * payableDays;
+  var gross = basicEarned + otAmount;
+  var pf = emp.pf ? gross * (Number(erSettings.pfPercent)||0)/100 : 0;
+  var esic = emp.esic ? gross * (Number(erSettings.esicPercent)||0)/100 : 0;
+  var otherDeduction = Number(document.getElementById('er-slip-other-ded').value)||0;
+  var netPay = gross - pf - esic - otherDeduction;
+  return {present:present, half:half, wo:wo, holiday:holiday, paidLeave:paidLeave, totalAbsent:totalAbsent,
+    payableDays:payableDays, workedMinutes:workedMinutes, otMinutes:otMinutes, otHours:otHours,
+    perDayRate:perDayRate, perHourRate:perHourRate, basicEarned:basicEarned, otAmount:otAmount, gross:gross,
+    pf:pf, esic:esic, otherDeduction:otherDeduction, netPay:netPay, shift:shift};
+}
+function erRenderSlip(emp, monthVal, dim, recs){
+  var c = erComputeSalary(emp, recs, dim);
+  var monthLabel = new Date(monthVal+'-01').toLocaleDateString('en-IN',{month:'long',year:'numeric'});
+  document.getElementById('er-slip-card').style.display = '';
+  document.getElementById('er-slip-area').innerHTML =
+    '<div class="er-slip-head">' +
+      '<div class="er-cname">JAYCO ENGINEERING (INDIA)</div>' +
+      '<div class="er-caddr">Plot No. 18,19,20, Dharti Industrial Park, Ahmedabad</div>' +
+      '<div class="er-stitle">Salary Slip — '+erEsc(monthLabel)+'</div>' +
+    '</div>' +
+    '<div class="er-slip-meta">' +
+      '<div><span>Employee Code:</span> <b>'+erEsc(emp.code)+'</b></div>' +
+      '<div><span>Name:</span> <b>'+erEsc(emp.name)+'</b></div>' +
+      '<div><span>Designation:</span> '+erEsc(emp.designation||'-')+'</div>' +
+      '<div><span>Department:</span> '+erEsc(emp.dept||'-')+'</div>' +
+      '<div><span>Date of Joining:</span> '+erEsc(emp.doj||'-')+'</div>' +
+      '<div><span>Shift:</span> '+erEsc(c.shift.name||'-')+'</div>' +
+      '<div><span>Days in Month:</span> '+dim+'</div>' +
+      '<div><span>Payable Days:</span> <b>'+c.payableDays+'</b></div>' +
+    '</div>' +
+    '<table>' +
+      '<tr><th>Attendance Summary</th><th style="text-align:right">Days</th></tr>' +
+      '<tr><td>Present</td><td style="text-align:right">'+c.present+'</td></tr>' +
+      '<tr><td>Half Day</td><td style="text-align:right">'+c.half+'</td></tr>' +
+      '<tr><td>Weekly Off</td><td style="text-align:right">'+c.wo+'</td></tr>' +
+      '<tr><td>Holiday</td><td style="text-align:right">'+c.holiday+'</td></tr>' +
+      '<tr><td>Paid Leave</td><td style="text-align:right">'+c.paidLeave+'</td></tr>' +
+      '<tr><td>Absent (incl. Leave w/o Pay &amp; not marked)</td><td style="text-align:right">'+c.totalAbsent+'</td></tr>' +
+      '<tr><td>Overtime Hours</td><td style="text-align:right">'+c.otHours.toFixed(2)+'</td></tr>' +
+    '</table>' +
+    '<table>' +
+      '<tr><th>Earnings</th><th style="text-align:right">Amount</th><th>Deductions</th><th style="text-align:right">Amount</th></tr>' +
+      '<tr><td>Basic / Wages ('+c.payableDays+' × '+erFmtMoney(c.perDayRate)+')</td><td style="text-align:right">'+erFmtMoney(c.basicEarned)+'</td>' +
+        '<td>PF '+(emp.pf?('('+erSettings.pfPercent+'%)'):'(N/A)')+'</td><td style="text-align:right">'+erFmtMoney(c.pf)+'</td></tr>' +
+      '<tr><td>Overtime ('+c.otHours.toFixed(2)+' hrs × '+erSettings.otMultiplier+'×)</td><td style="text-align:right">'+erFmtMoney(c.otAmount)+'</td>' +
+        '<td>ESIC '+(emp.esic?('('+erSettings.esicPercent+'%)'):'(N/A)')+'</td><td style="text-align:right">'+erFmtMoney(c.esic)+'</td></tr>' +
+      '<tr><td></td><td></td><td>Other Deduction</td><td style="text-align:right">'+erFmtMoney(c.otherDeduction)+'</td></tr>' +
+      '<tr><td><b>Gross Earnings</b></td><td style="text-align:right"><b>'+erFmtMoney(c.gross)+'</b></td>' +
+        '<td><b>Total Deductions</b></td><td style="text-align:right"><b>'+erFmtMoney(c.pf+c.esic+c.otherDeduction)+'</b></td></tr>' +
+      '<tr class="er-net-row"><td colspan="3">NET PAY</td><td style="text-align:right">'+erFmtMoney(c.netPay)+'</td></tr>' +
+    '</table>' +
+    '<div class="er-words">Rupees '+erEsc(erNumberToWordsINR(c.netPay))+' Only</div>' +
+    '<div class="er-sign-row"><div>Employee Signature</div><div>Authorised Signatory</div></div>';
+  document.getElementById('er-slip-export-btn').onclick = function(){
+    var rows = [{
+      'Employee Code':emp.code, 'Name':emp.name, 'Month':monthLabel,
+      'Present':c.present, 'Half Day':c.half, 'Weekly Off':c.wo, 'Holiday':c.holiday, 'Paid Leave':c.paidLeave,
+      'Absent':c.totalAbsent, 'OT Hours':c.otHours.toFixed(2), 'Payable Days':c.payableDays,
+      'Per Day Rate':c.perDayRate.toFixed(2), 'Basic Earned':c.basicEarned.toFixed(2), 'OT Amount':c.otAmount.toFixed(2),
+      'Gross':c.gross.toFixed(2), 'PF':c.pf.toFixed(2), 'ESIC':c.esic.toFixed(2), 'Other Deduction':c.otherDeduction,
+      'Net Pay':c.netPay.toFixed(2)
+    }];
+    var ws = XLSX.utils.json_to_sheet(rows);
+    var wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Salary Slip');
+    XLSX.writeFile(wb, 'Salary_Slip_'+emp.code+'_'+monthVal+'.xlsx');
+  };
+}
+
 /* ===== INIT ===== */
 document.addEventListener('DOMContentLoaded', function() {
   // Build form immediately with hardcoded defaults (works offline too)
@@ -2681,6 +3389,7 @@ document.addEventListener('DOMContentLoaded', function() {
       if (!window._fbInited) {
         window._fbInited = true;
         loadLayout();
+        erLoadAll();
         // Default to This Financial Year on first load
         setThisFY();
       }
