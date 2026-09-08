@@ -469,7 +469,7 @@ function App() {
       if (row.paintType !== "New Paint") return;
       const idx = nextStock.findIndex(s => s.item.trim().toLowerCase() === row.item.trim().toLowerCase());
       if (idx >= 0) {
-        nextStock = nextStock.map((s, i) => i === idx ? { ...s, qty: s.qty + row.qty } : s);
+        nextStock = nextStock.map((s, i) => i === idx ? { ...s, category: row.category || s.category, qty: s.qty + row.qty } : s);
       } else {
         nextStock = [{ id:uid(), category:row.category || "Plummer Block", item:row.item, qty:row.qty, unit:"Nos", location:"", reorder:0 }, ...nextStock];
       }
@@ -544,7 +544,7 @@ function App() {
     items.forEach(row => {
       const idx = nextStock.findIndex(s => s.item.trim().toLowerCase() === row.item.trim().toLowerCase());
       if (idx >= 0) {
-        nextStock = nextStock.map((s, i) => i === idx ? { ...s, qty: s.qty + row.qty } : s);
+        nextStock = nextStock.map((s, i) => i === idx ? { ...s, category: row.category || s.category, unit: row.unit || s.unit, qty: s.qty + row.qty } : s);
       } else {
         nextStock = [{ id:uid(), category:row.category, item:row.item, qty:row.qty, unit:row.unit, location:"", reorder:0 }, ...nextStock];
       }
