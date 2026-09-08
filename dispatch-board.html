@@ -119,6 +119,7 @@ const TABS = [
   { id:"overview", label:"Dashboard" },
   { id:"entries", label:"Paint & Purchase" },
   { id:"stock", label:"Finish Stock" },
+  { id:"ledger", label:"Item Ledger" },
   { id:"packing", label:"Packing / Dispatch Details" },
   { id:"boxes", label:"Box In/Out" },
   { id:"masters", label:"Manage Masters" },
@@ -281,6 +282,7 @@ function App() {
   const [sForm, setSForm] = useState({ category:"Plummer Block", item:"", qty:"", unit:"Nos", location:"", reorder:"" });
   const [editStock, setEditStock] = useState(null);
   const [stockFilter, setStockFilter] = useState(null);
+  const [ledgerFilter, setLedgerFilter] = useState("");
   const [dashSearch, setDashSearch] = useState("");
   const [showReorderAlert, setShowReorderAlert] = useState(false);
   const [dispatchDraft, setDispatchDraft] = useState({ date:today(), invoiceNo:"", transportName:"", lrNo:"", driverName:"", dest:"", items:[] });
@@ -388,6 +390,33 @@ function App() {
     if (!q) return [];
     return stock.filter(s => s.item.toLowerCase().includes(q) || s.category.toLowerCase().includes(q) || (s.location || "").toLowerCase().includes(q));
   }, [dashSearch, stock]);
+  const itemLedger = useMemo(() => {
+    const entries = [];
+    paintLog.forEach(p => {
+      p.items.forEach(row => {
+        if (row.paintType === "New Paint") {
+          entries.push({ date: p.date, ref: p.slipNo, type: "Paint", item: row.item, delta: Number(row.qty) });
+        }
+      });
+    });
+    readyToSaleLog.forEach(s => {
+      s.items.forEach(row => {
+        entries.push({ date: s.date, ref: s.billNo, type: "Purchase", item: row.item, delta: Number(row.qty) });
+      });
+    });
+    dispatchSlips.forEach(d => {
+      d.items.forEach(row => {
+        entries.push({ date: d.date, ref: d.invoiceNo, type: "Issue", item: row.item, delta: -Number(row.qty) });
+      });
+    });
+    entries.sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : 0);
+    return entries;
+  }, [paintLog, readyToSaleLog, dispatchSlips]);
+  const ledgerRows = useMemo(() => {
+    const q = ledgerFilter.trim().toLowerCase();
+    const rows = q ? itemLedger.filter(e => e.item.trim().toLowerCase().includes(q)) : itemLedger;
+    return [...rows].reverse();
+  }, [itemLedger, ledgerFilter]);
   const todaysPaint = useMemo(() => paintLog.filter(p => p.date === today()).flatMap(p => p.items), [paintLog]);
   const todaysDispatch = dispatchSlips.filter(d => d.date === today()).length;
 
@@ -1095,6 +1124,7 @@ function App() {
     overview: <svg {...svgIconProps}><rect x="3" y="3" width="7" height="7" rx="1.4"></rect><rect x="14" y="3" width="7" height="7" rx="1.4"></rect><rect x="3" y="14" width="7" height="7" rx="1.4"></rect><rect x="14" y="14" width="7" height="7" rx="1.4"></rect></svg>,
     entries: <svg {...svgIconProps}><path d="M12 2c4 5 7 8.5 7 12a7 7 0 1 1-14 0c0-3.5 3-7 7-12Z"></path></svg>,
     stock: <svg {...svgIconProps}><path d="M21 8 12 3 3 8l9 5 9-5Z"></path><path d="M3 8v8l9 5 9-5V8"></path><path d="M12 13v8"></path></svg>,
+    ledger: <svg {...svgIconProps}><path d="M6 3h12v18l-3-2-3 2-3-2-3 2Z"></path><path d="M9 8h6M9 12h6M9 16h3"></path></svg>,
     packing: <svg {...svgIconProps}><rect x="1" y="6" width="13" height="10" rx="1"></rect><path d="M14 9h4l3 3v4h-7z"></path><circle cx="5.5" cy="18" r="1.8"></circle><circle cx="17.5" cy="18" r="1.8"></circle></svg>,
     boxes: <svg {...svgIconProps}><path d="M12 3v18"></path><path d="M7 8l5-5 5 5"></path><path d="M7 16l5 5 5-5"></path></svg>,
     masters: <svg {...svgIconProps}><circle cx="12" cy="12" r="3"></circle><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"></path></svg>,
@@ -1507,11 +1537,56 @@ function App() {
               s.unit, s.location || "—", s.reorder,
               <span style={{fontSize:"11px",color:"var(--text-dim)"}}>{s.createdBy || "—"}</span>,
               <div style={{display:"flex",gap:"4px"}}>
+                <button className="row-btn" onClick={() => { setTab("ledger"); setLedgerFilter(s.item); }} style={iconBtnSmall} title="View Ledger">📒</button>
                 <button className="row-btn" onClick={() => startEditStock(s)} style={iconBtnSmall} title="Edit">✎</button>
                 <button className="row-btn" onClick={() => delStock(s.id)} style={iconBtnSmall} title="Delete">✕</button>
               </div>,
             ];
           })} />
+      </div>}
+
+      {tab === "ledger" && <div>
+        <div style={{display:"flex",alignItems:"center",gap:"10px",marginBottom:"14px",flexWrap:"wrap"}}>
+          <input
+            value={ledgerFilter}
+            onChange={e => setLedgerFilter(e.target.value)}
+            placeholder="🔍 Filter by item / SKU — leave blank for all items"
+            style={{...inputStyle, maxWidth:"380px"}}
+            list="ledger-item-options"
+          />
+          <datalist id="ledger-item-options">
+            {stock.map(s => <option key={s.id} value={s.item} />)}
+          </datalist>
+          {ledgerFilter.trim() && <button onClick={() => setLedgerFilter("")} style={{...iconBtn, padding:"5px 10px", fontSize:"12px"}}>✕ Clear</button>}
+          <span style={{fontSize:"11px",color:"var(--text-dim)"}}>{ledgerRows.length} entr{ledgerRows.length === 1 ? "y" : "ies"} · Paint/Purchase adds (+), Dispatch issues (−)</span>
+        </div>
+        <div style={{background:"var(--panel)",border:"1px solid var(--line)",borderRadius:"6px",overflow:"auto"}}>
+          <table style={{width:"100%",borderCollapse:"collapse",fontSize:"12px"}}>
+            <thead>
+              <tr style={{background:"var(--panel2)",textAlign:"left"}}>
+                <th style={{padding:"5px 8px",whiteSpace:"nowrap"}}>Date</th>
+                {!ledgerFilter.trim() && <th style={{padding:"5px 8px"}}>Item</th>}
+                <th style={{padding:"5px 8px"}}>Type</th>
+                <th style={{padding:"5px 8px"}}>Ref</th>
+                <th style={{padding:"5px 8px",textAlign:"right"}}>Qty</th>
+              </tr>
+            </thead>
+            <tbody>
+              {ledgerRows.length === 0 && <tr><td colSpan={ledgerFilter.trim() ? 4 : 5} style={{padding:"14px",textAlign:"center",color:"var(--text-dim)"}}>
+                No ledger entries{ledgerFilter.trim() ? ` for "${ledgerFilter}"` : ""}.
+              </td></tr>}
+              {ledgerRows.map((e, i) => (
+                <tr key={i} className="mono" style={{borderTop:"1px solid var(--line)"}}>
+                  <td style={{padding:"4px 8px",whiteSpace:"nowrap",color:"var(--text-dim)"}}>{fmtDate(e.date)}</td>
+                  {!ledgerFilter.trim() && <td style={{padding:"4px 8px",fontWeight:600}}>{e.item}</td>}
+                  <td style={{padding:"4px 8px",color: e.delta >= 0 ? "var(--green)" : "var(--red)"}}>{e.type}</td>
+                  <td style={{padding:"4px 8px",color:"var(--text-dim)"}}>{e.ref || "—"}</td>
+                  <td style={{padding:"4px 8px",textAlign:"right",fontWeight:600,color: e.delta >= 0 ? "var(--green)" : "var(--red)"}}>{e.delta >= 0 ? "+" : ""}{e.delta}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>}
 
       {tab === "packing" && <div>
