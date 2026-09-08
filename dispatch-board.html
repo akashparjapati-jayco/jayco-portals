@@ -446,7 +446,7 @@ function App() {
       if (row.paintType !== "New Paint") return;
       const idx = nextStock.findIndex(s => s.item.trim().toLowerCase() === row.item.trim().toLowerCase());
       if (idx >= 0) {
-        nextStock = nextStock.map((s, i) => i === idx ? { ...s, qty: Math.max(0, s.qty - row.qty) } : s);
+        nextStock = nextStock.map((s, i) => i === idx ? { ...s, qty: s.qty - row.qty } : s);
       }
     });
     return nextStock;
@@ -520,7 +520,7 @@ function App() {
     items.forEach(row => {
       const idx = nextStock.findIndex(s => s.item.trim().toLowerCase() === row.item.trim().toLowerCase());
       if (idx >= 0) {
-        nextStock = nextStock.map((s, i) => i === idx ? { ...s, qty: Math.max(0, s.qty - row.qty) } : s);
+        nextStock = nextStock.map((s, i) => i === idx ? { ...s, qty: s.qty - row.qty } : s);
       }
     });
     return nextStock;
@@ -573,7 +573,7 @@ function App() {
     if (editStock && editStock.id === id) setEditStock(null);
     persist({ ...data, stock: stock.filter(s => s.id !== id) });
   };
-  const adjustStock = (id, delta) => persist({ ...data, stock: stock.map(s => s.id === id ? { ...s, qty: Math.max(0, s.qty + delta) } : s) });
+  const adjustStock = (id, delta) => persist({ ...data, stock: stock.map(s => s.id === id ? { ...s, qty: s.qty + delta } : s) });
   const startEditStock = (s) => setEditStock({ id:s.id, category:s.category, item:s.item, qty:String(s.qty), unit:s.unit, location:s.location || "", reorder:String(s.reorder || 0) });
   const cancelEditStock = () => setEditStock(null);
   const saveEditStock = () => {
@@ -694,7 +694,7 @@ function App() {
     items.forEach(row => {
       const idx = nextStock.findIndex(s => s.item.trim().toLowerCase() === row.item.trim().toLowerCase());
       if (idx >= 0) {
-        nextStock = nextStock.map((s, i) => i === idx ? { ...s, qty: Math.max(0, s.qty - row.qty) } : s);
+        nextStock = nextStock.map((s, i) => i === idx ? { ...s, qty: s.qty - row.qty } : s);
       }
     });
     return nextStock;
@@ -1209,13 +1209,13 @@ function App() {
         <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit, minmax(190px, 1fr))",gap:"12px",marginBottom:"28px"}}>
           {stockSummary.map(s => {
             const maxQty = Math.max(...stockSummary.map(x => x.qty), 1);
-            const pct = Math.max(2, Math.round((s.qty / maxQty) * 100));
+            const pct = s.qty < 0 ? 100 : Math.max(2, Math.round((s.qty / maxQty) * 100));
             const low = s.qty > 0 && s.qty <= 20;
-            const barColor = s.qty === 0 ? "var(--text-dim)" : low ? "var(--yellow)" : "var(--green)";
+            const barColor = s.qty < 0 ? "var(--red)" : s.qty === 0 ? "var(--text-dim)" : low ? "var(--yellow)" : "var(--green)";
             return (
-              <div key={s.label} className="stat-card" style={{background:"var(--panel)",border:"1px solid var(--line)",borderRadius:"6px",padding:"14px",transition:"transform 0.15s, box-shadow 0.15s"}}>
+              <div key={s.label} className="stat-card" style={{background:"var(--panel)",border: s.qty < 0 ? "1px solid var(--red)" : "1px solid var(--line)",borderRadius:"6px",padding:"14px",transition:"transform 0.15s, box-shadow 0.15s"}}>
                 <div style={{fontSize:"12px",fontWeight:600,marginBottom:"8px",color:"var(--text-dim)"}}>{s.label}</div>
-                <div style={{fontSize:"26px",fontWeight:700,color: s.qty === 0 ? "var(--text-dim)" : "var(--text)",marginBottom:"10px"}}>{s.qty}</div>
+                <div style={{fontSize:"26px",fontWeight:700,color: s.qty < 0 ? "var(--red)" : s.qty === 0 ? "var(--text-dim)" : "var(--text)",marginBottom:"10px"}}>{s.qty}{s.qty < 0 && <span style={{fontSize:"11px",fontWeight:600,marginLeft:"6px"}}>⚠ negative</span>}</div>
                 <div style={{height:"6px",background:"var(--bg)",borderRadius:"3px",overflow:"hidden"}}>
                   <div style={{height:"100%",width:`${pct}%`,background:barColor,borderRadius:"3px",transition:"width 0.3s"}} />
                 </div>
@@ -1423,16 +1423,17 @@ function App() {
         <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit, minmax(210px, 1fr))",gap:"12px",marginBottom:"14px"}}>
           {stockSummary.map(s => {
             const maxQty = Math.max(...stockSummary.map(x => x.qty), 1);
-            const pct = Math.max(2, Math.round((s.qty / maxQty) * 100));
+            const pct = s.qty < 0 ? 100 : Math.max(2, Math.round((s.qty / maxQty) * 100));
             const low = s.qty > 0 && s.qty <= 20;
+            const barColor = s.qty < 0 ? "var(--red)" : s.qty === 0 ? "var(--text-dim)" : low ? "var(--yellow)" : "var(--green)";
             const active = stockFilter === s.label;
             return (
               <div key={s.label} onClick={() => setStockFilter(active ? null : s.label)}
-                style={{background: active ? "var(--panel2)" : "var(--panel)",border: active ? "1px solid var(--red)" : "1px solid var(--line)",padding:"14px",borderLeft:`4px solid ${s.qty === 0 ? "var(--text-dim)" : low ? "var(--yellow)" : "var(--green)"}`,cursor:"pointer"}}>
+                style={{background: active ? "var(--panel2)" : "var(--panel)",border: active ? "1px solid var(--red)" : "1px solid var(--line)",padding:"14px",borderLeft:`4px solid ${barColor}`,cursor:"pointer"}}>
                 <div style={{fontSize:"12px",fontWeight:600,marginBottom:"6px"}}>{s.label}</div>
-                <div style={{fontSize:"24px",fontWeight:700,color: s.qty === 0 ? "var(--text-dim)" : "var(--text)",marginBottom:"8px"}}>{s.qty}</div>
+                <div style={{fontSize:"24px",fontWeight:700,color: s.qty < 0 ? "var(--red)" : s.qty === 0 ? "var(--text-dim)" : "var(--text)",marginBottom:"8px"}}>{s.qty}{s.qty < 0 && <span style={{fontSize:"11px",fontWeight:600,marginLeft:"6px"}}>⚠ negative</span>}</div>
                 <div style={{height:"6px",background:"var(--bg)",borderRadius:"3px",overflow:"hidden"}}>
-                  <div style={{height:"100%",width:`${pct}%`,background: s.qty === 0 ? "var(--text-dim)" : low ? "var(--yellow)" : "var(--green)",borderRadius:"3px"}} />
+                  <div style={{height:"100%",width:`${pct}%`,background:barColor,borderRadius:"3px"}} />
                 </div>
               </div>
             );
