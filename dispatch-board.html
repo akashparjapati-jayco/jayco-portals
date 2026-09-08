@@ -281,6 +281,7 @@ function App() {
   const [editStock, setEditStock] = useState(null);
   const [stockFilter, setStockFilter] = useState(null);
   const [dashSearch, setDashSearch] = useState("");
+  const [showReorderAlert, setShowReorderAlert] = useState(false);
   const [dispatchDraft, setDispatchDraft] = useState({ date:today(), invoiceNo:"", transportName:"", lrNo:"", driverName:"", dest:"", items:[] });
   const [dispatchRowForm, setDispatchRowForm] = useState({ item:"", qty:"", packingStyle:"Corrugated Box", boxSize:DEFAULT_CORRUGATED_BOX_SIZES[0], boxQty:"" });
   const dispatchItemRef = useRef(null);
@@ -1108,12 +1109,15 @@ function App() {
         </div>
 
         {lowStock.length > 0 && <div style={{background:"var(--panel)",border:"1px solid var(--red-dim)",borderRadius:"6px",padding:"16px",marginBottom:"20px"}}>
-          <div style={{fontWeight:600,fontSize:"13px",letterSpacing:"0.5px",marginBottom:"10px"}}>⚠ Reorder Alert</div>
-          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill, minmax(200px, 1fr))",gap:"8px"}}>
+          <div onClick={() => setShowReorderAlert(v => !v)} style={{display:"flex",alignItems:"center",justifyContent:"space-between",cursor:"pointer",fontWeight:600,fontSize:"13px",letterSpacing:"0.5px",marginBottom: showReorderAlert ? "10px" : 0}}>
+            <span>⚠ Reorder Alert ({lowStock.length})</span>
+            <span style={{fontSize:"11px",color:"var(--text-dim)",fontWeight:500}}>{showReorderAlert ? "▲ Hide" : "▼ Show"}</span>
+          </div>
+          {showReorderAlert && <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill, minmax(200px, 1fr))",gap:"8px"}}>
             {lowStock.map(s => <div key={s.id} className="mono" style={{fontSize:"12px",background:"var(--bg)",padding:"8px 10px",border:"1px solid var(--line)",borderRadius:"4px"}}>
               <span style={{color:"var(--yellow)"}}>{s.item}</span> — {s.qty} {s.unit} <span style={{color:"var(--text-dim)"}}>(reorder @ {s.reorder})</span>
             </div>)}
-          </div>
+          </div>}
         </div>}
 
         <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit, minmax(180px, 1fr))",gap:"14px",marginBottom:"28px"}}>
