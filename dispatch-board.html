@@ -689,19 +689,44 @@ function App() {
     return { totalQty, totalBoxes, totalGunny };
   };
 
+  const deductStockForDispatchItems = (items, baseStock) => {
+    let nextStock = baseStock;
+    items.forEach(row => {
+      const idx = nextStock.findIndex(s => s.item.trim().toLowerCase() === row.item.trim().toLowerCase());
+      if (idx >= 0) {
+        nextStock = nextStock.map((s, i) => i === idx ? { ...s, qty: Math.max(0, s.qty - row.qty) } : s);
+      }
+    });
+    return nextStock;
+  };
+
+  const restoreStockForDispatchItems = (items, baseStock) => {
+    let nextStock = baseStock;
+    items.forEach(row => {
+      const idx = nextStock.findIndex(s => s.item.trim().toLowerCase() === row.item.trim().toLowerCase());
+      if (idx >= 0) {
+        nextStock = nextStock.map((s, i) => i === idx ? { ...s, qty: s.qty + row.qty } : s);
+      }
+    });
+    return nextStock;
+  };
+
   const saveDispatchSlip = () => {
     if (dispatchDraft.items.length === 0) return;
     const totals = computeSlipTotals(dispatchDraft.items);
     if (editingSlipId) {
       const original = dispatchSlips.find(d => d.id === editingSlipId);
+      let nextStock = original ? restoreStockForDispatchItems(original.items, stock) : stock;
+      nextStock = deductStockForDispatchItems(dispatchDraft.items, nextStock);
       const updated = { id:editingSlipId, date:dispatchDraft.date || today(), invoiceNo:dispatchDraft.invoiceNo, transportName:dispatchDraft.transportName,
         lrNo:dispatchDraft.lrNo, driverName:dispatchDraft.driverName, dest:dispatchDraft.dest, items:dispatchDraft.items, ...totals, createdBy: original ? original.createdBy : userName };
-      persist({ ...data, dispatchSlips: dispatchSlips.map(d => d.id === editingSlipId ? updated : d) });
+      persist({ ...data, dispatchSlips: dispatchSlips.map(d => d.id === editingSlipId ? updated : d), stock: nextStock });
       setEditingSlipId(null);
     } else {
       const slip = { id:uid(), date:dispatchDraft.date || today(), invoiceNo:dispatchDraft.invoiceNo, transportName:dispatchDraft.transportName,
         lrNo:dispatchDraft.lrNo, driverName:dispatchDraft.driverName, dest:dispatchDraft.dest, items:dispatchDraft.items, ...totals, createdBy:userName };
-      persist({ ...data, dispatchSlips: [slip, ...dispatchSlips] });
+      const nextStock = deductStockForDispatchItems(dispatchDraft.items, stock);
+      persist({ ...data, dispatchSlips: [slip, ...dispatchSlips], stock: nextStock });
     }
     setDispatchDraft({ date:today(), invoiceNo:"", transportName:"", lrNo:"", driverName:"", dest:"", items:[] });
     setDispatchRowForm({ item:"", qty:"", packingStyle:"Corrugated Box", boxSize:DEFAULT_CORRUGATED_BOX_SIZES[0], boxQty:"" });
@@ -720,8 +745,10 @@ function App() {
   };
 
   const delDispatchSlip = (id) => {
+    const slip = dispatchSlips.find(d => d.id === id);
+    const nextStock = slip ? restoreStockForDispatchItems(slip.items, stock) : stock;
     if (editingSlipId === id) cancelEditSlip();
-    persist({ ...data, dispatchSlips: dispatchSlips.filter(d => d.id !== id) });
+    persist({ ...data, dispatchSlips: dispatchSlips.filter(d => d.id !== id), stock: nextStock });
   };
 
   const generateDispatchPdf = (slip) => {
