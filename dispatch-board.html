@@ -574,6 +574,33 @@ function App() {
     setEditStock(null);
   };
 
+  const recategorizeStock = () => {
+    const listsByCategory = [
+      ["Plummer Block", PLUMMER_SERIES],
+      ["Pillow Block", PILLOW_BLOCKS],
+      ["Adapter Sleeve", ADAPTER_SLEEVES],
+      ["Locating Ring", LOCATING_RINGS],
+      ["Bearing", BEARINGS],
+      ["Seal", SEAL_TYPES],
+    ];
+    const findCategory = (itemName) => {
+      const norm = itemName.trim().toLowerCase();
+      const hit = listsByCategory.find(([, list]) => (list || []).some(n => n.trim().toLowerCase() === norm));
+      return hit ? hit[0] : null;
+    };
+    let changed = 0;
+    const nextStock = stock.map(s => {
+      const match = findCategory(s.item);
+      if (match && match !== s.category) { changed++; return { ...s, category: match }; }
+      return s;
+    });
+    if (changed) persist({ ...data, stock: nextStock });
+    setImportMsg(changed
+      ? `Recategorized ${changed} item${changed === 1 ? "" : "s"} to match Manage Masters lists.`
+      : "No items needed recategorizing — every item already matches its Manage Masters category.");
+    setTimeout(() => setImportMsg(""), 4000);
+  };
+
   const exportToExcel = () => {
     const wb = XLSX.utils.book_new();
     const stockRows = stock.map(s => ({ Category:s.category, Item:s.item, Qty:s.qty, Unit:s.unit, Location:s.location, "Reorder @":s.reorder }));
@@ -1382,6 +1409,7 @@ function App() {
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"12px",flexWrap:"wrap",gap:"8px"}}>
             <div style={{fontWeight:600,fontSize:"13px"}}>Add Stock Line</div>
             <div style={{display:"flex",gap:"8px",alignItems:"center"}}>
+              <button onClick={recategorizeStock} style={{...iconBtn,fontSize:"12px",fontWeight:600,padding:"7px 12px"}} title="Re-check every stock item's category against the Manage Masters lists">🔧 Fix Categories</button>
               <button onClick={exportToExcel} style={{...iconBtn,fontSize:"12px",fontWeight:600,padding:"7px 12px"}}>⭳ Export to Excel</button>
               <label style={{...iconBtn,fontSize:"12px",fontWeight:600,padding:"7px 12px",cursor:"pointer",margin:0}}>
                 ⭱ Import Stock (.xlsx)
@@ -1389,7 +1417,7 @@ function App() {
               </label>
             </div>
           </div>
-          {importMsg && <div style={{fontSize:"12px",color: importMsg.startsWith("Imported") ? "var(--green)" : "var(--red)",marginBottom:"10px"}}>{importMsg}</div>}
+          {importMsg && <div style={{fontSize:"12px",color: /^(Imported|Recategorized)/.test(importMsg) ? "var(--green)" : "var(--red)",marginBottom:"10px"}}>{importMsg}</div>}
           <div style={{display:"grid",gridTemplateColumns:"1.2fr 1.2fr 0.7fr 0.7fr 1fr 0.7fr auto",gap:"8px"}}>
             <select value={sForm.category} onChange={e => setSForm({...sForm, category:e.target.value})} style={inputStyle}>
               {STOCK_CATEGORIES.map(c => <option key={c}>{c}</option>)}
