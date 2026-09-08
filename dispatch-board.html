@@ -63,6 +63,8 @@
   .tab-btn:hover { background:var(--panel2) !important; }
   .row-btn:hover { filter:brightness(0.96); }
   .stat-card:hover { transform:translateY(-2px); box-shadow:0 4px 14px rgba(16,24,40,0.08); }
+  .stock-row:hover { background:var(--panel2) !important; }
+  .stock-row td { transition:background 0.12s; }
   input:focus, select:focus { outline:2px solid var(--red); outline-offset:1px; }
   .spin { animation:spin 0.8s linear infinite; display:inline-block; }
   @keyframes spin { to { transform:rotate(360deg); } }
@@ -115,6 +117,13 @@ const DEFAULT_PILLOW_BLOCKS = ["UCP 205","UCP 305","UCP 2305","UCFL 205","UCFC 2
 const DEFAULT_WOODEN_BOX_SIZES = ["Small (9x9x9\")","Medium (15x15x12\")","Large (24x18x18\")","Custom Crate"];
 const DEFAULT_CORRUGATED_BOX_SIZES = ["Small (8x8x6\")","Medium (12x12x10\")","Large (18x18x14\")","Extra Large (24x20x18\")"];
 const STOCK_CATEGORIES = ["Plummer Block","Pillow Block","Adapter Sleeve","Locating Ring","Bearing","Seal","End Cover","Lock Nut","Lock Washer"];
+const CATEGORY_COLORS = {
+  "Plummer Block": "#2563eb", "Pillow Block": "#7c3aed", "Adapter Sleeve": "#ea580c",
+  "Locating Ring": "#0891b2", "Bearing": "#16a34a", "Seal": "#b45309",
+  "Wooden Box": "#78716c", "Corrugated Box": "#a16207",
+  "End Cover": "#4b5563", "Lock Nut": "#be123c", "Lock Washer": "#6d28d9",
+};
+const categoryColor = (cat) => CATEGORY_COLORS[cat] || "#64748b";
 const TABS = [
   { id:"overview", label:"Dashboard" },
   { id:"entries", label:"Paint & Purchase" },
@@ -280,7 +289,6 @@ function App() {
   const [editingChallanId, setEditingChallanId] = useState(null);
   const [expandedChallans, setExpandedChallans] = useState({});
   const [sForm, setSForm] = useState({ category:"Plummer Block", item:"", qty:"", unit:"Nos", location:"", reorder:"" });
-  const [editStock, setEditStock] = useState(null);
   const [stockFilter, setStockFilter] = useState(null);
   const [ledgerFilter, setLedgerFilter] = useState("");
   const [dashSearch, setDashSearch] = useState("");
@@ -599,17 +607,9 @@ function App() {
     setSForm({ category:"Plummer Block", item:"", qty:"", unit:"Nos", location:"", reorder:"" });
   };
   const delStock = (id) => {
-    if (editStock && editStock.id === id) setEditStock(null);
     persist({ ...data, stock: stock.filter(s => s.id !== id) });
   };
   const adjustStock = (id, delta) => persist({ ...data, stock: stock.map(s => s.id === id ? { ...s, qty: s.qty + delta } : s) });
-  const startEditStock = (s) => setEditStock({ id:s.id, category:s.category, item:s.item, qty:String(s.qty), unit:s.unit, location:s.location || "", reorder:String(s.reorder || 0) });
-  const cancelEditStock = () => setEditStock(null);
-  const saveEditStock = () => {
-    if (!editStock || !editStock.item.trim() || editStock.qty === "") return;
-    persist({ ...data, stock: stock.map(s => s.id === editStock.id ? { ...s, category:editStock.category, item:editStock.item.trim(), qty:Number(editStock.qty), unit:editStock.unit, location:editStock.location, reorder:Number(editStock.reorder || 0) } : s) });
-    setEditStock(null);
-  };
 
   const computeRecategorizedStock = (stockArr) => {
     const listsByCategory = [
@@ -1503,46 +1503,57 @@ function App() {
             <button onClick={addStock} style={btnPrimary}>+</button>
           </div>
         </div>
-        <TableBlock headers={["Category","Item","Qty","Unit","Location","Reorder @","By",""]} emptyText={stockFilter ? `No ${stockFilter} items in Finish Stock.` : "No stock recorded."}
-          rows={stock.filter(s => !stockFilter || s.category === stockFilter).map(s => {
-            const isEditing = editStock && editStock.id === s.id;
-            if (isEditing) return [
-              <select value={editStock.category} onChange={e => setEditStock({...editStock, category:e.target.value})} style={{...inputStyle, padding:"5px 6px"}}>
-                {STOCK_CATEGORIES.map(c => <option key={c}>{c}</option>)}
-              </select>,
-              <input autoFocus value={editStock.item} onChange={e => setEditStock({...editStock, item:e.target.value})}
-                onKeyDown={e => { if (e.key === "Enter") saveEditStock(); if (e.key === "Escape") cancelEditStock(); }}
-                style={{...inputStyle, padding:"5px 6px"}} />,
-              <input type="number" value={editStock.qty} onChange={e => setEditStock({...editStock, qty:e.target.value})}
-                onKeyDown={e => { if (e.key === "Enter") saveEditStock(); if (e.key === "Escape") cancelEditStock(); }}
-                style={{...inputStyle, padding:"5px 6px"}} />,
-              <select value={editStock.unit} onChange={e => setEditStock({...editStock, unit:e.target.value})} style={{...inputStyle, padding:"5px 6px"}}>
-                {["Nos","Sets","Pairs","Kg"].map(u => <option key={u}>{u}</option>)}
-              </select>,
-              <input value={editStock.location} onChange={e => setEditStock({...editStock, location:e.target.value})}
-                onKeyDown={e => { if (e.key === "Enter") saveEditStock(); if (e.key === "Escape") cancelEditStock(); }}
-                style={{...inputStyle, padding:"5px 6px"}} />,
-              <input type="number" value={editStock.reorder} onChange={e => setEditStock({...editStock, reorder:e.target.value})}
-                onKeyDown={e => { if (e.key === "Enter") saveEditStock(); if (e.key === "Escape") cancelEditStock(); }}
-                style={{...inputStyle, padding:"5px 6px"}} />,
-              <span style={{fontSize:"11px",color:"var(--text-dim)"}}>{s.createdBy || "—"}</span>,
-              <div style={{display:"flex",gap:"4px"}}>
-                <button className="row-btn" onClick={saveEditStock} style={iconBtnSmall} title="Save">✓ Save</button>
-                <button className="row-btn" onClick={cancelEditStock} style={iconBtnSmall} title="Cancel">✕</button>
-              </div>,
-            ];
-            return [
-              s.category, s.item,
-              <span className="mono" style={{color: s.qty<=s.reorder?"var(--red)":"var(--text)",fontWeight:600}}>{s.qty}</span>,
-              s.unit, s.location || "—", s.reorder,
-              <span style={{fontSize:"11px",color:"var(--text-dim)"}}>{s.createdBy || "—"}</span>,
-              <div style={{display:"flex",gap:"4px"}}>
-                <button className="row-btn" onClick={() => { setTab("ledger"); setLedgerFilter(s.item); }} style={iconBtnSmall} title="View Ledger">📒</button>
-                <button className="row-btn" onClick={() => startEditStock(s)} style={iconBtnSmall} title="Edit">✎</button>
-                <button className="row-btn" onClick={() => delStock(s.id)} style={iconBtnSmall} title="Delete">✕</button>
-              </div>,
-            ];
-          })} />
+        <div style={{background:"var(--panel)",border:"1px solid var(--line)",borderRadius:"8px",overflow:"hidden"}}>
+          <div style={{overflowX:"auto"}}>
+            <table style={{width:"100%",borderCollapse:"collapse",fontSize:"13px"}}>
+              <thead>
+                <tr style={{borderBottom:"1px solid var(--line)",background:"var(--panel2)"}}>
+                  <th className="mono" style={{textAlign:"left",padding:"10px 14px",color:"var(--text-dim)",fontSize:"11px",letterSpacing:"0.4px"}}>Category</th>
+                  <th className="mono" style={{textAlign:"left",padding:"10px 14px",color:"var(--text-dim)",fontSize:"11px",letterSpacing:"0.4px"}}>Item</th>
+                  <th className="mono" style={{textAlign:"right",padding:"10px 14px",color:"var(--text-dim)",fontSize:"11px",letterSpacing:"0.4px"}}>Qty</th>
+                  <th className="mono" style={{textAlign:"left",padding:"10px 14px",color:"var(--text-dim)",fontSize:"11px",letterSpacing:"0.4px"}}>Unit</th>
+                  <th className="mono" style={{textAlign:"left",padding:"10px 14px",color:"var(--text-dim)",fontSize:"11px",letterSpacing:"0.4px"}}>Location</th>
+                  <th className="mono" style={{textAlign:"right",padding:"10px 14px",color:"var(--text-dim)",fontSize:"11px",letterSpacing:"0.4px"}}>Reorder @</th>
+                  <th className="mono" style={{textAlign:"left",padding:"10px 14px",color:"var(--text-dim)",fontSize:"11px",letterSpacing:"0.4px"}}>By</th>
+                  <th style={{padding:"10px 14px"}}></th>
+                </tr>
+              </thead>
+              <tbody>
+                {stock.filter(s => !stockFilter || s.category === stockFilter).length === 0 && (
+                  <tr><td colSpan={8} style={{padding:"24px",textAlign:"center",color:"var(--text-dim)"}}>
+                    {stockFilter ? `No ${stockFilter} items in Finish Stock.` : "No stock recorded."}
+                  </td></tr>
+                )}
+                {stock.filter(s => !stockFilter || s.category === stockFilter).map((s, i) => {
+                  const below = s.qty <= s.reorder;
+                  const color = categoryColor(s.category);
+                  return (
+                    <tr key={s.id} className="stock-row" style={{borderBottom:"1px solid var(--line)",background: i % 2 ? "var(--bg)" : "var(--panel)"}}>
+                      <td style={{padding:"9px 14px"}}>
+                        <span style={{display:"inline-block",padding:"3px 9px",borderRadius:"100px",fontSize:"11px",fontWeight:600,background:`${color}1A`,color:color,border:`1px solid ${color}33`,whiteSpace:"nowrap"}}>{s.category}</span>
+                      </td>
+                      <td style={{padding:"9px 14px",fontWeight:600}}>{s.item}</td>
+                      <td className="mono" style={{padding:"9px 14px",textAlign:"right",fontWeight:700,color: below ? "var(--red)" : "var(--text)"}}>
+                        {s.qty}
+                        {below && <span style={{marginLeft:"6px",fontSize:"9.5px",fontWeight:700,color:"var(--red)",letterSpacing:"0.3px"}}>● LOW</span>}
+                      </td>
+                      <td style={{padding:"9px 14px",color:"var(--text-dim)"}}>{s.unit}</td>
+                      <td style={{padding:"9px 14px",color:"var(--text-dim)"}}>{s.location || "—"}</td>
+                      <td className="mono" style={{padding:"9px 14px",textAlign:"right",color:"var(--text-dim)"}}>{s.reorder}</td>
+                      <td style={{padding:"9px 14px",fontSize:"11px",color:"var(--text-dim)"}}>{s.createdBy || "—"}</td>
+                      <td style={{padding:"9px 14px"}}>
+                        <div style={{display:"flex",gap:"4px",justifyContent:"flex-end"}}>
+                          <button className="row-btn" onClick={() => { setTab("ledger"); setLedgerFilter(s.item); }} style={iconBtnSmall} title="View Ledger">📒</button>
+                          <button className="row-btn" onClick={() => delStock(s.id)} style={iconBtnSmall} title="Delete">✕</button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
       </div>}
 
       {tab === "ledger" && <div>
