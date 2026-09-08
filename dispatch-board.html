@@ -391,6 +391,14 @@ function App() {
   const todaysPaint = useMemo(() => paintLog.filter(p => p.date === today()).flatMap(p => p.items), [paintLog]);
   const todaysDispatch = dispatchSlips.filter(d => d.date === today()).length;
 
+  const autoFixRanRef = useRef(false);
+  useEffect(() => {
+    if (!data || autoFixRanRef.current) return;
+    autoFixRanRef.current = true;
+    const { nextStock, changed } = computeRecategorizedStock(stock);
+    if (changed) persist({ ...data, stock: nextStock });
+  }, [data]);
+
   if (!data) {
     return <div style={{display:"flex",alignItems:"center",justifyContent:"center",minHeight:"100vh",color:"var(--text-dim)",fontSize:"13px",gap:"8px"}}>
       <span className="spin">⟳</span> Loading dispatch board…
@@ -605,14 +613,6 @@ function App() {
       : "No items needed recategorizing — every item already matches its Manage Masters category.");
     setTimeout(() => setImportMsg(""), 4000);
   };
-
-  const autoFixRanRef = useRef(false);
-  useEffect(() => {
-    if (!data || autoFixRanRef.current) return;
-    autoFixRanRef.current = true;
-    const { nextStock, changed } = computeRecategorizedStock(stock);
-    if (changed) persist({ ...data, stock: nextStock });
-  }, [data]);
 
   const exportToExcel = () => {
     const wb = XLSX.utils.book_new();
