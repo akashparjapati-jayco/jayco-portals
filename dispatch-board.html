@@ -574,7 +574,7 @@ function App() {
     setEditStock(null);
   };
 
-  const recategorizeStock = () => {
+  const computeRecategorizedStock = (stockArr) => {
     const listsByCategory = [
       ["Plummer Block", PLUMMER_SERIES],
       ["Pillow Block", PILLOW_BLOCKS],
@@ -589,17 +589,30 @@ function App() {
       return hit ? hit[0] : null;
     };
     let changed = 0;
-    const nextStock = stock.map(s => {
+    const nextStock = stockArr.map(s => {
       const match = findCategory(s.item);
       if (match && match !== s.category) { changed++; return { ...s, category: match }; }
       return s;
     });
+    return { nextStock, changed };
+  };
+
+  const recategorizeStock = () => {
+    const { nextStock, changed } = computeRecategorizedStock(stock);
     if (changed) persist({ ...data, stock: nextStock });
     setImportMsg(changed
       ? `Recategorized ${changed} item${changed === 1 ? "" : "s"} to match Manage Masters lists.`
       : "No items needed recategorizing — every item already matches its Manage Masters category.");
     setTimeout(() => setImportMsg(""), 4000);
   };
+
+  const autoFixRanRef = useRef(false);
+  useEffect(() => {
+    if (!data || autoFixRanRef.current) return;
+    autoFixRanRef.current = true;
+    const { nextStock, changed } = computeRecategorizedStock(stock);
+    if (changed) persist({ ...data, stock: nextStock });
+  }, [data]);
 
   const exportToExcel = () => {
     const wb = XLSX.utils.book_new();
