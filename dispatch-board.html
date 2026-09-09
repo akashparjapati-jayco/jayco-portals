@@ -170,6 +170,10 @@ const SEED = {
     woodenBoxSizes: DEFAULT_WOODEN_BOX_SIZES.slice(),
     corrugatedBoxSizes: DEFAULT_CORRUGATED_BOX_SIZES.slice(),
   },
+  // Keyed by item name (trim+lowercase): { item, qty, date, updatedBy, updatedAt }.
+  // `date` is the balance's as-of date — ledger entries before it are treated
+  // as already folded into the opening qty and excluded from the statement.
+  openingStock: {},
 };
 
 // Fills in every field a `persist` updater relies on, the same way the
@@ -194,6 +198,7 @@ const normalizeData = (raw) => {
     boxLog: d.boxLog || [],
     readyToSaleLog: d.readyToSaleLog || [],
     masters,
+    openingStock: d.openingStock || {},
   };
 };
 
@@ -316,6 +321,8 @@ function App() {
   const [sForm, setSForm] = useState({ category:"Plummer Block", item:"", qty:"", unit:"Nos", location:"", reorder:"" });
   const [stockFilter, setStockFilter] = useState(null);
   const [ledgerFilter, setLedgerFilter] = useState("");
+  const [openingEditing, setOpeningEditing] = useState(false);
+  const [openingForm, setOpeningForm] = useState({ qty:"", date:"" });
   const [dashSearch, setDashSearch] = useState("");
   const [showReorderAlert, setShowReorderAlert] = useState(false);
   const [dispatchDraft, setDispatchDraft] = useState({ date:today(), invoiceNo:"", transportName:"", lrNo:"", driverName:"", dest:"", items:[] });
@@ -389,6 +396,7 @@ function App() {
   const dispatchSlips = data ? (data.dispatchSlips || data.tickets || []) : [];
   const boxLog = data ? data.boxLog : [];
   const readyToSaleLog = (data && data.readyToSaleLog) ? data.readyToSaleLog : [];
+  const openingStock = (data && data.openingStock) ? data.openingStock : {};
   const masters = (data && data.masters) ? data.masters : {
     plummerSeries: DEFAULT_PLUMMER_SERIES, adapterSleeves: DEFAULT_ADAPTER_SLEEVES,
     locatingRings: DEFAULT_LOCATING_RINGS, bearings: DEFAULT_BEARINGS, sealTypes: DEFAULT_SEAL_TYPES,
@@ -442,23 +450,56 @@ function App() {
     paintLog.forEach(p => {
       p.items.forEach(row => {
         if (row.paintType === "New Paint") {
-          entries.push({ date: p.date, ref: p.slipNo, type: "Paint", item: row.item, delta: Number(row.qty) });
+          entries.push({ date: p.date, ref: p.slipNo, type: "Paint", item: row.item, delta: Number(row.qty), desc: p.painterName || "" });
         }
       });
     });
     readyToSaleLog.forEach(s => {
       s.items.forEach(row => {
-        entries.push({ date: s.date, ref: s.billNo, type: "Purchase", item: row.item, delta: Number(row.qty) });
+        entries.push({ date: s.date, ref: s.billNo, type: "Purchase", item: row.item, delta: Number(row.qty), desc: s.vendorName || "" });
       });
     });
     dispatchSlips.forEach(d => {
       d.items.forEach(row => {
-        entries.push({ date: d.date, ref: d.invoiceNo, type: "Issue", item: row.item, delta: -Number(row.qty) });
+        entries.push({ date: d.date, ref: d.invoiceNo, type: "Issue", item: row.item, delta: -Number(row.qty), desc: d.dest || "" });
       });
     });
     entries.sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : 0);
     return entries;
   }, [paintLog, readyToSaleLog, dispatchSlips]);
+  const knownLedgerItems = useMemo(() => {
+    const set = new Set();
+    stock.forEach(s => set.add(s.item));
+    itemLedger.forEach(e => set.add(e.item));
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  }, [stock, itemLedger]);
+  const selectedLedgerItem = useMemo(() => {
+    const q = ledgerFilter.trim().toLowerCase();
+    if (!q) return null;
+    return knownLedgerItems.find(n => n.trim().toLowerCase() === q) || null;
+  }, [ledgerFilter, knownLedgerItems]);
+  const openingEntry = selectedLedgerItem ? (openingStock[selectedLedgerItem.trim().toLowerCase()] || null) : null;
+  const ledgerStatement = useMemo(() => {
+    if (!selectedLedgerItem) return null;
+    const key = selectedLedgerItem.trim().toLowerCase();
+    const opening = openingStock[key] || { qty: 0, date: "" };
+    const entries = itemLedger
+      .filter(e => e.item.trim().toLowerCase() === key)
+      .filter(e => !opening.date || e.date >= opening.date)
+      .slice()
+      .sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : 0);
+    let balance = Number(opening.qty || 0);
+    let totalIn = 0, totalOut = 0;
+    const rows = entries.map((e, i) => {
+      const inward = e.delta > 0 ? e.delta : 0;
+      const outward = e.delta < 0 ? -e.delta : 0;
+      totalIn += inward;
+      totalOut += outward;
+      balance += e.delta;
+      return { sr: i + 1, date: e.date, ref: e.ref, desc: e.desc, inward, outward, balance };
+    });
+    return { opening, rows, totalIn, totalOut, closing: balance };
+  }, [selectedLedgerItem, itemLedger, openingStock]);
   const ledgerRows = useMemo(() => {
     const q = ledgerFilter.trim().toLowerCase();
     const rows = q ? itemLedger.filter(e => e.item.trim().toLowerCase().includes(q)) : itemLedger;
@@ -492,6 +533,20 @@ function App() {
       .filter(n => !isNaN(n));
     const next = (nums.length ? Math.max(...nums) : 0) + 1;
     return "CH-" + String(next).padStart(4, "0");
+  };
+
+  const startEditOpening = () => {
+    setOpeningForm({ qty: openingEntry ? String(openingEntry.qty) : "0", date: openingEntry ? (openingEntry.date || today()) : today() });
+    setOpeningEditing(true);
+  };
+  const cancelEditOpening = () => setOpeningEditing(false);
+  const saveOpeningStock = () => {
+    if (!selectedLedgerItem) return;
+    const key = selectedLedgerItem.trim().toLowerCase();
+    const qty = Number(openingForm.qty || 0);
+    const date = openingForm.date || today();
+    persist((current) => ({ ...current, openingStock: { ...current.openingStock, [key]: { item: selectedLedgerItem, qty, date, updatedBy: userName, updatedAt: today() } } }));
+    setOpeningEditing(false);
   };
 
   const addRowToChallan = () => {
@@ -1640,36 +1695,108 @@ function App() {
         <div style={{display:"flex",alignItems:"center",gap:"10px",marginBottom:"14px",flexWrap:"wrap"}}>
           <input
             value={ledgerFilter}
-            onChange={e => setLedgerFilter(e.target.value)}
-            placeholder="🔍 Filter by item / SKU — leave blank for all items"
+            onChange={e => { setLedgerFilter(e.target.value); setOpeningEditing(false); }}
+            placeholder="🔍 Type an exact item / SKU to view its opening-stock ledger…"
             style={{...inputStyle, maxWidth:"380px"}}
             list="ledger-item-options"
           />
           <datalist id="ledger-item-options">
-            {stock.map(s => <option key={s.id} value={s.item} />)}
+            {knownLedgerItems.map(n => <option key={n} value={n} />)}
           </datalist>
-          {ledgerFilter.trim() && <button onClick={() => setLedgerFilter("")} style={{...iconBtn, padding:"5px 10px", fontSize:"12px"}}>✕ Clear</button>}
-          <span style={{fontSize:"11px",color:"var(--text-dim)"}}>{ledgerRows.length} entr{ledgerRows.length === 1 ? "y" : "ies"} · Paint/Purchase adds (+), Dispatch issues (−)</span>
+          {ledgerFilter.trim() && <button onClick={() => { setLedgerFilter(""); setOpeningEditing(false); }} style={{...iconBtn, padding:"5px 10px", fontSize:"12px"}}>✕ Clear</button>}
+          {!selectedLedgerItem && <span style={{fontSize:"11px",color:"var(--text-dim)"}}>{ledgerRows.length} entr{ledgerRows.length === 1 ? "y" : "ies"} · Paint/Purchase adds (+), Dispatch issues (−)</span>}
         </div>
-        <div style={{background:"var(--panel)",border:"1px solid var(--line)",borderRadius:"6px",overflow:"auto"}}>
+
+        {selectedLedgerItem && ledgerStatement && (
+          <div style={{background:"var(--panel)",border:"1px solid var(--line)",borderRadius:"6px",overflow:"hidden",marginBottom:"14px"}}>
+            <div style={{background:"#101828",color:"#fff",padding:"10px 14px",fontWeight:700,fontSize:"14px",letterSpacing:"0.3px"}}>{selectedLedgerItem}</div>
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:"10px",padding:"10px 14px",borderBottom:"1px solid var(--line)",background:"var(--panel2)"}}>
+              <div style={{display:"flex",alignItems:"center",gap:"10px",flexWrap:"wrap"}}>
+                <span style={{fontWeight:700,fontSize:"12px",textTransform:"uppercase",letterSpacing:"0.5px",color:"var(--text-dim)"}}>Opening Stock</span>
+                {!openingEditing ? (
+                  <>
+                    <span className="mono" style={{fontWeight:700,fontSize:"14px"}}>{ledgerStatement.opening.qty}</span>
+                    {ledgerStatement.opening.date && <span style={{fontSize:"11px",color:"var(--text-dim)"}}>as of {fmtDate(ledgerStatement.opening.date)}</span>}
+                    <button onClick={startEditOpening} style={iconBtnSmall}>✎ Edit</button>
+                  </>
+                ) : (
+                  <>
+                    <input type="number" value={openingForm.qty} onChange={e => setOpeningForm({...openingForm, qty:e.target.value})} style={{...inputStyle, width:"90px"}} />
+                    <input type="date" value={openingForm.date} onChange={e => setOpeningForm({...openingForm, date:e.target.value})} style={{...inputStyle, width:"150px"}} />
+                    <button onClick={saveOpeningStock} style={{...iconBtnSmall, background:"var(--red)", color:"#fff", borderColor:"var(--red)"}}>Save</button>
+                    <button onClick={cancelEditOpening} style={iconBtnSmall}>Cancel</button>
+                  </>
+                )}
+              </div>
+              <span style={{fontSize:"11px",color:"var(--text-dim)"}}>{ledgerStatement.rows.length} entr{ledgerStatement.rows.length === 1 ? "y" : "ies"}</span>
+            </div>
+            <div style={{overflow:"auto"}}>
+              <table style={{width:"100%",borderCollapse:"collapse",fontSize:"12px"}}>
+                <thead>
+                  <tr style={{background:"var(--panel2)",textAlign:"left"}}>
+                    <th style={{padding:"5px 8px"}}>Sr No</th>
+                    <th style={{padding:"5px 8px",whiteSpace:"nowrap"}}>Date</th>
+                    <th style={{padding:"5px 8px"}}>Reference No</th>
+                    <th style={{padding:"5px 8px"}}>Description</th>
+                    <th style={{padding:"5px 8px",textAlign:"right"}}>Inward</th>
+                    <th style={{padding:"5px 8px",textAlign:"right"}}>Outward</th>
+                    <th style={{padding:"5px 8px",textAlign:"right"}}>Balance</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {ledgerStatement.rows.length === 0 && <tr><td colSpan={7} style={{padding:"14px",textAlign:"center",color:"var(--text-dim)"}}>
+                    No ledger entries for "{selectedLedgerItem}"{ledgerStatement.opening.date ? ` since ${fmtDate(ledgerStatement.opening.date)}` : ""}.
+                  </td></tr>}
+                  {ledgerStatement.rows.map(r => (
+                    <tr key={r.sr} className="mono" style={{borderTop:"1px solid var(--line)"}}>
+                      <td style={{padding:"4px 8px",color:"var(--text-dim)"}}>{r.sr}</td>
+                      <td style={{padding:"4px 8px",whiteSpace:"nowrap",color:"var(--text-dim)"}}>{fmtDate(r.date)}</td>
+                      <td style={{padding:"4px 8px",color:"var(--text-dim)"}}>{r.ref || "—"}</td>
+                      <td style={{padding:"4px 8px"}}>{r.desc || "—"}</td>
+                      <td style={{padding:"4px 8px",textAlign:"right",color:"var(--green)",fontWeight:600}}>{r.inward ? r.inward : ""}</td>
+                      <td style={{padding:"4px 8px",textAlign:"right",color:"var(--red)",fontWeight:600}}>{r.outward ? r.outward : ""}</td>
+                      <td style={{padding:"4px 8px",textAlign:"right",fontWeight:700}}>{r.balance}</td>
+                    </tr>
+                  ))}
+                </tbody>
+                {ledgerStatement.rows.length > 0 && <tfoot>
+                  <tr className="mono" style={{borderTop:"2px solid var(--line)",background:"var(--panel2)",fontWeight:700}}>
+                    <td colSpan={4} style={{padding:"5px 8px"}}>TOTAL</td>
+                    <td style={{padding:"5px 8px",textAlign:"right",color:"var(--green)"}}>{ledgerStatement.totalIn}</td>
+                    <td style={{padding:"5px 8px",textAlign:"right",color:"var(--red)"}}>{ledgerStatement.totalOut}</td>
+                    <td style={{padding:"5px 8px",textAlign:"right"}}>{ledgerStatement.closing}</td>
+                  </tr>
+                </tfoot>}
+              </table>
+            </div>
+          </div>
+        )}
+
+        {!selectedLedgerItem && ledgerFilter.trim() && (
+          <div style={{background:"var(--panel)",border:"1px solid var(--line)",borderRadius:"6px",padding:"12px 14px",fontSize:"12.5px",color:"var(--text-dim)",marginBottom:"14px"}}>
+            No item named exactly "{ledgerFilter.trim()}" — pick a match from the dropdown to see its opening-stock ledger. Showing entries containing that text below.
+          </div>
+        )}
+
+        {!selectedLedgerItem && <div style={{background:"var(--panel)",border:"1px solid var(--line)",borderRadius:"6px",overflow:"auto"}}>
           <table style={{width:"100%",borderCollapse:"collapse",fontSize:"12px"}}>
             <thead>
               <tr style={{background:"var(--panel2)",textAlign:"left"}}>
                 <th style={{padding:"5px 8px",whiteSpace:"nowrap"}}>Date</th>
-                {!ledgerFilter.trim() && <th style={{padding:"5px 8px"}}>Item</th>}
+                <th style={{padding:"5px 8px"}}>Item</th>
                 <th style={{padding:"5px 8px"}}>Type</th>
                 <th style={{padding:"5px 8px"}}>Ref</th>
                 <th style={{padding:"5px 8px",textAlign:"right"}}>Qty</th>
               </tr>
             </thead>
             <tbody>
-              {ledgerRows.length === 0 && <tr><td colSpan={ledgerFilter.trim() ? 4 : 5} style={{padding:"14px",textAlign:"center",color:"var(--text-dim)"}}>
+              {ledgerRows.length === 0 && <tr><td colSpan={5} style={{padding:"14px",textAlign:"center",color:"var(--text-dim)"}}>
                 No ledger entries{ledgerFilter.trim() ? ` for "${ledgerFilter}"` : ""}.
               </td></tr>}
               {ledgerRows.map((e, i) => (
                 <tr key={i} className="mono" style={{borderTop:"1px solid var(--line)"}}>
                   <td style={{padding:"4px 8px",whiteSpace:"nowrap",color:"var(--text-dim)"}}>{fmtDate(e.date)}</td>
-                  {!ledgerFilter.trim() && <td style={{padding:"4px 8px",fontWeight:600}}>{e.item}</td>}
+                  <td style={{padding:"4px 8px",fontWeight:600}}>{e.item}</td>
                   <td style={{padding:"4px 8px",color: e.delta >= 0 ? "var(--green)" : "var(--red)"}}>{e.type}</td>
                   <td style={{padding:"4px 8px",color:"var(--text-dim)"}}>{e.ref || "—"}</td>
                   <td style={{padding:"4px 8px",textAlign:"right",fontWeight:600,color: e.delta >= 0 ? "var(--green)" : "var(--red)"}}>{e.delta >= 0 ? "+" : ""}{e.delta}</td>
@@ -1677,7 +1804,7 @@ function App() {
               ))}
             </tbody>
           </table>
-        </div>
+        </div>}
       </div>}
 
       {tab === "packing" && <div>
