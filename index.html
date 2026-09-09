@@ -11,14 +11,14 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
 <style>
   :root{
-    --bg:#F6F5F3;
-    --ink:#111111; --ink-soft:#4B4B4B; --ink-faint:#93908C;
-    --card:#ffffff; --card-border:rgba(17,17,17,0.08);
-    --navy:#171717; --navy-deep:#000000; --navy-glow:rgba(0,0,0,0.28);
-    --orange:#E5322D; --orange-deep:#9C1712; --orange-glow:rgba(229,50,45,0.38);
+    --bg:#FAFAFA;
+    --ink:#0A0A0A; --ink-soft:#454545; --ink-faint:#8B8B8B;
+    --card:#ffffff; --card-border:rgba(0,0,0,0.08);
+    --navy:#141414; --navy-deep:#000000; --navy-glow:rgba(0,0,0,0.32);
+    --orange:#FF2A2A; --orange-deep:#A30000; --orange-glow:rgba(255,42,42,0.42);
     --blue:#E5322D;
-    --glass:rgba(255,255,255,0.6); --glass-border:rgba(255,255,255,0.7);
-    --line:rgba(17,17,17,0.09);
+    --glass:rgba(255,255,255,0.6); --glass-border:rgba(255,255,255,0.75);
+    --line:rgba(0,0,0,0.09);
   }
   *{box-sizing:border-box;}
   html{scroll-behavior:smooth;}
@@ -31,18 +31,22 @@
 
   /* ---------- ambient background ---------- */
   .ambient{position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden;}
-  .orb{position:absolute;border-radius:50%;filter:blur(76px);opacity:.45;}
-  .orb.o1{width:560px;height:560px;top:-200px;left:-160px;background:radial-gradient(circle,var(--navy) 0%,transparent 70%);opacity:.15;}
-  .orb.o2{width:480px;height:480px;top:100px;right:-180px;background:radial-gradient(circle,var(--orange) 0%,transparent 70%);opacity:.22;}
-  .orb.o3{width:420px;height:420px;bottom:-200px;left:28%;background:radial-gradient(circle,var(--blue) 0%,transparent 70%);opacity:.13;}
+  .orb{position:absolute;border-radius:50%;filter:blur(76px);opacity:.45;animation:drift 12s ease-in-out infinite;}
+  .orb.o1{width:560px;height:560px;top:-200px;left:-160px;background:radial-gradient(circle,var(--navy) 0%,transparent 70%);opacity:.15;animation-duration:14s;}
+  .orb.o2{width:480px;height:480px;top:100px;right:-180px;background:radial-gradient(circle,var(--orange) 0%,transparent 70%);opacity:.24;animation-duration:11s;animation-delay:-3s;}
+  .orb.o3{width:420px;height:420px;bottom:-200px;left:28%;background:radial-gradient(circle,var(--navy) 0%,transparent 70%);opacity:.13;animation-duration:17s;animation-delay:-7s;}
   .blueprint{position:absolute;inset:0;opacity:.5;
-    background-image:linear-gradient(rgba(17,17,17,.035) 1px,transparent 1px),linear-gradient(90deg,rgba(17,17,17,.035) 1px,transparent 1px);
+    background-image:linear-gradient(rgba(0,0,0,.035) 1px,transparent 1px),linear-gradient(90deg,rgba(0,0,0,.035) 1px,transparent 1px);
     background-size:42px 42px;mask-image:radial-gradient(ellipse 70% 55% at 50% 0%,#000 30%,transparent 78%);}
   .grain{position:absolute;inset:0;background:radial-gradient(circle at 50% 0%,rgba(255,255,255,.55),transparent 60%);}
 
   .wrap{position:relative;z-index:1;max-width:1200px;margin:0 auto;padding:24px 24px 0;}
 
   @keyframes rise{from{opacity:0;transform:translateY(14px);}to{opacity:1;transform:translateY(0);}}
+  @keyframes drift{0%,100%{transform:translate(0,0);}50%{transform:translate(22px,-18px);}}
+  @keyframes pulseRing{0%{box-shadow:0 0 0 0 var(--ring-color,rgba(255,42,42,.55));}70%{box-shadow:0 0 0 9px rgba(255,42,42,0);}100%{box-shadow:0 0 0 0 rgba(255,42,42,0);}}
+  @keyframes cardRise{from{opacity:0;transform:translateY(20px) scale(.96);}to{opacity:1;transform:translateY(0) scale(1);}}
+  @keyframes iconPulse{0%{opacity:.6;transform:scale(1);}100%{opacity:0;transform:scale(1.7);}}
 
   /* ---------- nav ---------- */
   nav{display:flex;align-items:center;justify-content:space-between;margin-bottom:22px;
@@ -54,7 +58,7 @@
   .nav-right{display:flex;align-items:center;gap:8px;font-size:11.5px;font-weight:600;color:var(--ink-soft);
     padding:8px 14px;background:var(--glass);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
     border:1px solid var(--glass-border);border-radius:100px;}
-  .nav-right .dot{width:6px;height:6px;border-radius:50%;background:#1DAA5C;box-shadow:0 0 6px rgba(29,170,92,.6);}
+  .nav-right .dot{width:6px;height:6px;border-radius:50%;background:#1DAA5C;--ring-color:rgba(29,170,92,.55);animation:pulseRing 2s ease-out infinite;}
   @media(max-width:560px){.nav-right span.txt{display:none;}}
 
   /* ---------- hero ---------- */
@@ -62,7 +66,7 @@
   .kicker{display:inline-flex;align-items:center;gap:7px;font-size:10.5px;letter-spacing:2.2px;font-weight:700;color:var(--ink-soft);
     text-transform:uppercase;padding:6px 14px;background:var(--glass);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);
     border:1px solid var(--glass-border);border-radius:100px;margin-bottom:14px;box-shadow:0 1px 2px rgba(11,24,41,.04);}
-  .kicker .pulse{width:6px;height:6px;border-radius:50%;background:var(--orange);box-shadow:0 0 8px var(--orange-glow);}
+  .kicker .pulse{width:6px;height:6px;border-radius:50%;background:var(--orange);--ring-color:var(--orange-glow);animation:pulseRing 1.8s ease-out infinite;}
   .hero h1{margin:0 0 8px;font-size:30px;font-weight:700;color:var(--ink);letter-spacing:-1px;line-height:1.15;}
   .hero h1 span{color:var(--ink-faint);font-weight:600;}
   .hero p{margin:0 auto;max-width:560px;font-size:13.5px;color:var(--ink-soft);line-height:1.55;font-weight:400;}
@@ -82,30 +86,54 @@
   .card{
     border-radius:16px;padding:16px 18px;text-decoration:none;
     display:flex;flex-direction:column;justify-content:space-between;gap:12px;
-    transition:transform .35s cubic-bezier(.22,1,.36,1),box-shadow .35s cubic-bezier(.22,1,.36,1);
+    transition:transform .4s cubic-bezier(.22,1,.36,1),box-shadow .4s cubic-bezier(.22,1,.36,1),background-position .75s ease;
     position:relative;overflow:hidden;min-height:150px;min-width:0;
+    animation:cardRise .55s cubic-bezier(.22,1,.36,1) both;
   }
-  .card:hover{transform:translateY(-3px);}
+  .grid .card:nth-child(1){animation-delay:.05s;}
+  .grid .card:nth-child(2){animation-delay:.11s;}
+  .grid .card:nth-child(3){animation-delay:.17s;}
+  .grid .card:nth-child(4){animation-delay:.23s;}
+  .grid .card:nth-child(5){animation-delay:.29s;}
+  .grid .card:nth-child(6){animation-delay:.35s;}
+  .grid .card:nth-child(7){animation-delay:.41s;}
+  .card:hover{transform:translateY(-6px) scale(1.015);}
   .card-main{display:flex;flex-direction:column;align-items:flex-start;gap:10px;flex:1;min-width:0;position:relative;z-index:1;}
   .card-text{min-width:0;}
   .card-text p{overflow-wrap:break-word;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
   .card-bottom{min-width:0;width:100%;justify-content:space-between;}
 
   .card.neutral{
-    background:linear-gradient(180deg,rgba(255,255,255,.94),rgba(255,255,255,.72));
+    background-color:#fff;
+    background-image:linear-gradient(180deg,rgba(255,255,255,.97),rgba(255,255,255,.86)),
+      linear-gradient(120deg,transparent 42%,rgba(255,42,42,.16) 50%,transparent 58%);
+    background-size:100% 100%,240% 240%;
+    background-position:0 0,-160% -160%;
     border:1px solid var(--card-border);
-    box-shadow:0 1px 2px rgba(11,24,41,.04),0 24px 48px -24px rgba(11,24,41,.12);
+    box-shadow:0 1px 2px rgba(0,0,0,.05),0 24px 48px -24px rgba(0,0,0,.14);
     backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
   }
-  .card.neutral:hover{box-shadow:0 1px 2px rgba(11,24,41,.04),0 32px 60px -22px rgba(11,24,41,.18);}
+  .card.neutral:hover{background-position:0 0,160% 160%;box-shadow:0 1px 2px rgba(0,0,0,.05),0 34px 64px -20px rgba(0,0,0,.2);}
 
   .card.glow{color:#fff;}
-  .card.glow.navy{background:linear-gradient(155deg,#2E2E2E 0%,var(--navy-deep) 100%);
-    box-shadow:0 30px 60px -20px var(--navy-glow),inset 0 1px 0 rgba(255,255,255,.12);}
-  .card.glow.navy:hover{box-shadow:0 40px 80px -18px var(--navy-glow),inset 0 1px 0 rgba(255,255,255,.16);}
-  .card.glow.orange{background:linear-gradient(155deg,#F1544C 0%,var(--orange-deep) 100%);
-    box-shadow:0 30px 60px -20px var(--orange-glow),inset 0 1px 0 rgba(255,255,255,.25);}
-  .card.glow.orange:hover{box-shadow:0 40px 80px -18px var(--orange-glow),inset 0 1px 0 rgba(255,255,255,.3);}
+  .card.glow.navy{
+    background-color:#000;
+    background-image:linear-gradient(155deg,#282828 0%,var(--navy-deep) 100%),
+      linear-gradient(120deg,transparent 42%,rgba(255,255,255,.22) 50%,transparent 58%);
+    background-size:100% 100%,240% 240%;
+    background-position:0 0,-160% -160%;
+    box-shadow:0 30px 60px -20px var(--navy-glow),inset 0 1px 0 rgba(255,255,255,.12);
+  }
+  .card.glow.navy:hover{background-position:0 0,160% 160%;box-shadow:0 42px 84px -18px var(--navy-glow),inset 0 1px 0 rgba(255,255,255,.18);}
+  .card.glow.orange{
+    background-color:var(--orange-deep);
+    background-image:linear-gradient(155deg,#FF4A3D 0%,var(--orange-deep) 100%),
+      linear-gradient(120deg,transparent 42%,rgba(255,255,255,.3) 50%,transparent 58%);
+    background-size:100% 100%,240% 240%;
+    background-position:0 0,-160% -160%;
+    box-shadow:0 30px 60px -20px var(--orange-glow),inset 0 1px 0 rgba(255,255,255,.25);
+  }
+  .card.glow.orange:hover{background-position:0 0,160% 160%;box-shadow:0 42px 84px -18px var(--orange-glow),inset 0 1px 0 rgba(255,255,255,.3);}
   .card.glow::after{content:"";position:absolute;top:-40%;right:-20%;width:70%;height:70%;
     background:radial-gradient(circle,rgba(255,255,255,.22),transparent 70%);pointer-events:none;}
   .card::before{content:"";position:absolute;right:-30px;bottom:-30px;width:150px;height:150px;
@@ -113,9 +141,12 @@
     opacity:.5;pointer-events:none;}
   .card.glow::before{background-image:radial-gradient(rgba(255,255,255,.18) 1.4px,transparent 1.4px);}
 
-  .icon-box{width:36px;height:36px;border-radius:11px;display:flex;align-items:center;justify-content:center;flex:none;position:relative;z-index:1;}
+  .icon-box{width:36px;height:36px;border-radius:11px;display:flex;align-items:center;justify-content:center;flex:none;position:relative;z-index:1;transition:transform .35s cubic-bezier(.22,1,.36,1);}
   .icon-box svg{width:18px;height:18px;}
-  .card.neutral .icon-box{background:rgba(229,50,45,0.08);color:var(--orange-deep);}
+  .icon-box::after{content:"";position:absolute;inset:0;border-radius:inherit;border:1.5px solid currentColor;opacity:0;pointer-events:none;}
+  .card:hover .icon-box{transform:scale(1.08) rotate(-4deg);}
+  .card:hover .icon-box::after{animation:iconPulse .9s ease-out;}
+  .card.neutral .icon-box{background:rgba(255,42,42,0.08);color:var(--orange-deep);}
   .card.glow .icon-box{background:rgba(255,255,255,.18);backdrop-filter:blur(6px);border:1px solid rgba(255,255,255,.25);color:#fff;}
 
   .card h3{margin:0 0 4px;font-size:14.5px;font-weight:650;line-height:1.25;letter-spacing:-.2px;position:relative;z-index:1;}
@@ -126,13 +157,15 @@
 
   .card-bottom{margin-top:0;flex:none;display:flex;align-items:center;gap:10px;position:relative;z-index:1;}
   .tag{font-size:9px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;padding:4px 8px;border-radius:6px;}
-  .card.neutral .tag{color:var(--navy);background:rgba(229,50,45,0.08);}
+  .card.neutral .tag{color:var(--ink);background:rgba(255,42,42,0.08);}
   .card.glow .tag{color:#fff;background:rgba(255,255,255,.2);}
 
   .open-btn{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:650;
-    padding:7px 13px;border-radius:100px;transition:.2s ease;}
+    padding:7px 13px;border-radius:100px;transition:background .2s ease,box-shadow .2s ease,transform .2s ease;}
+  .open-btn i{display:inline-block;font-style:normal;transition:transform .3s cubic-bezier(.22,1,.36,1);}
+  .card:hover .open-btn i{transform:translateX(4px);}
   .card.neutral .open-btn{color:#fff;background:var(--ink);}
-  .card.neutral .open-btn:hover{background:var(--blue);box-shadow:0 8px 20px -6px rgba(229,50,45,.4);}
+  .card.neutral .open-btn:hover{background:var(--orange);box-shadow:0 8px 20px -6px rgba(255,42,42,.45);}
   .card.glow .open-btn{color:var(--ink);background:rgba(255,255,255,.92);}
   .card.glow .open-btn:hover{background:#fff;transform:translateY(-1px);}
 
@@ -200,7 +233,7 @@
       </div>
       <div class="card-bottom">
         <span class="tag">Internal</span>
-        <span class="open-btn">Open Portal →</span>
+        <span class="open-btn">Open Portal <i>→</i></span>
       </div>
     </a>
 
@@ -214,7 +247,7 @@
       </div>
       <div class="card-bottom">
         <span class="tag">Internal</span>
-        <span class="open-btn">Open Portal →</span>
+        <span class="open-btn">Open Portal <i>→</i></span>
       </div>
     </a>
 
@@ -228,7 +261,7 @@
       </div>
       <div class="card-bottom">
         <span class="tag">Internal</span>
-        <span class="open-btn">Open Portal →</span>
+        <span class="open-btn">Open Portal <i>→</i></span>
       </div>
     </a>
 
@@ -242,7 +275,7 @@
       </div>
       <div class="card-bottom">
         <span class="tag">Internal</span>
-        <span class="open-btn">Open Portal →</span>
+        <span class="open-btn">Open Portal <i>→</i></span>
       </div>
     </a>
 
@@ -256,11 +289,11 @@
       </div>
       <div class="card-bottom">
         <span class="tag">Internal</span>
-        <span class="open-btn">Open Portal →</span>
+        <span class="open-btn">Open Portal <i>→</i></span>
       </div>
     </a>
 
-    <a class="card neutral" href="dispatch-board.html">
+    <a class="card glow orange" href="dispatch-board.html">
       <div class="card-main">
         <div class="icon-box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9h18M3 9v10a1 1 0 0 0 1 1h16a1 1 0 0 0 1-1V9M3 9l3-6h12l3 6"></path><path d="M9 13h6"></path></svg></div>
         <div class="card-text">
@@ -270,11 +303,11 @@
       </div>
       <div class="card-bottom">
         <span class="tag">Internal</span>
-        <span class="open-btn">Open Portal →</span>
+        <span class="open-btn">Open Portal <i>→</i></span>
       </div>
     </a>
 
-    <a class="card glow orange" href="casting-control.html">
+    <a class="card glow navy" href="casting-control.html">
       <div class="card-main">
         <div class="icon-box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 20h18"></path><path d="M6 20V9l6-4 6 4v11"></path><path d="M10 20v-5h4v5"></path><path d="M9 12h.01M15 12h.01"></path></svg></div>
         <div class="card-text">
@@ -284,7 +317,7 @@
       </div>
       <div class="card-bottom">
         <span class="tag">Internal</span>
-        <span class="open-btn">Open Portal →</span>
+        <span class="open-btn">Open Portal <i>→</i></span>
       </div>
     </a>
 
