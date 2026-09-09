@@ -1,0 +1,2553 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>JAYCO Store Control</title>
+<style>:root{color-scheme:light dark}body{margin:0;font:14px system-ui}img{max-width:100%}[hidden]{display:none!important}</style>
+<style>:root{--logo-light:url("data:image/png;base64,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");--logo-dark:url("data:image/png;base64,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")}</style>
+<title>JAYCO Store Control</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<style>
+/* ============ TOKENS : dark-first industrial ============ */
+:root{
+  --bg:#0C0D0F; --panel:#14161A; --panel2:#1B1E24; --raise:#22262E;
+  --line:#282C34; --line-soft:#1E2229;
+  --txt:#E9EAEE; --txt2:#A2A8B4; --txt3:#6E7683;
+  --field:#0E1013; --field-line:#2E333C;
+  --brand:#E30016; --brand2:#FF3348; --brand-soft:rgba(227,0,22,.16); --on-brand:#fff;
+  --ok:#35B37E; --ok-soft:rgba(53,179,126,.16);
+  --warn:#F0A93B; --warn-soft:rgba(240,169,59,.16);
+  --crit:#FF6B5B; --crit-soft:rgba(255,107,91,.16);
+  --info:#5AA9E6; --info-soft:rgba(90,169,230,.16);
+  --shadow:0 10px 30px rgba(0,0,0,.45);
+  --logo:var(--logo-dark);
+  --rail:#101216;
+  --stripe:rgba(255,255,255,.022);
+}
+@media (prefers-color-scheme: light){
+  :root:not([data-theme="dark"]){
+    --bg:#EFF1F4; --panel:#FFFFFF; --panel2:#F6F7F9; --raise:#EDEFF3;
+    --line:#DCE0E7; --line-soft:#E9ECF1;
+    --txt:#12141A; --txt2:#59606C; --txt3:#8A919E;
+    --field:#FFFFFF; --field-line:#C9CFD9;
+    --brand-soft:rgba(227,0,22,.10);
+    --shadow:0 8px 24px rgba(16,20,28,.10);
+    --logo:var(--logo-light);
+    --rail:#FFFFFF;
+    --stripe:rgba(12,16,24,.022);
+  }
+}
+:root[data-theme="light"]{
+  --bg:#EFF1F4; --panel:#FFFFFF; --panel2:#F6F7F9; --raise:#EDEFF3;
+  --line:#DCE0E7; --line-soft:#E9ECF1;
+  --txt:#12141A; --txt2:#59606C; --txt3:#8A919E;
+  --field:#FFFFFF; --field-line:#C9CFD9;
+  --brand-soft:rgba(227,0,22,.10);
+  --shadow:0 8px 24px rgba(16,20,28,.10);
+  --logo:var(--logo-light);
+  --rail:#FFFFFF;
+  --stripe:rgba(12,16,24,.022);
+}
+
+*{box-sizing:border-box}
+body{
+  margin:0; background:var(--bg); color:var(--txt);
+  font-family:"IBM Plex Sans",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+  font-size:14px; line-height:1.45; -webkit-font-smoothing:antialiased;
+}
+h1,h2,h3,h4{font-family:"Barlow Condensed","IBM Plex Sans",sans-serif;margin:0;text-wrap:balance;letter-spacing:.01em}
+button,input,select,textarea{font-family:inherit;font-size:inherit;color:inherit}
+a{color:var(--brand2);text-decoration:none}
+:focus-visible{outline:2px solid var(--brand2);outline-offset:2px;border-radius:3px}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+
+/* ============ SHELL ============ */
+.app{display:grid;grid-template-columns:240px minmax(0,1fr);min-height:100vh}
+
+.rail{background:var(--rail);border-right:1px solid var(--line);display:flex;flex-direction:column;position:sticky;top:0;height:100vh;overflow-y:auto}
+.rail-head{padding:18px 16px 14px;border-bottom:1px solid var(--line);display:flex;flex-direction:column;gap:9px}
+.logo{width:132px;height:29px;background-image:var(--logo);background-size:contain;background-repeat:no-repeat;background-position:left center}
+.rail-sub{font-family:"Barlow Condensed",sans-serif;font-size:11.5px;letter-spacing:.18em;text-transform:uppercase;color:var(--txt3);font-weight:600}
+.nav{padding:10px 8px 24px;display:flex;flex-direction:column;gap:2px}
+.nav-grp{font-family:"Barlow Condensed",sans-serif;font-size:10.5px;letter-spacing:.17em;text-transform:uppercase;color:var(--txt3);font-weight:700;padding:16px 10px 6px}
+.nav-grp:first-child{padding-top:6px}
+.nav-i{display:flex;align-items:center;gap:9px;padding:7px 10px;border-radius:6px;color:var(--txt2);cursor:pointer;border:0;background:none;width:100%;text-align:left;font-size:13.5px;font-weight:500;position:relative;transition:background .12s,color .12s}
+.nav-i svg{width:15px;height:15px;flex:none;opacity:.8}
+.nav-i:hover{background:var(--panel2);color:var(--txt)}
+.nav-i.on{background:var(--brand-soft);color:var(--txt);font-weight:600}
+.nav-i.on::before{content:"";position:absolute;left:-8px;top:6px;bottom:6px;width:3px;border-radius:0 3px 3px 0;background:var(--brand)}
+.nav-i.on svg{opacity:1;color:var(--brand2)}
+.nav-i .badge{margin-left:auto;background:var(--crit-soft);color:var(--crit);font-size:10.5px;font-weight:700;padding:1px 6px;border-radius:20px;font-family:"IBM Plex Mono",monospace}
+
+.main{min-width:0;display:flex;flex-direction:column}
+.top{position:sticky;top:0;z-index:20;background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(10px);border-bottom:1px solid var(--line);padding:12px 22px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.top h1{font-size:23px;font-weight:700;letter-spacing:.005em;line-height:1.1}
+.top .sub{color:var(--txt3);font-size:12px;margin-top:1px}
+.top-r{margin-left:auto;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.opsel{display:flex;align-items:center;gap:6px;background:var(--panel);border:1px solid var(--line);border-radius:7px;padding:4px 8px}
+.opsel label{font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--txt3);font-weight:600;font-family:"Barlow Condensed",sans-serif}
+.opsel input{background:none;border:0;font-weight:600;font-size:13px;padding:2px 0;width:132px;border-radius:4px}
+.opsel input:focus{box-shadow:none;outline:1px solid var(--brand2)}
+.burger{display:none}
+.view{padding:20px 22px 60px;display:flex;flex-direction:column;gap:18px}
+
+/* ============ ATOMS ============ */
+.btn{display:inline-flex;align-items:center;gap:7px;background:var(--panel);border:1px solid var(--line);color:var(--txt);padding:7px 13px;border-radius:7px;cursor:pointer;font-weight:600;font-size:13px;white-space:nowrap;transition:border-color .12s,background .12s}
+.btn:hover{border-color:var(--field-line);background:var(--panel2)}
+.btn svg{width:14px;height:14px}
+.btn.pri{background:var(--brand);border-color:var(--brand);color:var(--on-brand)}
+.btn.pri:hover{background:var(--brand2);border-color:var(--brand2)}
+.btn.sm{padding:4px 9px;font-size:12px;border-radius:6px}
+.btn.gh{background:none}
+.btn.dang{color:var(--crit)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px}
+.card-h{padding:13px 16px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.card-h h3{font-size:16.5px;font-weight:700;letter-spacing:.02em}
+.card-h .hint{font-size:12px;color:var(--txt3)}
+.card-h .sp{margin-left:auto;display:flex;gap:7px;align-items:center;flex-wrap:wrap}
+.card-b{padding:16px}
+.card-b.flush{padding:0}
+
+.lbl{font-family:"Barlow Condensed",sans-serif;font-size:11px;letter-spacing:.15em;text-transform:uppercase;color:var(--txt3);font-weight:700}
+
+.pill{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;font-weight:600;padding:2px 8px;border-radius:20px;white-space:nowrap;line-height:1.55}
+.pill.ok{background:var(--ok-soft);color:var(--ok)}
+.pill.warn{background:var(--warn-soft);color:var(--warn)}
+.pill.crit{background:var(--crit-soft);color:var(--crit)}
+.pill.info{background:var(--info-soft);color:var(--info)}
+.pill.mute{background:var(--panel2);color:var(--txt3);border:1px solid var(--line)}
+.dot{width:6px;height:6px;border-radius:50%;background:currentColor;flex:none}
+
+.tag{font-family:"IBM Plex Mono",monospace;font-size:11.5px;color:var(--txt2);background:var(--panel2);border:1px solid var(--line-soft);padding:1px 6px;border-radius:4px}
+
+/* ============ STAT STRIP ============ */
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(168px,1fr));gap:12px}
+.stat{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:13px 15px;display:flex;flex-direction:column;gap:3px;position:relative;overflow:hidden}
+.stat .k{font-family:"Barlow Condensed",sans-serif;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--txt3);font-weight:700}
+.stat .v{font-size:27px;font-weight:700;font-family:"Barlow Condensed",sans-serif;font-variant-numeric:tabular-nums;line-height:1.05}
+.stat .n{font-size:11.5px;color:var(--txt3)}
+.stat.alert{border-color:color-mix(in srgb,var(--crit) 42%,var(--line))}
+.stat.alert .v{color:var(--crit)}
+.stat.warnst{border-color:color-mix(in srgb,var(--warn) 42%,var(--line))}
+.stat.warnst .v{color:var(--warn)}
+
+/* ============ TABLE ============ */
+.tw{overflow-x:auto;overflow-y:visible}
+table{border-collapse:collapse;width:100%;font-size:13px}
+thead th{position:sticky;top:0;background:var(--panel2);text-align:left;font-family:"Barlow Condensed",sans-serif;font-size:11px;letter-spacing:.13em;text-transform:uppercase;color:var(--txt3);font-weight:700;padding:9px 12px;border-bottom:1px solid var(--line);white-space:nowrap;z-index:2}
+tbody td{padding:8px 12px;border-bottom:1px solid var(--line-soft);vertical-align:middle;white-space:nowrap}
+tbody td.wrap{white-space:normal;min-width:180px}
+tbody tr:nth-child(even){background:var(--stripe)}
+tbody tr:hover{background:var(--panel2)}
+tbody tr:last-child td{border-bottom:0}
+td.num,th.num{text-align:right;font-variant-numeric:tabular-nums;font-family:"IBM Plex Mono",monospace}
+td.mono{font-family:"IBM Plex Mono",monospace;font-size:12px}
+td.act{text-align:right;white-space:nowrap}
+tfoot td{padding:9px 12px;border-top:1px solid var(--line);font-weight:700;background:var(--panel2);font-variant-numeric:tabular-nums}
+.empty{padding:36px 16px;text-align:center;color:var(--txt3);font-size:13px}
+.strong{font-weight:600;color:var(--txt)}
+
+/* ============ FORM ============ */
+.form{display:grid;grid-template-columns:repeat(auto-fit,minmax(178px,1fr));gap:12px 14px;align-items:end}
+.fld{display:flex;flex-direction:column;gap:5px;min-width:0}
+.fld.w2{grid-column:span 2}
+.fld.full{grid-column:1/-1}
+.fld label{font-family:"Barlow Condensed",sans-serif;font-size:11px;letter-spacing:.13em;text-transform:uppercase;color:var(--txt2);font-weight:700;display:flex;gap:5px;align-items:baseline}
+.fld label .req{color:var(--brand2)}
+input,select,textarea{background:var(--field);border:1px solid var(--field-line);border-radius:7px;padding:8px 10px;width:100%;transition:border-color .12s}
+input:focus,select:focus,textarea:focus{border-color:var(--brand2);outline:none;box-shadow:0 0 0 3px var(--brand-soft)}
+input[type=number]{font-family:"IBM Plex Mono",monospace;font-variant-numeric:tabular-nums}
+textarea{resize:vertical;min-height:60px}
+input:disabled,select:disabled{opacity:.6}
+.frow{display:flex;gap:9px;flex-wrap:wrap;align-items:center;margin-top:14px;padding-top:14px;border-top:1px solid var(--line-soft)}
+.frow .sp{margin-left:auto}
+.chk{display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer}
+.chk input{width:16px;height:16px;accent-color:var(--brand)}
+
+/* ============ MISC ============ */
+.bar{height:6px;background:var(--panel2);border-radius:4px;overflow:hidden;min-width:60px}
+.bar > i{display:block;height:100%;border-radius:4px;background:var(--brand)}
+.split{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px;align-items:start}
+.split3{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px;align-items:start}
+.tabs{display:flex;gap:4px;flex-wrap:wrap;background:var(--panel2);padding:4px;border-radius:8px;border:1px solid var(--line)}
+.tab{padding:6px 13px;border-radius:6px;border:0;background:none;cursor:pointer;font-weight:600;font-size:13px;color:var(--txt2)}
+.tab.on{background:var(--panel);color:var(--txt);box-shadow:var(--shadow)}
+.note{background:var(--panel2);border:1px solid var(--line);border-left:3px solid var(--info);border-radius:8px;padding:11px 14px;font-size:12.5px;color:var(--txt2);display:flex;gap:10px}
+.note.w{border-left-color:var(--warn)}
+.note.c{border-left-color:var(--crit)}
+.note b{color:var(--txt)}
+.srch{max-width:280px}
+.kv{display:flex;justify-content:space-between;gap:14px;padding:7px 0;border-bottom:1px dashed var(--line-soft);font-size:13px}
+.kv:last-child{border-bottom:0}
+.kv span:first-child{color:var(--txt2)}
+.kv span:last-child{font-weight:600;font-variant-numeric:tabular-nums;font-family:"IBM Plex Mono",monospace}
+
+/* modal */
+.ovl{position:fixed;inset:0;background:rgba(4,5,7,.62);backdrop-filter:blur(3px);z-index:100;display:flex;align-items:flex-start;justify-content:center;padding:34px 16px;overflow-y:auto}
+.modal{background:var(--panel);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);width:100%;max-width:640px;margin:auto 0}
+.modal.wide{max-width:900px}
+.modal-h{padding:14px 18px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:10px}
+.modal-h h3{font-size:18px;font-weight:700}
+.modal-h .x{margin-left:auto;background:none;border:0;color:var(--txt3);cursor:pointer;font-size:22px;line-height:1;padding:0 4px}
+.modal-b{padding:18px}
+
+/* toast */
+.toasts{position:fixed;right:18px;bottom:18px;z-index:300;display:flex;flex-direction:column;gap:8px;max-width:340px}
+.toast{background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--ok);border-radius:8px;padding:10px 14px;box-shadow:var(--shadow);font-size:13px;animation:sl .18s ease-out}
+.toast.err{border-left-color:var(--crit)}
+.toast.warn{border-left-color:var(--warn)}
+@keyframes sl{from{transform:translateY(6px);opacity:0}to{transform:none;opacity:1}}
+
+.banner{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:var(--warn-soft);border:1px solid color-mix(in srgb,var(--warn) 35%,transparent);color:var(--txt);border-radius:9px;padding:9px 14px;font-size:12.5px}
+.banner .sp{margin-left:auto}
+
+/* BOM list */
+.bom-line{display:grid;grid-template-columns:minmax(0,1fr) 92px 74px 34px;gap:9px;align-items:center;padding:6px 0;border-bottom:1px solid var(--line-soft)}
+.bom-line:last-of-type{border-bottom:0}
+.bom-line .nm{font-size:13px;min-width:0}
+.bom-line .nm small{display:block;color:var(--txt3);font-family:"IBM Plex Mono",monospace;font-size:11px}
+
+@media (max-width:900px){
+  .app{grid-template-columns:1fr}
+  .rail{position:fixed;left:0;top:0;bottom:0;width:250px;z-index:60;transform:translateX(-102%);transition:transform .2s ease;box-shadow:var(--shadow);height:100vh}
+  .rail.open{transform:none}
+  .burger{display:inline-flex}
+  .split{grid-template-columns:1fr}
+  .view{padding:16px 14px 60px}
+  .top{padding:11px 14px}
+  .top h1{font-size:20px}
+  .scrim{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:50}
+}
+/* print slip */
+#printarea{display:none}
+.slip{font-family:"IBM Plex Sans",sans-serif;color:#000;padding:14px 4px;max-width:760px}
+.slip h2{font-family:"Barlow Condensed",sans-serif;font-size:26px;margin:0}
+.slip .sh{display:flex;align-items:flex-start;gap:16px;border-bottom:2px solid #E30016;padding-bottom:10px;margin-bottom:14px}
+.slip .sh .lg{width:150px;height:33px;background-image:var(--logo-light);background-size:contain;background-repeat:no-repeat}
+.slip .sh .co{font-size:11px;color:#444;line-height:1.5}
+.slip .sh .rt{margin-left:auto;text-align:right}
+.slip table{width:100%;border-collapse:collapse;font-size:13px;margin-top:10px}
+.slip th,.slip td{border:1px solid #999;padding:6px 9px;text-align:left}
+.slip th{background:#f0f0f0;font-size:11px;letter-spacing:.1em;text-transform:uppercase}
+.slip .sg{display:flex;justify-content:space-between;margin-top:56px;font-size:12px}
+.slip .sg div{border-top:1px solid #666;padding-top:5px;width:180px;text-align:center}
+@media print{
+  .rail,.top,.no-print,.toasts,.ovl{display:none!important}
+  .app{display:block}
+  body{background:#fff;color:#000}
+  .card{border-color:#bbb;break-inside:avoid}
+  body.printing .app{display:none!important}
+  body.printing #printarea{display:block!important}
+}
+</style>
+
+</head>
+<body>
+<div class="app">
+  <aside class="rail" id="rail">
+    <div class="rail-head">
+      <div class="logo" role="img" aria-label="JAYCO Engineering India"></div>
+      <div class="rail-sub">Store Control System</div>
+    </div>
+    <nav class="nav" id="nav"></nav>
+  </aside>
+  <div class="main">
+    <header class="top">
+      <button class="btn gh burger" id="burger" aria-label="Menu">☰</button>
+      <div>
+        <h1 id="vtitle">Dashboard</h1>
+        <div class="sub" id="vsub"></div>
+      </div>
+      <div class="top-r">
+        <div class="opsel">
+          <label for="opsel">Operator</label>
+          <input id="opsel" type="text" spellcheck="false" autocomplete="off">
+        </div>
+        <button class="btn gh sm" id="theme" title="Switch theme">◐</button>
+      </div>
+    </header>
+    <main class="view" id="view"></main>
+  </div>
+</div>
+<div class="toasts" id="toasts"></div>
+<div id="modal-root"></div>
+<div id="printarea"></div>
+
+<script>
+/* ==========================================================================
+   JAYCO STORE CONTROL — data layer, seed masters, computed stock
+   ========================================================================== */
+(function () {
+'use strict';
+
+var KEY = 'jayco_store_v1', mem = null, persistOK = true, DB = null;
+
+function lsGet(){ try { return localStorage.getItem(KEY); } catch (e) { persistOK = false; return null; } }
+function lsSet(v){ try { localStorage.setItem(KEY, v); return true; } catch (e) { persistOK = false; return false; } }
+function save(){ var s = JSON.stringify(DB); mem = s; lsSet(s); }
+function load(){ var s = lsGet() || mem; if (!s) return null; try { return JSON.parse(s); } catch (e) { return null; } }
+
+/* ---------- small utils ---------- */
+function pad(n,w){ n = String(n); while (n.length < w) n = '0' + n; return n; }
+function today(){ var d = new Date(); return d.getFullYear()+'-'+pad(d.getMonth()+1,2)+'-'+pad(d.getDate(),2); }
+function daysAgo(n){ var d = new Date(); d.setDate(d.getDate()-n); return d.getFullYear()+'-'+pad(d.getMonth()+1,2)+'-'+pad(d.getDate(),2); }
+function fyCode(dstr){
+  var d = dstr ? new Date(dstr) : new Date(), y = d.getFullYear(), m = d.getMonth()+1;
+  var s = (m >= 4) ? y : y-1;
+  return String(s).slice(2) + String(s+1).slice(2);
+}
+function uid(p){ DB.meta.seq = (DB.meta.seq||0) + 1; return p + DB.meta.seq; }
+function docNo(prefix, arr){
+  var fy = fyCode(), n = 0;
+  arr.forEach(function(r){ if (r.no && r.no.indexOf('/'+fy+'/') > -1) n++; });
+  return prefix + '/' + fy + '/' + pad(n+1, 3);
+}
+function num(v){ v = parseFloat(v); return isFinite(v) ? v : 0; }
+function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){
+  return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+function inr(v){
+  v = num(v); var neg = v < 0; v = Math.abs(v);
+  var s = v.toFixed(2), p = s.split('.'), i = p[0], last3 = i.slice(-3), rest = i.slice(0,-3);
+  if (rest) last3 = rest.replace(/\B(?=(\d{2})+(?!\d))/g, ',') + ',' + last3;
+  return (neg?'-':'') + last3 + '.' + p[1];
+}
+function qty(v){ v = num(v); return (Math.round(v*1000)/1000).toString(); }
+function dmy(s){ if(!s) return ''; var p = String(s).split('-'); return p.length===3 ? p[2]+'-'+p[1]+'-'+p[0] : s; }
+function byId(arr, id){ for (var i=0;i<arr.length;i++) if (arr[i].id === id) return arr[i]; return null; }
+function nm(arr, id, f){ var o = byId(arr, id); return o ? o[f||'name'] : '—'; }
+
+/* ==========================================================================
+   SEED — masters reflect a Plummer block / bearing housing plant
+   ========================================================================== */
+function seed(){
+  var d = { meta:{ ver:1, seq:0, company:'JAYCO Engineering India', sample:true, theme:'' },
+    vendors:[], workers:[], tools:[], components:[], products:[],
+    toolIn:[], toolIssue:[], toolRet:[], compIn:[], prodEntry:[], dispatch:[] };
+  function sid(p){ d.meta.seq = (d.meta.seq||0) + 1; return p + d.meta.seq; }
+
+  var V = [
+    ['Shakti Tools & Abrasives','Odhav, Ahmedabad','24AABCS1429B1Z6','98250 11204','Drills, taps, abrasives'],
+    ['Precision Carbide Agency','Rakhial, Ahmedabad','24AACCP7712F1ZP','98795 44120','Carbide inserts, holders'],
+    ['Gujarat Machine Tool Supply','Vatva GIDC, Ahmedabad','24AAECG5580K1Z2','99042 88317','Cutters, gauges, spares'],
+    ['Anand Foundry Works','Rajkot','24AAFCA3391M1ZQ','94263 70055','Housing & cap castings'],
+    ['Krishna Fasteners & Hardware','Nadiad, Kheda','24AAJCK2044R1ZL','97250 61190','Bolts, nuts, washers'],
+    ['Shree Sai Seals & Polymers','Naroda, Ahmedabad','24AAKCS8827D1ZT','98240 33471','Seals, nipples, plates']
+  ];
+  V.forEach(function(v,i){ d.vendors.push({ id:'V'+(i+1), name:v[0], city:v[1], gstin:v[2], phone:v[3], supplies:v[4] }); });
+
+  var W = [
+    ['Mahesh Patel','CNC Turning','EMP-014'], ['Dinesh Solanki','VMC / Milling','EMP-021'],
+    ['Vijay Chauhan','Drilling & Tapping','EMP-033'], ['Arvind Rathod','Assembly','EMP-041'],
+    ['Sanjay Makwana','Fitting & Boring','EMP-052'], ['Ketan Barot','Paint Shop','EMP-060'],
+    ['Rakesh Vaghela','Store','EMP-002']
+  ];
+  W.forEach(function(w,i){ d.workers.push({ id:'W'+(i+1), name:w[0], dept:w[1], code:w[2] }); });
+
+  var T = [
+    ['DRL-060','HSS Drill 6.0 mm','Drill','Nos',20,58],
+    ['DRL-085','HSS Drill 8.5 mm','Drill','Nos',20,82],
+    ['DRL-102','HSS Drill 10.2 mm','Drill','Nos',15,104],
+    ['DRL-140','HSS Drill 14.0 mm','Drill','Nos',12,186],
+    ['DRL-175','HSS Drill 17.5 mm','Drill','Nos',10,272],
+    ['DRL-215','Cobalt Drill 21.5 mm','Drill','Nos',6,690],
+    ['TAP-M08','Tap Set M8 x 1.25 (3 pc)','Tap','Set',6,430],
+    ['TAP-M10','Tap Set M10 x 1.5 (3 pc)','Tap','Set',6,505],
+    ['TAP-M12','Tap Set M12 x 1.75 (3 pc)','Tap','Set',5,640],
+    ['TAP-M16','Tap Set M16 x 2.0 (3 pc)','Tap','Set',4,910],
+    ['TAP-M20','Machine Tap M20 x 2.5','Tap','Nos',4,1180],
+    ['INS-CNMG','Insert CNMG 120408 MA','Insert','Nos',40,252],
+    ['INS-DNMG','Insert DNMG 150608 PM','Insert','Nos',30,288],
+    ['INS-TNMG','Insert TNMG 160404 PF','Insert','Nos',25,266],
+    ['INS-WNMG','Insert WNMG 080408 MR','Insert','Nos',20,279],
+    ['INS-APKT','Insert APKT 1604 PDER (mill)','Insert','Nos',24,235],
+    ['HLD-MCLNR','Turning Holder MCLNR 2525 M12','Holder','Nos',2,3950],
+    ['HLD-BORE','Boring Bar S25S-MCLNR 12','Holder','Nos',2,4850],
+    ['MIL-EM12','End Mill 12 mm HSS 4F','Milling','Nos',8,715],
+    ['MIL-FC63','Face Mill Cutter 63 mm','Milling','Nos',1,5600],
+    ['RMR-20H7','Machine Reamer 20 H7','Reamer','Nos',4,1480],
+    ['ABR-CUT4','Cut-off Wheel 4 inch','Abrasive','Nos',50,42],
+    ['ABR-GRD7','Grinding Wheel 7 inch DC','Abrasive','Nos',12,168],
+    ['CDR-A3','Centre Drill A3','Drill','Nos',10,142],
+    ['GAG-VC200','Vernier Caliper 0-200 mm','Gauge','Nos',2,2450],
+    ['GAG-BG160','Bore Gauge 50-160 mm','Gauge','Nos',1,6900],
+    ['GAG-PLUG16','Thread Plug Gauge M16 GO/NOGO','Gauge','Nos',2,1950],
+    ['CON-COOL','Cutting Oil / Coolant','Consumable','Ltr',40,215]
+  ];
+  T.forEach(function(t,i){ d.tools.push({ id:'T'+pad(i+1,2), code:t[0], name:t[1], cat:t[2], unit:t[3], min:t[4], rate:t[5] }); });
+
+  var C = [];
+  function comp(code,name,type,unit,min,rate){ C.push([code,name,type,unit,min,rate]); }
+  [['508',330,225],['510',395,265],['513',470,318],['516',635,428],['517',700,470],['520',890,600]]
+  .forEach(function(s){
+    comp('CST-B'+s[0], 'Housing Base Casting SN '+s[0], 'Casting','Nos',25,s[1]);
+    comp('CST-C'+s[0], 'Housing Cap Casting SN '+s[0], 'Casting','Nos',25,s[2]);
+  });
+  comp('HW-BLT12','Hex Bolt M12 x 60 Gr 8.8','Hardware','Nos',300,15);
+  comp('HW-BLT16','Hex Bolt M16 x 70 Gr 8.8','Hardware','Nos',300,27);
+  comp('HW-BLT20','Hex Bolt M20 x 80 Gr 8.8','Hardware','Nos',150,46);
+  comp('HW-NUT12','Hex Nut M12','Hardware','Nos',300,4);
+  comp('HW-NUT16','Hex Nut M16','Hardware','Nos',300,7);
+  comp('HW-NUT20','Hex Nut M20','Hardware','Nos',150,12);
+  comp('HW-WSH12','Spring Washer M12','Hardware','Nos',300,2);
+  comp('HW-WSH16','Spring Washer M16','Hardware','Nos',300,3);
+  comp('HW-WSH20','Spring Washer M20','Hardware','Nos',150,5);
+  comp('HW-GRB08','Grub Screw M8 x 10','Hardware','Nos',200,3);
+  comp('HW-DWL10','Dowel Pin 10 x 30','Hardware','Nos',150,9);
+  ['508','510','513','516','517','520'].forEach(function(s,i){
+    comp('AC-SEAL'+s,'Seal Ring TSN '+s,'Accessory','Nos',60,[48,56,72,95,112,148][i]);
+  });
+  comp('AC-NIP18','Grease Nipple 1/8" BSP','Accessory','Nos',150,7);
+  comp('AC-PLATE','JAYCO Name Plate / Sticker','Accessory','Nos',300,4);
+  comp('AC-PRIMER','Red Oxide Primer','Accessory','Ltr',30,215);
+  comp('AC-ENAMEL','Enamel Paint — JAYCO Red','Accessory','Ltr',30,345);
+  comp('AC-THINR','Thinner','Accessory','Ltr',25,120);
+  comp('AC-BOX','Packing Carton','Accessory','Nos',150,23);
+  comp('AC-STRAP','Stretch Film / Strapping','Accessory','Kg',10,168);
+  C.forEach(function(c,i){ d.components.push({ id:'C'+pad(i+1,2), code:c[0], name:c[1], type:c[2], unit:c[3], min:c[4], rate:c[5] }); });
+
+  function cid(code){ for (var i=0;i<d.components.length;i++) if (d.components[i].code===code) return d.components[i].id; return null; }
+
+  var SZ = [
+    ['508','12',0.06,0.07], ['510','12',0.07,0.08], ['513','16',0.08,0.09],
+    ['516','16',0.10,0.11], ['517','16',0.11,0.12], ['520','20',0.14,0.15]
+  ];
+  SZ.forEach(function(s,i){
+    var sz = s[0], b = s[1];
+    d.products.push({
+      id:'P'+pad(i+1,2), code:'SN '+sz, name:'Plummer Block SN '+sz, series:'SN', size:sz, unit:'Nos',
+      bom:[
+        { c:cid('CST-B'+sz), q:1 }, { c:cid('CST-C'+sz), q:1 },
+        { c:cid('HW-BLT'+b), q:2 }, { c:cid('HW-NUT'+b), q:2 }, { c:cid('HW-WSH'+b), q:2 },
+        { c:cid('HW-GRB08'), q:2 }, { c:cid('HW-DWL10'), q:2 },
+        { c:cid('AC-SEAL'+sz), q:2 }, { c:cid('AC-NIP18'), q:1 }, { c:cid('AC-PLATE'), q:1 },
+        { c:cid('AC-PRIMER'), q:s[2] }, { c:cid('AC-ENAMEL'), q:s[3] }, { c:cid('AC-THINR'), q:0.04 },
+        { c:cid('AC-BOX'), q:1 }
+      ]
+    });
+  });
+
+  /* ---------- opening transactions (sample) ---------- */
+  var TI = [
+    [52,'V1','Bill','SA/1184',['T01',120],['T02',90],['T03',60]],
+    [45,'V2','Challan','PC/0912',['T12',300],['T13',200],['T14',150]],
+    [38,'V1','Bill','SA/1231',['T22',40],['T23',60],['T28',80]],
+    [31,'V3','Bill','GMT/2287',['T19',2],['T20',10],['T26',4]],
+    [24,'V2','Challan','PC/0988',['T15',120],['T16',80],['T17',3]],
+    [17,'V1','Bill','SA/1310',['T07',18],['T08',16],['T09',14],['T10',10]],
+    [10,'V3','Bill','GMT/2341',['T04',36],['T05',28],['T06',14]],
+    [44,'V1','Bill','SA/1149',['T18',20],['T21',8],['T25',1]]
+  ];
+  TI.forEach(function(r){
+    var v = r[1], dt = daysAgo(r[0]);
+    for (var i = 4; i < r.length; i++) {
+      var t = byId(d.tools, r[i][0]); if (!t) continue;
+      d.toolIn.push({ id:sid('ti'), no:'', date:dt, vendorId:v, docType:r[2], docNo:r[3],
+        toolId:t.id, qty:r[i][1], rate:t.rate, remarks:'', by:'Rakesh Vaghela' });
+    }
+  });
+  d.toolIn.forEach(function(r,i){ r.no = 'GRN/' + fyCode(r.date) + '/' + pad(i+1,3); });
+
+  var TIS = [
+    [40,'W1','T12',40,'CNC-01','SN 516 outer machining'], [38,'W3','T02',6,'RD-02','SN 510 bolt holes'],
+    [34,'W2','T18',3,'VMC-01','SN 513 cap facing'],       [30,'W1','T13',24,'CNC-02','SN 517 boring'],
+    [27,'W3','T08',2,'RD-01','M10 tapping'],              [24,'W5','T21',1,'BOR-01','Dowel hole reaming'],
+    [20,'W1','T14',20,'CNC-01','SN 520 turning'],         [17,'W2','T16',12,'VMC-02','Face milling'],
+    [13,'W3','T04',4,'RD-02','SN 516 cap drilling'],      [10,'W5','T09',1,'BOR-01','M12 tap'],
+    [7,'W1','T12',30,'CNC-01','SN 508 batch'],            [5,'W4','T22',6,'ASM-01','Deburring'],
+    [3,'W2','T18',2,'VMC-01','Slot milling'],             [2,'W3','T03',5,'RD-01','Grease hole'],
+    [1,'W1','T15',18,'CNC-02','SN 517 finishing']
+  ];
+  TIS.forEach(function(r){
+    d.toolIssue.push({ id:sid('is'), no:'', date:daysAgo(r[0]), workerId:r[1], toolId:r[2],
+      qty:r[3], machine:r[4], job:r[5], by:'Rakesh Vaghela', remarks:'' });
+  });
+  d.toolIssue.forEach(function(r,i){ r.no = 'ISS/' + fyCode(r.date) + '/' + pad(i+1,3); });
+
+  var RET = [ [0,36,0,3,'Regrind not possible'], [2,30,2,1,'Wear'], [3,28,20,4,''], [5,22,1,0,''],
+              [6,18,0,1,'Chipped'], [7,15,8,2,''], [8,11,3,1,''], [10,5,1,0,''], [11,5,0,1,'Broken tip'] ];
+  RET.forEach(function(r){
+    var iss = d.toolIssue[r[0]]; if (!iss) return;
+    d.toolRet.push({ id:sid('rt'), date:daysAgo(r[1]), issueId:iss.id, good:r[2], damaged:r[3],
+      remarks:r[4], by:'Rakesh Vaghela' });
+  });
+
+  d.components.forEach(function(c, i){
+    var base = c.type === 'Casting' ? 150 : (c.type === 'Hardware' ? 1200 : 700);
+    if (c.unit === 'Ltr' || c.unit === 'Kg') base = 80;
+    var q = Math.round(base * (0.7 + ((i * 37) % 60) / 100));
+    var v = c.type === 'Casting' ? 'V4' : (c.type === 'Hardware' ? 'V5' : 'V6');
+    d.compIn.push({ id:sid('ci'), no:'', date:daysAgo(28 - (i % 22)), vendorId:v, docType:'Challan',
+      docNo:(v==='V4'?'AFW/':(v==='V5'?'KFH/':'SSP/')) + pad(410 + i, 4),
+      componentId:c.id, qty:q, rate:c.rate, remarks:'Opening lot', by:'Rakesh Vaghela' });
+  });
+  d.compIn.forEach(function(r,i){ r.no = 'CRN/' + fyCode(r.date) + '/' + pad(i+1,3); });
+
+  var PR = [ [21,'P04',60,1], [18,'P02',80,2], [15,'P06',30,0], [11,'P03',55,1],
+             [8,'P01',90,2], [5,'P05',40,1], [2,'P04',45,0] ];
+  PR.forEach(function(r){
+    var p = byId(d.products, r[1]); if (!p) return;
+    d.prodEntry.push({ id:sid('pe'), no:'', date:daysAgo(r[0]), productId:p.id, ok:r[2], rej:r[3],
+      batch:'B-' + daysAgo(r[0]).replace(/-/g,'').slice(2), by:'Ketan Barot', remarks:'',
+      lines:p.bom.map(function(b){ return { c:b.c, q:+( b.q * (r[2]+r[3]) ).toFixed(3) }; }) });
+  });
+  d.prodEntry.forEach(function(r,i){ r.no = 'PNT/' + fyCode(r.date) + '/' + pad(i+1,3); });
+
+  var DS = [ [12,'Shree Balaji Cement Works, Sabarkantha','P02',40], [7,'Metro Agro Equipments, Rajkot','P04',35],
+             [3,'Unimech Power Projects, Vadodara','P01',50] ];
+  DS.forEach(function(r){
+    d.dispatch.push({ id:sid('dp'), no:'', date:daysAgo(r[0]), party:r[1], productId:r[2], qty:r[3],
+      poNo:'PO-' + pad(1100 + r[0], 4), remarks:'', by:'Rakesh Vaghela' });
+  });
+  d.dispatch.forEach(function(r,i){ r.no = 'DC/' + fyCode(r.date) + '/' + pad(i+1,3); });
+
+  return d;
+}
+
+/* ==========================================================================
+   COMPUTED STOCK
+   ========================================================================== */
+function toolReceived(id){ var s=0; DB.toolIn.forEach(function(r){ if(r.toolId===id) s+=num(r.qty); }); return s; }
+function toolIssued(id){ var s=0; DB.toolIssue.forEach(function(r){ if(r.toolId===id) s+=num(r.qty); }); return s; }
+function retFor(issueId){
+  var g=0,dm=0;
+  DB.toolRet.forEach(function(r){ if(r.issueId===issueId){ g+=num(r.good); dm+=num(r.damaged); } });
+  return { good:g, dmg:dm };
+}
+function toolReturnedGood(id){
+  var s=0;
+  DB.toolRet.forEach(function(r){ var i=byId(DB.toolIssue,r.issueId); if(i&&i.toolId===id) s+=num(r.good); });
+  return s;
+}
+function toolDamaged(id){
+  var s=0;
+  DB.toolRet.forEach(function(r){ var i=byId(DB.toolIssue,r.issueId); if(i&&i.toolId===id) s+=num(r.damaged); });
+  return s;
+}
+function toolStock(id){ return toolReceived(id) - toolIssued(id) + toolReturnedGood(id); }
+function issuePending(iss){ var r=retFor(iss.id); return num(iss.qty) - r.good - r.dmg; }
+function toolOnFloor(id){
+  var s=0; DB.toolIssue.forEach(function(r){ if(r.toolId===id) s+=issuePending(r); }); return s;
+}
+function compReceived(id){ var s=0; DB.compIn.forEach(function(r){ if(r.componentId===id) s+=num(r.qty); }); return s; }
+function compConsumed(id){
+  var s=0;
+  DB.prodEntry.forEach(function(p){ (p.lines||[]).forEach(function(l){ if(l.c===id) s+=num(l.q); }); });
+  return s;
+}
+function compStock(id){ return compReceived(id) - compConsumed(id); }
+function fgMade(id){ var s=0; DB.prodEntry.forEach(function(r){ if(r.productId===id) s+=num(r.ok); }); return s; }
+function fgOut(id){ var s=0; DB.dispatch.forEach(function(r){ if(r.productId===id) s+=num(r.qty); }); return s; }
+function fgStock(id){ return fgMade(id) - fgOut(id); }
+function bomCost(p){
+  var s=0; (p.bom||[]).forEach(function(b){ var c=byId(DB.components,b.c); if(c) s += num(c.rate)*num(b.q); });
+  return s;
+}
+function shortagesFor(productId, totalQty){
+  var p = byId(DB.products, productId), out = [];
+  if (!p) return out;
+  (p.bom||[]).forEach(function(b){
+    var c = byId(DB.components, b.c); if (!c) return;
+    var need = num(b.q) * num(totalQty), have = compStock(b.c);
+    if (need > have + 1e-9) out.push({ c:c, need:need, have:have, short:need-have });
+  });
+  return out;
+}
+
+/* ---------- boot ---------- */
+DB = load();
+if (!DB || !DB.tools) { DB = seed(); save(); }
+if (!DB.meta) DB.meta = { ver:1, seq:9999 };
+
+window.JS = {
+  get DB(){ return DB; }, set DB(v){ DB = v; },
+  save:save, seed:seed, persistOK:function(){ return persistOK; },
+  pad:pad, today:today, daysAgo:daysAgo, fyCode:fyCode, uid:uid, docNo:docNo,
+  num:num, esc:esc, inr:inr, qty:qty, dmy:dmy, byId:byId, nm:nm,
+  toolReceived:toolReceived, toolIssued:toolIssued, toolReturnedGood:toolReturnedGood,
+  toolDamaged:toolDamaged, toolStock:toolStock, toolOnFloor:toolOnFloor,
+  retFor:retFor, issuePending:issuePending,
+  compReceived:compReceived, compConsumed:compConsumed, compStock:compStock,
+  fgMade:fgMade, fgOut:fgOut, fgStock:fgStock, bomCost:bomCost, shortagesFor:shortagesFor
+};
+})();
+
+/* ==========================================================================
+   JAYCO STORE CONTROL — shell, navigation, Stage 1 (Workshop tool crib)
+   ========================================================================== */
+(function () {
+'use strict';
+var S = window.JS, DB = S.DB;
+var $ = function (s, r) { return (r || document).querySelector(s); };
+var $$ = function (s, r) { return Array.prototype.slice.call((r || document).querySelectorAll(s)); };
+
+/* ---------- icons ---------- */
+var I = {
+  dash:'<path d="M3 3h7v7H3zM14 3h7v4h-7zM14 10h7v11h-7zM3 13h7v8H3z"/>',
+  in:'<path d="M12 3v10M8 10l4 4 4-4M4 17v3h16v-3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>',
+  out:'<path d="M12 15V5M8 8l4-4 4 4M4 17v3h16v-3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>',
+  back:'<path d="M4 10a8 8 0 1 1 2 5M4 5v5h5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>',
+  box:'<path d="M12 2 3 7v10l9 5 9-5V7z M3 7l9 5 9-5M12 12v10" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>',
+  paint:'<path d="M4 4h13v6H4zM17 6h3v5l-5 3v3h-3v-5l5-3z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>',
+  truck:'<path d="M2 6h11v10H2zM13 9h4l4 4v3h-8z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><circle cx="6.5" cy="18" r="2" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="17" cy="18" r="2" fill="none" stroke="currentColor" stroke-width="1.8"/>',
+  bom:'<path d="M9 4h11M9 12h11M9 20h11M4 4h1M4 12h1M4 20h1" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>',
+  mast:'<path d="M4 5h16v4H4zM4 11h16v3H4zM4 16h16v3H4z" fill="none" stroke="currentColor" stroke-width="1.7"/>',
+  rpt:'<path d="M5 21V9M11 21V3M17 21v-7" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/>',
+  sys:'<path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M19.4 15a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-2.7 1.1v.3a2 2 0 1 1-4 0v-.2a1.6 1.6 0 0 0-2.8-1.1l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1A1.6 1.6 0 0 0 3.5 15a2 2 0 1 1 0-4h.2a1.6 1.6 0 0 0 1.1-2.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.6 1.6 0 0 0 2.8-1.1V4a2 2 0 1 1 4 0v.2a1.6 1.6 0 0 0 2.7 1.1l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.6 1.6 0 0 0 1.1 2.7h.3a2 2 0 1 1 0 4h-.2z" fill="none" stroke="currentColor" stroke-width="1.5"/>',
+  stk:'<path d="M3 8h18v13H3zM3 3h18v5H3zM10 13h4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>'
+};
+function ic(k){ return '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">' + I[k] + '</svg>'; }
+
+/* ---------- nav ---------- */
+var NAV = [
+  { g:'Overview', items:[ ['dash','Dashboard','dash'] ] },
+  { g:'Stage 1 · Workshop', items:[
+      ['tin','Tool Inward','in'], ['tiss','Issue to Worker','out'],
+      ['tret','Tool Return','back'], ['tstk','Tool Stock','stk'] ] },
+  { g:'Stage 2 · Assembly', items:[
+      ['cin','Component Inward','box'], ['prod','Paint Entry','paint'],
+      ['fg','Finished Goods','truck'], ['bom','Products & BOM','bom'] ] },
+  { g:'Setup & Records', items:[
+      ['mast','Masters','mast'], ['rpt','Reports','rpt'], ['sys','Backup & Data','sys'] ] }
+];
+
+var VIEWS = {}, cur = 'dash', state = {};
+window.JV = VIEWS;
+
+/* ---------- atoms ---------- */
+function tbl(cols, rows, opts){
+  opts = opts || {};
+  var h = '<div class="tw"><table' + (opts.id ? ' id="' + opts.id + '"' : '') + '><thead><tr>';
+  cols.forEach(function(c){ h += '<th' + (c.cls ? ' class="' + c.cls + '"' : '') + '>' + c.h + '</th>'; });
+  h += '</tr></thead><tbody>';
+  if (!rows.length) {
+    h += '<tr><td colspan="' + cols.length + '"><div class="empty">' + (opts.empty || 'No entries yet.') + '</div></td></tr>';
+  } else {
+    rows.forEach(function(r){
+      h += '<tr>';
+      r.forEach(function(cell, i){ h += '<td' + (cols[i].cls ? ' class="' + cols[i].cls + '"' : '') + '>' + cell + '</td>'; });
+      h += '</tr>';
+    });
+  }
+  h += '</tbody>';
+  if (opts.foot) {
+    h += '<tfoot><tr>';
+    opts.foot.forEach(function(cell, i){ h += '<td' + (cols[i].cls ? ' class="' + cols[i].cls + '"' : '') + '>' + cell + '</td>'; });
+    h += '</tr></tfoot>';
+  }
+  return h + '</table></div>';
+}
+function stat(k, v, n, cls){
+  return '<div class="stat ' + (cls||'') + '"><div class="k">' + k + '</div><div class="v">' + v + '</div>' +
+         (n ? '<div class="n">' + n + '</div>' : '') + '</div>';
+}
+function card(title, hint, body, actions, cls){
+  return '<section class="card ' + (cls||'') + '"><div class="card-h"><h3>' + title + '</h3>' +
+    (hint ? '<span class="hint">' + hint + '</span>' : '') +
+    (actions ? '<div class="sp">' + actions + '</div>' : '') + '</div>' +
+    '<div class="card-b' + (cls === 'flush' ? ' flush' : '') + '">' + body + '</div></section>';
+}
+function cardFlush(title, hint, body, actions){
+  return '<section class="card"><div class="card-h"><h3>' + title + '</h3>' +
+    (hint ? '<span class="hint">' + hint + '</span>' : '') +
+    (actions ? '<div class="sp">' + actions + '</div>' : '') + '</div>' +
+    '<div class="card-b flush">' + body + '</div></section>';
+}
+function opts(list, sel, labelFn){
+  return '<option value="">— select —</option>' + list.map(function(o){
+    return '<option value="' + o.id + '"' + (o.id === sel ? ' selected' : '') + '>' + S.esc(labelFn ? labelFn(o) : o.name) + '</option>';
+  }).join('');
+}
+function fld(id, label, input, cls){
+  return '<div class="fld ' + (cls||'') + '"><label for="' + id + '">' + label + '</label>' + input + '</div>';
+}
+function inp(id, type, extra){ return '<input id="' + id + '" type="' + type + '"' + (extra||'') + '>'; }
+function sel(id, html, extra){ return '<select id="' + id + '"' + (extra||'') + '>' + html + '</select>'; }
+function v(id){ var e = $('#' + id); return e ? e.value.trim() : ''; }
+function n(id){ return S.num(v(id)); }
+function setv(id, val){ var e = $('#' + id); if (e) e.value = val; }
+
+function toast(msg, kind){
+  var t = document.createElement('div');
+  t.className = 'toast ' + (kind || '');
+  t.textContent = msg;
+  $('#toasts').appendChild(t);
+  setTimeout(function(){ t.style.opacity = '0'; t.style.transition = 'opacity .25s'; setTimeout(function(){ t.remove(); }, 260); }, 2600);
+}
+function modal(title, body, wide){
+  $('#modal-root').innerHTML = '<div class="ovl" data-act="modal.close"><div class="modal' + (wide?' wide':'') +
+    '" data-stop="1"><div class="modal-h"><h3>' + title + '</h3><button class="x" data-act="modal.close" aria-label="Close">&times;</button></div>' +
+    '<div class="modal-b">' + body + '</div></div></div>';
+}
+function closeModal(){ $('#modal-root').innerHTML = ''; }
+window.JU = { tbl:tbl, stat:stat, card:card, cardFlush:cardFlush, opts:opts, fld:fld, inp:inp, sel:sel,
+  v:v, n:n, setv:setv, toast:toast, modal:modal, closeModal:closeModal, ic:ic, $:$, $$:$$,
+  state:state, get cur(){ return cur; } };
+
+/* ---------- router ---------- */
+function renderNav(){
+  var pend = 0;
+  DB.toolIssue.forEach(function(i){ if (S.issuePending(i) > 0) pend++; });
+  var lowT = DB.tools.filter(function(t){ return S.toolStock(t.id) < S.num(t.min); }).length;
+  var lowC = DB.components.filter(function(c){ return S.compStock(c.id) < S.num(c.min); }).length;
+  var badges = { tret: pend, tstk: lowT, cin: lowC };
+  var h = '';
+  NAV.forEach(function(g){
+    h += '<div class="nav-grp">' + g.g + '</div>';
+    g.items.forEach(function(it){
+      var b = badges[it[0]];
+      h += '<button class="nav-i' + (it[0] === cur ? ' on' : '') + '" data-act="go" data-id="' + it[0] + '">' +
+           ic(it[2]) + '<span>' + it[1] + '</span>' + (b ? '<span class="badge">' + b + '</span>' : '') + '</button>';
+    });
+  });
+  $('#nav').innerHTML = h;
+}
+function go(id){ cur = id; state.tab = null; render(); window.scrollTo(0, 0); }
+function render(){
+  var V = VIEWS[cur] || VIEWS.dash;
+  $('#vtitle').textContent = V.title;
+  $('#vsub').textContent = V.sub || '';
+  $('#view').innerHTML = V.html();
+  if (V.after) V.after();
+  renderNav();
+  $('#rail').classList.remove('open');
+  var sc = $('.scrim'); if (sc) sc.remove();
+}
+window.JR = { go:go, render:render, renderNav:renderNav };
+
+/* ---------- operator ---------- */
+function operator(){ return state.op || (DB.workers[0] ? DB.workers[0].name : 'Store'); }
+window.JU.operator = operator;
+function fillOperator(){
+  var s = $('#opsel');
+  var store = DB.workers.filter(function(w){ return /store/i.test(w.dept); })[0];
+  state.op = DB.meta.operator || (store || DB.workers[0] || {}).name || 'Storekeeper';
+  s.value = state.op;
+  s.title = 'Name stamped on every entry — click to change';
+  var upd = function(){
+    state.op = s.value.trim() || 'Storekeeper';
+    DB.meta.operator = state.op; S.save();
+  };
+  s.onchange = upd; s.onblur = upd;
+}
+
+/* ==========================================================================
+   DASHBOARD
+   ========================================================================== */
+VIEWS.dash = {
+  title:'Dashboard', sub:'Live position of both stores',
+  html:function(){
+    var lowTools = DB.tools.map(function(t){ return { t:t, s:S.toolStock(t.id) }; })
+      .filter(function(x){ return x.s < S.num(x.t.min); })
+      .sort(function(a,b){ return (a.s - a.t.min) - (b.s - b.t.min); });
+    var lowComp = DB.components.map(function(c){ return { c:c, s:S.compStock(c.id) }; })
+      .filter(function(x){ return x.s < S.num(x.c.min); })
+      .sort(function(a,b){ return (a.s - a.c.min) - (b.s - b.c.min); });
+
+    var pend = DB.toolIssue.map(function(i){ return { i:i, p:S.issuePending(i) }; })
+      .filter(function(x){ return x.p > 0; }).sort(function(a,b){ return a.i.date < b.i.date ? -1 : 1; });
+    var pendVal = 0; pend.forEach(function(x){ var t = S.byId(DB.tools, x.i.toolId); if (t) pendVal += x.p * S.num(t.rate); });
+
+    var m = S.today().slice(0, 7);
+    var buyVal = 0; DB.toolIn.forEach(function(r){ if (String(r.date).slice(0,7) === m) buyVal += S.num(r.qty) * S.num(r.rate); });
+    DB.compIn.forEach(function(r){ if (String(r.date).slice(0,7) === m) buyVal += S.num(r.qty) * S.num(r.rate); });
+
+    var made = 0, rej = 0;
+    DB.prodEntry.forEach(function(r){ if (String(r.date).slice(0,7) === m) { made += S.num(r.ok); rej += S.num(r.rej); } });
+    var fgTot = 0, fgVal = 0;
+    DB.products.forEach(function(p){ var s = S.fgStock(p.id); fgTot += s; fgVal += s * S.bomCost(p); });
+    var dmg = 0, issuedTot = 0;
+    DB.toolRet.forEach(function(r){ dmg += S.num(r.damaged); });
+    DB.toolIssue.forEach(function(r){ issuedTot += S.num(r.qty); });
+
+    var strip = '<div class="stats">' +
+      stat('Tools below min', lowTools.length, lowTools.length ? 'Reorder required' : 'All above minimum', lowTools.length ? 'alert' : '') +
+      stat('Not returned', pend.length, '₹' + S.inr(pendVal) + ' with workers', pend.length ? 'warnst' : '') +
+      stat('Components below min', lowComp.length, lowComp.length ? 'Assembly may stop' : 'Assembly covered', lowComp.length ? 'alert' : '') +
+      stat('FG in stock', S.qty(fgTot), '₹' + S.inr(fgVal) + ' at BOM cost') +
+      stat('Painted this month', S.qty(made), rej ? S.qty(rej) + ' rejected' : 'No rejections') +
+      stat('Purchases this month', '₹' + S.inr(buyVal), 'Tools + components') +
+      '</div>';
+
+    var reorder = tbl(
+      [{h:'Item'},{h:'Store',cls:'num'},{h:'Min',cls:'num'},{h:'Short by',cls:'num'},{h:'Value to buy',cls:'num'}],
+      lowTools.slice(0, 8).map(function(x){
+        var sh = S.num(x.t.min) - x.s;
+        return ['<span class="strong">' + S.esc(x.t.name) + '</span><br><span class="tag">' + S.esc(x.t.code) + '</span>',
+          S.qty(x.s), S.qty(x.t.min), '<span class="pill crit"><i class="dot"></i>' + S.qty(sh) + '</span>', '₹' + S.inr(sh * S.num(x.t.rate))];
+      }), { empty:'Every tool is above its minimum level.' });
+
+    var pendT = tbl(
+      [{h:'Issue No'},{h:'Worker'},{h:'Tool'},{h:'Pending',cls:'num'},{h:'Days out',cls:'num'},{h:'',cls:'act'}],
+      pend.slice(0, 8).map(function(x){
+        var days = Math.round((new Date(S.today()) - new Date(x.i.date)) / 86400000);
+        return ['<span class="tag">' + S.esc(x.i.no) + '</span>', S.esc(S.nm(DB.workers, x.i.workerId)),
+          S.esc(S.nm(DB.tools, x.i.toolId)), S.qty(x.p),
+          '<span class="pill ' + (days > 21 ? 'crit' : days > 10 ? 'warn' : 'mute') + '">' + days + '</span>',
+          '<button class="btn sm" data-act="tret.open" data-id="' + x.i.id + '">Receive</button>'];
+      }), { empty:'Nothing pending with workers.' });
+
+    var lowCompT = tbl(
+      [{h:'Component'},{h:'Type'},{h:'Stock',cls:'num'},{h:'Min',cls:'num'},{h:'Blocks',cls:''}],
+      lowComp.slice(0, 8).map(function(x){
+        var blocks = DB.products.filter(function(p){ return (p.bom||[]).some(function(b){ return b.c === x.c.id; }); })
+          .map(function(p){ return p.code; }).join(', ');
+        return ['<span class="strong">' + S.esc(x.c.name) + '</span><br><span class="tag">' + S.esc(x.c.code) + '</span>',
+          '<span class="pill mute">' + S.esc(x.c.type) + '</span>', S.qty(x.s), S.qty(x.c.min),
+          '<span style="font-size:12px;color:var(--txt2)">' + S.esc(blocks || '—') + '</span>'];
+      }), { empty:'All components above minimum.' });
+
+    var prodRows = DB.products.map(function(p){
+      var made30 = 0;
+      DB.prodEntry.forEach(function(r){ if (r.productId === p.id && r.date >= S.daysAgo(30)) made30 += S.num(r.ok); });
+      return { p:p, m:made30, s:S.fgStock(p.id) };
+    });
+    var maxM = Math.max.apply(null, prodRows.map(function(r){ return r.m; }).concat([1]));
+    var prodT = tbl(
+      [{h:'Model'},{h:'Painted · 30 days',cls:''},{h:'Qty',cls:'num'},{h:'FG stock',cls:'num'},{h:'Buildable now',cls:'num'}],
+      prodRows.map(function(r){
+        var can = Infinity;
+        (r.p.bom||[]).forEach(function(b){ if (S.num(b.q) > 0) can = Math.min(can, Math.floor(S.compStock(b.c) / S.num(b.q))); });
+        if (!isFinite(can)) can = 0;
+        return ['<span class="strong">' + S.esc(r.p.code) + '</span>',
+          '<div class="bar"><i style="width:' + Math.round(r.m / maxM * 100) + '%"></i></div>',
+          S.qty(r.m), S.qty(r.s),
+          '<span class="pill ' + (can <= 0 ? 'crit' : can < 20 ? 'warn' : 'ok') + '">' + can + '</span>'];
+      }));
+
+    var banner = DB.meta.sample ? '<div class="banner"><b>Sample data loaded.</b> Masters and transactions below are examples so you can see how the system behaves. ' +
+      '<span class="sp"><button class="btn sm" data-act="sys.clear">Clear sample data &amp; start fresh</button></span></div>' : '';
+    var noPersist = !S.persistOK() ? '<div class="note c"><div><b>Storage blocked in this window.</b> Entries will not survive a refresh here. Open the page directly (not inside a preview frame) or download the offline copy.</div></div>' : '';
+
+    return banner + noPersist + strip +
+      '<div class="split">' +
+        cardFlush('Reorder — Workshop Tools', lowTools.length + ' item(s) below minimum', reorder,
+          '<button class="btn sm" data-act="go" data-id="tstk">Full stock</button>') +
+        cardFlush('Tools Not Returned', pend.length + ' open issue(s)', pendT,
+          '<button class="btn sm" data-act="go" data-id="tret">Return desk</button>') +
+      '</div>' +
+      '<div class="split">' +
+        cardFlush('Component Shortage — Assembly', lowComp.length + ' item(s) below minimum', lowCompT,
+          '<button class="btn sm" data-act="go" data-id="cin">Book inward</button>') +
+        cardFlush('Production & Buildable Quantity', 'Last 30 days', prodT,
+          '<button class="btn sm pri" data-act="go" data-id="prod">Paint entry</button>') +
+      '</div>';
+  }
+};
+
+/* ==========================================================================
+   STAGE 1 — TOOL INWARD
+   ========================================================================== */
+VIEWS.tin = {
+  title:'Tool Inward', sub:'Stage 1 · receive drills, taps, inserts and machine tools against a vendor bill or challan',
+  html:function(){
+    var f =
+      '<div class="form">' +
+        fld('ti_date','Date <span class="req">*</span>', inp('ti_date','date',' value="' + S.today() + '"')) +
+        fld('ti_vendor','Vendor <span class="req">*</span>', sel('ti_vendor', opts(DB.vendors, state.tiVendor, function(o){ return o.name + ' — ' + o.city; }))) +
+        fld('ti_dtype','Document', sel('ti_dtype','<option>Bill</option><option>Challan</option><option>Cash Memo</option><option>Gate Pass</option>')) +
+        fld('ti_dno','Bill / Challan No <span class="req">*</span>', inp('ti_dno','text',' placeholder="SA/1366"')) +
+        fld('ti_tool','Item <span class="req">*</span>', sel('ti_tool', opts(DB.tools, '', function(o){ return o.code + ' · ' + o.name; })), 'w2') +
+        fld('ti_qty','Qty <span class="req">*</span>', inp('ti_qty','number',' min="0" step="0.001" placeholder="0"')) +
+        fld('ti_rate','Rate ₹', inp('ti_rate','number',' min="0" step="0.01" placeholder="0.00"')) +
+        fld('ti_rem','Remarks', inp('ti_rem','text',' placeholder="optional"'), 'w2') +
+      '</div>' +
+      '<div class="frow">' +
+        '<button class="btn pri" data-act="tin.save">Post inward entry</button>' +
+        '<button class="btn" data-act="tin.saveNext">Post &amp; add next item</button>' +
+        '<span class="hint sp" id="ti_calc" style="color:var(--txt3);font-size:12.5px"></span>' +
+      '</div>';
+
+    var rows = DB.toolIn.slice().sort(function(a,b){ return a.date < b.date ? 1 : -1; }).slice(0, 60).map(function(r){
+      var t = S.byId(DB.tools, r.toolId);
+      return ['<span class="tag">' + S.esc(r.no) + '</span>', S.dmy(r.date),
+        S.esc(S.nm(DB.vendors, r.vendorId)),
+        '<span class="tag">' + S.esc(r.docType || '') + ' ' + S.esc(r.docNo) + '</span>',
+        '<span class="strong">' + S.esc(t ? t.name : '—') + '</span>',
+        S.qty(r.qty) + ' <span style="color:var(--txt3)">' + S.esc(t ? t.unit : '') + '</span>',
+        S.inr(r.rate), S.inr(S.num(r.qty) * S.num(r.rate)),
+        '<button class="btn sm dang gh" data-act="tin.del" data-id="' + r.id + '">Delete</button>'];
+    });
+    var totVal = 0; DB.toolIn.forEach(function(r){ totVal += S.num(r.qty) * S.num(r.rate); });
+    var t = tbl([{h:'GRN No'},{h:'Date'},{h:'Vendor'},{h:'Bill / Challan'},{h:'Item'},{h:'Qty',cls:'num'},
+      {h:'Rate',cls:'num'},{h:'Value',cls:'num'},{h:'',cls:'act'}], rows,
+      { empty:'No tool inward entries yet.', foot:['','','','','Total received value','','','₹ ' + S.inr(totVal),''] });
+
+    return card('New Inward Entry', 'Vendor · challan / bill · item · qty', f) +
+      cardFlush('Inward Register', DB.toolIn.length + ' entries', t,
+        '<input class="srch" placeholder="Search vendor, bill, item…" data-search="tin-tbl" style="width:240px">');
+  },
+  after:function(){
+    var recalc = function(){
+      var q = n('ti_qty'), r = n('ti_rate');
+      $('#ti_calc').textContent = q && r ? 'Line value ₹ ' + S.inr(q * r) : '';
+    };
+    ['ti_qty','ti_rate'].forEach(function(id){ var e = $('#' + id); if (e) e.oninput = recalc; });
+    var ts = $('#ti_tool');
+    if (ts) ts.onchange = function(){ var t = S.byId(DB.tools, ts.value); if (t && !v('ti_rate')) setv('ti_rate', t.rate); recalc(); };
+    var tb = $('.tw table'); if (tb) tb.id = 'tin-tbl';
+  }
+};
+
+function tinSave(keepHeader){
+  var d = v('ti_date'), ven = v('ti_vendor'), dno = v('ti_dno'), tool = v('ti_tool'), q = n('ti_qty');
+  if (!d || !ven || !dno || !tool || q <= 0) { toast('Fill date, vendor, bill/challan no, item and quantity.', 'err'); return; }
+  var rec = { id:S.uid('ti'), no:S.docNo('GRN', DB.toolIn), date:d, vendorId:ven, docType:v('ti_dtype'),
+    docNo:dno, toolId:tool, qty:q, rate:n('ti_rate'), remarks:v('ti_rem'), by:operator() };
+  DB.toolIn.push(rec); S.save();
+  toast('Inward ' + rec.no + ' posted — ' + S.qty(q) + ' ' + S.nm(DB.tools, tool));
+  var keep = { d:d, ven:ven, dt:v('ti_dtype'), dno:dno };
+  render();
+  if (keepHeader) {
+    setv('ti_date', keep.d); setv('ti_vendor', keep.ven); setv('ti_dtype', keep.dt); setv('ti_dno', keep.dno);
+    var e = $('#ti_tool'); if (e) e.focus();
+  }
+}
+
+/* ==========================================================================
+   STAGE 1 — ISSUE TO WORKER
+   ========================================================================== */
+VIEWS.tiss = {
+  title:'Issue to Worker', sub:'Stage 1 · outward from tool crib against worker, machine and job',
+  html:function(){
+    var f =
+      '<div class="form">' +
+        fld('is_date','Date <span class="req">*</span>', inp('is_date','date',' value="' + S.today() + '"')) +
+        fld('is_worker','Worker <span class="req">*</span>', sel('is_worker', opts(DB.workers, '', function(o){ return o.name + ' (' + o.code + ') — ' + o.dept; })), 'w2') +
+        fld('is_tool','Tool <span class="req">*</span>', sel('is_tool', opts(DB.tools, '', function(o){ return o.code + ' · ' + o.name + '  [store: ' + S.qty(S.toolStock(o.id)) + ']'; })), 'w2') +
+        fld('is_qty','Qty <span class="req">*</span>', inp('is_qty','number',' min="0" step="0.001"')) +
+        fld('is_mc','Machine', inp('is_mc','text',' placeholder="CNC-01"')) +
+        fld('is_job','Job / Ref', inp('is_job','text',' placeholder="SN 516 outer machining"'), 'w2') +
+        fld('is_rem','Remarks', inp('is_rem','text',''), 'w2') +
+      '</div>' +
+      '<div class="frow"><button class="btn pri" data-act="tiss.save">Issue tool</button>' +
+      '<span class="sp" id="is_avail" style="font-size:12.5px;color:var(--txt3)"></span></div>';
+
+    var list = DB.toolIssue.slice().sort(function(a,b){ return a.date < b.date ? 1 : -1; }).slice(0, 60);
+    var rows = list.map(function(r){
+      var p = S.issuePending(r), rr = S.retFor(r.id), t = S.byId(DB.tools, r.toolId);
+      var st = p <= 0 ? '<span class="pill ok"><i class="dot"></i>Closed</span>'
+        : (rr.good + rr.dmg > 0 ? '<span class="pill warn"><i class="dot"></i>Part returned</span>'
+        : '<span class="pill crit"><i class="dot"></i>With worker</span>');
+      return ['<span class="tag">' + S.esc(r.no) + '</span>', S.dmy(r.date),
+        '<span class="strong">' + S.esc(S.nm(DB.workers, r.workerId)) + '</span>',
+        S.esc(t ? t.name : '—'), '<span class="tag">' + S.esc(r.machine || '—') + '</span>',
+        S.qty(r.qty), S.qty(rr.good), S.qty(rr.dmg), S.qty(p), st,
+        '<button class="btn sm" data-act="tiss.print" data-id="' + r.id + '">Slip</button> ' +
+        (p > 0 ? '<button class="btn sm" data-act="tret.open" data-id="' + r.id + '">Receive</button> ' : '') +
+        '<button class="btn sm dang gh" data-act="tiss.del" data-id="' + r.id + '">Del</button>'];
+    });
+    var t = tbl([{h:'Issue No'},{h:'Date'},{h:'Worker'},{h:'Tool'},{h:'Machine'},{h:'Issued',cls:'num'},
+      {h:'Good back',cls:'num'},{h:'Damaged',cls:'num'},{h:'Pending',cls:'num'},{h:'Status'},{h:'',cls:'act'}],
+      rows, { empty:'No issues recorded yet.' });
+
+    return card('Issue Tool', 'Store stock is checked before issue', f) +
+      cardFlush('Issue Register', DB.toolIssue.length + ' entries', t,
+        '<input class="srch" placeholder="Search worker, tool, machine…" data-search="tiss-tbl" style="width:250px">');
+  },
+  after:function(){
+    var ts = $('#is_tool');
+    if (ts) ts.onchange = function(){
+      var t = S.byId(DB.tools, ts.value);
+      $('#is_avail').textContent = t ? 'In store: ' + S.qty(S.toolStock(t.id)) + ' ' + t.unit +
+        ' · already on floor: ' + S.qty(S.toolOnFloor(t.id)) + ' · rate ₹' + S.inr(t.rate) : '';
+    };
+    var tb = $('.tw table'); if (tb) tb.id = 'tiss-tbl';
+  }
+};
+
+/* ==========================================================================
+   STAGE 1 — TOOL RETURN
+   ========================================================================== */
+VIEWS.tret = {
+  title:'Tool Return', sub:'Stage 1 · receive tools back — good tools re-enter store, damaged ones are written off',
+  html:function(){
+    var open = DB.toolIssue.filter(function(i){ return S.issuePending(i) > 0; })
+      .sort(function(a,b){ return a.date < b.date ? -1 : 1; });
+    var pre = state.retIssue || '';
+    var f =
+      '<div class="form">' +
+        fld('rt_iss','Open issue <span class="req">*</span>', sel('rt_iss', opts(open, pre, function(o){
+          return o.no + ' · ' + S.nm(DB.workers, o.workerId) + ' · ' + S.nm(DB.tools, o.toolId) + ' · pending ' + S.qty(S.issuePending(o)); })), 'w2') +
+        fld('rt_date','Date <span class="req">*</span>', inp('rt_date','date',' value="' + S.today() + '"')) +
+        fld('rt_good','Good — back to store', inp('rt_good','number',' min="0" step="0.001" value="0"')) +
+        fld('rt_dmg','Damaged / scrapped', inp('rt_dmg','number',' min="0" step="0.001" value="0"')) +
+        fld('rt_rem','Damage reason / remarks', inp('rt_rem','text',' placeholder="chipped, worn, broken tip…"'), 'w2') +
+      '</div>' +
+      '<div class="frow"><button class="btn pri" data-act="tret.save">Post return</button>' +
+      '<span class="sp" id="rt_info" style="font-size:12.5px;color:var(--txt3)"></span></div>';
+
+    var openRows = open.map(function(r){
+      var days = Math.round((new Date(S.today()) - new Date(r.date)) / 86400000);
+      return ['<span class="tag">' + S.esc(r.no) + '</span>', S.dmy(r.date),
+        '<span class="strong">' + S.esc(S.nm(DB.workers, r.workerId)) + '</span>',
+        S.esc(S.nm(DB.tools, r.toolId)), S.qty(S.issuePending(r)),
+        '<span class="pill ' + (days > 21 ? 'crit' : days > 10 ? 'warn' : 'mute') + '">' + days + ' d</span>',
+        '<button class="btn sm pri" data-act="tret.open" data-id="' + r.id + '">Receive</button>'];
+    });
+    var openT = tbl([{h:'Issue No'},{h:'Issued on'},{h:'Worker'},{h:'Tool'},{h:'Pending',cls:'num'},{h:'Age',cls:'num'},{h:'',cls:'act'}],
+      openRows, { empty:'Nothing is pending with any worker.' });
+
+    var retRows = DB.toolRet.slice().sort(function(a,b){ return a.date < b.date ? 1 : -1; }).slice(0, 50).map(function(r){
+      var iss = S.byId(DB.toolIssue, r.issueId) || {};
+      var rate = (S.byId(DB.tools, iss.toolId) || {}).rate || 0;
+      return [S.dmy(r.date), '<span class="tag">' + S.esc(iss.no || '—') + '</span>',
+        S.esc(S.nm(DB.workers, iss.workerId)), S.esc(S.nm(DB.tools, iss.toolId)),
+        S.qty(r.good), S.qty(r.damaged) + (S.num(r.damaged) > 0 ? ' <span class="pill crit">₹' + S.inr(S.num(r.damaged) * rate) + '</span>' : ''),
+        S.esc(r.remarks || '—'),
+        '<button class="btn sm dang gh" data-act="tret.del" data-id="' + r.id + '">Del</button>'];
+    });
+    var retT = tbl([{h:'Date'},{h:'Against issue'},{h:'Worker'},{h:'Tool'},{h:'Good',cls:'num'},{h:'Damaged',cls:'num'},{h:'Reason'},{h:'',cls:'act'}],
+      retRows, { empty:'No returns recorded yet.' });
+
+    return card('Receive Tool Back', 'Good qty goes back into store stock; damaged qty is written off against the worker', f) +
+      cardFlush('Pending With Workers', open.length + ' open issue(s)', openT) +
+      cardFlush('Return Register', DB.toolRet.length + ' entries', retT);
+  },
+  after:function(){
+    var s = $('#rt_iss');
+    var upd = function(){
+      var i = S.byId(DB.toolIssue, s.value);
+      $('#rt_info').textContent = i ? 'Pending on this issue: ' + S.qty(S.issuePending(i)) : '';
+    };
+    if (s) { s.onchange = upd; upd(); }
+    state.retIssue = null;
+  }
+};
+
+/* ==========================================================================
+   STAGE 1 — TOOL STOCK
+   ========================================================================== */
+VIEWS.tstk = {
+  title:'Tool Stock', sub:'Stage 1 · received − issued + good returns, with reorder status',
+  html:function(){
+    var rows = DB.tools.map(function(t){
+      var rec = S.toolReceived(t.id), iss = S.toolIssued(t.id), gd = S.toolReturnedGood(t.id),
+          dm = S.toolDamaged(t.id), stk = rec - iss + gd, floor = S.toolOnFloor(t.id), min = S.num(t.min);
+      var st = stk <= 0 ? '<span class="pill crit"><i class="dot"></i>Out of stock</span>'
+        : stk < min ? '<span class="pill warn"><i class="dot"></i>Below min</span>'
+        : '<span class="pill ok"><i class="dot"></i>OK</span>';
+      return { sort: stk - min, cells:[
+        '<span class="tag">' + S.esc(t.code) + '</span>',
+        '<span class="strong">' + S.esc(t.name) + '</span>',
+        '<span class="pill mute">' + S.esc(t.cat) + '</span>',
+        S.qty(rec), S.qty(iss), S.qty(gd),
+        S.qty(dm) + (dm > 0 ? ' <span style="color:var(--crit)">₹' + S.inr(dm * S.num(t.rate)) + '</span>' : ''),
+        S.qty(floor), '<span class="strong">' + S.qty(stk) + '</span> <span style="color:var(--txt3)">' + S.esc(t.unit) + '</span>',
+        S.qty(min), st, '₹ ' + S.inr(stk * S.num(t.rate)) ] };
+    }).sort(function(a,b){ return a.sort - b.sort; });
+    var totVal = 0, totDmg = 0;
+    DB.tools.forEach(function(t){ totVal += S.toolStock(t.id) * S.num(t.rate); totDmg += S.toolDamaged(t.id) * S.num(t.rate); });
+
+    var t = tbl([{h:'Code'},{h:'Tool'},{h:'Category'},{h:'Received',cls:'num'},{h:'Issued',cls:'num'},
+      {h:'Good back',cls:'num'},{h:'Damaged',cls:'num'},{h:'On floor',cls:'num'},{h:'In store',cls:'num'},
+      {h:'Min',cls:'num'},{h:'Status'},{h:'Value',cls:'num'}],
+      rows.map(function(r){ return r.cells; }),
+      { foot:['','','','','','','','','Closing store value','','','₹ ' + S.inr(totVal)] });
+
+    var lowN = DB.tools.filter(function(x){ return S.toolStock(x.id) < S.num(x.min); }).length;
+    return '<div class="stats">' +
+        stat('Tools in master', DB.tools.length, 'Across ' + (function(){ var s = {}; DB.tools.forEach(function(t){ s[t.cat] = 1; }); return Object.keys(s).length; })() + ' categories') +
+        stat('Closing store value', '₹' + S.inr(totVal), 'At purchase rate') +
+        stat('Below minimum', lowN, lowN ? 'Raise purchase order' : 'Nothing to reorder', lowN ? 'alert' : '') +
+        stat('Damage written off', '₹' + S.inr(totDmg), 'Lifetime, all workers', totDmg > 0 ? 'warnst' : '') +
+      '</div>' +
+      cardFlush('Tool Stock Ledger', 'Sorted by urgency', t,
+        '<input class="srch" placeholder="Search tool…" data-search="tstk-tbl" style="width:220px">' +
+        '<button class="btn sm" data-act="xl.tools">Export Excel</button>');
+  },
+  after:function(){ var tb = $$('.tw table')[0]; if (tb) tb.id = 'tstk-tbl'; }
+};
+
+/* ---------- print slip ---------- */
+function printIssue(id){
+  var r = S.byId(DB.toolIssue, id); if (!r) return;
+  var t = S.byId(DB.tools, r.toolId) || {}, w = S.byId(DB.workers, r.workerId) || {}, rr = S.retFor(r.id);
+  $('#printarea').innerHTML =
+    '<div class="slip"><div class="sh"><div><div class="lg"></div>' +
+    '<div class="co">JAYCO Engineering India<br>Dharti Industrial Park, Ahmedabad–Indore Highway, Dist. Kheda, Gujarat<br>jaycohousing.com</div></div>' +
+    '<div class="rt"><h2>TOOL ISSUE SLIP</h2><div style="font-size:12px">No: <b>' + S.esc(r.no) + '</b><br>Date: <b>' + S.dmy(r.date) + '</b></div></div></div>' +
+    '<table><tr><th style="width:130px">Worker</th><td>' + S.esc(w.name || '') + ' (' + S.esc(w.code || '') + ')</td><th style="width:110px">Department</th><td>' + S.esc(w.dept || '') + '</td></tr>' +
+    '<tr><th>Machine</th><td>' + S.esc(r.machine || '—') + '</td><th>Job / Ref</th><td>' + S.esc(r.job || '—') + '</td></tr></table>' +
+    '<table><thead><tr><th>Tool code</th><th>Description</th><th>Unit</th><th>Issued qty</th><th>Returned good</th><th>Damaged</th><th>Pending</th></tr></thead>' +
+    '<tbody><tr><td>' + S.esc(t.code || '') + '</td><td>' + S.esc(t.name || '') + '</td><td>' + S.esc(t.unit || '') + '</td><td>' + S.qty(r.qty) + '</td><td>' + S.qty(rr.good) + '</td><td>' + S.qty(rr.dmg) + '</td><td>' + S.qty(S.issuePending(r)) + '</td></tr></tbody></table>' +
+    '<div style="font-size:11.5px;margin-top:10px;color:#444">Tools issued must be returned to the store at the end of the job. Damaged or broken tools must be handed back with the reason recorded.</div>' +
+    '<div class="sg"><div>Worker signature</div><div>Supervisor</div><div>Storekeeper</div></div></div>';
+  document.body.classList.add('printing');
+  window.print();
+  setTimeout(function(){ document.body.classList.remove('printing'); }, 400);
+}
+
+/* ---------- actions for stage 1 ---------- */
+window.JA1 = {
+  'tin.save': function(){ tinSave(false); },
+  'tin.saveNext': function(){ tinSave(true); },
+  'tin.del': function(el){
+    var i = DB.toolIn.map(function(r){ return r.id; }).indexOf(el.dataset.id);
+    if (i < 0) return;
+    if (!confirm('Delete this inward entry? Stock will reduce accordingly.')) return;
+    DB.toolIn.splice(i, 1); S.save(); toast('Inward entry deleted.', 'warn'); render();
+  },
+  'tiss.save': function(){
+    var d = v('is_date'), w = v('is_worker'), t = v('is_tool'), q = n('is_qty');
+    if (!d || !w || !t || q <= 0) { toast('Fill date, worker, tool and quantity.', 'err'); return; }
+    var have = S.toolStock(t);
+    if (q > have) { toast('Only ' + S.qty(have) + ' in store. Book an inward entry first.', 'err'); return; }
+    var rec = { id:S.uid('is'), no:S.docNo('ISS', DB.toolIssue), date:d, workerId:w, toolId:t, qty:q,
+      machine:v('is_mc'), job:v('is_job'), remarks:v('is_rem'), by:operator() };
+    DB.toolIssue.push(rec); S.save();
+    toast('Issued ' + S.qty(q) + ' ' + S.nm(DB.tools, t) + ' to ' + S.nm(DB.workers, w) + ' — ' + rec.no);
+    render();
+  },
+  'tiss.del': function(el){
+    var id = el.dataset.id;
+    if (DB.toolRet.some(function(r){ return r.issueId === id; })) { toast('Delete the returns against this issue first.', 'err'); return; }
+    if (!confirm('Delete this issue entry?')) return;
+    DB.toolIssue = DB.toolIssue.filter(function(r){ return r.id !== id; }); S.save();
+    toast('Issue deleted.', 'warn'); render();
+  },
+  'tiss.print': function(el){ printIssue(el.dataset.id); },
+  'tret.open': function(el){ state.retIssue = el.dataset.id; cur = 'tret'; render(); window.scrollTo(0,0); },
+  'tret.save': function(){
+    var iss = S.byId(DB.toolIssue, v('rt_iss'));
+    if (!iss) { toast('Select the issue you are receiving against.', 'err'); return; }
+    var g = n('rt_good'), dm = n('rt_dmg');
+    if (g + dm <= 0) { toast('Enter good and / or damaged quantity.', 'err'); return; }
+    var pend = S.issuePending(iss);
+    if (g + dm > pend + 1e-9) { toast('Only ' + S.qty(pend) + ' pending on ' + iss.no + '.', 'err'); return; }
+    if (dm > 0 && !v('rt_rem')) { toast('Record a reason for the damaged quantity.', 'err'); return; }
+    DB.toolRet.push({ id:S.uid('rt'), date:v('rt_date') || S.today(), issueId:iss.id, good:g, damaged:dm,
+      remarks:v('rt_rem'), by:operator() });
+    S.save();
+    toast('Return posted — ' + S.qty(g) + ' good back to store' + (dm ? ', ' + S.qty(dm) + ' written off' : '') + '.');
+    render();
+  },
+  'tret.del': function(el){
+    if (!confirm('Delete this return entry?')) return;
+    DB.toolRet = DB.toolRet.filter(function(r){ return r.id !== el.dataset.id; }); S.save();
+    toast('Return deleted.', 'warn'); render();
+  }
+};
+
+/* ---------- boot shell ---------- */
+document.addEventListener('click', function(e){
+  var el = e.target.closest('[data-act]');
+  if (!el) return;
+  var act = el.dataset.act;
+  if (act === 'modal.close') { if (e.target.closest('[data-stop]') && e.target.tagName !== 'BUTTON') return; closeModal(); return; }
+  if (act === 'go') { go(el.dataset.id); return; }
+  var tables = [window.JA1, window.JA2 || {}];
+  for (var i = 0; i < tables.length; i++) if (tables[i][act]) { tables[i][act](el, e); return; }
+});
+document.addEventListener('input', function(e){
+  var el = e.target;
+  if (!el.dataset || !el.dataset.search) return;
+  var t = document.getElementById(el.dataset.search); if (!t) return;
+  var q = el.value.toLowerCase();
+  $$('tbody tr', t).forEach(function(tr){
+    tr.style.display = !q || tr.textContent.toLowerCase().indexOf(q) > -1 ? '' : 'none';
+  });
+});
+$('#burger').onclick = function(){
+  var r = $('#rail'); r.classList.toggle('open');
+  if (r.classList.contains('open')) {
+    var s = document.createElement('div'); s.className = 'scrim';
+    s.onclick = function(){ r.classList.remove('open'); s.remove(); };
+    document.body.appendChild(s);
+  } else { var sc = $('.scrim'); if (sc) sc.remove(); }
+};
+$('#theme').onclick = function(){
+  var r = document.documentElement;
+  var m = window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+  var now = r.getAttribute('data-theme') || m;
+  var next = now === 'dark' ? 'light' : 'dark';
+  r.setAttribute('data-theme', next);
+  DB.meta.theme = next; S.save();
+};
+if (DB.meta && DB.meta.theme) document.documentElement.setAttribute('data-theme', DB.meta.theme);
+fillOperator();
+})();
+
+/* ==========================================================================
+   JAYCO STORE CONTROL — Stage 2 (Assembly), masters, reports, backup
+   ========================================================================== */
+(function () {
+'use strict';
+var S = window.JS, U = window.JU, R = window.JR, V = window.JV, DB = S.DB;
+var $ = U.$, $$ = U.$$, tbl = U.tbl, stat = U.stat, card = U.card, cardFlush = U.cardFlush;
+var opts = U.opts, fld = U.fld, inp = U.inp, sel = U.sel, v = U.v, n = U.n, setv = U.setv;
+var toast = U.toast, modal = U.modal, closeModal = U.closeModal, state = U.state;
+var render = R.render;
+
+function typePill(t){
+  var c = t === 'Casting' ? 'info' : t === 'Hardware' ? 'mute' : 'warn';
+  return '<span class="pill ' + c + '">' + S.esc(t) + '</span>';
+}
+
+/* ==========================================================================
+   STAGE 2 — COMPONENT INWARD
+   ========================================================================== */
+V.cin = {
+  title:'Component Inward', sub:'Stage 2 · receive castings, hardware and accessories that feed assembly',
+  html:function(){
+    var f =
+      '<div class="form">' +
+        fld('ci_date','Date <span class="req">*</span>', inp('ci_date','date',' value="' + S.today() + '"')) +
+        fld('ci_vendor','Vendor <span class="req">*</span>', sel('ci_vendor', opts(DB.vendors, '', function(o){ return o.name + ' — ' + o.city; }))) +
+        fld('ci_dtype','Document', sel('ci_dtype','<option>Challan</option><option>Bill</option><option>Gate Pass</option>')) +
+        fld('ci_dno','Bill / Challan No <span class="req">*</span>', inp('ci_dno','text',' placeholder="AFW/0431"')) +
+        fld('ci_comp','Component <span class="req">*</span>', sel('ci_comp', opts(DB.components, '', function(o){ return o.code + ' · ' + o.name + '  [' + S.qty(S.compStock(o.id)) + ' ' + o.unit + ']'; })), 'w2') +
+        fld('ci_qty','Qty <span class="req">*</span>', inp('ci_qty','number',' min="0" step="0.001"')) +
+        fld('ci_rate','Rate ₹', inp('ci_rate','number',' min="0" step="0.01"')) +
+        fld('ci_rem','Remarks / heat no', inp('ci_rem','text',''), 'w2') +
+      '</div>' +
+      '<div class="frow"><button class="btn pri" data-act="cin.save">Post inward</button>' +
+      '<button class="btn" data-act="cin.saveNext">Post &amp; add next item</button>' +
+      '<span class="sp" id="ci_calc" style="font-size:12.5px;color:var(--txt3)"></span></div>';
+
+    var low = DB.components.map(function(c){ return { c:c, s:S.compStock(c.id) }; })
+      .filter(function(x){ return x.s < S.num(x.c.min); });
+    var lowRows = low.sort(function(a,b){ return (a.s - a.c.min) - (b.s - b.c.min); }).map(function(x){
+      return ['<span class="tag">' + S.esc(x.c.code) + '</span>', '<span class="strong">' + S.esc(x.c.name) + '</span>',
+        typePill(x.c.type), S.qty(x.s) + ' ' + S.esc(x.c.unit), S.qty(x.c.min),
+        '<span class="pill crit">' + S.qty(S.num(x.c.min) - x.s) + '</span>',
+        '₹ ' + S.inr((S.num(x.c.min) - x.s) * S.num(x.c.rate))];
+    });
+    var lowT = tbl([{h:'Code'},{h:'Component'},{h:'Type'},{h:'Stock',cls:'num'},{h:'Min',cls:'num'},{h:'Short by',cls:'num'},{h:'Value to buy',cls:'num'}],
+      lowRows, { empty:'All components are above minimum level.' });
+
+    var rows = DB.compIn.slice().sort(function(a,b){ return a.date < b.date ? 1 : -1; }).slice(0, 60).map(function(r){
+      var c = S.byId(DB.components, r.componentId);
+      return ['<span class="tag">' + S.esc(r.no) + '</span>', S.dmy(r.date), S.esc(S.nm(DB.vendors, r.vendorId)),
+        '<span class="tag">' + S.esc(r.docType || '') + ' ' + S.esc(r.docNo) + '</span>',
+        '<span class="strong">' + S.esc(c ? c.name : '—') + '</span>',
+        S.qty(r.qty) + ' <span style="color:var(--txt3)">' + S.esc(c ? c.unit : '') + '</span>',
+        S.inr(r.rate), S.inr(S.num(r.qty) * S.num(r.rate)),
+        '<button class="btn sm dang gh" data-act="cin.del" data-id="' + r.id + '">Delete</button>'];
+    });
+    var tot = 0; DB.compIn.forEach(function(r){ tot += S.num(r.qty) * S.num(r.rate); });
+    var t = tbl([{h:'CRN No'},{h:'Date'},{h:'Vendor'},{h:'Bill / Challan'},{h:'Component'},{h:'Qty',cls:'num'},
+      {h:'Rate',cls:'num'},{h:'Value',cls:'num'},{h:'',cls:'act'}], rows,
+      { empty:'No component inward entries yet.', foot:['','','','','Total received value','','','₹ ' + S.inr(tot),''] });
+
+    return card('New Component Inward', 'Casting · hardware · accessory', f) +
+      (lowRows.length ? cardFlush('Purchase Alert', low.length + ' component(s) below minimum', lowT) : '') +
+      cardFlush('Component Inward Register', DB.compIn.length + ' entries', t,
+        '<input class="srch" placeholder="Search vendor, challan, component…" data-search="cin-tbl" style="width:250px">');
+  },
+  after:function(){
+    var re = function(){ var q = n('ci_qty'), r = n('ci_rate'); $('#ci_calc').textContent = q && r ? 'Line value ₹ ' + S.inr(q * r) : ''; };
+    ['ci_qty','ci_rate'].forEach(function(id){ var e = $('#' + id); if (e) e.oninput = re; });
+    var cs = $('#ci_comp');
+    if (cs) cs.onchange = function(){ var c = S.byId(DB.components, cs.value); if (c && !v('ci_rate')) setv('ci_rate', c.rate); re(); };
+    var tables = $$('.tw table'); if (tables.length) tables[tables.length - 1].id = 'cin-tbl';
+  }
+};
+
+/* ==========================================================================
+   STAGE 2 — PAINT ENTRY (production posting)
+   ========================================================================== */
+function bomPreview(pid, total){
+  var p = S.byId(DB.products, pid);
+  if (!p) return '<div class="empty">Select a model to see the components that will be deducted.</div>';
+  var rows = (p.bom || []).map(function(b){
+    var c = S.byId(DB.components, b.c);
+    if (!c) return ['<span style="color:var(--crit)">Missing component</span>','','','','',''];
+    var need = S.num(b.q) * total, have = S.compStock(b.c), after = have - need;
+    return ['<span class="strong">' + S.esc(c.name) + '</span><br><span class="tag">' + S.esc(c.code) + '</span>',
+      typePill(c.type), S.qty(b.q), S.qty(need) + ' ' + S.esc(c.unit), S.qty(have),
+      after < 0 ? '<span class="pill crit"><i class="dot"></i>' + S.qty(after) + '</span>'
+                : '<span class="pill ' + (after < S.num(c.min) ? 'warn' : 'ok') + '">' + S.qty(after) + '</span>'];
+  });
+  var cost = S.bomCost(p) * total;
+  return tbl([{h:'Component'},{h:'Type'},{h:'Per unit',cls:'num'},{h:'To deduct',cls:'num'},{h:'Stock now',cls:'num'},{h:'Stock after',cls:'num'}],
+    rows, { empty:'This model has no BOM yet — add one under Products & BOM.',
+      foot:['Material cost of this batch','','','','','₹ ' + S.inr(cost)] });
+}
+
+V.prod = {
+  title:'Paint Entry', sub:'Stage 2 · posting a painted batch deducts casting + hardware + accessories and adds finished stock',
+  html:function(){
+    var pid = state.prodPid || '', okq = state.prodOk == null ? '' : state.prodOk, rj = state.prodRej == null ? '' : state.prodRej;
+    var total = S.num(okq) + S.num(rj);
+    var f =
+      '<div class="form">' +
+        fld('pe_date','Paint date <span class="req">*</span>', inp('pe_date','date',' value="' + S.today() + '"')) +
+        fld('pe_prod','Model <span class="req">*</span>', sel('pe_prod', opts(DB.products, pid, function(o){ return o.code + ' — ' + o.name; })), 'w2') +
+        fld('pe_ok','Painted OK qty <span class="req">*</span>', inp('pe_ok','number',' min="0" step="1" value="' + S.esc(okq) + '" placeholder="0"')) +
+        fld('pe_rej','Rejected qty', inp('pe_rej','number',' min="0" step="1" value="' + S.esc(rj) + '" placeholder="0"')) +
+        fld('pe_batch','Batch / lot', inp('pe_batch','text',' placeholder="B-260909"')) +
+        fld('pe_rem','Remarks', inp('pe_rem','text',''), 'w2') +
+      '</div>' +
+      '<div class="note"><div>Components are deducted for <b>OK + rejected</b> quantity, because rejected pieces still consume material. ' +
+      'Only the OK quantity is added to finished goods stock.</div></div>' +
+      '<div class="frow">' +
+        '<button class="btn pri" data-act="prod.save">Post paint entry</button>' +
+        '<label class="chk"><input type="checkbox" id="pe_force"> Allow posting with shortage</label>' +
+        '<span class="sp" id="pe_note" style="font-size:12.5px;color:var(--txt3)"></span>' +
+      '</div>';
+
+    var rows = DB.prodEntry.slice().sort(function(a,b){ return a.date < b.date ? 1 : -1; }).slice(0, 50).map(function(r){
+      var p = S.byId(DB.products, r.productId), cost = 0;
+      (r.lines || []).forEach(function(l){ var c = S.byId(DB.components, l.c); if (c) cost += S.num(c.rate) * S.num(l.q); });
+      return ['<span class="tag">' + S.esc(r.no) + '</span>', S.dmy(r.date),
+        '<span class="strong">' + S.esc(p ? p.code : '—') + '</span>',
+        S.qty(r.ok), S.num(r.rej) ? '<span class="pill warn">' + S.qty(r.rej) + '</span>' : '0',
+        '<span class="tag">' + S.esc(r.batch || '—') + '</span>', S.esc(r.by || '—'),
+        '₹ ' + S.inr(cost),
+        '<button class="btn sm" data-act="prod.view" data-id="' + r.id + '">Lines</button> ' +
+        '<button class="btn sm dang gh" data-act="prod.del" data-id="' + r.id + '">Del</button>'];
+    });
+    var t = tbl([{h:'Entry No'},{h:'Date'},{h:'Model'},{h:'OK',cls:'num'},{h:'Rejected',cls:'num'},{h:'Batch'},
+      {h:'Painted by'},{h:'Material cost',cls:'num'},{h:'',cls:'act'}], rows, { empty:'No paint entries yet.' });
+
+    return card('Paint / Production Entry', 'Model + quantity — the bill of material does the rest', f) +
+      cardFlush('Components That Will Be Deducted', '<span id="pe_hint">' + (total ? 'For ' + S.qty(total) + ' piece(s)' : 'Enter a quantity to preview') + '</span>',
+        '<div id="pe_prev">' + bomPreview(pid, total) + '</div>') +
+      cardFlush('Paint Register', DB.prodEntry.length + ' entries', t,
+        '<input class="srch" placeholder="Search model, batch…" data-search="prod-tbl" style="width:220px">');
+  },
+  after:function(){
+    var upd = function(){
+      state.prodPid = v('pe_prod'); state.prodOk = v('pe_ok'); state.prodRej = v('pe_rej');
+      var total = n('pe_ok') + n('pe_rej');
+      $('#pe_prev').innerHTML = bomPreview(state.prodPid, total);
+      var hh = $('#pe_hint'); if (hh) hh.textContent = total ? 'For ' + S.qty(total) + ' piece(s)' : 'Enter a quantity to preview';
+      var sh = state.prodPid ? S.shortagesFor(state.prodPid, total) : [];
+      $('#pe_note').innerHTML = !total ? '' : sh.length
+        ? '<span style="color:var(--crit);font-weight:600">Short on ' + sh.length + ' component(s)</span>'
+        : '<span style="color:var(--ok);font-weight:600">Stock covers this batch</span>';
+    };
+    ['pe_prod','pe_ok','pe_rej'].forEach(function(id){ var e = $('#' + id); if (e) { e.oninput = upd; e.onchange = upd; } });
+    var tables = $$('.tw table'); if (tables.length) tables[tables.length - 1].id = 'prod-tbl';
+  }
+};
+
+/* ==========================================================================
+   STAGE 2 — FINISHED GOODS & DISPATCH
+   ========================================================================== */
+V.fg = {
+  title:'Finished Goods', sub:'Stage 2 · painted stock ready for dispatch, and outward against party PO',
+  html:function(){
+    var totQ = 0, totV = 0;
+    var rows = DB.products.map(function(p){
+      var made = S.fgMade(p.id), out = S.fgOut(p.id), st = made - out, cost = S.bomCost(p);
+      totQ += st; totV += st * cost;
+      return ['<span class="strong">' + S.esc(p.code) + '</span>', S.esc(p.name), S.qty(made), S.qty(out),
+        '<span class="strong">' + S.qty(st) + '</span>', '₹ ' + S.inr(cost), '₹ ' + S.inr(st * cost),
+        st <= 0 ? '<span class="pill crit"><i class="dot"></i>Nil</span>'
+          : st < 25 ? '<span class="pill warn"><i class="dot"></i>Low</span>'
+          : '<span class="pill ok"><i class="dot"></i>Available</span>'];
+    });
+    var fgT = tbl([{h:'Model'},{h:'Description'},{h:'Painted',cls:'num'},{h:'Dispatched',cls:'num'},
+      {h:'In stock',cls:'num'},{h:'Cost / pc',cls:'num'},{h:'Stock value',cls:'num'},{h:'Status'}],
+      rows, { foot:['','','','Total','' + S.qty(totQ),'','₹ ' + S.inr(totV),''] });
+
+    var f =
+      '<div class="form">' +
+        fld('dp_date','Date <span class="req">*</span>', inp('dp_date','date',' value="' + S.today() + '"')) +
+        fld('dp_party','Party <span class="req">*</span>', inp('dp_party','text',' placeholder="Shree Balaji Cement Works"'), 'w2') +
+        fld('dp_po','Party PO No', inp('dp_po','text',' placeholder="PO-1148"')) +
+        fld('dp_prod','Model <span class="req">*</span>', sel('dp_prod', opts(DB.products, '', function(o){ return o.code + '  [stock: ' + S.qty(S.fgStock(o.id)) + ']'; }))) +
+        fld('dp_qty','Qty <span class="req">*</span>', inp('dp_qty','number',' min="0" step="1"')) +
+        fld('dp_rem','Remarks', inp('dp_rem','text',''), 'w2') +
+      '</div>' +
+      '<div class="frow"><button class="btn pri" data-act="fg.save">Post dispatch</button>' +
+      '<span class="sp" id="dp_note" style="font-size:12.5px;color:var(--txt3)"></span></div>';
+
+    var dRows = DB.dispatch.slice().sort(function(a,b){ return a.date < b.date ? 1 : -1; }).slice(0, 50).map(function(r){
+      var p = S.byId(DB.products, r.productId);
+      return ['<span class="tag">' + S.esc(r.no) + '</span>', S.dmy(r.date),
+        '<span class="strong">' + S.esc(r.party) + '</span>', '<span class="tag">' + S.esc(r.poNo || '—') + '</span>',
+        S.esc(p ? p.code : '—'), S.qty(r.qty), '₹ ' + S.inr(S.num(r.qty) * (p ? S.bomCost(p) : 0)),
+        '<button class="btn sm dang gh" data-act="fg.del" data-id="' + r.id + '">Del</button>'];
+    });
+    var dT = tbl([{h:'DC No'},{h:'Date'},{h:'Party'},{h:'PO No'},{h:'Model'},{h:'Qty',cls:'num'},{h:'Cost value',cls:'num'},{h:'',cls:'act'}],
+      dRows, { empty:'No dispatches recorded yet.' });
+
+    var made30 = 0, out30 = 0;
+    DB.prodEntry.forEach(function(r){ if (r.date >= S.daysAgo(30)) made30 += S.num(r.ok); });
+    DB.dispatch.forEach(function(r){ if (r.date >= S.daysAgo(30)) out30 += S.num(r.qty); });
+
+    return '<div class="stats">' +
+        stat('FG in stock', S.qty(totQ), 'All models') +
+        stat('Stock value', '₹' + S.inr(totV), 'At BOM material cost') +
+        stat('Painted · 30 days', S.qty(made30), 'Added to stock') +
+        stat('Dispatched · 30 days', S.qty(out30), out30 > made30 ? 'Drawing down stock' : 'Stock building', out30 > made30 ? 'warnst' : '') +
+      '</div>' +
+      cardFlush('Finished Goods Stock', DB.products.length + ' models', fgT,
+        '<button class="btn sm" data-act="xl.fg">Export Excel</button>') +
+      card('New Dispatch', 'Reduces finished goods stock', f) +
+      cardFlush('Dispatch Register', DB.dispatch.length + ' entries', dT,
+        '<input class="srch" placeholder="Search party, DC, model…" data-search="fg-tbl" style="width:240px">');
+  },
+  after:function(){
+    var ps = $('#dp_prod');
+    if (ps) ps.onchange = function(){ var p = S.byId(DB.products, ps.value);
+      $('#dp_note').textContent = p ? 'Available: ' + S.qty(S.fgStock(p.id)) + ' pc' : ''; };
+    var tables = $$('.tw table'); if (tables.length) tables[tables.length - 1].id = 'fg-tbl';
+  }
+};
+
+/* ==========================================================================
+   STAGE 2 — PRODUCTS & BOM
+   ========================================================================== */
+V.bom = {
+  title:'Products & BOM', sub:'Stage 2 · what each Plummer block model is built from — this drives every deduction',
+  html:function(){
+    var rows = DB.products.map(function(p){
+      var can = Infinity, limiter = '—';
+      (p.bom || []).forEach(function(b){
+        if (S.num(b.q) <= 0) return;
+        var c = Math.floor(S.compStock(b.c) / S.num(b.q));
+        if (c < can) { can = c; limiter = S.nm(DB.components, b.c); }
+      });
+      if (!isFinite(can)) { can = 0; limiter = 'No BOM'; }
+      return ['<span class="strong">' + S.esc(p.code) + '</span>', S.esc(p.name),
+        '<span class="pill mute">' + (p.bom || []).length + ' lines</span>',
+        '₹ ' + S.inr(S.bomCost(p)), S.qty(S.fgStock(p.id)),
+        '<span class="pill ' + (can <= 0 ? 'crit' : can < 20 ? 'warn' : 'ok') + '">' + can + '</span>',
+        '<span style="font-size:12px;color:var(--txt2)">' + S.esc(limiter) + '</span>',
+        '<button class="btn sm" data-act="bom.edit" data-id="' + p.id + '">Edit BOM</button> ' +
+        '<button class="btn sm gh" data-act="bom.editP" data-id="' + p.id + '">Rename</button> ' +
+        '<button class="btn sm dang gh" data-act="bom.delP" data-id="' + p.id + '">Del</button>'];
+    });
+    var t = tbl([{h:'Model'},{h:'Description'},{h:'BOM'},{h:'Material cost',cls:'num'},{h:'FG stock',cls:'num'},
+      {h:'Buildable now',cls:'num'},{h:'Limited by'},{h:'',cls:'act'}], rows, { empty:'No products defined yet.' });
+    return '<div class="note"><div><b>Buildable now</b> is the lowest quantity any single BOM line allows from current component stock. The limiting component is what to buy next.</div></div>' +
+      cardFlush('Product Master', DB.products.length + ' models', t,
+        '<button class="btn sm pri" data-act="bom.editP" data-id="">Add model</button>');
+  }
+};
+
+function bomModal(pid){
+  var p = S.byId(DB.products, pid); if (!p) return;
+  state.bomDraft = (p.bom || []).map(function(b){ return { c:b.c, q:b.q }; });
+  state.bomPid = pid;
+  modal('BOM — ' + S.esc(p.code), bomBody(), true);
+}
+function bomBody(){
+  var d = state.bomDraft, used = d.map(function(x){ return x.c; });
+  var lines = d.map(function(b, i){
+    var c = S.byId(DB.components, b.c) || { name:'(deleted component)', code:'', unit:'' };
+    return '<div class="bom-line"><div class="nm">' + S.esc(c.name) + '<small>' + S.esc(c.code) + ' · stock ' + S.qty(S.compStock(b.c)) + '</small></div>' +
+      '<input type="number" step="0.001" min="0" value="' + b.q + '" data-bq="' + i + '">' +
+      '<span style="font-size:12px;color:var(--txt3)">' + S.esc(c.unit) + ' / pc</span>' +
+      '<button class="btn sm dang gh" data-act="bom.rm" data-i="' + i + '">&times;</button></div>';
+  }).join('');
+  var avail = DB.components.filter(function(c){ return used.indexOf(c.id) < 0; });
+  return (lines || '<div class="empty">No components in this BOM yet.</div>') +
+    '<div class="frow" style="align-items:flex-end">' +
+      '<div class="fld" style="flex:1;min-width:200px"><label>Add component</label>' +
+      sel('bom_add', opts(avail, '', function(o){ return o.code + ' · ' + o.name; })) + '</div>' +
+      '<div class="fld" style="width:110px"><label>Qty / pc</label>' + inp('bom_q','number',' step="0.001" min="0" value="1"') + '</div>' +
+      '<button class="btn" data-act="bom.add">Add line</button>' +
+      '<span class="sp"><button class="btn pri" data-act="bom.save">Save BOM</button></span>' +
+    '</div>' +
+    '<div class="kv" style="margin-top:12px"><span>Material cost per piece</span><span>₹ ' + S.inr(state.bomDraft.reduce(function(s, b){
+      var c = S.byId(DB.components, b.c); return s + (c ? S.num(c.rate) * S.num(b.q) : 0); }, 0)) + '</span></div>';
+}
+function readBomInputs(){
+  $$('[data-bq]').forEach(function(el){ var i = +el.dataset.bq; if (state.bomDraft[i]) state.bomDraft[i].q = S.num(el.value); });
+}
+
+/* ==========================================================================
+   MASTERS
+   ========================================================================== */
+var MAST = {
+  vendors:{ label:'Vendors', key:'vendors', pfx:'V',
+    cols:['Name','City','GSTIN','Phone','Supplies'],
+    f:[['name','Vendor name',1],['city','City / area',0],['gstin','GSTIN',0],['phone','Phone',0],['supplies','Supplies',0]],
+    row:function(o){ return [ '<span class="strong">'+S.esc(o.name)+'</span>', S.esc(o.city||'—'),
+      '<span class="tag">'+S.esc(o.gstin||'—')+'</span>', '<span class="mono">'+S.esc(o.phone||'—')+'</span>', S.esc(o.supplies||'—') ]; } },
+  tools:{ label:'Tools', key:'tools', pfx:'T',
+    cols:['Code','Tool','Category','Unit','Min level','Rate ₹','In store'],
+    f:[['code','Code',1],['name','Tool name',1],['cat','Category',0,'sel',['Drill','Tap','Insert','Holder','Milling','Reamer','Abrasive','Gauge','Consumable','Other']],
+       ['unit','Unit',0,'sel',['Nos','Set','Box','Ltr','Kg','Mtr']],['min','Minimum level',0,'num'],['rate','Rate ₹',0,'num']],
+    row:function(o){ var s = S.toolStock(o.id); return [ '<span class="tag">'+S.esc(o.code)+'</span>',
+      '<span class="strong">'+S.esc(o.name)+'</span>', '<span class="pill mute">'+S.esc(o.cat)+'</span>', S.esc(o.unit),
+      S.qty(o.min), S.inr(o.rate), '<span class="pill '+(s<S.num(o.min)?'crit':'ok')+'">'+S.qty(s)+'</span>' ]; } },
+  workers:{ label:'Workers', key:'workers', pfx:'W',
+    cols:['Code','Name','Department','Open issues','Consumed value'],
+    f:[['name','Worker name',1],['code','Employee code',0],['dept','Department',0]],
+    row:function(o){ var open=0, val=0;
+      DB.toolIssue.forEach(function(i){ if (i.workerId!==o.id) return;
+        if (S.issuePending(i)>0) open++;
+        var t=S.byId(DB.tools,i.toolId), r=S.retFor(i.id);
+        if (t) val += (S.num(i.qty) - r.good) * S.num(t.rate); });
+      return [ '<span class="tag">'+S.esc(o.code||'—')+'</span>', '<span class="strong">'+S.esc(o.name)+'</span>',
+        S.esc(o.dept||'—'), open ? '<span class="pill warn">'+open+'</span>' : '0', '₹ '+S.inr(val) ]; } },
+  components:{ label:'Components', key:'components', pfx:'C',
+    cols:['Code','Component','Type','Unit','Min level','Rate ₹','Stock'],
+    f:[['code','Code',1],['name','Component name',1],['type','Type',0,'sel',['Casting','Hardware','Accessory']],
+       ['unit','Unit',0,'sel',['Nos','Set','Ltr','Kg','Mtr','Box']],['min','Minimum level',0,'num'],['rate','Rate ₹',0,'num']],
+    row:function(o){ var s=S.compStock(o.id); return [ '<span class="tag">'+S.esc(o.code)+'</span>',
+      '<span class="strong">'+S.esc(o.name)+'</span>', typePill(o.type), S.esc(o.unit), S.qty(o.min), S.inr(o.rate),
+      '<span class="pill '+(s<S.num(o.min)?'crit':'ok')+'">'+S.qty(s)+'</span>' ]; } }
+};
+
+V.mast = {
+  title:'Masters', sub:'Vendors, tools, workers and components — everything the entry screens pick from',
+  html:function(){
+    var k = state.tab || 'vendors', m = MAST[k], arr = DB[m.key];
+    var tabs = '<div class="tabs">' + Object.keys(MAST).map(function(x){
+      return '<button class="tab' + (x === k ? ' on' : '') + '" data-act="mast.tab" data-id="' + x + '">' +
+        MAST[x].label + ' <span style="opacity:.55">' + DB[MAST[x].key].length + '</span></button>'; }).join('') + '</div>';
+    var cols = m.cols.map(function(c, i){ return { h:c, cls: i >= 3 && /Min|Rate|Stock|store|value|issues/i.test(c) ? 'num' : '' }; });
+    cols.push({ h:'', cls:'act' });
+    var rows = arr.map(function(o){
+      return m.row(o).concat(['<button class="btn sm" data-act="mast.edit" data-id="' + o.id + '">Edit</button> ' +
+        '<button class="btn sm dang gh" data-act="mast.del" data-id="' + o.id + '">Del</button>']);
+    });
+    return '<div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">' + tabs +
+      '<span style="margin-left:auto;display:flex;gap:8px">' +
+      '<input class="srch" placeholder="Search…" data-search="mast-tbl" style="width:220px">' +
+      '<button class="btn pri" data-act="mast.edit" data-id="">Add ' + m.label.replace(/s$/, '') + '</button></span></div>' +
+      cardFlush(m.label, arr.length + ' record(s)', tbl(cols, rows, { empty:'Nothing here yet.' }));
+  },
+  after:function(){ var tb = $$('.tw table')[0]; if (tb) tb.id = 'mast-tbl'; }
+};
+
+function mastModal(kind, id){
+  var m = MAST[kind], o = id ? S.byId(DB[m.key], id) : {};
+  var body = '<div class="form">' + m.f.map(function(f){
+    var val = o[f[0]] == null ? '' : o[f[0]];
+    var input = f[3] === 'sel'
+      ? '<select id="m_' + f[0] + '">' + f[4].map(function(x){ return '<option' + (x === val ? ' selected' : '') + '>' + x + '</option>'; }).join('') + '</select>'
+      : '<input id="m_' + f[0] + '" type="' + (f[3] === 'num' ? 'number' : 'text') + '"' + (f[3] === 'num' ? ' step="0.01" min="0"' : '') + ' value="' + S.esc(val) + '">';
+    return fld('m_' + f[0], S.esc(f[1]) + (f[2] ? ' <span class="req">*</span>' : ''), input);
+  }).join('') + '</div>' +
+  '<div class="frow"><button class="btn pri" data-act="mast.save" data-id="' + (id || '') + '" data-kind="' + kind + '">Save</button>' +
+  '<button class="btn" data-act="modal.close">Cancel</button></div>';
+  modal((id ? 'Edit ' : 'New ') + m.label.replace(/s$/, ''), body);
+  wireAutoCode(kind, id);
+}
+
+/* ---------- automatic codes, by group ---------- */
+var CODEPFX = {
+  tools:{ target:'code', group:'cat', map:{ Drill:'DRL', Tap:'TAP', Insert:'INS', Holder:'HLD', Milling:'MIL',
+    Reamer:'RMR', Abrasive:'ABR', Gauge:'GAG', Consumable:'CON', Other:'TL' } },
+  components:{ target:'code', group:'type', map:{ Casting:'CST', Hardware:'HW', Accessory:'AC' } },
+  workers:{ target:'code', fixed:'EMP' }
+};
+function nextCode(kind, pfx){
+  var arr = DB[MAST[kind].key], f = CODEPFX[kind].target, top = 0;
+  var re = new RegExp('^' + pfx.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&') + '[-\\s]?(\\d+)$', 'i');
+  arr.forEach(function(o){ var mm = re.exec(String(o[f] || '').trim()); if (mm) top = Math.max(top, parseInt(mm[1], 10)); });
+  var c, k = top;
+  do { k++; c = pfx + '-' + S.pad(k, 3); }
+  while (arr.some(function(o){ return String(o[f] || '').trim().toUpperCase() === c.toUpperCase(); }));
+  return c;
+}
+function wireAutoCode(kind, id){
+  var cfg = CODEPFX[kind]; if (!cfg || id) return;
+  var codeEl = $('#m_' + cfg.target); if (!codeEl) return;
+  var grpEl = cfg.group ? $('#m_' + cfg.group) : null;
+  var apply = function(){
+    if (codeEl.dataset.manual === '1') return;
+    var pfx = cfg.fixed || (cfg.map[grpEl ? grpEl.value : ''] || 'GEN');
+    codeEl.value = nextCode(kind, pfx);
+  };
+  codeEl.dataset.manual = '';
+  codeEl.title = 'Filled automatically from the group — type over it if you use your own numbering';
+  codeEl.oninput = function(){ codeEl.dataset.manual = '1'; };
+  if (grpEl) grpEl.onchange = apply;
+  apply();
+  var lab = codeEl.parentNode.querySelector('label');
+  if (lab && lab.querySelector('.auto') === null) {
+    var b = document.createElement('span');
+    b.className = 'auto'; b.textContent = 'AUTO';
+    b.style.cssText = 'font-size:9.5px;letter-spacing:.1em;background:var(--info-soft);color:var(--info);padding:1px 5px;border-radius:3px;margin-left:4px';
+    lab.appendChild(b);
+  }
+}
+
+/* ==========================================================================
+   REPORTS
+   ========================================================================== */
+function range(){
+  return { from: state.rFrom || S.daysAgo(90), to: state.rTo || S.today() };
+}
+function inR(d, r){ return d >= r.from && d <= r.to; }
+
+V.rpt = {
+  title:'Reports', sub:'Consumption, damage, purchase and production — filtered by date range',
+  html:function(){
+    var r = range();
+    var bar = '<div class="card"><div class="card-b"><div class="form" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr))">' +
+      fld('r_from','From', inp('r_from','date',' value="' + r.from + '"')) +
+      fld('r_to','To', inp('r_to','date',' value="' + r.to + '"')) +
+      '<div class="fld"><label>Quick range</label><div style="display:flex;gap:6px;flex-wrap:wrap">' +
+        '<button class="btn sm" data-act="rpt.q" data-id="30">30 d</button>' +
+        '<button class="btn sm" data-act="rpt.q" data-id="90">90 d</button>' +
+        '<button class="btn sm" data-act="rpt.q" data-id="365">1 yr</button></div></div>' +
+      '<div class="fld"><label>&nbsp;</label><button class="btn pri" data-act="rpt.apply">Apply</button></div>' +
+      '</div></div></div>';
+
+    /* 1. worker consumption + damage */
+    var wRows = DB.workers.map(function(w){
+      var iss = 0, good = 0, dmg = 0, val = 0, dval = 0, open = 0;
+      DB.toolIssue.forEach(function(i){
+        if (i.workerId !== w.id || !inR(i.date, r)) return;
+        var t = S.byId(DB.tools, i.toolId), rate = t ? S.num(t.rate) : 0, rr = S.retFor(i.id);
+        iss += S.num(i.qty); good += rr.good; dmg += rr.dmg;
+        val += (S.num(i.qty) - rr.good) * rate; dval += rr.dmg * rate;
+        if (S.issuePending(i) > 0) open++;
+      });
+      return { w:w, iss:iss, good:good, dmg:dmg, val:val, dval:dval, open:open };
+    }).filter(function(x){ return x.iss > 0; }).sort(function(a, b){ return b.val - a.val; });
+    var maxV = Math.max.apply(null, wRows.map(function(x){ return x.val; }).concat([1]));
+    var wT = tbl([{h:'Worker'},{h:'Dept'},{h:'Issued',cls:'num'},{h:'Returned good',cls:'num'},{h:'Damaged',cls:'num'},
+      {h:'Damage rate',cls:'num'},{h:'Open',cls:'num'},{h:'Consumed value',cls:'num'},{h:'Share'}],
+      wRows.map(function(x){
+        var dr = x.iss ? (x.dmg / x.iss * 100) : 0;
+        return ['<span class="strong">' + S.esc(x.w.name) + '</span><br><span class="tag">' + S.esc(x.w.code || '') + '</span>',
+          S.esc(x.w.dept || '—'), S.qty(x.iss), S.qty(x.good), S.qty(x.dmg),
+          '<span class="pill ' + (dr > 12 ? 'crit' : dr > 5 ? 'warn' : 'ok') + '">' + dr.toFixed(1) + '%</span>',
+          x.open ? '<span class="pill warn">' + x.open + '</span>' : '0',
+          '₹ ' + S.inr(x.val), '<div class="bar"><i style="width:' + Math.round(x.val / maxV * 100) + '%"></i></div>'];
+      }), { empty:'No tool issues in this range.',
+        foot:['Total','', S.qty(wRows.reduce(function(s,x){return s+x.iss;},0)), S.qty(wRows.reduce(function(s,x){return s+x.good;},0)),
+          S.qty(wRows.reduce(function(s,x){return s+x.dmg;},0)), '', '',
+          '₹ ' + S.inr(wRows.reduce(function(s,x){return s+x.val;},0)), ''] });
+
+    /* 2. vendor purchases */
+    var vMap = {};
+    DB.toolIn.forEach(function(x){ if (!inR(x.date, r)) return;
+      var k = x.vendorId; vMap[k] = vMap[k] || { t:0, c:0, n:0 }; vMap[k].t += S.num(x.qty) * S.num(x.rate); vMap[k].n++; });
+    DB.compIn.forEach(function(x){ if (!inR(x.date, r)) return;
+      var k = x.vendorId; vMap[k] = vMap[k] || { t:0, c:0, n:0 }; vMap[k].c += S.num(x.qty) * S.num(x.rate); vMap[k].n++; });
+    var vArr = Object.keys(vMap).map(function(k){ return { v:S.byId(DB.vendors, k), d:vMap[k] }; })
+      .filter(function(x){ return x.v; }).sort(function(a, b){ return (b.d.t + b.d.c) - (a.d.t + a.d.c); });
+    var vMax = Math.max.apply(null, vArr.map(function(x){ return x.d.t + x.d.c; }).concat([1]));
+    var vT = tbl([{h:'Vendor'},{h:'City'},{h:'Entries',cls:'num'},{h:'Tools ₹',cls:'num'},{h:'Components ₹',cls:'num'},
+      {h:'Total ₹',cls:'num'},{h:'Share'}],
+      vArr.map(function(x){
+        var tot = x.d.t + x.d.c;
+        return ['<span class="strong">' + S.esc(x.v.name) + '</span>', S.esc(x.v.city || '—'), x.d.n,
+          S.inr(x.d.t), S.inr(x.d.c), '<span class="strong">' + S.inr(tot) + '</span>',
+          '<div class="bar"><i style="width:' + Math.round(tot / vMax * 100) + '%"></i></div>'];
+      }), { empty:'No purchases in this range.',
+        foot:['Total','','', S.inr(vArr.reduce(function(s,x){return s+x.d.t;},0)), S.inr(vArr.reduce(function(s,x){return s+x.d.c;},0)),
+          S.inr(vArr.reduce(function(s,x){return s+x.d.t+x.d.c;},0)), ''] });
+
+    /* 3. production */
+    var pRows = DB.products.map(function(p){
+      var ok = 0, rj = 0, cost = 0;
+      DB.prodEntry.forEach(function(e){ if (e.productId !== p.id || !inR(e.date, r)) return;
+        ok += S.num(e.ok); rj += S.num(e.rej);
+        (e.lines || []).forEach(function(l){ var c = S.byId(DB.components, l.c); if (c) cost += S.num(c.rate) * S.num(l.q); }); });
+      var out = 0; DB.dispatch.forEach(function(d){ if (d.productId === p.id && inR(d.date, r)) out += S.num(d.qty); });
+      return { p:p, ok:ok, rj:rj, cost:cost, out:out };
+    }).filter(function(x){ return x.ok || x.rj || x.out; }).sort(function(a, b){ return b.ok - a.ok; });
+    var pMax = Math.max.apply(null, pRows.map(function(x){ return x.ok; }).concat([1]));
+    var pT = tbl([{h:'Model'},{h:'Painted OK',cls:'num'},{h:'Rejected',cls:'num'},{h:'Reject %',cls:'num'},
+      {h:'Dispatched',cls:'num'},{h:'Closing stock',cls:'num'},{h:'Material cost ₹',cls:'num'},{h:'Output'}],
+      pRows.map(function(x){
+        var rp = (x.ok + x.rj) ? (x.rj / (x.ok + x.rj) * 100) : 0;
+        return ['<span class="strong">' + S.esc(x.p.code) + '</span>', S.qty(x.ok), S.qty(x.rj),
+          '<span class="pill ' + (rp > 4 ? 'crit' : rp > 2 ? 'warn' : 'ok') + '">' + rp.toFixed(1) + '%</span>',
+          S.qty(x.out), S.qty(S.fgStock(x.p.id)), S.inr(x.cost),
+          '<div class="bar"><i style="width:' + Math.round(x.ok / pMax * 100) + '%"></i></div>'];
+      }), { empty:'No production in this range.',
+        foot:['Total', S.qty(pRows.reduce(function(s,x){return s+x.ok;},0)), S.qty(pRows.reduce(function(s,x){return s+x.rj;},0)),
+          '', S.qty(pRows.reduce(function(s,x){return s+x.out;},0)), '', S.inr(pRows.reduce(function(s,x){return s+x.cost;},0)), ''] });
+
+    /* 4. component consumption */
+    var cMap = {};
+    DB.prodEntry.forEach(function(e){ if (!inR(e.date, r)) return;
+      (e.lines || []).forEach(function(l){ cMap[l.c] = (cMap[l.c] || 0) + S.num(l.q); }); });
+    var cArr = Object.keys(cMap).map(function(k){ return { c:S.byId(DB.components, k), q:cMap[k] }; })
+      .filter(function(x){ return x.c; }).sort(function(a, b){ return (b.q * S.num(b.c.rate)) - (a.q * S.num(a.c.rate)); });
+    var cT = tbl([{h:'Component'},{h:'Type'},{h:'Consumed',cls:'num'},{h:'Value ₹',cls:'num'},{h:'Stock now',cls:'num'},{h:'Cover'}],
+      cArr.slice(0, 20).map(function(x){
+        var days = Math.max(1, Math.round((new Date(r.to) - new Date(r.from)) / 86400000));
+        var perDay = x.q / days, cover = perDay > 0 ? Math.round(S.compStock(x.c.id) / perDay) : 999;
+        return ['<span class="strong">' + S.esc(x.c.name) + '</span><br><span class="tag">' + S.esc(x.c.code) + '</span>',
+          typePill(x.c.type), S.qty(x.q) + ' ' + S.esc(x.c.unit), S.inr(x.q * S.num(x.c.rate)), S.qty(S.compStock(x.c.id)),
+          '<span class="pill ' + (cover < 15 ? 'crit' : cover < 40 ? 'warn' : 'ok') + '">' + (cover > 365 ? '365+' : cover) + ' days</span>'];
+      }), { empty:'No components consumed in this range.' });
+
+    /* 5. dispatch by party */
+    var dMap = {};
+    DB.dispatch.forEach(function(d){ if (!inR(d.date, r)) return;
+      dMap[d.party] = dMap[d.party] || { q:0, n:0, m:{} };
+      dMap[d.party].q += S.num(d.qty); dMap[d.party].n++;
+      var p = S.byId(DB.products, d.productId); if (p) dMap[d.party].m[p.code] = 1; });
+    var dT = tbl([{h:'Party'},{h:'Consignments',cls:'num'},{h:'Pieces',cls:'num'},{h:'Models'}],
+      Object.keys(dMap).sort(function(a, b){ return dMap[b].q - dMap[a].q; }).map(function(k){
+        return ['<span class="strong">' + S.esc(k) + '</span>', dMap[k].n, S.qty(dMap[k].q),
+          '<span style="font-size:12px;color:var(--txt2)">' + S.esc(Object.keys(dMap[k].m).join(', ')) + '</span>'];
+      }), { empty:'No dispatches in this range.' });
+
+    return bar +
+      cardFlush('Worker-wise Tool Consumption & Damage', 'Consumed value = issued − returned good, at purchase rate', wT,
+        '<button class="btn sm" data-act="xl.worker">Export Excel</button>') +
+      cardFlush('Vendor-wise Purchases', 'Tools and components together', vT) +
+      cardFlush('Production Summary', 'Paint entries in range', pT) +
+      '<div class="split">' +
+        cardFlush('Component Consumption & Cover', 'Top 20 by value; cover assumes the same run rate', cT) +
+        cardFlush('Dispatch by Party', 'Finished goods sent out', dT) +
+      '</div>';
+  }
+};
+
+/* ==========================================================================
+   BACKUP & DATA
+   ========================================================================== */
+function sheets(){
+  var out = [];
+  out.push({ n:'Tool Stock', r:[['Code','Tool','Category','Unit','Received','Issued','Returned Good','Damaged','On Floor','In Store','Min','Rate','Stock Value']]
+    .concat(DB.tools.map(function(t){ return [t.code, t.name, t.cat, t.unit, S.toolReceived(t.id), S.toolIssued(t.id),
+      S.toolReturnedGood(t.id), S.toolDamaged(t.id), S.toolOnFloor(t.id), S.toolStock(t.id), S.num(t.min), S.num(t.rate),
+      S.toolStock(t.id) * S.num(t.rate)]; })) });
+  out.push({ n:'Tool Inward', r:[['GRN No','Date','Vendor','Doc Type','Doc No','Tool','Qty','Rate','Value','Entered By']]
+    .concat(DB.toolIn.map(function(x){ return [x.no, x.date, S.nm(DB.vendors, x.vendorId), x.docType, x.docNo,
+      S.nm(DB.tools, x.toolId), S.num(x.qty), S.num(x.rate), S.num(x.qty) * S.num(x.rate), x.by || '']; })) });
+  out.push({ n:'Tool Issue', r:[['Issue No','Date','Worker','Dept','Tool','Machine','Job','Issued','Good Back','Damaged','Pending']]
+    .concat(DB.toolIssue.map(function(x){ var rr = S.retFor(x.id), w = S.byId(DB.workers, x.workerId) || {};
+      return [x.no, x.date, w.name || '', w.dept || '', S.nm(DB.tools, x.toolId), x.machine || '', x.job || '',
+        S.num(x.qty), rr.good, rr.dmg, S.issuePending(x)]; })) });
+  out.push({ n:'Tool Return', r:[['Date','Issue No','Worker','Tool','Good','Damaged','Reason']]
+    .concat(DB.toolRet.map(function(x){ var i = S.byId(DB.toolIssue, x.issueId) || {};
+      return [x.date, i.no || '', S.nm(DB.workers, i.workerId), S.nm(DB.tools, i.toolId), S.num(x.good), S.num(x.damaged), x.remarks || '']; })) });
+  out.push({ n:'Component Stock', r:[['Code','Component','Type','Unit','Received','Consumed','Stock','Min','Rate','Stock Value']]
+    .concat(DB.components.map(function(c){ return [c.code, c.name, c.type, c.unit, S.compReceived(c.id), S.compConsumed(c.id),
+      S.compStock(c.id), S.num(c.min), S.num(c.rate), S.compStock(c.id) * S.num(c.rate)]; })) });
+  out.push({ n:'Component Inward', r:[['CRN No','Date','Vendor','Doc No','Component','Qty','Rate','Value']]
+    .concat(DB.compIn.map(function(x){ return [x.no, x.date, S.nm(DB.vendors, x.vendorId), x.docNo,
+      S.nm(DB.components, x.componentId), S.num(x.qty), S.num(x.rate), S.num(x.qty) * S.num(x.rate)]; })) });
+  out.push({ n:'Paint Entries', r:[['Entry No','Date','Model','OK Qty','Rejected','Batch','Painted By','Material Cost']]
+    .concat(DB.prodEntry.map(function(x){ var cost = 0;
+      (x.lines || []).forEach(function(l){ var c = S.byId(DB.components, l.c); if (c) cost += S.num(c.rate) * S.num(l.q); });
+      return [x.no, x.date, S.nm(DB.products, x.productId, 'code'), S.num(x.ok), S.num(x.rej), x.batch || '', x.by || '', cost]; })) });
+  out.push({ n:'FG Stock', r:[['Model','Description','Painted','Dispatched','In Stock','Cost per pc','Stock Value']]
+    .concat(DB.products.map(function(p){ return [p.code, p.name, S.fgMade(p.id), S.fgOut(p.id), S.fgStock(p.id),
+      S.bomCost(p), S.fgStock(p.id) * S.bomCost(p)]; })) });
+  out.push({ n:'Dispatch', r:[['DC No','Date','Party','PO No','Model','Qty']]
+    .concat(DB.dispatch.map(function(x){ return [x.no, x.date, x.party, x.poNo || '', S.nm(DB.products, x.productId, 'code'), S.num(x.qty)]; })) });
+  out.push({ n:'BOM', r:[['Model','Component Code','Component','Qty per pc','Unit','Rate','Line Cost']]
+    .concat(DB.products.reduce(function(a, p){ (p.bom || []).forEach(function(b){ var c = S.byId(DB.components, b.c);
+      if (c) a.push([p.code, c.code, c.name, S.num(b.q), c.unit, S.num(c.rate), S.num(b.q) * S.num(c.rate)]); }); return a; }, [])) });
+  out.push({ n:'Vendors', r:[['Name','City','GSTIN','Phone','Supplies']]
+    .concat(DB.vendors.map(function(x){ return [x.name, x.city || '', x.gstin || '', x.phone || '', x.supplies || '']; })) });
+  out.push({ n:'Workers', r:[['Code','Name','Department']]
+    .concat(DB.workers.map(function(x){ return [x.code || '', x.name, x.dept || '']; })) });
+  return out;
+}
+function xmlEsc(s){ return String(s == null ? '' : s).replace(/[&<>"]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
+
+/* ---------- minimal .xlsx writer (real OOXML, no library) ---------- */
+var CRCT = null;
+function crc32(u8){
+  if (!CRCT) { CRCT = []; for (var i = 0; i < 256; i++) { var c = i; for (var k = 0; k < 8; k++) c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1); CRCT[i] = c >>> 0; } }
+  var x = 0xFFFFFFFF;
+  for (var j = 0; j < u8.length; j++) x = CRCT[(x ^ u8[j]) & 0xFF] ^ (x >>> 8);
+  return (x ^ 0xFFFFFFFF) >>> 0;
+}
+function enc(str){ return new TextEncoder().encode(str); }
+function zipStore(files){
+  var parts = [], central = [], offset = 0;
+  files.forEach(function(f){
+    var data = enc(f.s), crc = crc32(data), nm = enc(f.n);
+    var lh = new Uint8Array(30 + nm.length), d = new DataView(lh.buffer);
+    d.setUint32(0, 0x04034b50, true); d.setUint16(4, 20, true); d.setUint32(14, crc, true);
+    d.setUint32(18, data.length, true); d.setUint32(22, data.length, true); d.setUint16(26, nm.length, true);
+    lh.set(nm, 30);
+    parts.push(lh, data);
+    var ch = new Uint8Array(46 + nm.length), c = new DataView(ch.buffer);
+    c.setUint32(0, 0x02014b50, true); c.setUint16(4, 20, true); c.setUint16(6, 20, true);
+    c.setUint32(16, crc, true); c.setUint32(20, data.length, true); c.setUint32(24, data.length, true);
+    c.setUint16(28, nm.length, true); c.setUint32(42, offset, true);
+    ch.set(nm, 46);
+    central.push(ch);
+    offset += lh.length + data.length;
+  });
+  var cdSize = central.reduce(function(a, b){ return a + b.length; }, 0);
+  var eo = new Uint8Array(22), e = new DataView(eo.buffer);
+  e.setUint32(0, 0x06054b50, true); e.setUint16(8, files.length, true); e.setUint16(10, files.length, true);
+  e.setUint32(12, cdSize, true); e.setUint32(16, offset, true);
+  return new Blob(parts.concat(central, [eo]), { type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+}
+function colRef(i){ var s = ''; i++; while (i > 0) { var m = (i - 1) % 26; s = String.fromCharCode(65 + m) + s; i = (i - m - 1) / 26; } return s; }
+function safeSheet(nme, used){
+  var x = String(nme).replace(/[\[\]:*?\/\\]/g, ' ').slice(0, 31) || 'Sheet';
+  var b = x, k = 2; while (used[x]) { x = (b.slice(0, 28) + ' ' + k); k++; }
+  used[x] = 1; return x;
+}
+function buildXlsx(list){
+  var used = {}, names = list.map(function(sh){ return safeSheet(sh.n, used); });
+  var files = [];
+  files.push({ n:'[Content_Types].xml', s:'<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+    '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">' +
+    '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>' +
+    '<Default Extension="xml" ContentType="application/xml"/>' +
+    '<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>' +
+    '<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>' +
+    list.map(function(_, i){ return '<Override PartName="/xl/worksheets/sheet' + (i + 1) +
+      '.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>'; }).join('') + '</Types>' });
+  files.push({ n:'_rels/.rels', s:'<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+    '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' +
+    '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>' });
+  files.push({ n:'xl/workbook.xml', s:'<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+    '<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets>' +
+    names.map(function(nn, i){ return '<sheet name="' + xmlEsc(nn) + '" sheetId="' + (i + 1) + '" r:id="rId' + (i + 1) + '"/>'; }).join('') +
+    '</sheets></workbook>' });
+  files.push({ n:'xl/_rels/workbook.xml.rels', s:'<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+    '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' +
+    list.map(function(_, i){ return '<Relationship Id="rId' + (i + 1) +
+      '" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet' + (i + 1) + '.xml"/>'; }).join('') +
+    '<Relationship Id="rIdS" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>' });
+  files.push({ n:'xl/styles.xml', s:'<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+    '<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">' +
+    '<fonts count="2"><font><sz val="11"/><name val="Calibri"/></font>' +
+    '<font><b/><color rgb="FFFFFFFF"/><sz val="11"/><name val="Calibri"/></font></fonts>' +
+    '<fills count="3"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill>' +
+    '<fill><patternFill patternType="solid"><fgColor rgb="FFE30016"/><bgColor indexed="64"/></patternFill></fill></fills>' +
+    '<borders count="1"><border/></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>' +
+    '<cellXfs count="2"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>' +
+    '<xf numFmtId="0" fontId="1" fillId="2" borderId="0" xfId="0" applyFont="1" applyFill="1"/></cellXfs>' +
+    '<cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>' });
+  list.forEach(function(sh, si){
+    var body = '';
+    sh.r.forEach(function(row, ri){
+      body += '<row r="' + (ri + 1) + '">';
+      row.forEach(function(cell, ci){
+        var ref = colRef(ci) + (ri + 1), st = ri === 0 ? ' s="1"' : '';
+        if (typeof cell === 'number' && isFinite(cell)) body += '<c r="' + ref + '"' + st + '><v>' + cell + '</v></c>';
+        else body += '<c r="' + ref + '"' + st + ' t="inlineStr"><is><t xml:space="preserve">' + xmlEsc(cell) + '</t></is></c>';
+      });
+      body += '</row>';
+    });
+    files.push({ n:'xl/worksheets/sheet' + (si + 1) + '.xml', s:'<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+      '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData>' + body + '</sheetData></worksheet>' });
+  });
+  return zipStore(files);
+}
+function toTSV(list){
+  return list.map(function(sh){ return '### ' + sh.n + '\n' + sh.r.map(function(r){ return r.join('\t'); }).join('\n'); }).join('\n\n');
+}
+/* ---------- delivering a file ---------- */
+var DL = null;
+if (window.claude && window.claude.use) {
+  try { window.claude.use('downloads').then(function(d){ DL = d; }, function(){}); } catch (e) {}
+}
+function anchorSave(name, blob){
+  try {
+    var u = URL.createObjectURL(blob), a = document.createElement('a');
+    a.href = u; a.download = name; document.body.appendChild(a); a.click();
+    setTimeout(function(){ a.remove(); URL.revokeObjectURL(u); }, 1500);
+    return true;
+  } catch (e) { return false; }
+}
+function deliver(name, blob, noteId){
+  var say = function(txt, cls){ var e = $('#' + noteId); if (e) { e.innerHTML = txt; e.className = 'note ' + (cls || ''); } };
+  if (DL) {
+    DL.save({ filename:name, data:blob }).then(function(){ say('<div><b>' + S.esc(name) + '</b> saved.</div>', ''); },
+      function(err){
+        var c = err && err.code;
+        say(c === 'declined' ? '<div>Download cancelled. You can still copy the data below.</div>'
+          : '<div>The browser would not save the file here. Use <b>Copy</b> below and paste into Excel.</div>', 'w');
+      });
+  } else {
+    var ok = anchorSave(name, blob);
+    say(ok ? '<div>A download of <b>' + S.esc(name) + '</b> has started. If nothing appeared, use <b>Copy</b> below and paste into Excel.</div>'
+           : '<div>This window blocks downloads. Use <b>Copy</b> below and paste into Excel.</div>', ok ? '' : 'w');
+  }
+}
+function exportModal(title, filename, blob, tsv){
+  modal(title,
+    '<div class="note" id="dl_note"><div>Preparing <b>' + S.esc(filename) + '</b>…</div></div>' +
+    '<div class="frow" style="border-top:0;padding-top:4px;margin-top:8px">' +
+      '<button class="btn pri" data-act="xl.copy">Copy to clipboard</button>' +
+      '<button class="btn" data-act="modal.close">Close</button></div>' +
+    '<textarea id="xl_text" readonly style="margin-top:12px;min-height:180px;font-family:\'IBM Plex Mono\',monospace;font-size:11.5px">' +
+      S.esc(tsv) + '</textarea>');
+  deliver(filename, blob, 'dl_note');
+}
+function xlsxOut(title, base, list){
+  exportModal(title, 'JAYCO-' + base + '-' + S.today() + '.xlsx', buildXlsx(list), toTSV(list));
+}
+
+V.sys = {
+  title:'Backup & Data', sub:'Export to Excel, take a backup file, restore, or start clean',
+  html:function(){
+    var counts = [['Vendors', DB.vendors.length], ['Workers', DB.workers.length], ['Tools', DB.tools.length],
+      ['Components', DB.components.length], ['Products', DB.products.length], ['Tool inward', DB.toolIn.length],
+      ['Tool issues', DB.toolIssue.length], ['Tool returns', DB.toolRet.length], ['Component inward', DB.compIn.length],
+      ['Paint entries', DB.prodEntry.length], ['Dispatches', DB.dispatch.length]];
+    var kv = counts.map(function(c){ return '<div class="kv"><span>' + c[0] + '</span><span>' + c[1] + '</span></div>'; }).join('');
+    var size = 0; try { size = JSON.stringify(DB).length; } catch (e) {}
+
+    return '<div class="split">' +
+      card('Export', 'One .xlsx workbook, every register on its own sheet',
+        '<div style="display:flex;flex-direction:column;gap:9px">' +
+          '<button class="btn pri" data-act="xl.all">Export full workbook (.xls)</button>' +
+          '<button class="btn" data-act="xl.tools">Tool stock only</button>' +
+          '<button class="btn" data-act="xl.fg">Finished goods only</button>' +
+          '<button class="btn" data-act="xl.worker">Worker consumption only</button>' +
+        '</div>') +
+      card('Backup & Restore', 'A JSON backup restores everything exactly',
+        '<div style="display:flex;flex-direction:column;gap:9px">' +
+          '<button class="btn pri" data-act="sys.backup">Download backup (.json)</button>' +
+          '<label class="btn" style="justify-content:center;cursor:pointer">Restore from backup file' +
+            '<input type="file" id="restore_file" accept="application/json,.json" hidden></label>' +
+          '<button class="btn" data-act="sys.paste">Restore by pasting backup text</button>' +
+        '</div>' +
+        '<div class="note w" style="margin-top:12px"><div>Restoring replaces everything currently in the system. Take a backup first.</div></div>') +
+    '</div>' +
+    '<div class="split">' +
+      card('Data In System', 'Live record counts', kv +
+        '<div class="kv"><span>Storage used</span><span>' + (size / 1024).toFixed(1) + ' KB</span></div>' +
+        '<div class="kv"><span>Saved in this browser</span><span>' + (S.persistOK() ? 'Yes' : 'No — download the offline copy') + '</span></div>') +
+      card('Danger Zone', 'These cannot be undone',
+        '<div style="display:flex;flex-direction:column;gap:9px">' +
+          (DB.meta.sample ? '<button class="btn" data-act="sys.clear">Clear sample data, keep masters</button>' : '') +
+          '<button class="btn dang" data-act="sys.wipeTx">Delete all transactions, keep masters</button>' +
+          '<button class="btn dang" data-act="sys.reset">Reset everything to factory sample</button>' +
+        '</div>' +
+        '<div class="note c" style="margin-top:12px"><div>Take a backup before using anything here.</div></div>') +
+    '</div>' +
+    '<div class="note"><div><b>How the two stages connect.</b> Stage 1 controls tools that machine the castings — it is a consumption store, ' +
+      'so value leaves the books when a tool is issued and not returned. Stage 2 controls material that becomes the product — ' +
+      'value stays in the books, moving from component stock into finished goods the moment a paint entry is posted.</div></div>';
+  },
+  after:function(){
+    var f = $('#restore_file');
+    if (f) f.onchange = function(){
+      var file = f.files[0]; if (!file) return;
+      var rd = new FileReader();
+      rd.onload = function(){ restore(rd.result); };
+      rd.readAsText(file);
+    };
+  }
+};
+function restore(txt){
+  var d;
+  try { d = JSON.parse(txt); } catch (e) { toast('That file is not a valid backup.', 'err'); return; }
+  if (!d || !d.tools || !d.components) { toast('Backup is missing core tables.', 'err'); return; }
+  if (!confirm('Replace everything currently in the system with this backup?')) return;
+  S.DB = d; DB = d; window.JS.DB = d; S.save();
+  toast('Backup restored.'); location.reload();
+}
+
+/* ==========================================================================
+   ACTIONS
+   ========================================================================== */
+window.JA2 = {
+  /* stage 2 */
+  'cin.save': function(){ cinSave(false); },
+  'cin.saveNext': function(){ cinSave(true); },
+  'cin.del': function(el){
+    if (!confirm('Delete this component inward entry?')) return;
+    DB.compIn = DB.compIn.filter(function(r){ return r.id !== el.dataset.id; }); S.save();
+    toast('Entry deleted.', 'warn'); render();
+  },
+  'prod.save': function(){
+    var d = v('pe_date'), pid = v('pe_prod'), ok = n('pe_ok'), rj = n('pe_rej'), total = ok + rj;
+    if (!d || !pid || total <= 0) { toast('Select date, model and quantity.', 'err'); return; }
+    var p = S.byId(DB.products, pid);
+    if (!p.bom || !p.bom.length) { toast('This model has no BOM. Add one under Products & BOM.', 'err'); return; }
+    var sh = S.shortagesFor(pid, total);
+    if (sh.length && !$('#pe_force').checked) {
+      toast('Short on ' + sh.length + ' component(s). Book inward, or tick "allow posting with shortage".', 'err');
+      return;
+    }
+    var rec = { id:S.uid('pe'), no:S.docNo('PNT', DB.prodEntry), date:d, productId:pid, ok:ok, rej:rj,
+      batch:v('pe_batch') || 'B-' + d.replace(/-/g, '').slice(2), by:U.operator(), remarks:v('pe_rem'),
+      lines:p.bom.map(function(b){ return { c:b.c, q:+(S.num(b.q) * total).toFixed(3) }; }) };
+    DB.prodEntry.push(rec); S.save();
+    state.prodOk = ''; state.prodRej = '';
+    toast(rec.no + ' posted — ' + S.qty(ok) + ' ' + p.code + ' into finished goods, ' + p.bom.length + ' component lines deducted.');
+    render();
+  },
+  'prod.del': function(el){
+    if (!confirm('Delete this paint entry? Components go back into stock and finished goods reduce.')) return;
+    DB.prodEntry = DB.prodEntry.filter(function(r){ return r.id !== el.dataset.id; }); S.save();
+    toast('Paint entry reversed.', 'warn'); render();
+  },
+  'prod.view': function(el){
+    var r = S.byId(DB.prodEntry, el.dataset.id); if (!r) return;
+    var p = S.byId(DB.products, r.productId) || {};
+    var rows = (r.lines || []).map(function(l){
+      var c = S.byId(DB.components, l.c) || { name:'(deleted)', code:'', unit:'', rate:0 };
+      return [S.esc(c.name) + ' <span class="tag">' + S.esc(c.code) + '</span>', S.qty(l.q) + ' ' + S.esc(c.unit),
+        '₹ ' + S.inr(S.num(l.q) * S.num(c.rate))];
+    });
+    modal(r.no + ' — ' + (p.code || ''),
+      '<div class="kv"><span>Date</span><span>' + S.dmy(r.date) + '</span></div>' +
+      '<div class="kv"><span>Painted OK / rejected</span><span>' + S.qty(r.ok) + ' / ' + S.qty(r.rej) + '</span></div>' +
+      '<div class="kv"><span>Batch</span><span>' + S.esc(r.batch || '—') + '</span></div>' +
+      '<div class="kv"><span>Painted by</span><span>' + S.esc(r.by || '—') + '</span></div>' +
+      '<div style="margin-top:14px">' + tbl([{h:'Component'},{h:'Deducted',cls:'num'},{h:'Value',cls:'num'}], rows) + '</div>');
+  },
+  'fg.save': function(){
+    var d = v('dp_date'), party = v('dp_party'), pid = v('dp_prod'), q = n('dp_qty');
+    if (!d || !party || !pid || q <= 0) { toast('Fill date, party, model and quantity.', 'err'); return; }
+    var have = S.fgStock(pid);
+    if (q > have) { toast('Only ' + S.qty(have) + ' in finished goods for ' + S.nm(DB.products, pid, 'code') + '.', 'err'); return; }
+    DB.dispatch.push({ id:S.uid('dp'), no:S.docNo('DC', DB.dispatch), date:d, party:party, poNo:v('dp_po'),
+      productId:pid, qty:q, remarks:v('dp_rem'), by:U.operator() });
+    S.save(); toast('Dispatch posted — ' + S.qty(q) + ' ' + S.nm(DB.products, pid, 'code') + ' to ' + party + '.'); render();
+  },
+  'fg.del': function(el){
+    if (!confirm('Delete this dispatch? Finished goods stock will increase again.')) return;
+    DB.dispatch = DB.dispatch.filter(function(r){ return r.id !== el.dataset.id; }); S.save();
+    toast('Dispatch deleted.', 'warn'); render();
+  },
+  /* BOM */
+  'bom.edit': function(el){ bomModal(el.dataset.id); },
+  'bom.rm': function(el){ readBomInputs(); state.bomDraft.splice(+el.dataset.i, 1);
+    var p = S.byId(DB.products, state.bomPid); modal('BOM — ' + S.esc(p.code), bomBody(), true); },
+  'bom.add': function(){
+    readBomInputs();
+    var c = v('bom_add'), q = n('bom_q');
+    if (!c || q <= 0) { toast('Pick a component and quantity per piece.', 'err'); return; }
+    state.bomDraft.push({ c:c, q:q });
+    var p = S.byId(DB.products, state.bomPid); modal('BOM — ' + S.esc(p.code), bomBody(), true);
+  },
+  'bom.save': function(){
+    readBomInputs();
+    var p = S.byId(DB.products, state.bomPid); if (!p) return;
+    p.bom = state.bomDraft.filter(function(b){ return b.c && S.num(b.q) > 0; });
+    S.save(); closeModal(); toast('BOM saved for ' + p.code + ' — ' + p.bom.length + ' lines.'); render();
+  },
+  'bom.editP': function(el){
+    var id = el.dataset.id, p = id ? S.byId(DB.products, id) : {};
+    modal((id ? 'Edit ' : 'New ') + 'Model',
+      '<div class="form">' +
+        fld('pm_code','Model code <span class="req">*</span>', '<input id="pm_code" value="' + S.esc(p.code || '') + '" placeholder="SN 516">') +
+        fld('pm_name','Description <span class="req">*</span>', '<input id="pm_name" value="' + S.esc(p.name || '') + '" placeholder="Plummer Block SN 516">') +
+        fld('pm_series','Series', '<input id="pm_series" value="' + S.esc(p.series || 'SN') + '" placeholder="SN / SNL / SAF">') +
+        fld('pm_size','Size', '<input id="pm_size" value="' + S.esc(p.size || '') + '" placeholder="516">') +
+      '</div><div class="frow"><button class="btn pri" data-act="bom.saveP" data-id="' + (id || '') + '">Save</button>' +
+      '<button class="btn" data-act="modal.close">Cancel</button></div>');
+  },
+  'bom.saveP': function(el){
+    var code = v('pm_code'), name = v('pm_name');
+    if (!code || !name) { toast('Model code and description are required.', 'err'); return; }
+    var id = el.dataset.id;
+    if (id) { var p = S.byId(DB.products, id); p.code = code; p.name = name; p.series = v('pm_series'); p.size = v('pm_size'); }
+    else DB.products.push({ id:S.uid('P'), code:code, name:name, series:v('pm_series'), size:v('pm_size'), unit:'Nos', bom:[] });
+    S.save(); closeModal(); toast('Model saved.'); render();
+  },
+  'bom.delP': function(el){
+    var id = el.dataset.id;
+    if (DB.prodEntry.some(function(r){ return r.productId === id; })) { toast('This model has paint entries — delete those first.', 'err'); return; }
+    if (!confirm('Delete this model and its BOM?')) return;
+    DB.products = DB.products.filter(function(p){ return p.id !== id; }); S.save(); toast('Model deleted.', 'warn'); render();
+  },
+  /* masters */
+  'mast.tab': function(el){ state.tab = el.dataset.id; render(); },
+  'mast.edit': function(el){ mastModal(state.tab || 'vendors', el.dataset.id); },
+  'mast.save': function(el){
+    var kind = el.dataset.kind, m = MAST[kind], id = el.dataset.id, o = id ? S.byId(DB[m.key], id) : { id:S.uid(m.pfx) };
+    for (var i = 0; i < m.f.length; i++) {
+      var f = m.f[i], val = v('m_' + f[0]);
+      if (f[2] && !val) { toast(f[1] + ' is required.', 'err'); return; }
+      o[f[0]] = f[3] === 'num' ? S.num(val) : val;
+    }
+    if (!id) { if (m.key === 'products') o.bom = []; DB[m.key].push(o); }
+    S.save(); closeModal(); toast(m.label.replace(/s$/, '') + ' saved.'); render();
+  },
+  'mast.del': function(el){
+    var kind = state.tab || 'vendors', m = MAST[kind], id = el.dataset.id;
+    var used = false;
+    if (kind === 'tools') used = DB.toolIn.concat(DB.toolIssue).some(function(r){ return r.toolId === id; });
+    if (kind === 'workers') used = DB.toolIssue.some(function(r){ return r.workerId === id; });
+    if (kind === 'vendors') used = DB.toolIn.concat(DB.compIn).some(function(r){ return r.vendorId === id; });
+    if (kind === 'components') used = DB.compIn.some(function(r){ return r.componentId === id; }) ||
+      DB.products.some(function(p){ return (p.bom || []).some(function(b){ return b.c === id; }); });
+    if (used) { toast('This record is used in transactions or a BOM — it cannot be deleted.', 'err'); return; }
+    if (!confirm('Delete this record?')) return;
+    DB[m.key] = DB[m.key].filter(function(r){ return r.id !== id; }); S.save(); toast('Deleted.', 'warn'); render();
+  },
+  /* reports */
+  'rpt.apply': function(){ state.rFrom = v('r_from'); state.rTo = v('r_to'); render(); },
+  'rpt.q': function(el){ state.rFrom = S.daysAgo(+el.dataset.id); state.rTo = S.today(); render(); },
+  /* export */
+  'xl.all': function(){ xlsxOut('Full Workbook', 'Store', sheets()); },
+  'xl.tools': function(){ xlsxOut('Tool Registers', 'Tools', sheets().filter(function(x){ return /^Tool/.test(x.n); })); },
+  'xl.fg': function(){ xlsxOut('Finished Goods', 'FG', sheets().filter(function(x){ return /FG|Dispatch|BOM/.test(x.n); })); },
+  'xl.worker': function(){
+    var r = range(), rows = [['Worker','Dept','Issued','Returned Good','Damaged','Damage %','Consumed Value']];
+    DB.workers.forEach(function(w){
+      var iss = 0, good = 0, dmg = 0, val = 0;
+      DB.toolIssue.forEach(function(i){ if (i.workerId !== w.id || !inR(i.date, r)) return;
+        var t = S.byId(DB.tools, i.toolId), rate = t ? S.num(t.rate) : 0, rr = S.retFor(i.id);
+        iss += S.num(i.qty); good += rr.good; dmg += rr.dmg; val += (S.num(i.qty) - rr.good) * rate; });
+      if (iss) rows.push([w.name, w.dept || '', iss, good, dmg, +(dmg / iss * 100).toFixed(1), +val.toFixed(2)]);
+    });
+    xlsxOut('Worker Consumption', 'Worker', [{ n:'Worker Consumption', r:rows }]);
+  },
+  'xl.copy': function(){
+    var t = $('#xl_text'); if (!t) return;
+    t.select();
+    var ok = false;
+    if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(t.value); ok = true; }
+    else { try { ok = document.execCommand('copy'); } catch (e) {} }
+    toast(ok ? 'Copied — paste into Excel.' : 'Select the text and press Ctrl+C.', ok ? '' : 'warn');
+  },
+  /* system */
+  'sys.backup': function(){
+    var txt = JSON.stringify(DB, null, 1);
+    exportModal('Backup', 'JAYCO-Store-Backup-' + S.today() + '.json', new Blob([txt], { type:'application/json' }), txt);
+  },
+  'sys.paste': function(){
+    modal('Restore From Text', '<div class="note w"><div>Paste the contents of a backup .json file and press Restore. This replaces everything.</div></div>' +
+      '<textarea id="rs_text" placeholder="{ ... }" style="margin-top:12px;min-height:200px;font-family:\'IBM Plex Mono\',monospace;font-size:11.5px"></textarea>' +
+      '<div class="frow"><button class="btn pri" data-act="sys.pasteGo">Restore</button><button class="btn" data-act="modal.close">Cancel</button></div>');
+  },
+  'sys.pasteGo': function(){ restore(v('rs_text')); },
+  'sys.clear': function(){
+    if (!confirm('Clear the sample transactions? Vendors, tools, workers, components and BOMs are kept.')) return;
+    DB.toolIn = []; DB.toolIssue = []; DB.toolRet = []; DB.compIn = []; DB.prodEntry = []; DB.dispatch = [];
+    DB.meta.sample = false; S.save(); toast('Sample transactions cleared. Masters kept.'); render();
+  },
+  'sys.wipeTx': function(){
+    if (!confirm('Delete ALL transactions? Masters and BOMs are kept. This cannot be undone.')) return;
+    DB.toolIn = []; DB.toolIssue = []; DB.toolRet = []; DB.compIn = []; DB.prodEntry = []; DB.dispatch = [];
+    DB.meta.sample = false; S.save(); toast('All transactions deleted.', 'warn'); render();
+  },
+  'sys.reset': function(){
+    if (!confirm('Reset everything back to the factory sample? All your data will be lost.')) return;
+    var d = S.seed(); S.DB = d; DB = d; window.JS.DB = d; S.save(); location.reload();
+  }
+};
+
+function cinSave(keep){
+  var d = v('ci_date'), ven = v('ci_vendor'), dno = v('ci_dno'), c = v('ci_comp'), q = n('ci_qty');
+  if (!d || !ven || !dno || !c || q <= 0) { toast('Fill date, vendor, challan no, component and quantity.', 'err'); return; }
+  var rec = { id:S.uid('ci'), no:S.docNo('CRN', DB.compIn), date:d, vendorId:ven, docType:v('ci_dtype'), docNo:dno,
+    componentId:c, qty:q, rate:n('ci_rate'), remarks:v('ci_rem'), by:U.operator() };
+  DB.compIn.push(rec); S.save();
+  toast('Inward ' + rec.no + ' posted — ' + S.qty(q) + ' ' + S.nm(DB.components, c));
+  var k = { d:d, ven:ven, dt:v('ci_dtype'), dno:dno };
+  render();
+  if (keep) { setv('ci_date', k.d); setv('ci_vendor', k.ven); setv('ci_dtype', k.dt); setv('ci_dno', k.dno);
+    var e = $('#ci_comp'); if (e) e.focus(); }
+}
+
+/* ---------- go ---------- */
+render();
+})();
+
+</script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script>
+/* ==========================================================================
+   JAYCO STORE CONTROL — Firebase / Firestore cloud layer
+   Anonymous sign-in, PIN gate, per-record sync.
+   ========================================================================== */
+(function () {
+'use strict';
+
+/* ─────────────────────────────────────────────────────────────────────────
+   CONFIGURATION — paste your Firebase settings here, or use the setup screen.
+   Firebase Console → Project settings → Your apps → Web app → Config
+   ───────────────────────────────────────────────────────────────────────── */
+var CFG = {
+  firebase: {
+    apiKey:            "",
+    authDomain:        "",
+    projectId:         "",
+    storageBucket:     "",
+    messagingSenderId: "",
+    appId:             ""
+  },
+  prefix: "store_"
+};
+/* ───────────────────────────────────────────────────────────────────────── */
+
+var S = window.JS, U = window.JU, R = window.JR;
+var $ = U.$, esc = S.esc;
+var COLS = ['vendors','workers','tools','components','products',
+            'toolIn','toolIssue','toolRet','compIn','prodEntry','dispatch'];
+var P = CFG.prefix;
+var fdb = null, auth = null, shadow = {}, applying = false, ready = false;
+var live = {}, firstSnap = {}, statusEl = null, unlocked = false;
+
+/* ---------- gate styling ---------- */
+var st = document.createElement('style');
+st.textContent =
+  '#gate{position:fixed;inset:0;z-index:400;background:var(--bg);display:flex;align-items:center;justify-content:center;padding:24px;overflow-y:auto}' +
+  '#gate .gbox{width:100%;max-width:470px;background:var(--panel);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);padding:26px 26px 22px}' +
+  '#gate.wide .gbox{max-width:640px}' +
+  '#gate .glogo{width:150px;height:33px;background-image:var(--logo);background-size:contain;background-repeat:no-repeat;margin-bottom:6px}' +
+  '#gate h2{font-family:"Barlow Condensed",sans-serif;font-size:24px;font-weight:700;margin:14px 0 4px}' +
+  '#gate p{color:var(--txt2);font-size:13px;margin:0 0 18px;line-height:1.5}' +
+  '#gate ol{color:var(--txt2);font-size:12.5px;line-height:1.7;padding-left:18px;margin:0 0 16px}' +
+  '#gate ol b{color:var(--txt)}' +
+  '#gate .err{color:var(--crit);font-size:12.5px;margin-top:10px;min-height:16px}' +
+  '#gate input[type=password]{font-size:19px;letter-spacing:.32em;text-align:center;padding:11px 10px;font-family:"IBM Plex Mono",monospace}' +
+  '.cloudchip{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;font-weight:600;padding:4px 10px;border-radius:20px;' +
+    'background:var(--panel);border:1px solid var(--line);white-space:nowrap}' +
+  '.cloudchip .dot{width:7px;height:7px;border-radius:50%;background:var(--txt3)}' +
+  '.cloudchip.on .dot{background:var(--ok)}.cloudchip.on{color:var(--ok)}' +
+  '.cloudchip.busy .dot{background:var(--warn)}.cloudchip.busy{color:var(--warn)}' +
+  '.cloudchip.off .dot{background:var(--crit)}.cloudchip.off{color:var(--crit)}';
+document.head.appendChild(st);
+
+function chip(text, cls){
+  if (!statusEl) {
+    statusEl = document.createElement('span');
+    statusEl.className = 'cloudchip';
+    var t = $('#theme');
+    if (t && t.parentNode) t.parentNode.insertBefore(statusEl, t);
+  }
+  statusEl.className = 'cloudchip ' + (cls || '');
+  statusEl.innerHTML = '<i class="dot"></i>' + esc(text);
+}
+function gate(html, wide){
+  var g = $('#gate');
+  if (!g) { g = document.createElement('div'); g.id = 'gate'; document.body.appendChild(g); }
+  g.className = wide ? 'wide' : '';
+  g.innerHTML = '<div class="gbox"><div class="glogo"></div>' + html + '</div>';
+}
+function closeGate(){ var g = $('#gate'); if (g) g.remove(); }
+
+/* ---------- PIN hashing (obfuscation, not encryption) ---------- */
+function hashPin(pin){
+  var s = 'jayco-store::' + String(pin), h1 = 0x811c9dc5, h2 = 0x1000193;
+  for (var i = 0; i < s.length; i++) {
+    h1 ^= s.charCodeAt(i); h1 = (h1 * 0x01000193) >>> 0;
+    h2 = ((h2 << 5) - h2 + s.charCodeAt(i) * (i + 7)) >>> 0;
+  }
+  return ('00000000' + h1.toString(16)).slice(-8) + ('00000000' + h2.toString(16)).slice(-8);
+}
+
+/* ---------- config ---------- */
+function storedCfg(){ try { var s = localStorage.getItem('jayco_fb_cfg'); return s ? JSON.parse(s) : null; } catch (e) { return null; } }
+function activeCfg(){
+  if (CFG.firebase && CFG.firebase.apiKey) return CFG.firebase;
+  var s = storedCfg();
+  return (s && s.apiKey) ? s : null;
+}
+function remembered(){ try { return localStorage.getItem('jayco_unlocked') === '1'; } catch (e) { return false; } }
+function remember(on){ try { on ? localStorage.setItem('jayco_unlocked','1') : localStorage.removeItem('jayco_unlocked'); } catch (e) {} }
+
+function setupScreen(msg){
+  gate(
+    '<h2>Connect to Firebase</h2>' +
+    '<p>This copy keeps every register in your Firestore project, so the store PC, the office and your phone all see the same data.</p>' +
+    '<ol>' +
+      '<li>In the <b>Firebase Console</b>, open your project <b>jayco-store-control</b>.</li>' +
+      '<li><b>Build → Firestore Database</b> must exist (region <b>asia-south1</b>).</li>' +
+      '<li><b>Build → Authentication → Sign-in method</b> → enable <b>Anonymous</b>. No user accounts needed.</li>' +
+      '<li><b>Firestore → Rules</b> → publish the rules file that came with this app.</li>' +
+      '<li><b>Project settings → Your apps → Web app</b> → copy the <b>firebaseConfig</b> block and paste it below.</li>' +
+    '</ol>' +
+    '<textarea id="fb_cfg" placeholder=\'{ "apiKey": "AIza…", "authDomain": "jayco-store-control.firebaseapp.com", "projectId": "jayco-store-control", "storageBucket": "…", "messagingSenderId": "…", "appId": "…" }\' ' +
+      'style="min-height:145px;font-family:\'IBM Plex Mono\',monospace;font-size:11.5px"></textarea>' +
+    '<div class="err" id="fb_err">' + esc(msg || '') + '</div>' +
+    '<div class="frow"><button class="btn pri" id="fb_go">Connect</button>' +
+    '<span class="sp" style="font-size:12px;color:var(--txt3)">Saved in this browser only</span></div>', true);
+  $('#fb_go').onclick = function(){
+    var raw = $('#fb_cfg').value.trim(), m = raw.match(/\{[\s\S]*\}/);
+    if (!m) { $('#fb_err').textContent = 'Paste the firebaseConfig object, including the curly braces.'; return; }
+    var obj = null;
+    try { obj = JSON.parse(m[0]); }
+    catch (e) { try { obj = (new Function('return (' + m[0] + ')'))(); } catch (e2) { obj = null; } }
+    if (!obj || !obj.apiKey || !obj.projectId) { $('#fb_err').textContent = 'That is not a firebaseConfig block — apiKey and projectId are missing.'; return; }
+    try { localStorage.setItem('jayco_fb_cfg', JSON.stringify(obj)); } catch (e) {}
+    location.reload();
+  };
+}
+
+/* ---------- PIN screens ---------- */
+function setPinScreen(){
+  gate(
+    '<h2>Set the store PIN</h2>' +
+    '<p>Nobody has set a PIN for <b>' + esc(activeCfg().projectId) + '</b> yet. Choose one now — everyone who opens this app on any device will type it.</p>' +
+    '<div class="fld"><label for="p1">New PIN — 4 digits or more</label><input id="p1" type="password" inputmode="numeric" autofocus></div>' +
+    '<div class="fld" style="margin-top:12px"><label for="p2">Type it again</label><input id="p2" type="password" inputmode="numeric"></div>' +
+    '<div class="err" id="fb_err"></div>' +
+    '<div class="frow"><button class="btn pri" id="p_go">Set PIN and open</button></div>');
+  var go = function(){
+    var a = $('#p1').value.trim(), b = $('#p2').value.trim();
+    if (a.length < 4) { $('#fb_err').textContent = 'Use at least 4 characters.'; return; }
+    if (a !== b) { $('#fb_err').textContent = 'The two entries do not match.'; return; }
+    $('#fb_err').textContent = 'Saving…';
+    fdb.collection(P + 'meta').doc('app').set({ pinHash: hashPin(a) }, { merge:true })
+      .then(function(){ remember(true); unlock(); },
+            function(e){ $('#fb_err').textContent = 'Firestore refused the write: ' + (e.message || e.code) + ' — check that the rules are published.'; });
+  };
+  $('#p_go').onclick = go;
+  $('#p2').onkeydown = function(e){ if (e.key === 'Enter') go(); };
+  $('#p1').onkeydown = function(e){ if (e.key === 'Enter') $('#p2').focus(); };
+}
+function pinScreen(hash){
+  gate(
+    '<h2>Store Control</h2>' +
+    '<p>Enter the store PIN to open the registers.</p>' +
+    '<div class="fld"><label for="pin">PIN</label><input id="pin" type="password" inputmode="numeric" autofocus></div>' +
+    '<label class="chk" style="margin-top:12px"><input type="checkbox" id="pin_rm" checked> Remember this device</label>' +
+    '<div class="err" id="fb_err"></div>' +
+    '<div class="frow"><button class="btn pri" id="pin_go">Open</button>' +
+    '<span class="sp"><button class="btn gh" id="fb_reset" style="font-size:12px">Change Firebase project</button></span></div>');
+  var go = function(){
+    var val = $('#pin').value.trim();
+    if (!val) return;
+    if (hashPin(val) !== hash) { $('#fb_err').textContent = 'Wrong PIN.'; $('#pin').value = ''; $('#pin').focus(); return; }
+    remember($('#pin_rm').checked);
+    unlock();
+  };
+  $('#pin_go').onclick = go;
+  $('#pin').onkeydown = function(e){ if (e.key === 'Enter') go(); };
+  $('#fb_reset').onclick = function(){
+    if (!confirm('Forget the Firebase settings saved in this browser?')) return;
+    try { localStorage.removeItem('jayco_fb_cfg'); localStorage.removeItem('jayco_unlocked'); } catch (e) {}
+    location.reload();
+  };
+}
+
+/* ---------- render throttle ---------- */
+var rt = null;
+function scheduleRender(){
+  clearTimeout(rt);
+  rt = setTimeout(function(){
+    if (!unlocked) return;
+    if ($('#modal-root').innerHTML) return;
+    var a = document.activeElement;
+    if (a && /INPUT|SELECT|TEXTAREA/.test(a.tagName)) return;
+    R.render();
+  }, 200);
+}
+
+/* ---------- diff sync ---------- */
+function stamp(k){
+  var o = {}, arr = S.DB[k] || [];
+  arr.forEach(function(r){ o[r.id] = JSON.stringify(r); });
+  shadow[k] = o;
+}
+function diffOps(){
+  var ops = [];
+  COLS.forEach(function(k){
+    var arr = S.DB[k] || [], cur = {}, prev = shadow[k] || {};
+    arr.forEach(function(r){ cur[r.id] = JSON.stringify(r); });
+    arr.forEach(function(r){ if (prev[r.id] !== cur[r.id]) ops.push({ t:'set', k:k, id:r.id, d:r }); });
+    Object.keys(prev).forEach(function(id){ if (!(id in cur)) ops.push({ t:'del', k:k, id:id }); });
+    shadow[k] = cur;
+  });
+  var mj = JSON.stringify(S.DB.meta || {});
+  if (shadow.__meta !== mj) { ops.push({ t:'meta', d:S.DB.meta }); shadow.__meta = mj; }
+  return ops;
+}
+function commit(ops, done){
+  if (!ops.length) { if (done) done(); return; }
+  chip('Saving…', 'busy');
+  var chunks = [], i = 0;
+  while (i < ops.length) { chunks.push(ops.slice(i, i + 400)); i += 400; }
+  var run = function(n){
+    if (n >= chunks.length) { chip('Firebase', 'on'); if (done) done(); return; }
+    var b = fdb.batch();
+    chunks[n].forEach(function(op){
+      if (op.t === 'meta') b.set(fdb.collection(P + 'meta').doc('app'), op.d, { merge:true });
+      else if (op.t === 'set') b.set(fdb.collection(P + op.k).doc(String(op.id)), op.d, { merge:false });
+      else b.delete(fdb.collection(P + op.k).doc(String(op.id)));
+    });
+    b.commit().then(function(){ run(n + 1); }, function(e){
+      chip('Not saved', 'off');
+      U.toast('Firebase refused the write: ' + (e && e.message ? e.message : 'unknown error'), 'err');
+    });
+  };
+  run(0);
+}
+
+var localSave = S.save;
+window.JS.save = function(){
+  try { localSave(); } catch (e) {}
+  if (!ready || applying) return;
+  commit(diffOps());
+};
+
+/* ---------- listeners ---------- */
+function attach(){
+  COLS.forEach(function(k){
+    live[k] = fdb.collection(P + k).onSnapshot(function(snap){
+      applying = true;
+      var arr = [];
+      snap.forEach(function(doc){ var d = doc.data() || {}; d.id = doc.id; arr.push(d); });
+      S.DB[k] = arr;
+      stamp(k);
+      firstSnap[k] = true;
+      applying = false;
+      try { localSave(); } catch (e) {}
+      if (!ready && COLS.every(function(x){ return firstSnap[x]; })) { ready = true; afterFirstLoad(); }
+      scheduleRender();
+    }, function(e){
+      chip('Read blocked', 'off');
+      U.toast('Firestore read blocked: ' + (e && e.message ? e.message : '') + ' — check the published rules.', 'err');
+    });
+  });
+  live.meta = fdb.collection(P + 'meta').doc('app').onSnapshot(function(doc){
+    if (!doc.exists) return;
+    applying = true;
+    var m = doc.data() || {};
+    Object.keys(m).forEach(function(x){ S.DB.meta[x] = m[x]; });
+    shadow.__meta = JSON.stringify(S.DB.meta);
+    applying = false;
+  });
+}
+
+var offered = false;
+function afterFirstLoad(){
+  chip('Firebase', 'on');
+  closeGate();
+  var empty = COLS.every(function(k){ return !(S.DB[k] || []).length; });
+  if (empty && !offered) { offered = true; seedScreen(); }
+  else scheduleRender();
+}
+
+function seedScreen(){
+  var local = null;
+  try { local = JSON.parse(localStorage.getItem('jayco_store_v1') || 'null'); } catch (e) {}
+  var counts = local ? COLS.reduce(function(a, k){ return a + ((local[k] || []).length); }, 0) : 0;
+  gate(
+    '<h2>Firestore is empty</h2>' +
+    '<p>Nothing has been written to <b>' + esc(activeCfg().projectId) + '</b> yet. Choose how to start.</p>' +
+    (counts ? '<div class="note"><div>This browser holds <b>' + counts + ' records</b> — masters, registers and BOMs. Uploading copies all of them into Firestore.</div></div>' : '') +
+    '<div class="frow" style="flex-direction:column;align-items:stretch;gap:9px;border-top:0">' +
+      (counts ? '<button class="btn pri" id="sd_up">Upload this browser\'s ' + counts + ' records</button>' : '') +
+      '<button class="btn" id="sd_fresh">Start with the standard masters, no transactions</button>' +
+      '<button class="btn gh" id="sd_blank">Start completely blank</button>' +
+    '</div>', true);
+
+  var push = function(d){
+    var keepPin = S.DB.meta && S.DB.meta.pinHash;
+    applying = true;
+    COLS.forEach(function(k){ S.DB[k] = d[k] || []; shadow[k] = {}; });
+    if (d.meta) { Object.keys(S.DB.meta).forEach(function(x){ delete S.DB.meta[x]; });
+      Object.keys(d.meta).forEach(function(x){ S.DB.meta[x] = d.meta[x]; }); }
+    if (keepPin) S.DB.meta.pinHash = keepPin;
+    shadow.__meta = '';
+    applying = false;
+    chip('Uploading…', 'busy');
+    commit(diffOps(), function(){ closeGate(); U.toast('Uploaded to Firestore.'); R.render(); });
+  };
+  if ($('#sd_up')) $('#sd_up').onclick = function(){ push(local); };
+  $('#sd_fresh').onclick = function(){
+    var d = S.seed();
+    ['toolIn','toolIssue','toolRet','compIn','prodEntry','dispatch'].forEach(function(k){ d[k] = []; });
+    d.meta.sample = false; push(d);
+  };
+  $('#sd_blank').onclick = function(){
+    var d = S.seed();
+    COLS.forEach(function(k){ d[k] = []; });
+    d.meta.sample = false; push(d);
+  };
+}
+
+/* ---------- unlock ---------- */
+function unlock(){
+  unlocked = true;
+  gate('<h2>Loading registers…</h2><p>Reading from ' + esc(activeCfg().projectId) + '.</p>');
+  chip('Connecting…', 'busy');
+  attach();
+}
+
+/* ---------- Firebase card inside Backup & Data ---------- */
+var sysHtml = window.JV.sys.html;
+window.JV.sys.html = function(){
+  var cfg = activeCfg();
+  var body =
+    '<div class="kv"><span>Project</span><span>' + esc(cfg ? cfg.projectId : '—') + '</span></div>' +
+    '<div class="kv"><span>Sign-in</span><span>Anonymous + store PIN</span></div>' +
+    '<div class="kv"><span>Collections</span><span>' + P + '*</span></div>' +
+    '<div class="kv"><span>Connection</span><span>' + (ready ? 'Live' : 'Connecting') + '</span></div>' +
+    '<div style="display:flex;flex-direction:column;gap:9px;margin-top:14px">' +
+      '<button class="btn" data-act="fb.pin">Change store PIN</button>' +
+      '<button class="btn" data-act="fb.push">Force re-upload everything</button>' +
+      '<button class="btn dang" data-act="fb.lock">Lock this device</button>' +
+    '</div>' +
+    '<div class="note w" style="margin-top:12px"><div>The PIN keeps the screen shut on a shared PC. It is not a wall around the database — treat the page URL as the thing worth keeping private.</div></div>';
+  return sysHtml() + '<div class="split">' + U.card('Firebase', 'Where this data actually lives', body) + '</div>';
+};
+window.JA2['fb.push'] = function(){
+  COLS.forEach(function(k){ shadow[k] = {}; });
+  shadow.__meta = '';
+  commit(diffOps(), function(){ U.toast('Everything re-uploaded.'); });
+};
+window.JA2['fb.lock'] = function(){
+  remember(false); location.reload();
+};
+window.JA2['fb.pin'] = function(){
+  U.modal('Change store PIN',
+    '<div class="form">' +
+      U.fld('np1','Current PIN', '<input id="np1" type="password" inputmode="numeric">') +
+      U.fld('np2','New PIN', '<input id="np2" type="password" inputmode="numeric">') +
+      U.fld('np3','Repeat new PIN', '<input id="np3" type="password" inputmode="numeric">') +
+    '</div><div class="err" id="np_err" style="color:var(--crit);font-size:12.5px;min-height:16px"></div>' +
+    '<div class="frow"><button class="btn pri" data-act="fb.pinGo">Save PIN</button>' +
+    '<button class="btn" data-act="modal.close">Cancel</button></div>');
+};
+window.JA2['fb.pinGo'] = function(){
+  var cur = U.v('np1'), a = U.v('np2'), b = U.v('np3');
+  if (hashPin(cur) !== S.DB.meta.pinHash) { $('#np_err').textContent = 'Current PIN is wrong.'; return; }
+  if (a.length < 4) { $('#np_err').textContent = 'Use at least 4 characters.'; return; }
+  if (a !== b) { $('#np_err').textContent = 'The two new entries do not match.'; return; }
+  S.DB.meta.pinHash = hashPin(a);
+  S.save();
+  U.closeModal();
+  U.toast('Store PIN changed on every device.');
+};
+
+/* ---------- boot ---------- */
+function boot(){
+  if (typeof firebase === 'undefined') {
+    gate('<h2>Firebase did not load</h2><p>The Firebase library could not be fetched. Check the internet connection on this PC and reload the page.</p>');
+    chip('Offline', 'off');
+    return;
+  }
+  var cfg = activeCfg();
+  if (!cfg) { chip('Not connected', 'off'); setupScreen(); return; }
+  try { firebase.initializeApp(cfg); }
+  catch (e) { setupScreen('Could not start Firebase with those settings: ' + e.message); return; }
+  auth = firebase.auth();
+  fdb = firebase.firestore();
+  fdb.enablePersistence({ synchronizeTabs:true }).catch(function(){});
+  chip('Connecting…', 'busy');
+  gate('<h2>Connecting…</h2><p>Reaching ' + esc(cfg.projectId) + '.</p>');
+
+  auth.onAuthStateChanged(function(user){
+    if (!user) {
+      auth.signInAnonymously().catch(function(e){
+        var c = e && e.code;
+        gate('<h2>Cannot sign in</h2><p>' + esc(
+          c === 'auth/operation-not-allowed'
+            ? 'Anonymous sign-in is switched off in this Firebase project. Open Firebase Console → Build → Authentication → Sign-in method → enable Anonymous, then reload this page.'
+            : c === 'auth/network-request-failed' ? 'No internet connection on this device.'
+            : (e && e.message) || 'Sign-in failed.') + '</p>' +
+          '<div class="frow"><button class="btn pri" onclick="location.reload()">Reload</button></div>');
+        chip('Locked', 'off');
+      });
+      return;
+    }
+    fdb.collection(P + 'meta').doc('app').get().then(function(doc){
+      var m = doc.exists ? (doc.data() || {}) : {};
+      if (!m.pinHash) { setPinScreen(); return; }
+      S.DB.meta.pinHash = m.pinHash;
+      if (remembered()) unlock(); else pinScreen(m.pinHash);
+    }, function(e){
+      gate('<h2>Firestore refused the read</h2><p>' + esc(e.message || e.code) +
+        '</p><p>Publish the security rules that came with this app, then reload.</p>' +
+        '<div class="frow"><button class="btn pri" onclick="location.reload()">Reload</button></div>');
+      chip('Read blocked', 'off');
+    });
+  });
+
+  window.addEventListener('online', function(){ if (ready) chip('Firebase', 'on'); });
+  window.addEventListener('offline', function(){ chip('Offline — cached', 'busy'); });
+}
+boot();
+})();
+
+</script>
+</body>
+</html>
