@@ -2154,12 +2154,12 @@ render();
    ───────────────────────────────────────────────────────────────────────── */
 var CFG = {
   firebase: {
-    apiKey:            "",
-    authDomain:        "",
-    projectId:         "",
-    storageBucket:     "",
-    messagingSenderId: "",
-    appId:             ""
+    apiKey:            "AIzaSyD8U9zHSG4wDJ62-iP8ig8IlAfPtcfGMEA",
+    authDomain:        "jayco-store-control.firebaseapp.com",
+    projectId:         "jayco-store-control",
+    storageBucket:     "jayco-store-control.firebasestorage.app",
+    messagingSenderId: "285510406702",
+    appId:             "1:285510406702:web:f20b2f8d6963b3efae45bf"
   },
   prefix: "store_"
 };
@@ -2225,9 +2225,10 @@ function hashPin(pin){
 /* ---------- config ---------- */
 function storedCfg(){ try { var s = localStorage.getItem('jayco_fb_cfg'); return s ? JSON.parse(s) : null; } catch (e) { return null; } }
 function activeCfg(){
-  if (CFG.firebase && CFG.firebase.apiKey) return CFG.firebase;
   var s = storedCfg();
-  return (s && s.apiKey) ? s : null;
+  if (s && s.apiKey) return s;
+  if (CFG.firebase && CFG.firebase.apiKey) return CFG.firebase;
+  return null;
 }
 function remembered(){ try { return localStorage.getItem('jayco_unlocked') === '1'; } catch (e) { return false; } }
 function remember(on){ try { on ? localStorage.setItem('jayco_unlocked','1') : localStorage.removeItem('jayco_unlocked'); } catch (e) {} }
@@ -2509,6 +2510,7 @@ function boot(){
   if (!cfg) { chip('Not connected', 'off'); setupScreen(); return; }
   try { firebase.initializeApp(cfg); }
   catch (e) { setupScreen('Could not start Firebase with those settings: ' + e.message); return; }
+  window.__fbFix = function(){ setupScreen('Paste the firebaseConfig block from your console.'); };
   auth = firebase.auth();
   fdb = firebase.firestore();
   fdb.enablePersistence({ synchronizeTabs:true }).catch(function(){});
@@ -2524,8 +2526,10 @@ function boot(){
             ? 'Anonymous sign-in is switched off in this Firebase project. Open Firebase Console → Build → Authentication → Sign-in method → enable Anonymous, then reload this page.'
             : c === 'auth/network-request-failed' ? 'No internet connection on this device.'
             : (e && e.message) || 'Sign-in failed.') + '</p>' +
-          '<div class="frow"><button class="btn pri" onclick="location.reload()">Reload</button></div>');
+          '<div class="frow"><button class="btn pri" onclick="location.reload()">Reload</button>' +
+          '<button class="btn" id="fb_fix">Enter Firebase settings</button></div>');
         chip('Locked', 'off');
+        $('#fb_fix').onclick = function(){ setupScreen('Paste the firebaseConfig block from your console.'); };
       });
       return;
     }
@@ -2537,8 +2541,10 @@ function boot(){
     }, function(e){
       gate('<h2>Firestore refused the read</h2><p>' + esc(e.message || e.code) +
         '</p><p>Publish the security rules that came with this app, then reload.</p>' +
-        '<div class="frow"><button class="btn pri" onclick="location.reload()">Reload</button></div>');
+        '<div class="frow"><button class="btn pri" onclick="location.reload()">Reload</button>' +
+        '<button class="btn" id="fb_fix">Enter Firebase settings</button></div>');
       chip('Read blocked', 'off');
+      $('#fb_fix').onclick = function(){ setupScreen('Paste the firebaseConfig block from your console.'); };
     });
   });
 
