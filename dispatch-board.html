@@ -172,6 +172,31 @@ const SEED = {
   },
 };
 
+// Fills in every field a `persist` updater relies on, the same way the
+// component's own data-> state fallbacks do (legacy docs may use
+// `tickets` instead of `dispatchSlips`, or predate the `masters` object).
+const normalizeData = (raw) => {
+  const d = raw || SEED;
+  const masters = d.masters ? { ...d.masters } : {
+    plummerSeries: DEFAULT_PLUMMER_SERIES, adapterSleeves: DEFAULT_ADAPTER_SLEEVES,
+    locatingRings: DEFAULT_LOCATING_RINGS, bearings: DEFAULT_BEARINGS, sealTypes: DEFAULT_SEAL_TYPES,
+    pillowBlocks: DEFAULT_PILLOW_BLOCKS,
+    woodenBoxSizes: DEFAULT_WOODEN_BOX_SIZES, corrugatedBoxSizes: DEFAULT_CORRUGATED_BOX_SIZES,
+  };
+  if (!masters.pillowBlocks) masters.pillowBlocks = DEFAULT_PILLOW_BLOCKS;
+  if (!masters.woodenBoxSizes) masters.woodenBoxSizes = DEFAULT_WOODEN_BOX_SIZES;
+  if (!masters.corrugatedBoxSizes) masters.corrugatedBoxSizes = DEFAULT_CORRUGATED_BOX_SIZES;
+  return {
+    ...d,
+    paintLog: d.paintLog || [],
+    stock: d.stock || [],
+    dispatchSlips: d.dispatchSlips || d.tickets || [],
+    boxLog: d.boxLog || [],
+    readyToSaleLog: d.readyToSaleLog || [],
+    masters,
+  };
+};
+
 // ============================================================
 // Shared-password gate. NOT real security — the password lives
 // in this file's source, so a technical visitor could read it.
@@ -336,12 +361,26 @@ function App() {
     return () => unsub();
   }, []);
 
-  const persist = useCallback((next) => {
-    setData(next);
-    if (!firebaseReady) return;
+  // Accepts either a plain next-state object, or an updater function
+  // `(current) => next`. The updater form is transactional: it is re-run
+  // against whatever the server actually holds at write time, so two people
+  // saving stock changes seconds apart (e.g. a dispatch slip and a paint
+  // challan) both land instead of the later save silently clobbering the
+  // earlier one with a stale locally-held stock array.
+  const persist = useCallback((updater) => {
+    const buildNext = (current) => (typeof updater === "function" ? updater(normalizeData(current)) : updater);
+    if (!firebaseReady) {
+      setData((prev) => buildNext(prev || SEED));
+      return;
+    }
     setSaveState("saving");
-    DOC_REF().set(next)
-      .then(() => setSaveState("idle"))
+    db.runTransaction((tx) => tx.get(DOC_REF()).then((snap) => {
+      const current = snap.exists ? snap.data() : SEED;
+      const next = buildNext(current);
+      tx.set(DOC_REF(), next);
+      return next;
+    }))
+      .then((next) => { setData(next); setSaveState("idle"); })
       .catch(() => setSaveState("error"));
   }, []);
 
@@ -432,8 +471,11 @@ function App() {
   useEffect(() => {
     if (!data || autoFixRanRef.current) return;
     autoFixRanRef.current = true;
-    const { nextStock, changed } = computeRecategorizedStock(stock);
-    if (changed) persist({ ...data, stock: nextStock });
+    const { changed } = computeRecategorizedStock(stock);
+    if (changed) persist((current) => {
+      const r = computeRecategorizedStock(current.stock);
+      return r.changed ? { ...current, stock: r.nextStock } : current;
+    });
   }, [data]);
 
   if (!data) {
@@ -442,8 +484,8 @@ function App() {
     </div>;
   }
 
-  const nextSlipNo = () => {
-    const nums = paintLog
+  const nextSlipNo = (log) => {
+    const nums = (log || paintLog)
       .map(p => p.slipNo)
       .filter(Boolean)
       .map(s => parseInt(String(s).replace(/\D/g, ""), 10))
@@ -492,17 +534,21 @@ function App() {
   const saveChallan = () => {
     if (challanDraft.items.length === 0) return;
     if (editingChallanId) {
-      const original = paintLog.find(p => p.id === editingChallanId);
-      let nextStock = original ? reverseStockForItems(original.items, stock) : stock;
-      nextStock = applyStockForItems(challanDraft.items, nextStock);
-      const updated = { id:editingChallanId, slipNo: original ? original.slipNo : nextSlipNo(), date:challanDraft.date || today(), painterName:challanDraft.painterName, items:challanDraft.items, createdBy: original ? original.createdBy : userName };
-      persist({ ...data, paintLog: paintLog.map(p => p.id === editingChallanId ? updated : p), stock: nextStock });
+      persist((current) => {
+        const original = current.paintLog.find(p => p.id === editingChallanId);
+        let nextStock = original ? reverseStockForItems(original.items, current.stock) : current.stock;
+        nextStock = applyStockForItems(challanDraft.items, nextStock);
+        const updated = { id:editingChallanId, slipNo: original ? original.slipNo : nextSlipNo(current.paintLog), date:challanDraft.date || today(), painterName:challanDraft.painterName, items:challanDraft.items, createdBy: original ? original.createdBy : userName };
+        return { ...current, paintLog: current.paintLog.map(p => p.id === editingChallanId ? updated : p), stock: nextStock };
+      });
       setEditingChallanId(null);
     } else {
-      const slipNo = nextSlipNo();
-      const challan = { id:uid(), slipNo, date:challanDraft.date || today(), painterName:challanDraft.painterName, items:challanDraft.items, createdBy:userName };
-      const nextStock = applyStockForItems(challanDraft.items, stock);
-      persist({ ...data, paintLog: [challan, ...paintLog], stock: nextStock });
+      persist((current) => {
+        const slipNo = nextSlipNo(current.paintLog);
+        const challan = { id:uid(), slipNo, date:challanDraft.date || today(), painterName:challanDraft.painterName, items:challanDraft.items, createdBy:userName };
+        const nextStock = applyStockForItems(challanDraft.items, current.stock);
+        return { ...current, paintLog: [challan, ...current.paintLog], stock: nextStock };
+      });
     }
     setChallanDraft({ date:today(), painterName:"", items:[] });
     setRowForm({ item:"", qty:"", paintType:"New Paint", notes:"" });
@@ -521,11 +567,12 @@ function App() {
   };
 
   const delChallan = (id) => {
-    const challan = paintLog.find(p => p.id === id);
-    let nextStock = stock;
-    if (challan) nextStock = reverseStockForItems(challan.items, stock);
     if (editingChallanId === id) cancelEditChallan();
-    persist({ ...data, paintLog: paintLog.filter(p => p.id !== id), stock: nextStock });
+    persist((current) => {
+      const challan = current.paintLog.find(p => p.id === id);
+      const nextStock = challan ? reverseStockForItems(challan.items, current.stock) : current.stock;
+      return { ...current, paintLog: current.paintLog.filter(p => p.id !== id), stock: nextStock };
+    });
   };
 
   const addSaleRow = () => {
@@ -566,16 +613,20 @@ function App() {
   const saveReadyToSale = () => {
     if (saleDraft.items.length === 0) return;
     if (editingSaleId) {
-      const original = readyToSaleLog.find(s => s.id === editingSaleId);
-      let nextStock = original ? reverseStockForSaleItems(original.items, stock) : stock;
-      nextStock = applyStockForSaleItems(saleDraft.items, nextStock);
-      const updated = { id:editingSaleId, date:saleDraft.date || today(), billNo:saleDraft.billNo, vendorName:saleDraft.vendorName, items:saleDraft.items, createdBy: original ? original.createdBy : userName };
-      persist({ ...data, readyToSaleLog: readyToSaleLog.map(s => s.id === editingSaleId ? updated : s), stock: nextStock });
+      persist((current) => {
+        const original = current.readyToSaleLog.find(s => s.id === editingSaleId);
+        let nextStock = original ? reverseStockForSaleItems(original.items, current.stock) : current.stock;
+        nextStock = applyStockForSaleItems(saleDraft.items, nextStock);
+        const updated = { id:editingSaleId, date:saleDraft.date || today(), billNo:saleDraft.billNo, vendorName:saleDraft.vendorName, items:saleDraft.items, createdBy: original ? original.createdBy : userName };
+        return { ...current, readyToSaleLog: current.readyToSaleLog.map(s => s.id === editingSaleId ? updated : s), stock: nextStock };
+      });
       setEditingSaleId(null);
     } else {
-      const slip = { id:uid(), date:saleDraft.date || today(), billNo:saleDraft.billNo, vendorName:saleDraft.vendorName, items:saleDraft.items, createdBy:userName };
-      const nextStock = applyStockForSaleItems(saleDraft.items, stock);
-      persist({ ...data, readyToSaleLog: [slip, ...readyToSaleLog], stock: nextStock });
+      persist((current) => {
+        const slip = { id:uid(), date:saleDraft.date || today(), billNo:saleDraft.billNo, vendorName:saleDraft.vendorName, items:saleDraft.items, createdBy:userName };
+        const nextStock = applyStockForSaleItems(saleDraft.items, current.stock);
+        return { ...current, readyToSaleLog: [slip, ...current.readyToSaleLog], stock: nextStock };
+      });
     }
     setSaleDraft({ date:today(), billNo:"", vendorName:"", items:[] });
     setSaleRowForm({ category:"Adapter Sleeve", item:"", qty:"", unit:"Nos", notes:"" });
@@ -594,22 +645,23 @@ function App() {
   };
 
   const delReadyToSaleSlip = (id) => {
-    const slip = readyToSaleLog.find(s => s.id === id);
-    let nextStock = stock;
-    if (slip) nextStock = reverseStockForSaleItems(slip.items, stock);
     if (editingSaleId === id) cancelEditSale();
-    persist({ ...data, readyToSaleLog: readyToSaleLog.filter(s => s.id !== id), stock: nextStock });
+    persist((current) => {
+      const slip = current.readyToSaleLog.find(s => s.id === id);
+      const nextStock = slip ? reverseStockForSaleItems(slip.items, current.stock) : current.stock;
+      return { ...current, readyToSaleLog: current.readyToSaleLog.filter(s => s.id !== id), stock: nextStock };
+    });
   };
 
   const addStock = () => {
     if (!sForm.item || sForm.qty === "") return;
-    persist({ ...data, stock: [{ id:uid(), ...sForm, qty:Number(sForm.qty), reorder:Number(sForm.reorder || 0), createdBy:userName }, ...stock] });
+    persist((current) => ({ ...current, stock: [{ id:uid(), ...sForm, qty:Number(sForm.qty), reorder:Number(sForm.reorder || 0), createdBy:userName }, ...current.stock] }));
     setSForm({ category:"Plummer Block", item:"", qty:"", unit:"Nos", location:"", reorder:"" });
   };
   const delStock = (id) => {
-    persist({ ...data, stock: stock.filter(s => s.id !== id) });
+    persist((current) => ({ ...current, stock: current.stock.filter(s => s.id !== id) }));
   };
-  const adjustStock = (id, delta) => persist({ ...data, stock: stock.map(s => s.id === id ? { ...s, qty: s.qty + delta } : s) });
+  const adjustStock = (id, delta) => persist((current) => ({ ...current, stock: current.stock.map(s => s.id === id ? { ...s, qty: s.qty + delta } : s) }));
 
   const computeRecategorizedStock = (stockArr) => {
     const listsByCategory = [
@@ -635,8 +687,11 @@ function App() {
   };
 
   const recategorizeStock = () => {
-    const { nextStock, changed } = computeRecategorizedStock(stock);
-    if (changed) persist({ ...data, stock: nextStock });
+    const { changed } = computeRecategorizedStock(stock);
+    if (changed) persist((current) => {
+      const r = computeRecategorizedStock(current.stock);
+      return r.changed ? { ...current, stock: r.nextStock } : current;
+    });
     setImportMsg(changed
       ? `Recategorized ${changed} item${changed === 1 ? "" : "s"} to match Manage Masters lists.`
       : "No items needed recategorizing — every item already matches its Manage Masters category.");
@@ -684,7 +739,22 @@ function App() {
           setImportMsg("No valid rows found — check columns: Category, Item, Qty, Unit, Location, Reorder @");
           return;
         }
-        persist({ ...data, stock: [...newStock, ...stock] });
+        // Merge by item name instead of blindly appending — otherwise
+        // re-importing a sheet that already covers an existing item (e.g.
+        // the file this board just exported) creates a duplicate stock row
+        // rather than updating the one that's already there.
+        persist((current) => {
+          let mergedStock = current.stock;
+          newStock.forEach(row => {
+            const idx = mergedStock.findIndex(s => s.item.trim().toLowerCase() === row.item.toLowerCase());
+            if (idx >= 0) {
+              mergedStock = mergedStock.map((s, i) => i === idx ? { ...s, category: row.category, qty: row.qty, unit: row.unit, location: row.location, reorder: row.reorder } : s);
+            } else {
+              mergedStock = [row, ...mergedStock];
+            }
+          });
+          return { ...current, stock: mergedStock };
+        });
         setImportMsg(`Imported ${newStock.length} stock row${newStock.length === 1 ? "" : "s"}.`);
         setTimeout(() => setImportMsg(""), 4000);
       } catch (e) {
@@ -744,18 +814,22 @@ function App() {
     if (dispatchDraft.items.length === 0) return;
     const totals = computeSlipTotals(dispatchDraft.items);
     if (editingSlipId) {
-      const original = dispatchSlips.find(d => d.id === editingSlipId);
-      let nextStock = original ? restoreStockForDispatchItems(original.items, stock) : stock;
-      nextStock = deductStockForDispatchItems(dispatchDraft.items, nextStock);
-      const updated = { id:editingSlipId, date:dispatchDraft.date || today(), invoiceNo:dispatchDraft.invoiceNo, transportName:dispatchDraft.transportName,
-        lrNo:dispatchDraft.lrNo, driverName:dispatchDraft.driverName, dest:dispatchDraft.dest, items:dispatchDraft.items, ...totals, createdBy: original ? original.createdBy : userName };
-      persist({ ...data, dispatchSlips: dispatchSlips.map(d => d.id === editingSlipId ? updated : d), stock: nextStock });
+      persist((current) => {
+        const original = current.dispatchSlips.find(d => d.id === editingSlipId);
+        let nextStock = original ? restoreStockForDispatchItems(original.items, current.stock) : current.stock;
+        nextStock = deductStockForDispatchItems(dispatchDraft.items, nextStock);
+        const updated = { id:editingSlipId, date:dispatchDraft.date || today(), invoiceNo:dispatchDraft.invoiceNo, transportName:dispatchDraft.transportName,
+          lrNo:dispatchDraft.lrNo, driverName:dispatchDraft.driverName, dest:dispatchDraft.dest, items:dispatchDraft.items, ...totals, createdBy: original ? original.createdBy : userName };
+        return { ...current, dispatchSlips: current.dispatchSlips.map(d => d.id === editingSlipId ? updated : d), stock: nextStock };
+      });
       setEditingSlipId(null);
     } else {
-      const slip = { id:uid(), date:dispatchDraft.date || today(), invoiceNo:dispatchDraft.invoiceNo, transportName:dispatchDraft.transportName,
-        lrNo:dispatchDraft.lrNo, driverName:dispatchDraft.driverName, dest:dispatchDraft.dest, items:dispatchDraft.items, ...totals, createdBy:userName };
-      const nextStock = deductStockForDispatchItems(dispatchDraft.items, stock);
-      persist({ ...data, dispatchSlips: [slip, ...dispatchSlips], stock: nextStock });
+      persist((current) => {
+        const slip = { id:uid(), date:dispatchDraft.date || today(), invoiceNo:dispatchDraft.invoiceNo, transportName:dispatchDraft.transportName,
+          lrNo:dispatchDraft.lrNo, driverName:dispatchDraft.driverName, dest:dispatchDraft.dest, items:dispatchDraft.items, ...totals, createdBy:userName };
+        const nextStock = deductStockForDispatchItems(dispatchDraft.items, current.stock);
+        return { ...current, dispatchSlips: [slip, ...current.dispatchSlips], stock: nextStock };
+      });
     }
     setDispatchDraft({ date:today(), invoiceNo:"", transportName:"", lrNo:"", driverName:"", dest:"", items:[] });
     setDispatchRowForm({ item:"", qty:"", packingStyle:"Corrugated Box", boxSize:DEFAULT_CORRUGATED_BOX_SIZES[0], boxQty:"" });
@@ -774,10 +848,12 @@ function App() {
   };
 
   const delDispatchSlip = (id) => {
-    const slip = dispatchSlips.find(d => d.id === id);
-    const nextStock = slip ? restoreStockForDispatchItems(slip.items, stock) : stock;
     if (editingSlipId === id) cancelEditSlip();
-    persist({ ...data, dispatchSlips: dispatchSlips.filter(d => d.id !== id), stock: nextStock });
+    persist((current) => {
+      const slip = current.dispatchSlips.find(d => d.id === id);
+      const nextStock = slip ? restoreStockForDispatchItems(slip.items, current.stock) : current.stock;
+      return { ...current, dispatchSlips: current.dispatchSlips.filter(d => d.id !== id), stock: nextStock };
+    });
   };
 
   const generateDispatchPdf = (slip) => {
@@ -1050,10 +1126,10 @@ function App() {
 
   const addBox = () => {
     if (bForm.qty === "" || !bForm.party) return;
-    persist({ ...data, boxLog: [{ id:uid(), ...bForm, date:bForm.date || today(), qty:Number(bForm.qty), createdBy:userName }, ...boxLog] });
+    persist((current) => ({ ...current, boxLog: [{ id:uid(), ...bForm, date:bForm.date || today(), qty:Number(bForm.qty), createdBy:userName }, ...current.boxLog] }));
     setBForm({ date:today(), direction:"in", type:"Wooden Box", size:BOX_TYPES[0].sizes[0], qty:"", party:"" });
   };
-  const delBox = (id) => persist({ ...data, boxLog: boxLog.filter(b => b.id !== id) });
+  const delBox = (id) => persist((current) => ({ ...current, boxLog: current.boxLog.filter(b => b.id !== id) }));
 
   const MASTER_KEYS = {
     plummerSeries: "Plummer Block",
@@ -1069,16 +1145,20 @@ function App() {
     const v = value.trim();
     if (!v) return;
     if (masters[key].includes(v)) return;
-    persist({ ...data, masters: { ...masters, [key]: [...masters[key], v] } });
+    persist((current) => current.masters[key].includes(v) ? current : { ...current, masters: { ...current.masters, [key]: [...current.masters[key], v] } });
   };
   const delMasterItem = (key, value) => {
-    persist({ ...data, masters: { ...masters, [key]: masters[key].filter(x => x !== value) } });
+    persist((current) => ({ ...current, masters: { ...current.masters, [key]: current.masters[key].filter(x => x !== value) } }));
   };
   const commitEditMaster = () => {
     if (!editMasterItem) return;
     const v = editMasterItem.draft.trim();
     if (!v || v === editMasterItem.original || masters[editMasterItem.key].includes(v)) { setEditMasterItem(null); return; }
-    persist({ ...data, masters: { ...masters, [editMasterItem.key]: masters[editMasterItem.key].map(x => x === editMasterItem.original ? v : x) } });
+    persist((current) => {
+      const list = current.masters[editMasterItem.key];
+      if (!v || v === editMasterItem.original || list.includes(v)) return current;
+      return { ...current, masters: { ...current.masters, [editMasterItem.key]: list.map(x => x === editMasterItem.original ? v : x) } };
+    });
     setEditMasterItem(null);
   };
 
