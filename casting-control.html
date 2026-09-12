@@ -1046,6 +1046,18 @@ function viewReports(){
       </tr>`).join('')}`;
   }).join('') || emptyRow(7, state.challans.length ? 'No challans match the search.' : 'No casting challans received yet.');
 
+  /* Foundry-wise totals, irrespective of month — each row can export its own PDF statement. */
+  const foundryAgg = {};
+  rows.forEach(c=>{
+    const fn = c.foundryName || 'Unknown foundry';
+    if(!foundryAgg[fn]) foundryAgg[fn] = {...blankAgg(), foundryName:fn};
+    const g = foundryAgg[fn];
+    g.challans++; g.qty += num(c.totalQuantity); g.jaycoWt += num(c.actualTotalWeight);
+    if(foundryComplete(c)){ g.foundryWt += num(c.foundryTotalWeight); g.diffSum += num(c.actualTotalWeight) - num(c.foundryTotalWeight); g.complete++; }
+    else g.missing++;
+  });
+  const foundryList = Object.values(foundryAgg).sort((a,b)=>b.jaycoWt-a.jaycoWt);
+
   return `
   <div class="metrics" style="margin-bottom:26px">
     <div class="metric-card"><p class="lbl">Months covered</p><p class="val">${months.length}</p><p class="note">With at least one challan received</p></div>
@@ -1070,6 +1082,25 @@ function viewReports(){
         <td class="num"><b>${fmtWt(grand.jaycoWt)}</b></td>
         <td class="num">${diffCell(grand)}</td>
       </tr></tfoot>` : ''}
+    </table></div>
+  </section>
+
+  <section class="data-panel">
+    <div class="panel-heading">
+      <div><p class="eyebrow">Total supply, per foundry</p><h2 class="panel-title">Foundry-wise Casting Supply</h2></div>
+    </div>
+    <div class="table-scroll"><table>
+      <thead><tr><th>Foundry</th><th class="num">Challans</th><th class="num">Qty</th>
+      <th class="num">Foundry Weight</th><th class="num">JAYCO Weight</th><th class="num">Difference</th><th class="num">Statement</th></tr></thead>
+      <tbody>${ foundryList.map(g=>`<tr>
+        <td>${esc(g.foundryName)}</td>
+        <td class="num">${g.challans}</td>
+        <td class="num">${g.qty}</td>
+        <td class="num">${fwCell(g)}</td>
+        <td class="num">${fmtWt(g.jaycoWt)}</td>
+        <td class="num">${diffCell(g)}</td>
+        <td class="num"><button class="btn icon" data-foundry-pdf="${esc(g.foundryName)}" title="Download supply statement PDF">⬇</button></td>
+      </tr>`).join('') || emptyRow(7, state.challans.length ? 'No foundries match the search.' : 'No casting challans received yet.') }</tbody>
     </table></div>
   </section>`;
 }
@@ -2684,7 +2715,7 @@ async function savePattern(){
    7. EVENTS
    ========================================================================== */
 document.addEventListener('click', async (e) => {
-  const t = e.target.closest('[data-view],[data-go],[data-new-challan],[data-view-challan],[data-edit-challan],[data-del-challan],[data-open-casting],[data-del-casting],[data-open-type],[data-del-type],[data-open-foundry],[data-del-foundry],[data-close],[data-rm-po],[data-rm-item],[data-quick-add],[data-quick-add-po],[data-open-pdf],[data-row-pdf],[data-pig-party],[data-pig-party-pdf],[data-open-pig-receipt],[data-open-pig-issue],[data-edit-pig],[data-del-pig],[data-pdf-challan],[data-wa-challan],[data-edit-po],[data-del-po],[data-pdf-po],[data-wa-po],[data-rm-po-item]');
+  const t = e.target.closest('[data-view],[data-go],[data-new-challan],[data-view-challan],[data-edit-challan],[data-del-challan],[data-open-casting],[data-del-casting],[data-open-type],[data-del-type],[data-open-foundry],[data-del-foundry],[data-close],[data-rm-po],[data-rm-item],[data-quick-add],[data-quick-add-po],[data-open-pdf],[data-row-pdf],[data-pig-party],[data-pig-party-pdf],[data-open-pig-receipt],[data-open-pig-issue],[data-edit-pig],[data-del-pig],[data-pdf-challan],[data-wa-challan],[data-edit-po],[data-del-po],[data-pdf-po],[data-wa-po],[data-rm-po-item],[data-foundry-pdf]');
   if(!t) return;
   const d = t.dataset;
 
@@ -2726,6 +2757,7 @@ document.addEventListener('click', async (e) => {
   if(d.openFoundry !== undefined){ modalFoundry(d.openFoundry); return; }
   if(d.pigParty){ state.pigParty = d.pigParty; render(); window.scrollTo(0,0); return; }
   if(d.pigPartyPdf){ downloadPartyLedgerPdf(d.pigPartyPdf); return; }
+  if(d.foundryPdf){ downloadFoundryReportPdf(d.foundryPdf); return; }
   if(d.openPigReceipt !== undefined){ modalPigReceipt(d.openPigReceipt); return; }
   if(d.openPigIssue !== undefined){ modalPigIssue(d.openPigIssue); return; }
   if(d.editPig){
@@ -3283,6 +3315,114 @@ function downloadPartyLedgerPdf(name){
   try{
     buildPartyLedgerPdf(name).save('JAYCO-Pig-Iron-' + String(name).replace(/[^a-z0-9]+/gi,'-') + '-' + today() + '.pdf');
     toast('Statement of account downloaded','success');
+  }catch(e){ toast('The PDF could not be created: ' + e.message,'error'); }
+}
+
+/* Per-foundry casting supply statement — every challan received from one
+   foundry, with foundry weight, JAYCO weight and the difference between
+   them. Same house style as the pig iron statement of account. */
+function buildFoundryReportPdf(name){
+  const chs = state.challans.filter(c => (c.foundryName || 'Unknown foundry') === name)
+    .sort((a,b) => String(a.challanDate||'').localeCompare(String(b.challanDate||''))
+                || String(a.challanNumber||'').localeCompare(String(b.challanNumber||''), 'en', {numeric:true}));
+  if(!chs.length) throw new Error('No challans recorded for ' + name);
+
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({orientation:'portrait', unit:'pt', format:'a4'});
+  const W = doc.internal.pageSize.getWidth(), H = doc.internal.pageSize.getHeight();
+  const M = 40, CW = W - M*2, rx = W - M;
+  const INK=[26,26,26], MUT=[128,133,138], LINE=[214,218,221], RED=[206,42,38], SOFT=[247,248,249];
+  const label = (t,x,y,a) => { doc.setFont('helvetica','bold'); doc.setFontSize(6.2); doc.setTextColor(...MUT); doc.text(t,x,y,a?{align:a}:undefined); };
+
+  let y = 46, drawn = false;
+  try{ const l = document.querySelector('.brand-logo');
+       if(l && l.src){ doc.addImage(l.src,'PNG',M,y-18,100,22); drawn = true; } }catch(e){}
+  if(!drawn){ doc.setFont('helvetica','bold'); doc.setFontSize(19); doc.setTextColor(...RED); doc.text('JAYCO', M, y); }
+  doc.setFont('helvetica','bold'); doc.setFontSize(11.5); doc.setTextColor(...INK);
+  doc.text(COMPANY.name, M, y + 22);
+  doc.setFont('helvetica','normal'); doc.setFontSize(7.2); doc.setTextColor(...MUT);
+  doc.text([COMPANY.addr1, COMPANY.addr3], M, y + 34, {lineHeightFactor:1.4});
+  doc.setFontSize(8); doc.setTextColor(...INK);
+  const gs = COMPANY.gstin, gw = doc.getTextWidth(gs);
+  doc.text(gs, rx, y - 12, {align:'right'}); label('GSTIN', rx - gw - 8, y - 12, 'right');
+  doc.text(COMPANY.phone, rx, y + 3, {align:'right'});
+
+  y += 62;
+  doc.setDrawColor(...RED); doc.setLineWidth(1.4); doc.line(M, y, W - M, y); doc.setLineWidth(0.6);
+  y += 28;
+  doc.setFont('helvetica','bold'); doc.setFontSize(16); doc.setTextColor(...INK);
+  doc.text('CASTING SUPPLY STATEMENT', M, y);
+  doc.setFont('helvetica','normal'); doc.setFontSize(8); doc.setTextColor(...MUT);
+  doc.text('As on ' + fmtDate(today()), rx, y, {align:'right'});
+
+  y += 14;
+  doc.setDrawColor(...LINE); doc.setFillColor(...SOFT);
+  doc.roundedRect(M, y, CW, 48, 3, 3, 'FD');
+  doc.setFillColor(...RED); doc.rect(M, y, 3, 48, 'F');
+  label('FOUNDRY', M + 14, y + 16);
+  doc.setFont('helvetica','bold'); doc.setFontSize(13); doc.setTextColor(...INK);
+  doc.text(String(name).slice(0,46), M + 14, y + 36);
+  label('CHALLANS', rx - 150, y + 16);
+  doc.setFont('helvetica','bold'); doc.setFontSize(13);
+  doc.text(String(chs.length), rx - 150, y + 36);
+  y += 64;
+
+  const t = chs.reduce((a,c)=>{
+    a.qty += num(c.totalQuantity); a.jaycoWt += num(c.actualTotalWeight);
+    if(foundryComplete(c)){ a.foundryWt += num(c.foundryTotalWeight); a.diffSum += num(c.actualTotalWeight) - num(c.foundryTotalWeight); a.complete++; }
+    else a.missing++;
+    return a;
+  }, {qty:0, jaycoWt:0, foundryWt:0, diffSum:0, complete:0, missing:0});
+
+  const bw = (CW - 30) / 4;
+  [['QTY (PCS)', String(t.qty)],
+   ['FOUNDRY WEIGHT', t.complete>0 ? fmtWt(t.foundryWt) : 'Not entered'],
+   ['JAYCO WEIGHT', fmtWt(t.jaycoWt)],
+   ['DIFFERENCE', t.complete>0 ? (t.diffSum>=0?'+':'') + fmtWt(t.diffSum) : '—']]
+  .forEach(([k,v],n)=>{
+    const x = M + n*(bw+10);
+    doc.setDrawColor(...(n===3?RED:LINE)); doc.setFillColor(...SOFT);
+    doc.roundedRect(x,y,bw,44,3,3, n===3?'S':'FD');
+    label(k, x+10, y+16);
+    doc.setFont('helvetica','bold'); doc.setFontSize(10.5); doc.setTextColor(...(n===3 && t.diffSum>0 ? RED : INK));
+    doc.text(v, x+10, y+33);
+  });
+  y += 60;
+
+  doc.autoTable({
+    startY: y, margin:{left:M, right:M},
+    head: [['CHALLAN NO.','DATE','ITEMS','QTY','FOUNDRY WEIGHT','JAYCO WEIGHT','DIFFERENCE']],
+    body: chs.map(c => {
+      const complete = foundryComplete(c);
+      const diff = num(c.actualTotalWeight) - num(c.foundryTotalWeight);
+      return [c.challanNumber, fmtDate(c.challanDate), String(c.items.length), String(num(c.totalQuantity)),
+        complete ? fmtWt(c.foundryTotalWeight) : 'Not entered', fmtWt(c.actualTotalWeight), complete ? fmtWt(diff) : '—'];
+    }),
+    foot: [[{content:'Total', colSpan:3, styles:{halign:'right'}}, String(t.qty),
+      t.complete>0 ? fmtWt(t.foundryWt) : 'Not entered', fmtWt(t.jaycoWt), t.complete>0 ? fmtWt(t.diffSum) : '—']],
+    styles:{fontSize:7.8, cellPadding:5, lineColor:LINE, lineWidth:0.5, textColor:INK, overflow:'linebreak'},
+    headStyles:{fillColor:SOFT, textColor:MUT, fontStyle:'bold', fontSize:6, halign:'center', cellPadding:6, lineColor:LINE, lineWidth:0.5},
+    footStyles:{fillColor:[255,255,255], textColor:RED, fontStyle:'bold', fontSize:8, lineColor:LINE, lineWidth:0.5},
+    columnStyles:{0:{cellWidth:70},1:{cellWidth:60},2:{halign:'right'},3:{halign:'right'},4:{halign:'right'},5:{halign:'right'},6:{halign:'right',fontStyle:'bold'}}
+  });
+
+  const pages = doc.internal.getNumberOfPages();
+  for(let i = 1; i <= pages; i++){
+    doc.setPage(i);
+    doc.setDrawColor(...LINE); doc.line(M, H-40, W-M, H-40);
+    doc.setFont('helvetica','normal'); doc.setFontSize(6.4); doc.setTextColor(...MUT);
+    doc.text(name + '  ·  ' + COMPANY.web + '  ·  GSTIN ' + COMPANY.gstin, M, H-27);
+    doc.text('Page ' + i + ' of ' + pages, rx, H-27, {align:'right'});
+    doc.setFontSize(6);
+    doc.text('Difference = JAYCO weight minus foundry weight. Challans without a recorded foundry weight are excluded from the difference total.', M, H-17);
+  }
+  return doc;
+}
+
+function downloadFoundryReportPdf(name){
+  try{
+    buildFoundryReportPdf(name).save('JAYCO-Casting-Supply-' + String(name).replace(/[^a-z0-9]+/gi,'-') + '-' + today() + '.pdf');
+    toast('Casting supply statement downloaded','success');
   }catch(e){ toast('The PDF could not be created: ' + e.message,'error'); }
 }
 
