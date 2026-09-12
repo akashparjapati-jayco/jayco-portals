@@ -145,6 +145,23 @@ const today = () => new Date().toISOString().slice(0,10);
 // duplicate rows instead of updating the real one's quantity.
 const itemKey = (s) => String(s || "").trim().toLowerCase().replace(/\s+/g, " ");
 const fmtDate = (d) => new Date(d).toLocaleDateString("en-IN",{ day:"2-digit", month:"short" });
+// Sorts SKUs "series wise" — e.g. "S 605", "S 608", "S 610", "S 1000" — by
+// comparing runs of digits numerically instead of as plain text, so S 610
+// doesn't sort before S 608 the way a plain string compare would.
+const naturalCompare = (a, b) => {
+  const chunks = (s) => String(s || "").match(/\d+|\D+/g) || [];
+  const ax = chunks(a), bx = chunks(b);
+  const len = Math.max(ax.length, bx.length);
+  for (let i = 0; i < len; i++) {
+    const an = ax[i], bn = bx[i];
+    if (an === undefined) return -1;
+    if (bn === undefined) return 1;
+    const bothNumeric = /^\d+$/.test(an) && /^\d+$/.test(bn);
+    const diff = bothNumeric ? (Number(an) - Number(bn)) : an.localeCompare(bn);
+    if (diff) return diff;
+  }
+  return 0;
+};
 
 const SEED = {
   paintLog: [
@@ -307,6 +324,7 @@ function App() {
   const [expandedChallans, setExpandedChallans] = useState({});
   const [sForm, setSForm] = useState({ category:"Plummer Block", item:"", qty:"", unit:"Nos", location:"", reorder:"" });
   const [stockFilter, setStockFilter] = useState(null);
+  const [groupByCategory, setGroupByCategory] = useState(false);
   const [ledgerFilter, setLedgerFilter] = useState("");
   const [openingEditing, setOpeningEditing] = useState(false);
   const [openingForm, setOpeningForm] = useState({ qty:"", date:"" });
@@ -396,6 +414,23 @@ function App() {
   ];
 
   const lowStock = useMemo(() => stock.filter(s => s.qty <= s.reorder), [stock]);
+  // Finish Stock table: always shown series-wise (natural numeric sort on the
+  // item/SKU), optionally rolled up into collapsible-look category groups.
+  const visibleStock = useMemo(() => {
+    return stock
+      .filter(s => !stockFilter || s.category === stockFilter)
+      .slice()
+      .sort((a, b) => naturalCompare(a.item, b.item));
+  }, [stock, stockFilter]);
+  const groupedStock = useMemo(() => {
+    if (!groupByCategory) return null;
+    const groups = {};
+    visibleStock.forEach(s => {
+      (groups[s.category] || (groups[s.category] = [])).push(s);
+    });
+    const orderedCats = [...STOCK_CATEGORIES, ...Object.keys(groups).filter(c => !STOCK_CATEGORIES.includes(c))];
+    return orderedCats.filter(c => groups[c] && groups[c].length).map(c => ({ category: c, rows: groups[c] }));
+  }, [visibleStock, groupByCategory]);
   const boxBalance = useMemo(() => {
     const bal = {};
     boxLog.forEach(b => {
@@ -1261,6 +1296,33 @@ function App() {
   const iconBtn = { background:"var(--panel2)", border:"1px solid var(--line)", color:"var(--text-dim)", padding:"6px 10px" };
   const iconBtnSmall = { ...iconBtn, padding:"3px 9px", fontWeight:700 };
 
+  const renderStockRow = (s, i) => {
+    const below = s.qty <= s.reorder;
+    const color = categoryColor(s.category);
+    return (
+      <tr key={s.id} className="stock-row" style={{borderBottom:"1px solid var(--line)",background: i % 2 ? "var(--bg)" : "var(--panel)"}}>
+        <td style={{padding:"9px 14px"}}>
+          <span style={{display:"inline-block",padding:"3px 9px",borderRadius:"100px",fontSize:"11px",fontWeight:600,background:`${color}1A`,color:color,border:`1px solid ${color}33`,whiteSpace:"nowrap"}}>{s.category}</span>
+        </td>
+        <td style={{padding:"9px 14px",fontWeight:600}}>{s.item}</td>
+        <td className="mono" style={{padding:"9px 14px",textAlign:"right",fontWeight:700,color: below ? "var(--red)" : "var(--text)"}}>
+          {s.qty}
+          {below && <span style={{marginLeft:"6px",fontSize:"9.5px",fontWeight:700,color:"var(--red)",letterSpacing:"0.3px"}}>● LOW</span>}
+        </td>
+        <td style={{padding:"9px 14px",color:"var(--text-dim)"}}>{s.unit}</td>
+        <td style={{padding:"9px 14px",color:"var(--text-dim)"}}>{s.location || "—"}</td>
+        <td className="mono" style={{padding:"9px 14px",textAlign:"right",color:"var(--text-dim)"}}>{s.reorder}</td>
+        <td style={{padding:"9px 14px",fontSize:"11px",color:"var(--text-dim)"}}>{s.createdBy || "—"}</td>
+        <td style={{padding:"9px 14px"}}>
+          <div style={{display:"flex",gap:"4px",justifyContent:"flex-end"}}>
+            <button className="row-btn" onClick={() => { setTab("ledger"); setLedgerFilter(s.item); }} style={iconBtnSmall} title="View Ledger">📒</button>
+            <button className="row-btn" onClick={() => delStock(s.id)} style={iconBtnSmall} title="Delete">✕</button>
+          </div>
+        </td>
+      </tr>
+    );
+  };
+
   function SelectWithLabel({ label, value, onChange, options, allowNone }) {
     return <div>
       <div className="mono" style={{fontSize:"10px",color:"var(--text-dim)",marginBottom:"4px",letterSpacing:"0.5px"}}>{label}</div>
@@ -1658,6 +1720,13 @@ function App() {
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"12px",flexWrap:"wrap",gap:"8px"}}>
             <div style={{fontWeight:600,fontSize:"13px"}}>Add Stock Line</div>
             <div style={{display:"flex",gap:"8px",alignItems:"center"}}>
+              <button
+                onClick={() => setGroupByCategory(g => !g)}
+                style={{...iconBtn,fontSize:"12px",fontWeight:600,padding:"7px 12px",...(groupByCategory ? {background:"var(--red)",color:"#fff",borderColor:"var(--red)"} : {})}}
+                title="Group Finish Stock rows by category, with a subtotal for each group. Items are always listed series-wise within each group."
+              >
+                {groupByCategory ? "☑" : "☐"} Group by Category
+              </button>
               <button onClick={recategorizeStock} style={{...iconBtn,fontSize:"12px",fontWeight:600,padding:"7px 12px"}} title="Re-check every stock item's category against the built-in SKU reference lists">🔧 Fix Categories</button>
               <button onClick={mergeDuplicateStock} style={{...iconBtn,fontSize:"12px",fontWeight:600,padding:"7px 12px"}} title="Combine stock rows for the same item that got split by spelling/spacing differences">🧹 Merge Duplicates</button>
               <button onClick={reconcileStock} style={{...iconBtn,fontSize:"12px",fontWeight:600,padding:"7px 12px"}} title="Recompute each item's qty from Opening Stock + Item Ledger, fixing any drift from old entries that didn't update stock correctly">↻ Refresh Stock</button>
@@ -1699,37 +1768,26 @@ function App() {
                 </tr>
               </thead>
               <tbody>
-                {stock.filter(s => !stockFilter || s.category === stockFilter).length === 0 && (
+                {visibleStock.length === 0 && (
                   <tr><td colSpan={8} style={{padding:"24px",textAlign:"center",color:"var(--text-dim)"}}>
                     {stockFilter ? `No ${stockFilter} items in Finish Stock.` : "No stock recorded."}
                   </td></tr>
                 )}
-                {stock.filter(s => !stockFilter || s.category === stockFilter).map((s, i) => {
-                  const below = s.qty <= s.reorder;
-                  const color = categoryColor(s.category);
-                  return (
-                    <tr key={s.id} className="stock-row" style={{borderBottom:"1px solid var(--line)",background: i % 2 ? "var(--bg)" : "var(--panel)"}}>
-                      <td style={{padding:"9px 14px"}}>
-                        <span style={{display:"inline-block",padding:"3px 9px",borderRadius:"100px",fontSize:"11px",fontWeight:600,background:`${color}1A`,color:color,border:`1px solid ${color}33`,whiteSpace:"nowrap"}}>{s.category}</span>
-                      </td>
-                      <td style={{padding:"9px 14px",fontWeight:600}}>{s.item}</td>
-                      <td className="mono" style={{padding:"9px 14px",textAlign:"right",fontWeight:700,color: below ? "var(--red)" : "var(--text)"}}>
-                        {s.qty}
-                        {below && <span style={{marginLeft:"6px",fontSize:"9.5px",fontWeight:700,color:"var(--red)",letterSpacing:"0.3px"}}>● LOW</span>}
-                      </td>
-                      <td style={{padding:"9px 14px",color:"var(--text-dim)"}}>{s.unit}</td>
-                      <td style={{padding:"9px 14px",color:"var(--text-dim)"}}>{s.location || "—"}</td>
-                      <td className="mono" style={{padding:"9px 14px",textAlign:"right",color:"var(--text-dim)"}}>{s.reorder}</td>
-                      <td style={{padding:"9px 14px",fontSize:"11px",color:"var(--text-dim)"}}>{s.createdBy || "—"}</td>
-                      <td style={{padding:"9px 14px"}}>
-                        <div style={{display:"flex",gap:"4px",justifyContent:"flex-end"}}>
-                          <button className="row-btn" onClick={() => { setTab("ledger"); setLedgerFilter(s.item); }} style={iconBtnSmall} title="View Ledger">📒</button>
-                          <button className="row-btn" onClick={() => delStock(s.id)} style={iconBtnSmall} title="Delete">✕</button>
-                        </div>
+                {!groupByCategory && visibleStock.map((s, i) => renderStockRow(s, i))}
+                {groupByCategory && groupedStock.map(group => (
+                  <React.Fragment key={group.category}>
+                    <tr>
+                      <td colSpan={8} style={{padding:"7px 14px",background:"#101828",color:"#fff"}}>
+                        <span style={{display:"inline-block",width:"8px",height:"8px",borderRadius:"50%",background:categoryColor(group.category),marginRight:"8px",verticalAlign:"middle"}}></span>
+                        <span style={{fontWeight:700,fontSize:"12px",letterSpacing:"0.3px"}}>{group.category}</span>
+                        <span style={{marginLeft:"10px",fontSize:"11px",color:"#9aa4b2"}}>
+                          {group.rows.length} item{group.rows.length === 1 ? "" : "s"} · {group.rows.reduce((a, s) => a + Number(s.qty || 0), 0)} total
+                        </span>
                       </td>
                     </tr>
-                  );
-                })}
+                    {group.rows.map((s, i) => renderStockRow(s, i))}
+                  </React.Fragment>
+                ))}
               </tbody>
             </table>
           </div>
