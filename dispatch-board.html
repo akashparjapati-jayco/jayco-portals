@@ -721,9 +721,32 @@ function App() {
     });
   };
 
+  // Adds qty onto the existing row for this item (matched the same
+  // trim/lowercase/space-collapsed way as every other stock-writing path in
+  // this file) instead of always inserting a new one — otherwise re-entering
+  // the same SKU a second time split it across two rows, needing a manual
+  // "Merge Duplicates" pass to fix.
   const addStock = () => {
     if (!sForm.item || sForm.qty === "") return;
-    persist((current) => ({ ...current, stock: [{ id:uid(), ...sForm, qty:Number(sForm.qty), reorder:Number(sForm.reorder || 0), createdBy:userName }, ...current.stock] }));
+    persist((current) => {
+      const idx = current.stock.findIndex(s => itemKey(s.item) === itemKey(sForm.item));
+      const addedQty = Number(sForm.qty);
+      let nextStock;
+      if (idx >= 0) {
+        nextStock = current.stock.map((s, i) => i === idx ? {
+          ...s,
+          qty: s.qty + addedQty,
+          category: sForm.category || s.category,
+          unit: sForm.unit || s.unit,
+          location: sForm.location || s.location,
+          reorder: sForm.reorder !== "" ? Number(sForm.reorder) : s.reorder,
+          createdBy: userName,
+        } : s);
+      } else {
+        nextStock = [{ id:uid(), ...sForm, qty:addedQty, reorder:Number(sForm.reorder || 0), createdBy:userName }, ...current.stock];
+      }
+      return { ...current, stock: nextStock };
+    });
     setSForm({ category:"Plummer Block", item:"", qty:"", unit:"Nos", location:"", reorder:"" });
   };
   const delStock = (id) => {
