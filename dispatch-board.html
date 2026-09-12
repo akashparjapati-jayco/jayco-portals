@@ -1406,13 +1406,15 @@ function App() {
           <div style={{fontSize:"13px",color:"var(--text-dim)"}}>{new Date().toLocaleDateString("en-IN",{weekday:"long",day:"numeric",month:"long",year:"numeric"})}</div>
         </div>
 
-        <div style={{display:"flex",gap:"8px",flexWrap:"wrap",marginBottom:"22px"}}>
+        <div style={{display:"flex",gap:"8px",flexWrap:"wrap",marginBottom:"10px"}}>
           <button onClick={() => { setTab("entries"); setEntryMode("paint"); }} style={{...btnPrimary, textTransform:"none", letterSpacing:0, fontSize:"12.5px", padding:"9px 16px"}}>+ Paint Challan</button>
           <button onClick={() => { setTab("entries"); setEntryMode("purchase"); }} style={{...iconBtn, fontWeight:600, fontSize:"12.5px", padding:"9px 16px"}}>+ Vendor Bill</button>
           <button onClick={() => setTab("packing")} style={{...iconBtn, fontWeight:600, fontSize:"12.5px", padding:"9px 16px"}}>+ Dispatch Slip</button>
           <button onClick={() => setTab("packing")} style={{...iconBtn, fontWeight:600, fontSize:"12.5px", padding:"9px 16px"}}>📦 View Packing / Dispatch Slips</button>
           <button onClick={() => setTab("stock")} style={{...iconBtn, fontWeight:600, fontSize:"12.5px", padding:"9px 16px"}}>View Finish Stock</button>
+          <button onClick={reconcileStock} style={{...iconBtn, fontWeight:600, fontSize:"12.5px", padding:"9px 16px"}} title="Recompute each item's qty from Opening Stock + Item Ledger, fixing any drift from old entries that didn't update stock correctly">↻ Refresh Stock</button>
         </div>
+        {importMsg && <div style={{fontSize:"12px",color: /^(Imported|Recategorized|Merged|Recalculated)/.test(importMsg) ? "var(--green)" : "var(--red)",marginBottom:"14px"}}>{importMsg}</div>}
 
         <div style={{position:"relative", maxWidth:"460px", marginBottom:"22px"}}>
           <input
@@ -1720,7 +1722,7 @@ function App() {
             <div style={{display:"flex",gap:"8px",alignItems:"center"}}>
               <button onClick={recategorizeStock} style={{...iconBtn,fontSize:"12px",fontWeight:600,padding:"7px 12px"}} title="Re-check every stock item's category against the Manage Masters lists">🔧 Fix Categories</button>
               <button onClick={mergeDuplicateStock} style={{...iconBtn,fontSize:"12px",fontWeight:600,padding:"7px 12px"}} title="Combine stock rows for the same item that got split by spelling/spacing differences">🧹 Merge Duplicates</button>
-              <button onClick={reconcileStock} style={{...iconBtn,fontSize:"12px",fontWeight:600,padding:"7px 12px"}} title="Recompute each item's qty from Opening Stock + Item Ledger, fixing any drift from old entries that didn't update stock correctly">🔄 Recalculate from Ledger</button>
+              <button onClick={reconcileStock} style={{...iconBtn,fontSize:"12px",fontWeight:600,padding:"7px 12px"}} title="Recompute each item's qty from Opening Stock + Item Ledger, fixing any drift from old entries that didn't update stock correctly">↻ Refresh Stock</button>
               <button onClick={exportToExcel} style={{...iconBtn,fontSize:"12px",fontWeight:600,padding:"7px 12px"}}>⭳ Export to Excel</button>
               <label style={{...iconBtn,fontSize:"12px",fontWeight:600,padding:"7px 12px",cursor:"pointer",margin:0}}>
                 ⭱ Import Stock (.xlsx)
