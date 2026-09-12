@@ -794,6 +794,65 @@ function App() {
     setTimeout(() => setImportMsg(""), 4000);
   };
 
+  const buildItemLedgerEntries = (current) => {
+    const entries = [];
+    (current.paintLog || []).forEach(p => {
+      (p.items || []).forEach(row => {
+        if (row.paintType === "New Paint") entries.push({ date: p.date, delta: Number(row.qty), item: row.item });
+      });
+    });
+    (current.readyToSaleLog || []).forEach(s => {
+      (s.items || []).forEach(row => entries.push({ date: s.date, delta: Number(row.qty), item: row.item }));
+    });
+    (current.dispatchSlips || current.tickets || []).forEach(d => {
+      (d.items || []).forEach(row => entries.push({ date: d.date, delta: -Number(row.qty), item: row.item }));
+    });
+    return entries;
+  };
+
+  // Finish Stock qty is a running total updated at write-time; the Item
+  // Ledger balance is independently derived from Opening Stock plus every
+  // logged Paint/Purchase/Dispatch entry. A dispatch or challan saved under
+  // an item-name mismatch (now fixed, but not retroactively) can leave the
+  // two disagreeing forever. This recomputes each item's qty to match its
+  // Item Ledger balance — the same math the Item Ledger tab already shows —
+  // so it only touches items that have an opening entry or ledger history;
+  // stock added directly with no such history is left exactly as-is.
+  const computeReconciledStock = (stockArr, openingMap, ledgerEntries) => {
+    const byKey = {};
+    ledgerEntries.forEach(e => {
+      const key = itemKey(e.item);
+      (byKey[key] = byKey[key] || []).push(e);
+    });
+    let changed = 0;
+    const nextStock = stockArr.map(s => {
+      const key = itemKey(s.item);
+      const opening = (openingMap || {})[key] || (openingMap || {})[s.item.trim().toLowerCase()];
+      const entries = byKey[key] || [];
+      if (!opening && entries.length === 0) return s;
+      const openingQty = opening ? Number(opening.qty || 0) : 0;
+      const openingDate = opening ? opening.date : "";
+      const net = entries.filter(e => !openingDate || e.date >= openingDate).reduce((a, e) => a + e.delta, 0);
+      const correctQty = openingQty + net;
+      if (correctQty !== s.qty) { changed++; return { ...s, qty: correctQty }; }
+      return s;
+    });
+    return { nextStock, changed };
+  };
+
+  const reconcileStock = () => {
+    const { changed } = computeReconciledStock(stock, openingStock, itemLedger);
+    if (changed) persist((current) => {
+      const entries = buildItemLedgerEntries(current);
+      const r = computeReconciledStock(current.stock, current.openingStock || {}, entries);
+      return r.changed ? { ...current, stock: r.nextStock } : current;
+    });
+    setImportMsg(changed
+      ? `Recalculated ${changed} item${changed === 1 ? "" : "s"} to match their Item Ledger balance.`
+      : "Finish Stock already matches every item's Item Ledger balance.");
+    setTimeout(() => setImportMsg(""), 4000);
+  };
+
   const exportToExcel = () => {
     const wb = XLSX.utils.book_new();
     const stockRows = stock.map(s => ({ Category:s.category, Item:s.item, Qty:s.qty, Unit:s.unit, Location:s.location, "Reorder @":s.reorder }));
@@ -1661,6 +1720,7 @@ function App() {
             <div style={{display:"flex",gap:"8px",alignItems:"center"}}>
               <button onClick={recategorizeStock} style={{...iconBtn,fontSize:"12px",fontWeight:600,padding:"7px 12px"}} title="Re-check every stock item's category against the Manage Masters lists">🔧 Fix Categories</button>
               <button onClick={mergeDuplicateStock} style={{...iconBtn,fontSize:"12px",fontWeight:600,padding:"7px 12px"}} title="Combine stock rows for the same item that got split by spelling/spacing differences">🧹 Merge Duplicates</button>
+              <button onClick={reconcileStock} style={{...iconBtn,fontSize:"12px",fontWeight:600,padding:"7px 12px"}} title="Recompute each item's qty from Opening Stock + Item Ledger, fixing any drift from old entries that didn't update stock correctly">🔄 Recalculate from Ledger</button>
               <button onClick={exportToExcel} style={{...iconBtn,fontSize:"12px",fontWeight:600,padding:"7px 12px"}}>⭳ Export to Excel</button>
               <label style={{...iconBtn,fontSize:"12px",fontWeight:600,padding:"7px 12px",cursor:"pointer",margin:0}}>
                 ⭱ Import Stock (.xlsx)
@@ -1668,7 +1728,7 @@ function App() {
               </label>
             </div>
           </div>
-          {importMsg && <div style={{fontSize:"12px",color: /^(Imported|Recategorized|Merged)/.test(importMsg) ? "var(--green)" : "var(--red)",marginBottom:"10px"}}>{importMsg}</div>}
+          {importMsg && <div style={{fontSize:"12px",color: /^(Imported|Recategorized|Merged|Recalculated)/.test(importMsg) ? "var(--green)" : "var(--red)",marginBottom:"10px"}}>{importMsg}</div>}
           <div style={{display:"grid",gridTemplateColumns:"1.2fr 1.2fr 0.7fr 0.7fr 1fr 0.7fr auto",gap:"8px"}}>
             <select value={sForm.category} onChange={e => setSForm({...sForm, category:e.target.value})} style={inputStyle}>
               {STOCK_CATEGORIES.map(c => <option key={c}>{c}</option>)}
