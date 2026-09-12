@@ -558,7 +558,7 @@ function App() {
     const key = selectedLedgerItem.trim().toLowerCase();
     const qty = Number(openingForm.qty || 0);
     const date = openingForm.date || today();
-    persist((current) => ({ ...current, openingStock: { ...current.openingStock, [key]: { item: selectedLedgerItem, qty, date, updatedBy: userName, updatedAt: today() } } }));
+    persistAndReconcile((current) => ({ ...current, openingStock: { ...current.openingStock, [key]: { item: selectedLedgerItem, qty, date, updatedBy: userName, updatedAt: today() } } }));
     setOpeningEditing(false);
   };
 
@@ -602,7 +602,7 @@ function App() {
   const saveChallan = () => {
     if (challanDraft.items.length === 0) return;
     if (editingChallanId) {
-      persist((current) => {
+      persistAndReconcile((current) => {
         const original = current.paintLog.find(p => p.id === editingChallanId);
         let nextStock = original ? reverseStockForItems(original.items, current.stock) : current.stock;
         nextStock = applyStockForItems(challanDraft.items, nextStock);
@@ -611,7 +611,7 @@ function App() {
       });
       setEditingChallanId(null);
     } else {
-      persist((current) => {
+      persistAndReconcile((current) => {
         const slipNo = nextSlipNo(current.paintLog);
         const challan = { id:uid(), slipNo, date:challanDraft.date || today(), painterName:challanDraft.painterName, items:challanDraft.items, createdBy:userName };
         const nextStock = applyStockForItems(challanDraft.items, current.stock);
@@ -636,7 +636,7 @@ function App() {
 
   const delChallan = (id) => {
     if (editingChallanId === id) cancelEditChallan();
-    persist((current) => {
+    persistAndReconcile((current) => {
       const challan = current.paintLog.find(p => p.id === id);
       const nextStock = challan ? reverseStockForItems(challan.items, current.stock) : current.stock;
       return { ...current, paintLog: current.paintLog.filter(p => p.id !== id), stock: nextStock };
@@ -681,7 +681,7 @@ function App() {
   const saveReadyToSale = () => {
     if (saleDraft.items.length === 0) return;
     if (editingSaleId) {
-      persist((current) => {
+      persistAndReconcile((current) => {
         const original = current.readyToSaleLog.find(s => s.id === editingSaleId);
         let nextStock = original ? reverseStockForSaleItems(original.items, current.stock) : current.stock;
         nextStock = applyStockForSaleItems(saleDraft.items, nextStock);
@@ -690,7 +690,7 @@ function App() {
       });
       setEditingSaleId(null);
     } else {
-      persist((current) => {
+      persistAndReconcile((current) => {
         const slip = { id:uid(), date:saleDraft.date || today(), billNo:saleDraft.billNo, vendorName:saleDraft.vendorName, items:saleDraft.items, createdBy:userName };
         const nextStock = applyStockForSaleItems(saleDraft.items, current.stock);
         return { ...current, readyToSaleLog: [slip, ...current.readyToSaleLog], stock: nextStock };
@@ -714,7 +714,7 @@ function App() {
 
   const delReadyToSaleSlip = (id) => {
     if (editingSaleId === id) cancelEditSale();
-    persist((current) => {
+    persistAndReconcile((current) => {
       const slip = current.readyToSaleLog.find(s => s.id === id);
       const nextStock = slip ? reverseStockForSaleItems(slip.items, current.stock) : current.stock;
       return { ...current, readyToSaleLog: current.readyToSaleLog.filter(s => s.id !== id), stock: nextStock };
@@ -881,6 +881,18 @@ function App() {
     setTimeout(() => setImportMsg(""), 4000);
   };
 
+  // Same recompute as the "↻ Refresh Stock" button above, run automatically
+  // right after every Paint/Purchase, Dispatch, Ready-to-Sale, or Opening
+  // Stock change instead of waiting for someone to click it. Finish Stock,
+  // the Item Ledger, and the Dashboard all read from the same `stock` field,
+  // so this is what keeps the three in sync without a manual refresh.
+  const persistAndReconcile = (updater) => persist((current) => {
+    const base = typeof updater === "function" ? updater(current) : updater;
+    const entries = buildItemLedgerEntries(base);
+    const r = computeReconciledStock(base.stock, base.openingStock || {}, entries);
+    return r.changed ? { ...base, stock: r.nextStock } : base;
+  });
+
   const exportToExcel = () => {
     const wb = XLSX.utils.book_new();
     const stockRows = stock.map(s => ({ Category:s.category, Item:s.item, Qty:s.qty, Unit:s.unit, Location:s.location, "Reorder @":s.reorder }));
@@ -997,7 +1009,7 @@ function App() {
     if (dispatchDraft.items.length === 0) return;
     const totals = computeSlipTotals(dispatchDraft.items);
     if (editingSlipId) {
-      persist((current) => {
+      persistAndReconcile((current) => {
         const original = current.dispatchSlips.find(d => d.id === editingSlipId);
         let nextStock = original ? restoreStockForDispatchItems(original.items, current.stock) : current.stock;
         nextStock = deductStockForDispatchItems(dispatchDraft.items, nextStock);
@@ -1007,7 +1019,7 @@ function App() {
       });
       setEditingSlipId(null);
     } else {
-      persist((current) => {
+      persistAndReconcile((current) => {
         const slip = { id:uid(), date:dispatchDraft.date || today(), invoiceNo:dispatchDraft.invoiceNo, transportName:dispatchDraft.transportName,
           lrNo:dispatchDraft.lrNo, driverName:dispatchDraft.driverName, dest:dispatchDraft.dest, items:dispatchDraft.items, ...totals, createdBy:userName };
         const nextStock = deductStockForDispatchItems(dispatchDraft.items, current.stock);
@@ -1032,7 +1044,7 @@ function App() {
 
   const delDispatchSlip = (id) => {
     if (editingSlipId === id) cancelEditSlip();
-    persist((current) => {
+    persistAndReconcile((current) => {
       const slip = current.dispatchSlips.find(d => d.id === id);
       const nextStock = slip ? restoreStockForDispatchItems(slip.items, current.stock) : current.stock;
       return { ...current, dispatchSlips: current.dispatchSlips.filter(d => d.id !== id), stock: nextStock };
