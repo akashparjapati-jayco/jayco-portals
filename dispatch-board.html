@@ -741,8 +741,7 @@ function App() {
   // Adds qty onto the existing row for this item (matched the same
   // trim/lowercase/space-collapsed way as every other stock-writing path in
   // this file) instead of always inserting a new one — otherwise re-entering
-  // the same SKU a second time split it across two rows, needing a manual
-  // "Merge Duplicates" pass to fix.
+  // the same SKU a second time split it across two rows.
   const addStock = () => {
     if (!sForm.item || sForm.qty === "") return;
     persist((current) => {
@@ -771,6 +770,9 @@ function App() {
   };
   const adjustStock = (id, delta) => persist((current) => ({ ...current, stock: current.stock.map(s => s.id === id ? { ...s, qty: s.qty + delta } : s) }));
 
+  // Used by the auto-fix effect below (runs once per load) to quietly
+  // recategorize any stock row whose category doesn't match its item's
+  // built-in SKU reference list.
   const computeRecategorizedStock = (stockArr) => {
     const listsByCategory = [
       ["Plummer Block", PLUMMER_SERIES],
@@ -792,51 +794,6 @@ function App() {
       return s;
     });
     return { nextStock, changed };
-  };
-
-  const recategorizeStock = () => {
-    const { changed } = computeRecategorizedStock(stock);
-    if (changed) persist((current) => {
-      const r = computeRecategorizedStock(current.stock);
-      return r.changed ? { ...current, stock: r.nextStock } : current;
-    });
-    setImportMsg(changed
-      ? `Recategorized ${changed} item${changed === 1 ? "" : "s"} to match the built-in SKU reference lists.`
-      : "No items needed recategorizing — every item already matches its category.");
-    setTimeout(() => setImportMsg(""), 4000);
-  };
-
-  // Small spelling/spacing differences typed into a Paint Challan, Dispatch
-  // Slip, or Ready-to-Sale slip (there's no dropdown forcing an exact match)
-  // leave the same real item split across two+ stock rows with the qty
-  // divided between them. This folds any rows that key-match into one.
-  const computeMergedStock = (stockArr) => {
-    const order = [];
-    const byKey = {};
-    let merged = 0;
-    stockArr.forEach((s) => {
-      const key = itemKey(s.item);
-      if (!(key in byKey)) {
-        byKey[key] = { ...s };
-        order.push(key);
-      } else {
-        byKey[key].qty += s.qty;
-        merged++;
-      }
-    });
-    return { nextStock: order.map(k => byKey[k]), merged };
-  };
-
-  const mergeDuplicateStock = () => {
-    const { merged } = computeMergedStock(stock);
-    if (merged) persist((current) => {
-      const r = computeMergedStock(current.stock);
-      return r.merged ? { ...current, stock: r.nextStock } : current;
-    });
-    setImportMsg(merged
-      ? `Merged ${merged} duplicate stock row${merged === 1 ? "" : "s"} into their matching item.`
-      : "No duplicate stock rows found — every item name is unique.");
-    setTimeout(() => setImportMsg(""), 4000);
   };
 
   const buildItemLedgerEntries = (current) => {
@@ -1495,7 +1452,7 @@ function App() {
           <button onClick={() => setTab("stock")} style={{...iconBtn, fontWeight:600, fontSize:"12.5px", padding:"9px 16px"}}>View Finish Stock</button>
           <button onClick={reconcileStock} style={{...iconBtn, fontWeight:600, fontSize:"12.5px", padding:"9px 16px"}} title="Recompute each item's qty from Opening Stock + Item Ledger, fixing any drift from old entries that didn't update stock correctly">↻ Refresh Stock</button>
         </div>
-        {importMsg && <div style={{fontSize:"12px",color: /^(Imported|Recategorized|Merged|Recalculated)/.test(importMsg) ? "var(--green)" : "var(--red)",marginBottom:"14px"}}>{importMsg}</div>}
+        {importMsg && <div style={{fontSize:"12px",color: /^(Imported|Recalculated)/.test(importMsg) ? "var(--green)" : "var(--red)",marginBottom:"14px"}}>{importMsg}</div>}
 
         <div style={{position:"relative", maxWidth:"460px", marginBottom:"22px"}}>
           <input
@@ -1808,8 +1765,6 @@ function App() {
               >
                 {groupByCategory ? "☑" : "☐"} Group by Category
               </button>
-              <button onClick={recategorizeStock} style={{...iconBtn,fontSize:"12px",fontWeight:600,padding:"7px 12px"}} title="Re-check every stock item's category against the built-in SKU reference lists">🔧 Fix Categories</button>
-              <button onClick={mergeDuplicateStock} style={{...iconBtn,fontSize:"12px",fontWeight:600,padding:"7px 12px"}} title="Combine stock rows for the same item that got split by spelling/spacing differences">🧹 Merge Duplicates</button>
               <button onClick={reconcileStock} style={{...iconBtn,fontSize:"12px",fontWeight:600,padding:"7px 12px"}} title="Recompute each item's qty from Opening Stock + Item Ledger, fixing any drift from old entries that didn't update stock correctly">↻ Refresh Stock</button>
               <button onClick={exportToExcel} style={{...iconBtn,fontSize:"12px",fontWeight:600,padding:"7px 12px"}}>⭳ Export to Excel</button>
               <label style={{...iconBtn,fontSize:"12px",fontWeight:600,padding:"7px 12px",cursor:"pointer",margin:0}}>
@@ -1818,7 +1773,7 @@ function App() {
               </label>
             </div>
           </div>
-          {importMsg && <div style={{fontSize:"12px",color: /^(Imported|Recategorized|Merged|Recalculated)/.test(importMsg) ? "var(--green)" : "var(--red)",marginBottom:"10px"}}>{importMsg}</div>}
+          {importMsg && <div style={{fontSize:"12px",color: /^(Imported|Recalculated)/.test(importMsg) ? "var(--green)" : "var(--red)",marginBottom:"10px"}}>{importMsg}</div>}
           <div style={{display:"grid",gridTemplateColumns:"1.2fr 1.2fr 0.7fr 0.7fr 1fr 0.7fr auto",gap:"8px"}}>
             <select value={sForm.category} onChange={e => setSForm({...sForm, category:e.target.value})} style={inputStyle}>
               {STOCK_CATEGORIES.map(c => <option key={c}>{c}</option>)}
