@@ -291,6 +291,7 @@ th.num{text-align:right}
       <div class="nav-label">Operations</div>
       <button class="nav-btn" data-view="dashboard"><span><span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9" rx="1.5"></rect><rect x="14" y="3" width="7" height="5" rx="1.5"></rect><rect x="14" y="12" width="7" height="9" rx="1.5"></rect><rect x="3" y="16" width="7" height="5" rx="1.5"></rect></svg></span><span class="nav-txt">Dashboard</span></span></button>
       <button class="nav-btn" data-view="casting-records"><span><span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 20h18"></path><path d="M6 20V9l6-4 6 4v11"></path><path d="M10 20v-5h4v5"></path></svg></span><span class="nav-txt">Casting Management</span></span><span class="count" id="c-challans">0</span></button>
+      <button class="nav-btn" data-view="reports"><span><span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"></path><path d="M7 15l4-5 3 3 5-7"></path></svg></span><span class="nav-txt">Reports</span></span></button>
       <div class="nav-sep"></div>
       <button class="nav-btn" data-view="generate-po"><span><span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3h6a1 1 0 0 1 1 1v1H8V4a1 1 0 0 1 1-1Z"></path><rect x="5" y="5" width="14" height="16" rx="2"></rect><path d="M9 12h6M9 16h6M9 8h2"></path></svg></span><span class="nav-txt">Generate P/O</span></span><span class="count" id="c-pos">0</span></button>
       <div class="nav-label">Masters</div>
@@ -678,6 +679,7 @@ function allTypes(){
 const VIEWS = {
   'dashboard':          {eyebrow:'Operations overview', title:'Dashboard', desc:'Casting receipts, pattern position and master-data readiness.'},
   'casting-records':    {eyebrow:'Closed challans', title:'Casting Management', desc:'Review closed foundry challans, items and weight differences.'},
+  'reports':            {eyebrow:'Analytics', title:'Reports', desc:'Month-wise casting received from all foundries, and foundry vs JAYCO weight differences.'},
   'insert-casting':     {eyebrow:'Goods receipt entry', title:'Insert Casting Details', desc:'Enter one foundry challan with one or more casting items.'},
   'generate-po':        {eyebrow:'Outward order', title:'Generate P/O', desc:'Raise a purchase order on a foundry. Approximate weight is calculated from your own challan history.'},
   'pattern-master':     {eyebrow:'Master data', title:'Pattern Master', desc:'One record per pattern: item, type, construction, core boxes and drawings.'},
@@ -796,7 +798,7 @@ function render(){
   document.getElementById('pg-eyebrow').textContent = v.eyebrow;
   document.getElementById('pg-title').textContent = v.title;
   document.getElementById('pg-desc').textContent = v.desc;
-  document.getElementById('search-wrap').style.display = ['dashboard','insert-casting'].includes(state.view) ? 'none' : '';
+  document.getElementById('search-wrap').style.display = ['dashboard','insert-casting','reports'].includes(state.view) ? 'none' : '';
   document.getElementById('search').placeholder = 'Search ' + v.title.toLowerCase() + '…';
 
   document.querySelectorAll('.nav-btn[data-view]').forEach(b =>
@@ -814,6 +816,7 @@ function render(){
   host.innerHTML = ({
     'dashboard': viewDashboard,
     'casting-records': viewCastingRecords,
+    'reports': viewReports,
     'insert-casting': viewInsertCasting,
     'generate-po': viewGeneratePO,
     'pattern-master': viewPatternMaster,
@@ -975,6 +978,100 @@ function viewCastingRecords(){
           </td></tr>`; }).join('')
         || emptyRow(11, state.challans.length ? 'No closed challans match the search.' : 'No closed challans yet. Select New challan to begin.') }
       </tbody></table></div></section>`;
+}
+
+/* ---- Reports ----------------------------------------------------------
+   Groups every received challan by calendar month and foundry so month-wise
+   inward volume and the foundry-vs-JAYCO weight gap can be read at a glance.
+   Foundry weight/difference only count challans where foundry weight was
+   actually entered (foundryComplete) — the rest surface as "pending" rather
+   than being silently treated as zero.
+   -------------------------------------------------------------------- */
+function monthKeyOf(dateStr){ return dateStr ? String(dateStr).slice(0,7) : ''; }
+function monthLabelOf(key){
+  if(!key) return 'Unknown month';
+  const [y,m] = key.split('-').map(Number);
+  return new Intl.DateTimeFormat('en-IN',{month:'long',year:'numeric'}).format(new Date(y, m-1, 1));
+}
+function blankAgg(){ return {challans:0, qty:0, jaycoWt:0, foundryWt:0, diffSum:0, complete:0, missing:0}; }
+function addAgg(a,b){ return {challans:a.challans+b.challans, qty:a.qty+b.qty, jaycoWt:a.jaycoWt+b.jaycoWt,
+  foundryWt:a.foundryWt+b.foundryWt, diffSum:a.diffSum+b.diffSum, complete:a.complete+b.complete, missing:a.missing+b.missing}; }
+
+function viewReports(){
+  const rows = state.challans.filter(c => match(c.foundryName, c.challanNumber, monthLabelOf(monthKeyOf(c.challanDate))));
+
+  const cells = {};
+  rows.forEach(c=>{
+    const mk = monthKeyOf(c.challanDate) || 'unknown';
+    const fn = c.foundryName || 'Unknown foundry';
+    const key = mk + '|' + fn;
+    if(!cells[key]) cells[key] = {...blankAgg(), monthKey:mk, foundryName:fn};
+    const g = cells[key];
+    g.challans++; g.qty += num(c.totalQuantity); g.jaycoWt += num(c.actualTotalWeight);
+    if(foundryComplete(c)){ g.foundryWt += num(c.foundryTotalWeight); g.diffSum += num(c.actualTotalWeight) - num(c.foundryTotalWeight); g.complete++; }
+    else g.missing++;
+  });
+
+  const months = [...new Set(Object.values(cells).map(g=>g.monthKey))].sort((a,b)=>b.localeCompare(a));
+  let grand = blankAgg();
+
+  const fwCell = g => g.complete>0
+    ? fmtWt(g.foundryWt) + (g.missing ? `<div style="font-size:11px;color:var(--ink-faint)">${g.missing} challan${g.missing===1?'':'s'} pending</div>` : '')
+    : `<span style="color:var(--ink-faint)">Not entered</span>`;
+  const diffCell = g => g.complete>0
+    ? `<b style="color:${g.diffSum>0?'var(--bad)':g.diffSum<0?'var(--ok)':'inherit'}">${g.diffSum>0?'+':''}${fmtWt(g.diffSum)}</b>`
+    : `<span style="color:var(--ink-faint)">—</span>`;
+
+  const body = months.map(mk=>{
+    const monthRows = Object.values(cells).filter(g=>g.monthKey===mk).sort((a,b)=>a.foundryName.localeCompare(b.foundryName));
+    const mSub = monthRows.reduce(addAgg, blankAgg());
+    grand = addAgg(grand, mSub);
+    return `
+      <tr style="background:rgba(17,17,17,.04)">
+        <td colspan="2"><b>${esc(monthLabelOf(mk))}</b></td>
+        <td class="num"><b>${mSub.challans}</b></td>
+        <td class="num"><b>${mSub.qty}</b></td>
+        <td class="num"><b>${fwCell(mSub)}</b></td>
+        <td class="num"><b>${fmtWt(mSub.jaycoWt)}</b></td>
+        <td class="num">${diffCell(mSub)}</td>
+      </tr>
+      ${monthRows.map(g=>`<tr>
+        <td></td>
+        <td>${esc(g.foundryName)}</td>
+        <td class="num">${g.challans}</td>
+        <td class="num">${g.qty}</td>
+        <td class="num">${fwCell(g)}</td>
+        <td class="num">${fmtWt(g.jaycoWt)}</td>
+        <td class="num">${diffCell(g)}</td>
+      </tr>`).join('')}`;
+  }).join('') || emptyRow(7, state.challans.length ? 'No challans match the search.' : 'No casting challans received yet.');
+
+  return `
+  <div class="metrics" style="margin-bottom:26px">
+    <div class="metric-card"><p class="lbl">Months covered</p><p class="val">${months.length}</p><p class="note">With at least one challan received</p></div>
+    <div class="metric-card"><p class="lbl">Total received</p><p class="val" style="font-size:22px">${fmtWt(grand.jaycoWt)}</p><p class="note">${grand.challans} challan${grand.challans===1?'':'s'} · JAYCO weight</p></div>
+    <div class="metric-card"><p class="lbl">Foundry weight recorded</p><p class="val" style="font-size:22px">${grand.complete>0?fmtWt(grand.foundryWt):'—'}</p><p class="note">${grand.complete} of ${grand.challans} challans</p></div>
+    <div class="metric-card ${grand.diffSum>0?'red':''}"><p class="lbl">Net difference</p><p class="val" style="font-size:22px">${grand.complete>0?(grand.diffSum>0?'+':'')+fmtWt(grand.diffSum):'—'}</p><p class="note">JAYCO weight − Foundry weight</p></div>
+  </div>
+
+  <section class="data-panel">
+    <div class="panel-heading">
+      <div><p class="eyebrow">Inward, by month and foundry</p><h2 class="panel-title">Month-wise Casting Received &amp; Weight Difference</h2></div>
+    </div>
+    <div class="table-scroll"><table>
+      <thead><tr><th>Month</th><th>Foundry</th><th class="num">Challans</th><th class="num">Qty</th>
+      <th class="num">Foundry Weight</th><th class="num">JAYCO Weight</th><th class="num">Difference (JAYCO − Foundry)</th></tr></thead>
+      <tbody>${body}</tbody>
+      ${months.length ? `<tfoot><tr style="border-top:2px solid var(--ink)">
+        <td colspan="2" style="font-weight:700">Grand total</td>
+        <td class="num"><b>${grand.challans}</b></td>
+        <td class="num"><b>${grand.qty}</b></td>
+        <td class="num"><b>${fwCell(grand)}</b></td>
+        <td class="num"><b>${fmtWt(grand.jaycoWt)}</b></td>
+        <td class="num">${diffCell(grand)}</td>
+      </tr></tfoot>` : ''}
+    </table></div>
+  </section>`;
 }
 
 /* ---- Pattern Management ---- */
