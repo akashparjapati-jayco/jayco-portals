@@ -184,6 +184,14 @@ const SEED = {
     { id:uid(), date:today(), direction:"in", type:"Wooden Box", size:"Medium (15x15x12\")", qty:50, party:"Kheda Packaging Co." },
     { id:uid(), date:today(), direction:"out", type:"Corrugated Box", size:"Large (18x18x14\")", qty:12, party:"Dispatch - Nagpur order" },
   ],
+  // Editable box type/size catalog — staff can add new box types (beyond the
+  // built-in Wooden/Corrugated) and new sizes for any type from the Box
+  // In/Out tab, without a code change. Falls back to the DEFAULT_* lists
+  // below for any doc saved before this existed.
+  boxCatalog: [
+    { type: "Wooden Box", sizes: DEFAULT_WOODEN_BOX_SIZES.slice() },
+    { type: "Corrugated Box", sizes: DEFAULT_CORRUGATED_BOX_SIZES.slice() },
+  ],
   // Keyed by item name (trim+lowercase): { item, qty, date, updatedBy, updatedAt }.
   // `date` is the balance's as-of date — ledger entries before it are treated
   // as already folded into the opening qty and excluded from the statement.
@@ -202,6 +210,10 @@ const normalizeData = (raw) => {
     dispatchSlips: d.dispatchSlips || d.tickets || [],
     boxLog: d.boxLog || [],
     readyToSaleLog: d.readyToSaleLog || [],
+    boxCatalog: (d.boxCatalog && d.boxCatalog.length) ? d.boxCatalog : [
+      { type: "Wooden Box", sizes: DEFAULT_WOODEN_BOX_SIZES.slice() },
+      { type: "Corrugated Box", sizes: DEFAULT_CORRUGATED_BOX_SIZES.slice() },
+    ],
     openingStock: d.openingStock || {},
   };
 };
@@ -336,6 +348,8 @@ function App() {
   const [editingSlipId, setEditingSlipId] = useState(null);
   const [expandedSlips, setExpandedSlips] = useState({});
   const [bForm, setBForm] = useState({ date:today(), direction:"in", type:"Wooden Box", size:DEFAULT_WOODEN_BOX_SIZES[0], qty:"", party:"" });
+  const [newBoxTypeName, setNewBoxTypeName] = useState("");
+  const [boxSizeForms, setBoxSizeForms] = useState({});
   const [copiedId, setCopiedId] = useState(null);
   const [importMsg, setImportMsg] = useState("");
   const paintItemRef = useRef(null);
@@ -408,10 +422,13 @@ function App() {
   const BEARINGS = DEFAULT_BEARINGS;
   const SEAL_TYPES = DEFAULT_SEAL_TYPES;
   const PILLOW_BLOCKS = DEFAULT_PILLOW_BLOCKS;
-  const BOX_TYPES = [
+  const boxCatalog = (data && data.boxCatalog && data.boxCatalog.length) ? data.boxCatalog : [
     { type: "Wooden Box", sizes: DEFAULT_WOODEN_BOX_SIZES },
     { type: "Corrugated Box", sizes: DEFAULT_CORRUGATED_BOX_SIZES },
   ];
+  // Staff-editable box type/size list (Box In/Out tab). A type with no sizes
+  // yet still needs one selectable option so the dropdowns don't break.
+  const BOX_TYPES = boxCatalog.map(b => ({ type: b.type, sizes: b.sizes.length ? b.sizes : ["—"] }));
 
   const lowStock = useMemo(() => stock.filter(s => s.qty <= s.reorder), [stock]);
   // Finish Stock table: always shown series-wise (natural numeric sort on the
@@ -962,9 +979,10 @@ function App() {
 
   const addDispatchRow = () => {
     if (!dispatchRowForm.item || !dispatchRowForm.qty) return;
+    const isBoxStyle = BOX_TYPES.some(b => b.type === dispatchRowForm.packingStyle);
     const row = { id:uid(), item:dispatchRowForm.item, qty:Number(dispatchRowForm.qty), packingStyle:dispatchRowForm.packingStyle,
-      boxSize: (dispatchRowForm.packingStyle === "Corrugated Box" || dispatchRowForm.packingStyle === "Wooden Box") ? dispatchRowForm.boxSize : "",
-      boxQty: (dispatchRowForm.packingStyle === "Corrugated Box" || dispatchRowForm.packingStyle === "Wooden Box") ? Number(dispatchRowForm.boxQty || 0) : 0,
+      boxSize: isBoxStyle ? dispatchRowForm.boxSize : "",
+      boxQty: isBoxStyle ? Number(dispatchRowForm.boxQty || 0) : 0,
       gunnyQty: dispatchRowForm.packingStyle === "Gunny Bag" ? Number(dispatchRowForm.boxQty || 0) : 0,
     };
     setDispatchDraft({ ...dispatchDraft, items: [...dispatchDraft.items, row] });
@@ -978,7 +996,7 @@ function App() {
 
   const computeSlipTotals = (items) => {
     const totalQty = items.reduce((a, r) => a + Number(r.qty || 0), 0);
-    const totalBoxes = items.filter(r => r.packingStyle === "Corrugated Box" || r.packingStyle === "Wooden Box").reduce((a, r) => a + Number(r.boxQty || 0), 0);
+    const totalBoxes = items.filter(r => r.boxSize).reduce((a, r) => a + Number(r.boxQty || 0), 0);
     const totalGunny = items.filter(r => r.packingStyle === "Gunny Bag").reduce((a, r) => a + Number(r.gunnyQty || 0), 0);
     return { totalQty, totalBoxes, totalGunny };
   };
@@ -1027,7 +1045,7 @@ function App() {
       });
     }
     setDispatchDraft({ date:today(), invoiceNo:"", transportName:"", lrNo:"", driverName:"", dest:"", items:[] });
-    setDispatchRowForm({ item:"", qty:"", packingStyle:"Corrugated Box", boxSize:DEFAULT_CORRUGATED_BOX_SIZES[0], boxQty:"" });
+    setDispatchRowForm({ item:"", qty:"", packingStyle:BOX_TYPES[0].type, boxSize:BOX_TYPES[0].sizes[0], boxQty:"" });
   };
 
   const startEditSlip = (slip) => {
@@ -1039,7 +1057,7 @@ function App() {
   const cancelEditSlip = () => {
     setEditingSlipId(null);
     setDispatchDraft({ date:today(), invoiceNo:"", transportName:"", lrNo:"", driverName:"", dest:"", items:[] });
-    setDispatchRowForm({ item:"", qty:"", packingStyle:"Corrugated Box", boxSize:DEFAULT_CORRUGATED_BOX_SIZES[0], boxQty:"" });
+    setDispatchRowForm({ item:"", qty:"", packingStyle:BOX_TYPES[0].type, boxSize:BOX_TYPES[0].sizes[0], boxQty:"" });
   };
 
   const delDispatchSlip = (id) => {
@@ -1325,6 +1343,34 @@ function App() {
     setBForm({ date:today(), direction:"in", type:"Wooden Box", size:BOX_TYPES[0].sizes[0], qty:"", party:"" });
   };
   const delBox = (id) => persist((current) => ({ ...current, boxLog: current.boxLog.filter(b => b.id !== id) }));
+
+  const addBoxType = (name) => {
+    const v = name.trim();
+    if (!v) return;
+    persist((current) => current.boxCatalog.some(b => b.type === v)
+      ? current
+      : { ...current, boxCatalog: [...current.boxCatalog, { type: v, sizes: [] }] });
+    setNewBoxTypeName("");
+  };
+  const delBoxType = (type) => {
+    if (boxCatalog.length <= 1) return;
+    persist((current) => ({ ...current, boxCatalog: current.boxCatalog.filter(b => b.type !== type) }));
+  };
+  const addBoxSize = (type, size) => {
+    const v = size.trim();
+    if (!v) return;
+    persist((current) => ({
+      ...current,
+      boxCatalog: current.boxCatalog.map(b => (b.type === type && !b.sizes.includes(v)) ? { ...b, sizes: [...b.sizes, v] } : b),
+    }));
+    setBoxSizeForms(f => ({ ...f, [type]: "" }));
+  };
+  const delBoxSize = (type, size) => {
+    persist((current) => ({
+      ...current,
+      boxCatalog: current.boxCatalog.map(b => b.type === type ? { ...b, sizes: b.sizes.filter(s => s !== size) } : b),
+    }));
+  };
 
   const inputStyle = { background:"var(--bg)", border:"1px solid var(--line)", color:"var(--text)", padding:"9px 10px", fontSize:"13px", width:"100%" };
   const btnPrimary = { background:"var(--red)", color:"#fff", border:"none", padding:"9px 14px", fontWeight:700, fontSize:"13px", display:"flex", alignItems:"center", justifyContent:"center", gap:"6px", textTransform:"uppercase", letterSpacing:"0.5px" };
@@ -1671,8 +1717,8 @@ function App() {
                   : saleRowForm.category === "Pillow Block" ? PILLOW_BLOCKS
                   : saleRowForm.category === "Bearing" ? BEARINGS
                   : saleRowForm.category === "Locating Ring" ? LOCATING_RINGS
-                  : saleRowForm.category === "Wooden Box" ? DEFAULT_WOODEN_BOX_SIZES
-                  : saleRowForm.category === "Corrugated Box" ? DEFAULT_CORRUGATED_BOX_SIZES
+                  : saleRowForm.category === "Wooden Box" ? (BOX_TYPES.find(b => b.type === "Wooden Box") || {sizes:DEFAULT_WOODEN_BOX_SIZES}).sizes
+                  : saleRowForm.category === "Corrugated Box" ? (BOX_TYPES.find(b => b.type === "Corrugated Box") || {sizes:DEFAULT_CORRUGATED_BOX_SIZES}).sizes
                   : SEAL_TYPES)])).map(o => <option key={o} value={o} />)}
               </datalist>
               <input placeholder="Qty" type="number" value={saleRowForm.qty} onChange={e => setSaleRowForm({...saleRowForm, qty:e.target.value})} onKeyDown={e => { if (e.key === "Enter") addSaleRow(); }} style={inputStyle} />
@@ -1988,18 +2034,17 @@ function App() {
               {Array.from(new Set([...knownLedgerItems, ...PLUMMER_SERIES, ...PILLOW_BLOCKS, ...ADAPTER_SLEEVES, ...LOCATING_RINGS, ...BEARINGS, ...SEAL_TYPES])).map(o => <option key={o} value={o} />)}
             </datalist>
             <input placeholder="Qty" type="number" value={dispatchRowForm.qty} onChange={e => setDispatchRowForm({...dispatchRowForm, qty:e.target.value})} onKeyDown={e => { if (e.key === "Enter") addDispatchRow(); }} style={inputStyle} />
-            <select value={dispatchRowForm.packingStyle} onChange={e => setDispatchRowForm({...dispatchRowForm, packingStyle:e.target.value, boxSize: e.target.value === "Corrugated Box" ? DEFAULT_CORRUGATED_BOX_SIZES[0] : e.target.value === "Wooden Box" ? DEFAULT_WOODEN_BOX_SIZES[0] : ""})} style={inputStyle}>
-              <option>Corrugated Box</option>
-              <option>Wooden Box</option>
+            <select value={dispatchRowForm.packingStyle} onChange={e => { const bt = BOX_TYPES.find(b => b.type === e.target.value); setDispatchRowForm({...dispatchRowForm, packingStyle:e.target.value, boxSize: bt ? bt.sizes[0] : ""}); }} style={inputStyle}>
+              {BOX_TYPES.map(b => <option key={b.type}>{b.type}</option>)}
               <option>Loose</option>
               <option>Gunny Bag</option>
             </select>
-            {(dispatchRowForm.packingStyle === "Corrugated Box" || dispatchRowForm.packingStyle === "Wooden Box") ? (
+            {BOX_TYPES.some(b => b.type === dispatchRowForm.packingStyle) ? (
               <select value={dispatchRowForm.boxSize} onChange={e => setDispatchRowForm({...dispatchRowForm, boxSize:e.target.value})} style={inputStyle}>
-                {(dispatchRowForm.packingStyle === "Corrugated Box" ? DEFAULT_CORRUGATED_BOX_SIZES : DEFAULT_WOODEN_BOX_SIZES).map(s => <option key={s}>{s}</option>)}
+                {BOX_TYPES.find(b => b.type === dispatchRowForm.packingStyle).sizes.map(s => <option key={s}>{s}</option>)}
               </select>
             ) : <div />}
-            {(dispatchRowForm.packingStyle === "Corrugated Box" || dispatchRowForm.packingStyle === "Wooden Box" || dispatchRowForm.packingStyle === "Gunny Bag") ? (
+            {(BOX_TYPES.some(b => b.type === dispatchRowForm.packingStyle) || dispatchRowForm.packingStyle === "Gunny Bag") ? (
               <input placeholder={dispatchRowForm.packingStyle === "Gunny Bag" ? "Bag Qty" : "Box Qty"} type="number" value={dispatchRowForm.boxQty} onChange={e => setDispatchRowForm({...dispatchRowForm, boxQty:e.target.value})} onKeyDown={e => { if (e.key === "Enter") addDispatchRow(); }} style={inputStyle} />
             ) : <div />}
             <button onClick={addDispatchRow} style={btnPrimary}>+ Row</button>
@@ -2070,6 +2115,43 @@ function App() {
             <button onClick={addBox} style={btnPrimary}>+</button>
           </div>
         </div>
+
+        <div style={{background:"var(--panel)",border:"1px solid var(--line)",padding:"16px",marginBottom:"20px"}}>
+          <div style={{fontWeight:600,fontSize:"13px",marginBottom:"12px",letterSpacing:"0.5px"}}>Manage Box Types &amp; Sizes</div>
+          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit, minmax(260px, 1fr))",gap:"16px",marginBottom:"14px"}}>
+            {boxCatalog.map(b => (
+              <div key={b.type} style={{background:"var(--bg)",border:"1px solid var(--line)",padding:"12px"}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",marginBottom:"10px"}}>
+                  <div style={{fontWeight:600,fontSize:"13px"}}>{b.type}</div>
+                  <button className="row-btn" onClick={() => delBoxType(b.type)} disabled={boxCatalog.length <= 1}
+                    style={{...iconBtnSmall, opacity: boxCatalog.length <= 1 ? 0.4 : 1}} title={boxCatalog.length <= 1 ? "At least one box type is required" : "Delete this box type"}>✕ Delete Type</button>
+                </div>
+                <div style={{display:"flex",flexDirection:"column",gap:"6px",marginBottom:"8px"}}>
+                  {b.sizes.length === 0 && <div style={{fontSize:"12px",color:"var(--text-dim)"}}>No sizes yet — add one below.</div>}
+                  {b.sizes.map(size => (
+                    <div key={size} style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:"6px",padding:"6px 10px",background:"var(--panel)",border:"1px solid var(--line)",fontSize:"13px"}}>
+                      <span>{size}</span>
+                      <button className="row-btn" onClick={() => delBoxSize(b.type, size)} style={iconBtnSmall} title="Delete size">✕</button>
+                    </div>
+                  ))}
+                </div>
+                <div style={{display:"flex",gap:"6px"}}>
+                  <input placeholder={`Add size (e.g. Medium (12x12x10"))`} value={boxSizeForms[b.type] || ""}
+                    onChange={e => setBoxSizeForms({ ...boxSizeForms, [b.type]: e.target.value })}
+                    onKeyDown={e => { if (e.key === "Enter") addBoxSize(b.type, boxSizeForms[b.type] || ""); }}
+                    style={inputStyle} />
+                  <button onClick={() => addBoxSize(b.type, boxSizeForms[b.type] || "")} style={btnPrimary}>+</button>
+                </div>
+              </div>
+            ))}
+          </div>
+          <div style={{display:"flex",gap:"6px",maxWidth:"420px"}}>
+            <input placeholder="New box type name (e.g. Poly Bag)" value={newBoxTypeName} onChange={e => setNewBoxTypeName(e.target.value)}
+              onKeyDown={e => { if (e.key === "Enter") addBoxType(newBoxTypeName); }} style={inputStyle} />
+            <button onClick={() => addBoxType(newBoxTypeName)} style={btnPrimary}>+ Box Type</button>
+          </div>
+        </div>
+
         <TableBlock headers={["Date","Direction","Box Type","Size","Qty","Party / Ref","By",""]} emptyText="No box movement recorded."
           rows={boxLog.map(b => [
             fmtDate(b.date),
