@@ -1765,7 +1765,10 @@ function App() {
             <select value={sForm.category} onChange={e => setSForm({...sForm, category:e.target.value})} style={inputStyle}>
               {STOCK_CATEGORIES.map(c => <option key={c}>{c}</option>)}
             </select>
-            <input placeholder="Item / SKU" value={sForm.item} onChange={e => setSForm({...sForm, item:e.target.value})} style={inputStyle} />
+            <input placeholder="Item / SKU" value={sForm.item} onChange={e => setSForm({...sForm, item:e.target.value})} onKeyDown={e => { if (e.key === "Enter") addStock(); }} style={inputStyle} list="stock-item-options" />
+            <datalist id="stock-item-options">
+              {Array.from(new Set([...knownLedgerItems, ...PLUMMER_SERIES, ...PILLOW_BLOCKS, ...ADAPTER_SLEEVES, ...LOCATING_RINGS, ...BEARINGS, ...SEAL_TYPES])).map(o => <option key={o} value={o} />)}
+            </datalist>
             <input placeholder="Qty" type="number" value={sForm.qty} onChange={e => setSForm({...sForm, qty:e.target.value})} style={inputStyle} />
             <select value={sForm.unit} onChange={e => setSForm({...sForm, unit:e.target.value})} style={inputStyle}>
               {["Nos","Sets","Pairs","Kg"].map(u => <option key={u}>{u}</option>)}
