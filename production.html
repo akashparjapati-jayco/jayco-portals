@@ -947,8 +947,8 @@ document.addEventListener('DOMContentLoaded', function(){
       <div class="er-field"><label>Mobile Number</label><input id="er-emp-mobile"></div>
     </div>
     <div class="er-field-row">
-      <div class="er-field"><label>Department</label><input id="er-emp-dept" placeholder="e.g. Machine Shop"></div>
-      <div class="er-field"><label>Designation</label><input id="er-emp-designation" placeholder="e.g. Fitter"></div>
+      <div class="er-field"><label>Department</label><select id="er-emp-dept"></select></div>
+      <div class="er-field"><label>Designation</label><select id="er-emp-designation"></select></div>
     </div>
     <div class="er-field-row">
       <div class="er-field"><label>Date of Joining</label><input type="date" id="er-emp-doj"></div>
@@ -2974,9 +2974,18 @@ function erRenderEmployees(){
         '</td></tr>';
     }).join('');
 }
+var ER_DEPARTMENTS = ['Machine Shop','Production','Quality / Inspection','Fitting & Assembly','Foundry','Stores','Maintenance','Packing & Dispatch','Office / Admin'];
+var ER_DESIGNATIONS = ['Operator','Helper','Supervisor','Fitter','Production','Inspection','Quality Checker','Store Keeper','Manager','Office Staff'];
 function erPopulateShiftSelect(sel, selected){
-  sel.innerHTML = '<option value="">— none —</option>' + erShifts.map(function(s){
+  sel.innerHTML = '<option value="">Select Shift</option>' + erShifts.map(function(s){
     return '<option value="'+s.id+'" '+(s.id===selected?'selected':'')+'>'+erEsc(s.name)+'</option>';
+  }).join('');
+}
+function erPopulateOptionSelect(sel, options, selected, placeholder){
+  var list = options.slice();
+  if(selected && list.indexOf(selected)===-1) list.push(selected);
+  sel.innerHTML = '<option value="">'+placeholder+'</option>' + list.map(function(v){
+    return '<option value="'+erEsc(v)+'" '+(v===selected?'selected':'')+'>'+erEsc(v)+'</option>';
   }).join('');
 }
 function erOpenEmpModal(id){
@@ -2987,8 +2996,8 @@ function erOpenEmpModal(id){
   document.getElementById('er-emp-name').value = e.name||'';
   document.getElementById('er-emp-father').value = e.father||'';
   document.getElementById('er-emp-mobile').value = e.mobile||'';
-  document.getElementById('er-emp-dept').value = e.dept||'';
-  document.getElementById('er-emp-designation').value = e.designation||'';
+  erPopulateOptionSelect(document.getElementById('er-emp-dept'), ER_DEPARTMENTS, e.dept||'', 'Select Department');
+  erPopulateOptionSelect(document.getElementById('er-emp-designation'), ER_DESIGNATIONS, e.designation||'', 'Select Designation');
   document.getElementById('er-emp-doj').value = e.doj||'';
   erPopulateShiftSelect(document.getElementById('er-emp-shift'), e.shiftId);
   document.getElementById('er-emp-salary-type').value = e.salaryType||'Monthly';
