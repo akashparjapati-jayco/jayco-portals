@@ -559,13 +559,28 @@ function App() {
     if (!q) return sorted;
     return sorted.filter(s => s.item.toLowerCase().includes(q) || s.category.toLowerCase().includes(q));
   }, [reportPickerQuery, stock]);
-  // Backs the standalone "Master Report" tab's own item picker.
-  const masterPickerResults = useMemo(() => {
+  // Backs the standalone "Master Report" tab's browse view — every item,
+  // grouped Category → Series (e.g. Plummer Block → S / SN / SNA / SNH,
+  // Adapter Sleeve → H / HE), filtered live by the search box.
+  const masterBrowseGroups = useMemo(() => {
     const q = masterQuery.trim().toLowerCase();
-    const sorted = [...stock].sort((a, b) => naturalCompare(a.item, b.item));
-    if (!q) return sorted;
-    return sorted.filter(s => s.item.toLowerCase().includes(q) || s.category.toLowerCase().includes(q));
-  }, [masterQuery, stock]);
+    const filtered = q
+      ? stock.filter(s => s.item.toLowerCase().includes(q) || s.category.toLowerCase().includes(q) || itemSeries(s.item).toLowerCase().includes(q))
+      : stock;
+    const byCategory = {};
+    filtered.forEach(s => { (byCategory[s.category] || (byCategory[s.category] = [])).push(s); });
+    const orderedCats = [...STOCK_CATEGORIES, ...Object.keys(byCategory).filter(c => !STOCK_CATEGORIES.includes(c))];
+    return orderedCats.filter(c => byCategory[c] && byCategory[c].length).map(cat => {
+      const items = byCategory[cat];
+      const bySeries = {};
+      items.forEach(s => { const series = itemSeries(s.item); (bySeries[series] || (bySeries[series] = [])).push(s); });
+      const seriesGroups = Object.keys(bySeries).sort((a, b) => a.localeCompare(b)).map(series => {
+        const rows = bySeries[series].slice().sort((a, b) => naturalCompare(a.item, b.item));
+        return { series, rows, total: rows.reduce((a, s) => a + Number(s.qty || 0), 0) };
+      });
+      return { category: cat, seriesGroups, total: items.reduce((a, s) => a + Number(s.qty || 0), 0), count: items.length };
+    });
+  }, [stock, masterQuery]);
   const itemLedger = useMemo(() => {
     const entries = [];
     paintLog.forEach(p => {
@@ -2345,35 +2360,54 @@ function App() {
         <div style={{display:"flex",alignItems:"center",gap:"8px",marginBottom:"14px",flexWrap:"wrap"}}>
           <div style={{width:"4px",height:"16px",background:"var(--red)",borderRadius:"2px"}} />
           <div style={{fontSize:"14px",fontWeight:700}}>Master Report</div>
-          <div style={{fontSize:"11px",color:"var(--text-dim)"}}>· pick an item to see its series stock, month-wise paint & ledger track</div>
+          <div style={{fontSize:"11px",color:"var(--text-dim)"}}>· browse by category &amp; series, or click any item for its full report</div>
         </div>
 
-        <div style={{position:"relative", maxWidth:"460px", marginBottom:"20px"}}>
-          <input
-            value={masterQuery}
-            onChange={e => setMasterQuery(e.target.value)}
-            placeholder="🔍 Search item / SKU or category…"
-            style={{...inputStyle, padding:"11px 12px", fontSize:"13px"}}
-          />
-          {masterQuery.trim() && <div style={{position:"absolute", top:"calc(100% + 4px)", left:0, right:0, background:"var(--panel)", border:"1px solid var(--line)", borderRadius:"10px", boxShadow:"0 10px 28px rgba(17,17,17,0.12)", maxHeight:"340px", overflowY:"auto", zIndex:20}}>
-            {masterPickerResults.length === 0 && <div style={{padding:"14px", fontSize:"13px", color:"var(--text-dim)"}}>No item matches "{masterQuery}".</div>}
-            {masterPickerResults.map(s => (
-              <div key={s.id} className="row-btn"
-                onClick={() => { setMasterItem(s.item); setMasterQuery(""); }}
-                style={{display:"flex", justifyContent:"space-between", alignItems:"center", gap:"10px", padding:"10px 12px", borderBottom:"1px solid var(--line)", cursor:"pointer"}}>
-                <div style={{minWidth:0}}>
-                  <div style={{fontSize:"13px", fontWeight:600, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap"}}>{s.item}</div>
-                  <div style={{fontSize:"11px", color:"var(--text-dim)"}}>{s.category} · {s.location || "no location set"}</div>
-                </div>
-                <div className="mono" style={{fontSize:"14px", fontWeight:700, color: s.qty<=s.reorder ? "var(--red)" : "var(--text)",flexShrink:0}}>{s.qty} {s.unit}</div>
-              </div>
-            ))}
-          </div>}
-        </div>
+        <input
+          value={masterQuery}
+          onChange={e => setMasterQuery(e.target.value)}
+          placeholder="🔍 Filter by item / SKU, series or category…"
+          style={{...inputStyle, maxWidth:"460px", padding:"11px 12px", fontSize:"13px", marginBottom:"22px"}}
+        />
 
         {!masterItem && (
-          <div style={{background:"var(--panel)",border:"1px solid var(--line)",borderRadius:"10px",padding:"40px 20px",textAlign:"center",color:"var(--text-dim)",fontSize:"13px"}}>
-            Search and pick an item above to open its report.
+          <div>
+            {masterBrowseGroups.length === 0 && (
+              <div style={{background:"var(--panel)",border:"1px solid var(--line)",borderRadius:"10px",padding:"40px 20px",textAlign:"center",color:"var(--text-dim)",fontSize:"13px"}}>
+                No item matches "{masterQuery}".
+              </div>
+            )}
+            {masterBrowseGroups.map(group => {
+              const color = categoryColor(group.category);
+              return (
+                <div key={group.category} style={{marginBottom:"26px"}}>
+                  <div style={{display:"flex",alignItems:"baseline",gap:"10px",marginBottom:"10px"}}>
+                    <span style={{display:"inline-block",width:"10px",height:"10px",borderRadius:"50%",background:color,flexShrink:0}} />
+                    <div style={{fontWeight:700,fontSize:"14px"}}>{group.category}</div>
+                    <div style={{fontSize:"11px",color:"var(--text-dim)"}}>{group.count} item{group.count===1?"":"s"} · {group.total} total</div>
+                  </div>
+                  <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit, minmax(230px, 1fr))",gap:"12px"}}>
+                    {group.seriesGroups.map(sg => (
+                      <div key={sg.series} style={{background:"var(--panel)",border:`1px solid ${color}40`,borderRadius:"10px",overflow:"hidden",boxShadow:"var(--shadow)"}}>
+                        <div style={{background:`${color}17`,padding:"8px 12px",display:"flex",justifyContent:"space-between",alignItems:"center",borderBottom:`1px solid ${color}40`}}>
+                          <span style={{fontWeight:700,fontSize:"12.5px",color:color,letterSpacing:"0.4px"}}>{sg.series}</span>
+                          <span className="mono" style={{fontSize:"10.5px",color:"var(--text-dim)"}}>{sg.rows.length} · {sg.total}</span>
+                        </div>
+                        <div>
+                          {sg.rows.map(s => (
+                            <div key={s.id} className="row-btn" onClick={() => setMasterItem(s.item)}
+                              style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:"8px",padding:"7px 12px",borderBottom:"1px solid var(--line)",cursor:"pointer",fontSize:"12.5px"}}>
+                              <span style={{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{s.item}</span>
+                              <span className="mono" style={{fontWeight:700,color: s.qty<=s.reorder ? "var(--red)" : "var(--text)",flexShrink:0}}>{s.qty}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
           </div>
         )}
 
