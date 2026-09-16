@@ -1413,12 +1413,6 @@ function debounce(fn, ms){
   return (...args)=>{ clearTimeout(t); t = setTimeout(()=>fn(...args), ms); };
 }
 function matchText(hay, q){ return String(hay||'').toLowerCase().includes(q); }
-// Invoice numbers like "658/26-27" — sort by the leading number so "658"
-// correctly outranks "58", not a plain string compare.
-function invoiceSortKey(inv){
-  const m = String(inv||'').match(/\d+/);
-  return m ? parseInt(m[0], 10) : -Infinity;
-}
 
 function reportScopedItems(){
   const f = document.getElementById('reportExclusive').value;
@@ -1577,8 +1571,6 @@ function renderDespatchRegisterReport(q){
       });
     }
     despatches.sort((a,b)=>{
-      const ka = invoiceSortKey(a.invoiceNumber), kb = invoiceSortKey(b.invoiceNumber);
-      if(kb !== ka) return kb - ka;
       const da = a.despatchDate && a.despatchDate.toDate ? a.despatchDate.toDate() : new Date(a.despatchDate||0);
       const db_ = b.despatchDate && b.despatchDate.toDate ? b.despatchDate.toDate() : new Date(b.despatchDate||0);
       return db_ - da;
