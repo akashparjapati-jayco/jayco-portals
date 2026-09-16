@@ -162,6 +162,46 @@ const naturalCompare = (a, b) => {
   }
   return 0;
 };
+// Best-effort "series" grouping for the Report column — the leading letters
+// of a SKU ("SN 605", "SNA 505" -> "SN"/"SNA", "H 205" -> "H"), or for a
+// purely numeric code (bearing numbers like "22205") its leading two digits,
+// which is how JAYCO's own bearing series numbers ("22", "23", "12"…) read.
+const itemSeries = (item) => {
+  const s = String(item || "").trim();
+  const alpha = s.match(/^[A-Za-z]+/);
+  if (alpha) return alpha[0].toUpperCase();
+  const digits = s.match(/^\d+/);
+  if (digits) return digits[0].slice(0, 2);
+  return s.toUpperCase();
+};
+const fmtMonth = (ym) => {
+  const [y, m] = String(ym || "").split("-");
+  if (!y || !m) return ym || "—";
+  return new Date(Number(y), Number(m) - 1, 1).toLocaleDateString("en-IN", { month:"short", year:"numeric" });
+};
+// Opening-stock statement for one item — shared by the Item Ledger tab and
+// the Report modal so both show identical running balances.
+const buildLedgerStatement = (itemName, itemLedger, openingStock) => {
+  if (!itemName) return null;
+  const key = itemName.trim().toLowerCase();
+  const opening = openingStock[key] || { qty: 0, date: "" };
+  const entries = itemLedger
+    .filter(e => e.item.trim().toLowerCase() === key)
+    .filter(e => !opening.date || e.date >= opening.date)
+    .slice()
+    .sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : 0);
+  let balance = Number(opening.qty || 0);
+  let totalIn = 0, totalOut = 0;
+  const rows = entries.map((e, i) => {
+    const inward = e.delta > 0 ? e.delta : 0;
+    const outward = e.delta < 0 ? -e.delta : 0;
+    totalIn += inward;
+    totalOut += outward;
+    balance += e.delta;
+    return { sr: i + 1, date: e.date, ref: e.ref, desc: e.desc, inward, outward, balance };
+  });
+  return { opening, rows, totalIn, totalOut, closing: balance };
+};
 
 const SEED = {
   paintLog: [
@@ -337,6 +377,7 @@ function App() {
   const [sForm, setSForm] = useState({ category:"Plummer Block", item:"", qty:"", unit:"Nos", location:"", reorder:"" });
   const [stockFilter, setStockFilter] = useState(null);
   const [groupByCategory, setGroupByCategory] = useState(false);
+  const [reportItem, setReportItem] = useState(null);
   const [ledgerFilter, setLedgerFilter] = useState("");
   const [openingEditing, setOpeningEditing] = useState(false);
   const [openingForm, setOpeningForm] = useState({ qty:"", date:"" });
@@ -509,32 +550,43 @@ function App() {
     return knownLedgerItems.find(n => n.trim().toLowerCase() === q) || null;
   }, [ledgerFilter, knownLedgerItems]);
   const openingEntry = selectedLedgerItem ? (openingStock[selectedLedgerItem.trim().toLowerCase()] || null) : null;
-  const ledgerStatement = useMemo(() => {
-    if (!selectedLedgerItem) return null;
-    const key = selectedLedgerItem.trim().toLowerCase();
-    const opening = openingStock[key] || { qty: 0, date: "" };
-    const entries = itemLedger
-      .filter(e => e.item.trim().toLowerCase() === key)
-      .filter(e => !opening.date || e.date >= opening.date)
-      .slice()
-      .sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : 0);
-    let balance = Number(opening.qty || 0);
-    let totalIn = 0, totalOut = 0;
-    const rows = entries.map((e, i) => {
-      const inward = e.delta > 0 ? e.delta : 0;
-      const outward = e.delta < 0 ? -e.delta : 0;
-      totalIn += inward;
-      totalOut += outward;
-      balance += e.delta;
-      return { sr: i + 1, date: e.date, ref: e.ref, desc: e.desc, inward, outward, balance };
-    });
-    return { opening, rows, totalIn, totalOut, closing: balance };
-  }, [selectedLedgerItem, itemLedger, openingStock]);
+  const ledgerStatement = useMemo(() => buildLedgerStatement(selectedLedgerItem, itemLedger, openingStock), [selectedLedgerItem, itemLedger, openingStock]);
   const ledgerRows = useMemo(() => {
     const q = ledgerFilter.trim().toLowerCase();
     const rows = q ? itemLedger.filter(e => e.item.trim().toLowerCase().includes(q)) : itemLedger;
     return [...rows].reverse();
   }, [itemLedger, ledgerFilter]);
+  // Backs the Finish Stock "Report" column/modal: series-wise stock siblings,
+  // a month-wise breakup of paint activity, and the item's own ledger track,
+  // all for whichever item's Report button was clicked.
+  const reportData = useMemo(() => {
+    if (!reportItem) return null;
+    const stockRow = stock.find(s => itemKey(s.item) === itemKey(reportItem));
+    const series = itemSeries(reportItem);
+    const category = stockRow ? stockRow.category : null;
+    const seriesRows = stock
+      .filter(s => itemSeries(s.item) === series && (!category || s.category === category))
+      .slice()
+      .sort((a, b) => naturalCompare(a.item, b.item));
+    const seriesTotal = seriesRows.reduce((a, s) => a + Number(s.qty || 0), 0);
+
+    const monthly = {};
+    paintLog.forEach(p => {
+      const month = String(p.date || "").slice(0, 7);
+      p.items.forEach(row => {
+        if (itemKey(row.item) !== itemKey(reportItem)) return;
+        if (!monthly[month]) monthly[month] = { month, newPaint: 0, repaint: 0 };
+        if (row.paintType === "Repaint") monthly[month].repaint += Number(row.qty || 0);
+        else monthly[month].newPaint += Number(row.qty || 0);
+      });
+    });
+    const monthlyRows = Object.values(monthly).sort((a, b) => a.month < b.month ? 1 : -1);
+    const monthlyTotal = monthlyRows.reduce((a, m) => a + m.newPaint + m.repaint, 0);
+
+    const ledger = buildLedgerStatement(reportItem, itemLedger, openingStock);
+
+    return { item: reportItem, category, series, stockRow, seriesRows, seriesTotal, monthlyRows, monthlyTotal, ledger };
+  }, [reportItem, stock, paintLog, itemLedger, openingStock]);
   const todaysPaint = useMemo(() => paintLog.filter(p => p.date === today()).flatMap(p => p.items), [paintLog]);
   const todaysDispatch = dispatchSlips.filter(d => d.date === today()).length;
 
@@ -996,6 +1048,118 @@ function App() {
     doc.save(`ready-stock-report-${today()}.pdf`);
   };
 
+  // Printable Item Report — series-wise stock siblings, month-wise paint
+  // totals, and the opening-stock ledger for one item, from the Report
+  // column on Finish Stock.
+  const generateItemReportPdf = (r) => {
+    const doc = new jspdf.jsPDF();
+    const pageW = 210;
+    const marginX = 12;
+    const contentW = pageW - marginX * 2;
+    const red = [234, 88, 12];
+    const grayLine = [200, 200, 200];
+    const darkText = [30, 30, 30];
+    const dimText = [110, 110, 110];
+    let y = 12;
+
+    try { doc.addImage("data:image/jpeg;base64," + COMPANY_LOGO_B64, "JPEG", marginX, y, 42, 8); } catch (e) {}
+    doc.setFontSize(15);
+    doc.setFont(undefined, "bold");
+    doc.setTextColor(...darkText);
+    doc.text("ITEM REPORT", pageW - marginX, y + 6, { align: "right" });
+    y += 14;
+
+    doc.setDrawColor(...red);
+    doc.setLineWidth(0.8);
+    doc.line(marginX, y, pageW - marginX, y);
+    y += 5;
+
+    doc.setFont(undefined, "normal");
+    doc.setFontSize(8.5);
+    doc.setTextColor(...dimText);
+    doc.text("JAYCO Engineering India | Plot 18-20, Dharti Industrial Park, Ahmedabad-Indore Highway,", marginX, y);
+    y += 4;
+    doc.text("PO Mirjapur, Dist. Kheda, Gujarat 387610", marginX, y);
+    y += 4;
+    doc.text(`Item: ${r.item}   |   Category: ${r.category || "—"}   |   Series: ${r.series}   |   As on: ${fmtDate(today())}`, marginX, y);
+    y += 8;
+
+    const ensureRoom = (needed) => { if (y + needed > 275) { doc.addPage(); y = 16; } };
+
+    const sectionTitle = (t) => {
+      ensureRoom(10);
+      doc.setFillColor(16, 24, 40);
+      doc.rect(marginX, y, contentW, 7, "F");
+      doc.setTextColor(255, 255, 255);
+      doc.setFont(undefined, "bold");
+      doc.setFontSize(9);
+      doc.text(t, marginX + 3, y + 5);
+      y += 10;
+    };
+
+    const drawTable = (cols, rows) => {
+      const colWidths = cols.map(c => c.w * contentW);
+      const colX = [marginX];
+      colWidths.forEach(w => colX.push(colX[colX.length - 1] + w));
+      const headH = 7, bodyRowH = 6.4;
+      ensureRoom(headH);
+      doc.setFillColor(...red);
+      doc.rect(marginX, y, contentW, headH, "F");
+      doc.setTextColor(255, 255, 255);
+      doc.setFont(undefined, "bold");
+      doc.setFontSize(8);
+      cols.forEach((c, i) => {
+        if (c.align === "right") doc.text(c.label, colX[i + 1] - 2, y + 5, { align: "right" });
+        else doc.text(c.label, colX[i] + 2, y + 5);
+      });
+      y += headH;
+      rows.forEach((row, idx) => {
+        ensureRoom(bodyRowH);
+        if (idx % 2 === 1) { doc.setFillColor(246, 246, 246); doc.rect(marginX, y, contentW, bodyRowH, "F"); }
+        doc.setDrawColor(...grayLine);
+        doc.setLineWidth(0.2);
+        doc.rect(marginX, y, contentW, bodyRowH);
+        colX.slice(1, -1).forEach(x => doc.line(x, y, x, y + bodyRowH));
+        doc.setFont(undefined, "normal");
+        doc.setFontSize(8);
+        doc.setTextColor(...darkText);
+        row.forEach((v, i) => {
+          if (cols[i].align === "right") doc.text(String(v), colX[i + 1] - 2, y + 4.4, { align: "right" });
+          else doc.text(String(v), colX[i] + 2, y + 4.4);
+        });
+        y += bodyRowH;
+      });
+      y += 4;
+    };
+
+    sectionTitle(`SERIES-WISE STOCK — ${r.series}`);
+    drawTable(
+      [{ label:"Item", w:0.42 }, { label:"Qty", w:0.16, align:"right" }, { label:"Unit", w:0.16 }, { label:"Location", w:0.26 }],
+      r.seriesRows.length
+        ? [...r.seriesRows.map(s => [s.item, s.qty, s.unit || "—", s.location || "—"]), ["Total", r.seriesTotal, "", ""]]
+        : [["No other items in this series.", "", "", ""]]
+    );
+
+    sectionTitle("MONTH-WISE PAINT REPORT");
+    drawTable(
+      [{ label:"Month", w:0.34 }, { label:"New Paint", w:0.22, align:"right" }, { label:"Repaint", w:0.22, align:"right" }, { label:"Total", w:0.22, align:"right" }],
+      r.monthlyRows.length
+        ? [...r.monthlyRows.map(m => [fmtMonth(m.month), m.newPaint, m.repaint, m.newPaint + m.repaint]), ["Total", "", "", r.monthlyTotal]]
+        : [["No paint entries for this item yet.", "", "", ""]]
+    );
+
+    sectionTitle("ITEM-WISE TRACK (LEDGER)");
+    drawTable(
+      [{ label:"Date", w:0.14 }, { label:"Ref", w:0.16 }, { label:"Desc", w:0.30 }, { label:"In", w:0.13, align:"right" }, { label:"Out", w:0.13, align:"right" }, { label:"Bal", w:0.14, align:"right" }],
+      [
+        [r.ledger.opening.date || "—", "—", "Opening Stock", "", "", r.ledger.opening.qty || 0],
+        ...r.ledger.rows.map(x => [x.date, x.ref, x.desc || "—", x.inward || "", x.outward || "", x.balance]),
+      ]
+    );
+
+    doc.save(`item-report-${itemKey(r.item).replace(/\s+/g, "-")}-${today()}.pdf`);
+  };
+
   const importStockExcel = (file) => {
     if (!file) return;
     const reader = new FileReader();
@@ -1442,6 +1606,8 @@ function App() {
   const btnPrimary = { background:"var(--red)", color:"#fff", border:"none", padding:"9px 14px", fontWeight:700, fontSize:"13px", display:"flex", alignItems:"center", justifyContent:"center", gap:"6px", textTransform:"uppercase", letterSpacing:"0.5px" };
   const iconBtn = { background:"var(--panel2)", border:"1px solid var(--line)", color:"var(--text-dim)", padding:"6px 10px" };
   const iconBtnSmall = { ...iconBtn, padding:"3px 9px", fontWeight:700 };
+  const reportThStyle = { textAlign:"left", padding:"8px 12px", color:"var(--text-dim)", fontSize:"11px", letterSpacing:"0.4px" };
+  const reportTdStyle = { padding:"8px 12px" };
 
   const renderStockRow = (s, i) => {
     const below = s.qty <= s.reorder;
@@ -1460,6 +1626,9 @@ function App() {
         <td style={{padding:"9px 14px",color:"var(--text-dim)"}}>{s.location || "—"}</td>
         <td className="mono" style={{padding:"9px 14px",textAlign:"right",color:"var(--text-dim)"}}>{s.reorder}</td>
         <td style={{padding:"9px 14px",fontSize:"11px",color:"var(--text-dim)"}}>{s.createdBy || "—"}</td>
+        <td style={{padding:"9px 14px"}}>
+          <button className="row-btn" onClick={() => setReportItem(s.item)} style={{...iconBtnSmall,fontWeight:600}} title="Series stock, month-wise paint & item track for this item">📊 Report</button>
+        </td>
         <td style={{padding:"9px 14px"}}>
           <div style={{display:"flex",gap:"4px",justifyContent:"flex-end"}}>
             <button className="row-btn" onClick={() => { setTab("ledger"); setLedgerFilter(s.item); }} style={iconBtnSmall} title="View Ledger">📒</button>
@@ -1913,12 +2082,13 @@ function App() {
                   <th className="mono" style={{textAlign:"left",padding:"10px 14px",color:"var(--text-dim)",fontSize:"11px",letterSpacing:"0.4px"}}>Location</th>
                   <th className="mono" style={{textAlign:"right",padding:"10px 14px",color:"var(--text-dim)",fontSize:"11px",letterSpacing:"0.4px"}}>Reorder @</th>
                   <th className="mono" style={{textAlign:"left",padding:"10px 14px",color:"var(--text-dim)",fontSize:"11px",letterSpacing:"0.4px"}}>By</th>
+                  <th className="mono" style={{textAlign:"left",padding:"10px 14px",color:"var(--text-dim)",fontSize:"11px",letterSpacing:"0.4px"}}>Report</th>
                   <th style={{padding:"10px 14px"}}></th>
                 </tr>
               </thead>
               <tbody>
                 {visibleStock.length === 0 && (
-                  <tr><td colSpan={8} style={{padding:"24px",textAlign:"center",color:"var(--text-dim)"}}>
+                  <tr><td colSpan={9} style={{padding:"24px",textAlign:"center",color:"var(--text-dim)"}}>
                     {stockFilter ? `No ${stockFilter} items in Finish Stock.` : "No stock recorded."}
                   </td></tr>
                 )}
@@ -1926,7 +2096,7 @@ function App() {
                 {groupByCategory && groupedStock.map(group => (
                   <React.Fragment key={group.category}>
                     <tr>
-                      <td colSpan={8} style={{padding:"7px 14px",background:"#101828",color:"#fff"}}>
+                      <td colSpan={9} style={{padding:"7px 14px",background:"#101828",color:"#fff"}}>
                         <span style={{display:"inline-block",width:"8px",height:"8px",borderRadius:"50%",background:categoryColor(group.category),marginRight:"8px",verticalAlign:"middle"}}></span>
                         <span style={{fontWeight:700,fontSize:"12px",letterSpacing:"0.3px"}}>{group.category}</span>
                         <span style={{marginLeft:"10px",fontSize:"11px",color:"#9aa4b2"}}>
@@ -2228,6 +2398,93 @@ function App() {
             <button className="row-btn" onClick={() => delBox(b.id)} style={iconBtn}>✕</button>,
           ])} />
       </div>}
+
+      {reportItem && reportData && (
+        <div onClick={() => setReportItem(null)} style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.55)",display:"flex",justifyContent:"center",padding:"30px 16px",overflowY:"auto",zIndex:100}}>
+          <div onClick={e => e.stopPropagation()} style={{background:"var(--panel)",border:"1px solid var(--line)",borderRadius:"8px",maxWidth:"880px",width:"100%",height:"fit-content",maxHeight:"calc(100vh - 60px)",overflowY:"auto"}}>
+            <div style={{position:"sticky",top:0,background:"#101828",color:"#fff",padding:"14px 18px",display:"flex",justifyContent:"space-between",alignItems:"center",zIndex:1}}>
+              <div>
+                <div style={{fontWeight:700,fontSize:"15px"}}>{reportData.item}</div>
+                <div style={{fontSize:"11px",color:"#9aa4b2"}}>{reportData.category || "—"} · Series {reportData.series}</div>
+              </div>
+              <div style={{display:"flex",gap:"8px"}}>
+                <button onClick={() => generateItemReportPdf(reportData)} style={{...iconBtn,background:"var(--red)",color:"#fff",borderColor:"var(--red)",fontSize:"12px",fontWeight:600,padding:"7px 12px"}}>🖨 Print Report</button>
+                <button onClick={() => setReportItem(null)} style={{...iconBtn,fontSize:"12px",fontWeight:600,padding:"7px 12px"}}>✕ Close</button>
+              </div>
+            </div>
+            <div style={{padding:"18px"}}>
+              <div style={{fontWeight:700,fontSize:"13px",marginBottom:"8px"}}>Series-wise Stock — {reportData.series}</div>
+              <div style={{border:"1px solid var(--line)",borderRadius:"6px",overflow:"hidden",marginBottom:"22px"}}>
+                <table style={{width:"100%",borderCollapse:"collapse",fontSize:"13px"}}>
+                  <thead><tr style={{background:"var(--panel2)"}}>
+                    <th style={reportThStyle}>Item</th><th style={{...reportThStyle,textAlign:"right"}}>Qty</th><th style={reportThStyle}>Unit</th><th style={reportThStyle}>Location</th>
+                  </tr></thead>
+                  <tbody>
+                    {reportData.seriesRows.length === 0 && <tr><td colSpan={4} style={{padding:"14px",textAlign:"center",color:"var(--text-dim)"}}>No other items in this series.</td></tr>}
+                    {reportData.seriesRows.map(s => (
+                      <tr key={s.id} style={{borderTop:"1px solid var(--line)",fontWeight: itemKey(s.item)===itemKey(reportData.item) ? 700 : 400, background: itemKey(s.item)===itemKey(reportData.item) ? "var(--panel2)" : "transparent"}}>
+                        <td style={reportTdStyle}>{s.item}</td><td className="mono" style={{...reportTdStyle,textAlign:"right"}}>{s.qty}</td><td style={reportTdStyle}>{s.unit}</td><td style={reportTdStyle}>{s.location || "—"}</td>
+                      </tr>
+                    ))}
+                    {reportData.seriesRows.length > 0 && <tr style={{borderTop:"2px solid var(--line)",fontWeight:700,background:"var(--panel2)"}}>
+                      <td style={reportTdStyle}>Total</td><td className="mono" style={{...reportTdStyle,textAlign:"right"}}>{reportData.seriesTotal}</td><td colSpan={2}></td>
+                    </tr>}
+                  </tbody>
+                </table>
+              </div>
+
+              <div style={{fontWeight:700,fontSize:"13px",marginBottom:"8px"}}>Month-wise Paint Report</div>
+              <div style={{border:"1px solid var(--line)",borderRadius:"6px",overflow:"hidden",marginBottom:"22px"}}>
+                <table style={{width:"100%",borderCollapse:"collapse",fontSize:"13px"}}>
+                  <thead><tr style={{background:"var(--panel2)"}}>
+                    <th style={reportThStyle}>Month</th><th style={{...reportThStyle,textAlign:"right"}}>New Paint</th><th style={{...reportThStyle,textAlign:"right"}}>Repaint</th><th style={{...reportThStyle,textAlign:"right"}}>Total</th>
+                  </tr></thead>
+                  <tbody>
+                    {reportData.monthlyRows.length === 0 && <tr><td colSpan={4} style={{padding:"14px",textAlign:"center",color:"var(--text-dim)"}}>No paint entries for this item yet.</td></tr>}
+                    {reportData.monthlyRows.map(m => (
+                      <tr key={m.month} style={{borderTop:"1px solid var(--line)"}}>
+                        <td style={reportTdStyle}>{fmtMonth(m.month)}</td>
+                        <td className="mono" style={{...reportTdStyle,textAlign:"right"}}>{m.newPaint}</td>
+                        <td className="mono" style={{...reportTdStyle,textAlign:"right"}}>{m.repaint}</td>
+                        <td className="mono" style={{...reportTdStyle,textAlign:"right",fontWeight:700}}>{m.newPaint + m.repaint}</td>
+                      </tr>
+                    ))}
+                    {reportData.monthlyRows.length > 0 && <tr style={{borderTop:"2px solid var(--line)",fontWeight:700,background:"var(--panel2)"}}>
+                      <td style={reportTdStyle}>Total</td><td colSpan={2}></td><td className="mono" style={{...reportTdStyle,textAlign:"right"}}>{reportData.monthlyTotal}</td>
+                    </tr>}
+                  </tbody>
+                </table>
+              </div>
+
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"8px"}}>
+                <div style={{fontWeight:700,fontSize:"13px"}}>Item-wise Track (Ledger)</div>
+                <button onClick={() => { setTab("ledger"); setLedgerFilter(reportData.item); setReportItem(null); }} style={{...iconBtn,fontSize:"11px",padding:"4px 10px"}}>Open full ledger →</button>
+              </div>
+              <div style={{border:"1px solid var(--line)",borderRadius:"6px",overflow:"hidden"}}>
+                <table style={{width:"100%",borderCollapse:"collapse",fontSize:"13px"}}>
+                  <thead><tr style={{background:"var(--panel2)"}}>
+                    <th style={reportThStyle}>Date</th><th style={reportThStyle}>Ref</th><th style={reportThStyle}>Desc</th><th style={{...reportThStyle,textAlign:"right"}}>In</th><th style={{...reportThStyle,textAlign:"right"}}>Out</th><th style={{...reportThStyle,textAlign:"right"}}>Balance</th>
+                  </tr></thead>
+                  <tbody>
+                    <tr style={{borderTop:"1px solid var(--line)",background:"var(--panel2)"}}>
+                      <td style={reportTdStyle}>{reportData.ledger.opening.date || "—"}</td><td style={reportTdStyle} colSpan={4}>Opening Stock</td><td className="mono" style={{...reportTdStyle,textAlign:"right",fontWeight:700}}>{reportData.ledger.opening.qty || 0}</td>
+                    </tr>
+                    {reportData.ledger.rows.length === 0 && <tr><td colSpan={6} style={{padding:"14px",textAlign:"center",color:"var(--text-dim)"}}>No transactions recorded.</td></tr>}
+                    {reportData.ledger.rows.map(r => (
+                      <tr key={r.sr} style={{borderTop:"1px solid var(--line)"}}>
+                        <td style={reportTdStyle}>{r.date}</td><td style={reportTdStyle}>{r.ref}</td><td style={reportTdStyle}>{r.desc || "—"}</td>
+                        <td className="mono" style={{...reportTdStyle,textAlign:"right",color:"var(--green)"}}>{r.inward || ""}</td>
+                        <td className="mono" style={{...reportTdStyle,textAlign:"right",color:"var(--red)"}}>{r.outward || ""}</td>
+                        <td className="mono" style={{...reportTdStyle,textAlign:"right",fontWeight:700}}>{r.balance}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
     </div>
