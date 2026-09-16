@@ -887,6 +887,115 @@ function App() {
     XLSX.writeFile(wb, `jayco-dispatch-export-${today()}.xlsx`);
   };
 
+  // Printable/shareable Itemwise Ready Stock report — mirrors whatever the
+  // Finish Stock tab is currently showing (category filter + group toggle),
+  // so the PDF always matches what's on screen.
+  const generateReadyStockPdf = () => {
+    const doc = new jspdf.jsPDF();
+    const pageW = 210;
+    const marginX = 12;
+    const contentW = pageW - marginX * 2;
+    const red = [234, 88, 12];
+    const grayLine = [200, 200, 200];
+    const darkText = [30, 30, 30];
+    const dimText = [110, 110, 110];
+    let y = 12;
+
+    try { doc.addImage("data:image/jpeg;base64," + COMPANY_LOGO_B64, "JPEG", marginX, y, 42, 8); } catch (e) {}
+    doc.setFontSize(15);
+    doc.setFont(undefined, "bold");
+    doc.setTextColor(...darkText);
+    doc.text("ITEMWISE READY STOCK", pageW - marginX, y + 6, { align: "right" });
+    y += 14;
+
+    doc.setDrawColor(...red);
+    doc.setLineWidth(0.8);
+    doc.line(marginX, y, pageW - marginX, y);
+    y += 5;
+
+    doc.setFont(undefined, "normal");
+    doc.setFontSize(8.5);
+    doc.setTextColor(...dimText);
+    doc.text("JAYCO Engineering India | Plot 18-20, Dharti Industrial Park, Ahmedabad-Indore Highway,", marginX, y);
+    y += 4;
+    doc.text("PO Mirjapur, Dist. Kheda, Gujarat 387610", marginX, y);
+    y += 4;
+    doc.text(`As on: ${fmtDate(today())}${stockFilter ? `  |  Category: ${stockFilter}` : ""}`, marginX, y);
+    y += 8;
+
+    const cols = [
+      { label: "Item", w: 0.40 }, { label: "Qty", w: 0.14 }, { label: "Unit", w: 0.16 }, { label: "Location", w: 0.30 },
+    ];
+    const colWidths = cols.map(c => c.w * contentW);
+    const colX = [marginX];
+    colWidths.forEach(w => colX.push(colX[colX.length - 1] + w));
+    const headH = 8;
+    const bodyRowH = 7;
+
+    const drawTableHeader = () => {
+      doc.setFillColor(...red);
+      doc.rect(marginX, y, contentW, headH, "F");
+      doc.setTextColor(255, 255, 255);
+      doc.setFont(undefined, "bold");
+      doc.setFontSize(8.5);
+      cols.forEach((c, i) => doc.text(c.label, colX[i] + 2, y + 5.5));
+      y += headH;
+    };
+    const ensureRoom = (needed) => {
+      if (y + needed > 275) {
+        doc.addPage();
+        y = 16;
+        drawTableHeader();
+      }
+    };
+    const drawItemRow = (s, idx) => {
+      ensureRoom(bodyRowH);
+      if (idx % 2 === 1) { doc.setFillColor(246, 246, 246); doc.rect(marginX, y, contentW, bodyRowH, "F"); }
+      doc.setDrawColor(...grayLine);
+      doc.setLineWidth(0.2);
+      doc.rect(marginX, y, contentW, bodyRowH);
+      colX.slice(1, -1).forEach(x => doc.line(x, y, x, y + bodyRowH));
+      doc.setFont(undefined, "normal");
+      doc.setFontSize(8.5);
+      doc.setTextColor(...darkText);
+      const values = [String(s.item), String(s.qty), String(s.unit || "—"), String(s.location || "—")];
+      values.forEach((v, i) => doc.text(v, colX[i] + 2, y + 4.8));
+      y += bodyRowH;
+    };
+    const drawGroupHeader = (group) => {
+      ensureRoom(6.5);
+      doc.setFillColor(16, 24, 40);
+      doc.rect(marginX, y, contentW, 6.5, "F");
+      doc.setTextColor(255, 255, 255);
+      doc.setFont(undefined, "bold");
+      doc.setFontSize(8);
+      doc.text(String(group.category), marginX + 2, y + 4.5);
+      const subtotal = group.rows.reduce((a, s) => a + Number(s.qty || 0), 0);
+      doc.text(`${group.rows.length} item${group.rows.length === 1 ? "" : "s"} · ${subtotal} total`, pageW - marginX - 2, y + 4.5, { align: "right" });
+      y += 6.5;
+    };
+
+    drawTableHeader();
+    if (groupByCategory && groupedStock) {
+      groupedStock.forEach(group => {
+        drawGroupHeader(group);
+        group.rows.forEach((s, i) => drawItemRow(s, i));
+      });
+    } else {
+      visibleStock.forEach((s, i) => drawItemRow(s, i));
+    }
+
+    ensureRoom(10);
+    y += 3;
+    const grandTotal = visibleStock.reduce((a, s) => a + Number(s.qty || 0), 0);
+    doc.setFont(undefined, "bold");
+    doc.setFontSize(9);
+    doc.setTextColor(...darkText);
+    doc.text(`Total Items: ${visibleStock.length}     Total Qty: ${grandTotal}`, marginX, y);
+
+    doc.save(`ready-stock-report-${today()}.pdf`);
+  };
+
   const importStockExcel = (file) => {
     if (!file) return;
     const reader = new FileReader();
@@ -1766,6 +1875,7 @@ function App() {
                 {groupByCategory ? "☑" : "☐"} Group by Category
               </button>
               <button onClick={reconcileStock} style={{...iconBtn,fontSize:"12px",fontWeight:600,padding:"7px 12px"}} title="Recompute each item's qty from Opening Stock + Item Ledger, fixing any drift from old entries that didn't update stock correctly">↻ Refresh Stock</button>
+              <button onClick={generateReadyStockPdf} style={{...iconBtn,fontSize:"12px",fontWeight:600,padding:"7px 12px"}} title="Print/share a PDF of itemwise ready stock — respects the current category filter and Group by Category setting">🖨 Print Ready Stock</button>
               <button onClick={exportToExcel} style={{...iconBtn,fontSize:"12px",fontWeight:600,padding:"7px 12px"}}>⭳ Export to Excel</button>
               <label style={{...iconBtn,fontSize:"12px",fontWeight:600,padding:"7px 12px",cursor:"pointer",margin:0}}>
                 ⭱ Import Stock (.xlsx)
