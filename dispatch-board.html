@@ -133,6 +133,7 @@ const TABS = [
   { id:"entries", label:"Paint & Purchase" },
   { id:"stock", label:"Finish Stock" },
   { id:"ledger", label:"Item Ledger" },
+  { id:"master", label:"Master Report" },
   { id:"packing", label:"Packing / Dispatch Details" },
   { id:"boxes", label:"Box In/Out" },
 ];
@@ -201,6 +202,37 @@ const buildLedgerStatement = (itemName, itemLedger, openingStock) => {
     return { sr: i + 1, date: e.date, ref: e.ref, desc: e.desc, inward, outward, balance };
   });
   return { opening, rows, totalIn, totalOut, closing: balance };
+};
+// Series-wise stock siblings, a month-wise New Paint/Repaint breakup, and the
+// ledger track for one item — shared by the Report modal (opened from
+// Dashboard/Finish Stock) and the standalone Master Report tab.
+const buildItemReportData = (itemName, stock, paintLog, itemLedger, openingStock) => {
+  if (!itemName) return null;
+  const stockRow = stock.find(s => itemKey(s.item) === itemKey(itemName));
+  const series = itemSeries(itemName);
+  const category = stockRow ? stockRow.category : null;
+  const seriesRows = stock
+    .filter(s => itemSeries(s.item) === series && (!category || s.category === category))
+    .slice()
+    .sort((a, b) => naturalCompare(a.item, b.item));
+  const seriesTotal = seriesRows.reduce((a, s) => a + Number(s.qty || 0), 0);
+
+  const monthly = {};
+  paintLog.forEach(p => {
+    const month = String(p.date || "").slice(0, 7);
+    p.items.forEach(row => {
+      if (itemKey(row.item) !== itemKey(itemName)) return;
+      if (!monthly[month]) monthly[month] = { month, newPaint: 0, repaint: 0 };
+      if (row.paintType === "Repaint") monthly[month].repaint += Number(row.qty || 0);
+      else monthly[month].newPaint += Number(row.qty || 0);
+    });
+  });
+  const monthlyRows = Object.values(monthly).sort((a, b) => a.month < b.month ? 1 : -1);
+  const monthlyTotal = monthlyRows.reduce((a, m) => a + m.newPaint + m.repaint, 0);
+
+  const ledger = buildLedgerStatement(itemName, itemLedger, openingStock);
+
+  return { item: itemName, category, series, stockRow, seriesRows, seriesTotal, monthlyRows, monthlyTotal, ledger };
 };
 
 const SEED = {
@@ -380,6 +412,8 @@ function App() {
   const [reportItem, setReportItem] = useState(null);
   const [reportPickerOpen, setReportPickerOpen] = useState(false);
   const [reportPickerQuery, setReportPickerQuery] = useState("");
+  const [masterItem, setMasterItem] = useState(null);
+  const [masterQuery, setMasterQuery] = useState("");
   const [ledgerFilter, setLedgerFilter] = useState("");
   const [openingEditing, setOpeningEditing] = useState(false);
   const [openingForm, setOpeningForm] = useState({ qty:"", date:"" });
@@ -525,6 +559,13 @@ function App() {
     if (!q) return sorted;
     return sorted.filter(s => s.item.toLowerCase().includes(q) || s.category.toLowerCase().includes(q));
   }, [reportPickerQuery, stock]);
+  // Backs the standalone "Master Report" tab's own item picker.
+  const masterPickerResults = useMemo(() => {
+    const q = masterQuery.trim().toLowerCase();
+    const sorted = [...stock].sort((a, b) => naturalCompare(a.item, b.item));
+    if (!q) return sorted;
+    return sorted.filter(s => s.item.toLowerCase().includes(q) || s.category.toLowerCase().includes(q));
+  }, [masterQuery, stock]);
   const itemLedger = useMemo(() => {
     const entries = [];
     paintLog.forEach(p => {
@@ -568,34 +609,8 @@ function App() {
   // Backs the Finish Stock "Report" column/modal: series-wise stock siblings,
   // a month-wise breakup of paint activity, and the item's own ledger track,
   // all for whichever item's Report button was clicked.
-  const reportData = useMemo(() => {
-    if (!reportItem) return null;
-    const stockRow = stock.find(s => itemKey(s.item) === itemKey(reportItem));
-    const series = itemSeries(reportItem);
-    const category = stockRow ? stockRow.category : null;
-    const seriesRows = stock
-      .filter(s => itemSeries(s.item) === series && (!category || s.category === category))
-      .slice()
-      .sort((a, b) => naturalCompare(a.item, b.item));
-    const seriesTotal = seriesRows.reduce((a, s) => a + Number(s.qty || 0), 0);
-
-    const monthly = {};
-    paintLog.forEach(p => {
-      const month = String(p.date || "").slice(0, 7);
-      p.items.forEach(row => {
-        if (itemKey(row.item) !== itemKey(reportItem)) return;
-        if (!monthly[month]) monthly[month] = { month, newPaint: 0, repaint: 0 };
-        if (row.paintType === "Repaint") monthly[month].repaint += Number(row.qty || 0);
-        else monthly[month].newPaint += Number(row.qty || 0);
-      });
-    });
-    const monthlyRows = Object.values(monthly).sort((a, b) => a.month < b.month ? 1 : -1);
-    const monthlyTotal = monthlyRows.reduce((a, m) => a + m.newPaint + m.repaint, 0);
-
-    const ledger = buildLedgerStatement(reportItem, itemLedger, openingStock);
-
-    return { item: reportItem, category, series, stockRow, seriesRows, seriesTotal, monthlyRows, monthlyTotal, ledger };
-  }, [reportItem, stock, paintLog, itemLedger, openingStock]);
+  const reportData = useMemo(() => buildItemReportData(reportItem, stock, paintLog, itemLedger, openingStock), [reportItem, stock, paintLog, itemLedger, openingStock]);
+  const masterReportData = useMemo(() => buildItemReportData(masterItem, stock, paintLog, itemLedger, openingStock), [masterItem, stock, paintLog, itemLedger, openingStock]);
   const todaysPaint = useMemo(() => paintLog.filter(p => p.date === today()).flatMap(p => p.items), [paintLog]);
   const todaysDispatch = dispatchSlips.filter(d => d.date === today()).length;
 
@@ -1648,6 +1663,82 @@ function App() {
     );
   };
 
+  // Series-wise Stock / Month-wise Paint / Item Ledger sections — shared by
+  // the Report modal (Dashboard, Finish Stock) and the standalone Master
+  // Report tab so both render identically.
+  const renderItemReportSections = (r, onOpenLedger) => (
+    <React.Fragment>
+      <div style={{fontWeight:700,fontSize:"13px",marginBottom:"8px"}}>Series-wise Stock — {r.series}</div>
+      <div style={{border:"1px solid var(--line)",borderRadius:"6px",overflow:"hidden",marginBottom:"22px"}}>
+        <table style={{width:"100%",borderCollapse:"collapse",fontSize:"13px"}}>
+          <thead><tr style={{background:"var(--panel2)"}}>
+            <th style={reportThStyle}>Item</th><th style={{...reportThStyle,textAlign:"right"}}>Qty</th><th style={reportThStyle}>Unit</th><th style={reportThStyle}>Location</th>
+          </tr></thead>
+          <tbody>
+            {r.seriesRows.length === 0 && <tr><td colSpan={4} style={{padding:"14px",textAlign:"center",color:"var(--text-dim)"}}>No other items in this series.</td></tr>}
+            {r.seriesRows.map(s => (
+              <tr key={s.id} style={{borderTop:"1px solid var(--line)",fontWeight: itemKey(s.item)===itemKey(r.item) ? 700 : 400, background: itemKey(s.item)===itemKey(r.item) ? "var(--panel2)" : "transparent"}}>
+                <td style={reportTdStyle}>{s.item}</td><td className="mono" style={{...reportTdStyle,textAlign:"right"}}>{s.qty}</td><td style={reportTdStyle}>{s.unit}</td><td style={reportTdStyle}>{s.location || "—"}</td>
+              </tr>
+            ))}
+            {r.seriesRows.length > 0 && <tr style={{borderTop:"2px solid var(--line)",fontWeight:700,background:"var(--panel2)"}}>
+              <td style={reportTdStyle}>Total</td><td className="mono" style={{...reportTdStyle,textAlign:"right"}}>{r.seriesTotal}</td><td colSpan={2}></td>
+            </tr>}
+          </tbody>
+        </table>
+      </div>
+
+      <div style={{fontWeight:700,fontSize:"13px",marginBottom:"8px"}}>Month-wise Paint Report</div>
+      <div style={{border:"1px solid var(--line)",borderRadius:"6px",overflow:"hidden",marginBottom:"22px"}}>
+        <table style={{width:"100%",borderCollapse:"collapse",fontSize:"13px"}}>
+          <thead><tr style={{background:"var(--panel2)"}}>
+            <th style={reportThStyle}>Month</th><th style={{...reportThStyle,textAlign:"right"}}>New Paint</th><th style={{...reportThStyle,textAlign:"right"}}>Repaint</th><th style={{...reportThStyle,textAlign:"right"}}>Total</th>
+          </tr></thead>
+          <tbody>
+            {r.monthlyRows.length === 0 && <tr><td colSpan={4} style={{padding:"14px",textAlign:"center",color:"var(--text-dim)"}}>No paint entries for this item yet.</td></tr>}
+            {r.monthlyRows.map(m => (
+              <tr key={m.month} style={{borderTop:"1px solid var(--line)"}}>
+                <td style={reportTdStyle}>{fmtMonth(m.month)}</td>
+                <td className="mono" style={{...reportTdStyle,textAlign:"right"}}>{m.newPaint}</td>
+                <td className="mono" style={{...reportTdStyle,textAlign:"right"}}>{m.repaint}</td>
+                <td className="mono" style={{...reportTdStyle,textAlign:"right",fontWeight:700}}>{m.newPaint + m.repaint}</td>
+              </tr>
+            ))}
+            {r.monthlyRows.length > 0 && <tr style={{borderTop:"2px solid var(--line)",fontWeight:700,background:"var(--panel2)"}}>
+              <td style={reportTdStyle}>Total</td><td colSpan={2}></td><td className="mono" style={{...reportTdStyle,textAlign:"right"}}>{r.monthlyTotal}</td>
+            </tr>}
+          </tbody>
+        </table>
+      </div>
+
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"8px"}}>
+        <div style={{fontWeight:700,fontSize:"13px"}}>Item-wise Track (Ledger)</div>
+        <button onClick={onOpenLedger} style={{...iconBtn,fontSize:"11px",padding:"4px 10px"}}>Open full ledger →</button>
+      </div>
+      <div style={{border:"1px solid var(--line)",borderRadius:"6px",overflow:"hidden"}}>
+        <table style={{width:"100%",borderCollapse:"collapse",fontSize:"13px"}}>
+          <thead><tr style={{background:"var(--panel2)"}}>
+            <th style={reportThStyle}>Date</th><th style={reportThStyle}>Ref</th><th style={reportThStyle}>Desc</th><th style={{...reportThStyle,textAlign:"right"}}>In</th><th style={{...reportThStyle,textAlign:"right"}}>Out</th><th style={{...reportThStyle,textAlign:"right"}}>Balance</th>
+          </tr></thead>
+          <tbody>
+            <tr style={{borderTop:"1px solid var(--line)",background:"var(--panel2)"}}>
+              <td style={reportTdStyle}>{r.ledger.opening.date || "—"}</td><td style={reportTdStyle} colSpan={4}>Opening Stock</td><td className="mono" style={{...reportTdStyle,textAlign:"right",fontWeight:700}}>{r.ledger.opening.qty || 0}</td>
+            </tr>
+            {r.ledger.rows.length === 0 && <tr><td colSpan={6} style={{padding:"14px",textAlign:"center",color:"var(--text-dim)"}}>No transactions recorded.</td></tr>}
+            {r.ledger.rows.map(row => (
+              <tr key={row.sr} style={{borderTop:"1px solid var(--line)"}}>
+                <td style={reportTdStyle}>{row.date}</td><td style={reportTdStyle}>{row.ref}</td><td style={reportTdStyle}>{row.desc || "—"}</td>
+                <td className="mono" style={{...reportTdStyle,textAlign:"right",color:"var(--green)"}}>{row.inward || ""}</td>
+                <td className="mono" style={{...reportTdStyle,textAlign:"right",color:"var(--red)"}}>{row.outward || ""}</td>
+                <td className="mono" style={{...reportTdStyle,textAlign:"right",fontWeight:700}}>{row.balance}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </React.Fragment>
+  );
+
   function SelectWithLabel({ label, value, onChange, options, allowNone }) {
     return <div>
       <div className="mono" style={{fontSize:"10px",color:"var(--text-dim)",marginBottom:"4px",letterSpacing:"0.5px"}}>{label}</div>
@@ -1686,6 +1777,7 @@ function App() {
     entries: <svg {...svgIconProps}><path d="M12 2c4 5 7 8.5 7 12a7 7 0 1 1-14 0c0-3.5 3-7 7-12Z"></path></svg>,
     stock: <svg {...svgIconProps}><path d="M21 8 12 3 3 8l9 5 9-5Z"></path><path d="M3 8v8l9 5 9-5V8"></path><path d="M12 13v8"></path></svg>,
     ledger: <svg {...svgIconProps}><path d="M6 3h12v18l-3-2-3 2-3-2-3 2Z"></path><path d="M9 8h6M9 12h6M9 16h3"></path></svg>,
+    master: <svg {...svgIconProps}><path d="M4 19V10"></path><path d="M12 19V5"></path><path d="M20 19v-7"></path></svg>,
     packing: <svg {...svgIconProps}><rect x="1" y="6" width="13" height="10" rx="1"></rect><path d="M14 9h4l3 3v4h-7z"></path><circle cx="5.5" cy="18" r="1.8"></circle><circle cx="17.5" cy="18" r="1.8"></circle></svg>,
     boxes: <svg {...svgIconProps}><path d="M12 3v18"></path><path d="M7 8l5-5 5 5"></path><path d="M7 16l5 5 5-5"></path></svg>,
   };
@@ -2249,6 +2341,61 @@ function App() {
         </div>}
       </div>}
 
+      {tab === "master" && <div>
+        <div style={{display:"flex",alignItems:"center",gap:"8px",marginBottom:"14px",flexWrap:"wrap"}}>
+          <div style={{width:"4px",height:"16px",background:"var(--red)",borderRadius:"2px"}} />
+          <div style={{fontSize:"14px",fontWeight:700}}>Master Report</div>
+          <div style={{fontSize:"11px",color:"var(--text-dim)"}}>· pick an item to see its series stock, month-wise paint & ledger track</div>
+        </div>
+
+        <div style={{position:"relative", maxWidth:"460px", marginBottom:"20px"}}>
+          <input
+            value={masterQuery}
+            onChange={e => setMasterQuery(e.target.value)}
+            placeholder="🔍 Search item / SKU or category…"
+            style={{...inputStyle, padding:"11px 12px", fontSize:"13px"}}
+          />
+          {masterQuery.trim() && <div style={{position:"absolute", top:"calc(100% + 4px)", left:0, right:0, background:"var(--panel)", border:"1px solid var(--line)", borderRadius:"10px", boxShadow:"0 10px 28px rgba(17,17,17,0.12)", maxHeight:"340px", overflowY:"auto", zIndex:20}}>
+            {masterPickerResults.length === 0 && <div style={{padding:"14px", fontSize:"13px", color:"var(--text-dim)"}}>No item matches "{masterQuery}".</div>}
+            {masterPickerResults.map(s => (
+              <div key={s.id} className="row-btn"
+                onClick={() => { setMasterItem(s.item); setMasterQuery(""); }}
+                style={{display:"flex", justifyContent:"space-between", alignItems:"center", gap:"10px", padding:"10px 12px", borderBottom:"1px solid var(--line)", cursor:"pointer"}}>
+                <div style={{minWidth:0}}>
+                  <div style={{fontSize:"13px", fontWeight:600, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap"}}>{s.item}</div>
+                  <div style={{fontSize:"11px", color:"var(--text-dim)"}}>{s.category} · {s.location || "no location set"}</div>
+                </div>
+                <div className="mono" style={{fontSize:"14px", fontWeight:700, color: s.qty<=s.reorder ? "var(--red)" : "var(--text)",flexShrink:0}}>{s.qty} {s.unit}</div>
+              </div>
+            ))}
+          </div>}
+        </div>
+
+        {!masterItem && (
+          <div style={{background:"var(--panel)",border:"1px solid var(--line)",borderRadius:"10px",padding:"40px 20px",textAlign:"center",color:"var(--text-dim)",fontSize:"13px"}}>
+            Search and pick an item above to open its report.
+          </div>
+        )}
+
+        {masterItem && masterReportData && (
+          <div style={{background:"var(--panel)",border:"1px solid var(--line)",borderRadius:"8px",overflow:"hidden"}}>
+            <div style={{background:"#101828",color:"#fff",padding:"14px 18px",display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:"8px"}}>
+              <div>
+                <div style={{fontWeight:700,fontSize:"15px"}}>{masterReportData.item}</div>
+                <div style={{fontSize:"11px",color:"#9aa4b2"}}>{masterReportData.category || "—"} · Series {masterReportData.series}</div>
+              </div>
+              <div style={{display:"flex",gap:"8px"}}>
+                <button onClick={() => generateItemReportPdf(masterReportData)} style={{...iconBtn,background:"var(--red)",color:"#fff",borderColor:"var(--red)",fontSize:"12px",fontWeight:600,padding:"7px 12px"}}>🖨 Print Report</button>
+                <button onClick={() => setMasterItem(null)} style={{...iconBtn,fontSize:"12px",fontWeight:600,padding:"7px 12px"}}>✕ Clear</button>
+              </div>
+            </div>
+            <div style={{padding:"18px"}}>
+              {renderItemReportSections(masterReportData, () => { setTab("ledger"); setLedgerFilter(masterReportData.item); })}
+            </div>
+          </div>
+        )}
+      </div>}
+
       {tab === "packing" && <div>
         <div style={{background:"var(--panel)",border:`1px solid ${editingSlipId ? "var(--red)" : "var(--line)"}`,padding:"16px",marginBottom:"20px"}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"12px"}}>
@@ -2467,74 +2614,7 @@ function App() {
               </div>
             </div>
             <div style={{padding:"18px"}}>
-              <div style={{fontWeight:700,fontSize:"13px",marginBottom:"8px"}}>Series-wise Stock — {reportData.series}</div>
-              <div style={{border:"1px solid var(--line)",borderRadius:"6px",overflow:"hidden",marginBottom:"22px"}}>
-                <table style={{width:"100%",borderCollapse:"collapse",fontSize:"13px"}}>
-                  <thead><tr style={{background:"var(--panel2)"}}>
-                    <th style={reportThStyle}>Item</th><th style={{...reportThStyle,textAlign:"right"}}>Qty</th><th style={reportThStyle}>Unit</th><th style={reportThStyle}>Location</th>
-                  </tr></thead>
-                  <tbody>
-                    {reportData.seriesRows.length === 0 && <tr><td colSpan={4} style={{padding:"14px",textAlign:"center",color:"var(--text-dim)"}}>No other items in this series.</td></tr>}
-                    {reportData.seriesRows.map(s => (
-                      <tr key={s.id} style={{borderTop:"1px solid var(--line)",fontWeight: itemKey(s.item)===itemKey(reportData.item) ? 700 : 400, background: itemKey(s.item)===itemKey(reportData.item) ? "var(--panel2)" : "transparent"}}>
-                        <td style={reportTdStyle}>{s.item}</td><td className="mono" style={{...reportTdStyle,textAlign:"right"}}>{s.qty}</td><td style={reportTdStyle}>{s.unit}</td><td style={reportTdStyle}>{s.location || "—"}</td>
-                      </tr>
-                    ))}
-                    {reportData.seriesRows.length > 0 && <tr style={{borderTop:"2px solid var(--line)",fontWeight:700,background:"var(--panel2)"}}>
-                      <td style={reportTdStyle}>Total</td><td className="mono" style={{...reportTdStyle,textAlign:"right"}}>{reportData.seriesTotal}</td><td colSpan={2}></td>
-                    </tr>}
-                  </tbody>
-                </table>
-              </div>
-
-              <div style={{fontWeight:700,fontSize:"13px",marginBottom:"8px"}}>Month-wise Paint Report</div>
-              <div style={{border:"1px solid var(--line)",borderRadius:"6px",overflow:"hidden",marginBottom:"22px"}}>
-                <table style={{width:"100%",borderCollapse:"collapse",fontSize:"13px"}}>
-                  <thead><tr style={{background:"var(--panel2)"}}>
-                    <th style={reportThStyle}>Month</th><th style={{...reportThStyle,textAlign:"right"}}>New Paint</th><th style={{...reportThStyle,textAlign:"right"}}>Repaint</th><th style={{...reportThStyle,textAlign:"right"}}>Total</th>
-                  </tr></thead>
-                  <tbody>
-                    {reportData.monthlyRows.length === 0 && <tr><td colSpan={4} style={{padding:"14px",textAlign:"center",color:"var(--text-dim)"}}>No paint entries for this item yet.</td></tr>}
-                    {reportData.monthlyRows.map(m => (
-                      <tr key={m.month} style={{borderTop:"1px solid var(--line)"}}>
-                        <td style={reportTdStyle}>{fmtMonth(m.month)}</td>
-                        <td className="mono" style={{...reportTdStyle,textAlign:"right"}}>{m.newPaint}</td>
-                        <td className="mono" style={{...reportTdStyle,textAlign:"right"}}>{m.repaint}</td>
-                        <td className="mono" style={{...reportTdStyle,textAlign:"right",fontWeight:700}}>{m.newPaint + m.repaint}</td>
-                      </tr>
-                    ))}
-                    {reportData.monthlyRows.length > 0 && <tr style={{borderTop:"2px solid var(--line)",fontWeight:700,background:"var(--panel2)"}}>
-                      <td style={reportTdStyle}>Total</td><td colSpan={2}></td><td className="mono" style={{...reportTdStyle,textAlign:"right"}}>{reportData.monthlyTotal}</td>
-                    </tr>}
-                  </tbody>
-                </table>
-              </div>
-
-              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"8px"}}>
-                <div style={{fontWeight:700,fontSize:"13px"}}>Item-wise Track (Ledger)</div>
-                <button onClick={() => { setTab("ledger"); setLedgerFilter(reportData.item); setReportItem(null); }} style={{...iconBtn,fontSize:"11px",padding:"4px 10px"}}>Open full ledger →</button>
-              </div>
-              <div style={{border:"1px solid var(--line)",borderRadius:"6px",overflow:"hidden"}}>
-                <table style={{width:"100%",borderCollapse:"collapse",fontSize:"13px"}}>
-                  <thead><tr style={{background:"var(--panel2)"}}>
-                    <th style={reportThStyle}>Date</th><th style={reportThStyle}>Ref</th><th style={reportThStyle}>Desc</th><th style={{...reportThStyle,textAlign:"right"}}>In</th><th style={{...reportThStyle,textAlign:"right"}}>Out</th><th style={{...reportThStyle,textAlign:"right"}}>Balance</th>
-                  </tr></thead>
-                  <tbody>
-                    <tr style={{borderTop:"1px solid var(--line)",background:"var(--panel2)"}}>
-                      <td style={reportTdStyle}>{reportData.ledger.opening.date || "—"}</td><td style={reportTdStyle} colSpan={4}>Opening Stock</td><td className="mono" style={{...reportTdStyle,textAlign:"right",fontWeight:700}}>{reportData.ledger.opening.qty || 0}</td>
-                    </tr>
-                    {reportData.ledger.rows.length === 0 && <tr><td colSpan={6} style={{padding:"14px",textAlign:"center",color:"var(--text-dim)"}}>No transactions recorded.</td></tr>}
-                    {reportData.ledger.rows.map(r => (
-                      <tr key={r.sr} style={{borderTop:"1px solid var(--line)"}}>
-                        <td style={reportTdStyle}>{r.date}</td><td style={reportTdStyle}>{r.ref}</td><td style={reportTdStyle}>{r.desc || "—"}</td>
-                        <td className="mono" style={{...reportTdStyle,textAlign:"right",color:"var(--green)"}}>{r.inward || ""}</td>
-                        <td className="mono" style={{...reportTdStyle,textAlign:"right",color:"var(--red)"}}>{r.outward || ""}</td>
-                        <td className="mono" style={{...reportTdStyle,textAlign:"right",fontWeight:700}}>{r.balance}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              {renderItemReportSections(reportData, () => { setTab("ledger"); setLedgerFilter(reportData.item); setReportItem(null); })}
             </div>
           </div>
         </div>
