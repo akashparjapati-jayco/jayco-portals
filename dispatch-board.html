@@ -1750,9 +1750,16 @@ function App() {
                   <div style={{fontSize:"13px", fontWeight:600, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap"}}>{s.item}</div>
                   <div style={{fontSize:"11px", color:"var(--text-dim)"}}>{s.category} · {s.location || "no location set"}</div>
                 </div>
-                <div style={{textAlign:"right", flexShrink:0}}>
-                  <div className="mono" style={{fontSize:"14px", fontWeight:700, color: s.qty<=s.reorder ? "var(--red)" : "var(--text)"}}>{s.qty} {s.unit}</div>
-                  {s.qty<=s.reorder && <div style={{fontSize:"10px", color:"var(--yellow)"}}>below reorder</div>}
+                <div style={{display:"flex", alignItems:"center", gap:"10px", flexShrink:0}}>
+                  <button
+                    onClick={e => { e.stopPropagation(); setReportItem(s.item); setDashSearch(""); }}
+                    style={{...iconBtnSmall, fontWeight:600}}
+                    title="Series stock, month-wise paint & item track for this item"
+                  >📊 Report</button>
+                  <div style={{textAlign:"right"}}>
+                    <div className="mono" style={{fontSize:"14px", fontWeight:700, color: s.qty<=s.reorder ? "var(--red)" : "var(--text)"}}>{s.qty} {s.unit}</div>
+                    {s.qty<=s.reorder && <div style={{fontSize:"10px", color:"var(--yellow)"}}>below reorder</div>}
+                  </div>
                 </div>
               </div>
             ))}
@@ -1787,7 +1794,7 @@ function App() {
         <div style={{display:"flex",alignItems:"center",gap:"8px",marginBottom:"14px"}}>
           <div style={{width:"4px",height:"16px",background:"var(--red)",borderRadius:"2px"}} />
           <div style={{fontSize:"14px",fontWeight:700}}>Master Stock at a Glance</div>
-          <div style={{fontSize:"11px",color:"var(--text-dim)"}}>· click a category on Finish Stock to filter</div>
+          <div style={{fontSize:"11px",color:"var(--text-dim)"}}>· click a category to open it on Finish Stock · search above and hit 📊 Report for one item</div>
         </div>
         <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit, minmax(190px, 1fr))",gap:"12px",marginBottom:"28px"}}>
           {stockSummary.map(s => {
@@ -1795,8 +1802,11 @@ function App() {
             const pct = s.qty < 0 ? 100 : Math.max(2, Math.round((s.qty / maxQty) * 100));
             const low = s.qty > 0 && s.qty <= 20;
             const barColor = s.qty < 0 ? "var(--red)" : s.qty === 0 ? "var(--text-dim)" : low ? "var(--yellow)" : "var(--green)";
+            const isBoxCategory = s.label === "Wooden Box" || s.label === "Corrugated Box";
+            const openCategory = () => { if (isBoxCategory) { setTab("boxes"); } else { setTab("stock"); setStockFilter(s.label); } };
             return (
-              <div key={s.label} className="stat-card" style={{background:"var(--panel)",border: s.qty < 0 ? "1px solid var(--red)" : "1px solid var(--line)",borderRadius:"10px",padding:"14px",transition:"transform 0.15s, box-shadow 0.15s"}}>
+              <div key={s.label} className="stat-card" onClick={openCategory}
+                style={{background:"var(--panel)",border: s.qty < 0 ? "1px solid var(--red)" : "1px solid var(--line)",borderRadius:"10px",padding:"14px",transition:"transform 0.15s, box-shadow 0.15s",cursor:"pointer"}}>
                 <div style={{fontSize:"12px",fontWeight:600,marginBottom:"8px",color:"var(--text-dim)"}}>{s.label}</div>
                 <div style={{fontSize:"26px",fontWeight:700,color: s.qty < 0 ? "var(--red)" : s.qty === 0 ? "var(--text-dim)" : "var(--text)",marginBottom:"10px"}}>{s.qty}{s.qty < 0 && <span style={{fontSize:"11px",fontWeight:600,marginLeft:"6px"}}>⚠ negative</span>}</div>
                 <div style={{height:"6px",background:"var(--bg)",borderRadius:"3px",overflow:"hidden"}}>
