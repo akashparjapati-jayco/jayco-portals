@@ -378,6 +378,8 @@ function App() {
   const [stockFilter, setStockFilter] = useState(null);
   const [groupByCategory, setGroupByCategory] = useState(false);
   const [reportItem, setReportItem] = useState(null);
+  const [reportPickerOpen, setReportPickerOpen] = useState(false);
+  const [reportPickerQuery, setReportPickerQuery] = useState("");
   const [ledgerFilter, setLedgerFilter] = useState("");
   const [openingEditing, setOpeningEditing] = useState(false);
   const [openingForm, setOpeningForm] = useState({ qty:"", date:"" });
@@ -516,6 +518,13 @@ function App() {
     if (!q) return [];
     return stock.filter(s => s.item.toLowerCase().includes(q) || s.category.toLowerCase().includes(q) || (s.location || "").toLowerCase().includes(q));
   }, [dashSearch, stock]);
+  // Backs the "📊 Item Report" picker modal opened from the Dashboard toolbar.
+  const reportPickerResults = useMemo(() => {
+    const q = reportPickerQuery.trim().toLowerCase();
+    const sorted = [...stock].sort((a, b) => naturalCompare(a.item, b.item));
+    if (!q) return sorted;
+    return sorted.filter(s => s.item.toLowerCase().includes(q) || s.category.toLowerCase().includes(q));
+  }, [reportPickerQuery, stock]);
   const itemLedger = useMemo(() => {
     const entries = [];
     paintLog.forEach(p => {
@@ -1729,6 +1738,7 @@ function App() {
           <button onClick={() => setTab("packing")} style={{...iconBtn, fontWeight:600, fontSize:"12.5px", padding:"9px 16px"}}>📦 View Packing / Dispatch Slips</button>
           <button onClick={() => setTab("stock")} style={{...iconBtn, fontWeight:600, fontSize:"12.5px", padding:"9px 16px"}}>View Finish Stock</button>
           <button onClick={reconcileStock} style={{...iconBtn, fontWeight:600, fontSize:"12.5px", padding:"9px 16px"}} title="Recompute each item's qty from Opening Stock + Item Ledger, fixing any drift from old entries that didn't update stock correctly">↻ Refresh Stock</button>
+          <button onClick={() => setReportPickerOpen(true)} style={{...iconBtn, fontWeight:600, fontSize:"12.5px", padding:"9px 16px"}} title="Pick an item to see its series stock, month-wise paint and item track">📊 Item Report</button>
         </div>
         {importMsg && <div style={{fontSize:"12px",color: /^(Imported|Recalculated)/.test(importMsg) ? "var(--green)" : "var(--red)",marginBottom:"14px"}}>{importMsg}</div>}
 
@@ -2408,6 +2418,40 @@ function App() {
             <button className="row-btn" onClick={() => delBox(b.id)} style={iconBtn}>✕</button>,
           ])} />
       </div>}
+
+      {reportPickerOpen && (
+        <div onClick={() => { setReportPickerOpen(false); setReportPickerQuery(""); }} style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.55)",display:"flex",justifyContent:"center",padding:"30px 16px",overflowY:"auto",zIndex:100}}>
+          <div onClick={e => e.stopPropagation()} style={{background:"var(--panel)",border:"1px solid var(--line)",borderRadius:"8px",maxWidth:"460px",width:"100%",height:"fit-content",maxHeight:"calc(100vh - 60px)",overflowY:"auto"}}>
+            <div style={{position:"sticky",top:0,background:"#101828",color:"#fff",padding:"14px 18px",display:"flex",justifyContent:"space-between",alignItems:"center",zIndex:1}}>
+              <div style={{fontWeight:700,fontSize:"15px"}}>📊 Item Report</div>
+              <button onClick={() => { setReportPickerOpen(false); setReportPickerQuery(""); }} style={{...iconBtn,fontSize:"12px",fontWeight:600,padding:"7px 12px"}}>✕ Close</button>
+            </div>
+            <div style={{padding:"14px 18px"}}>
+              <input
+                autoFocus
+                value={reportPickerQuery}
+                onChange={e => setReportPickerQuery(e.target.value)}
+                placeholder="🔍 Type an item / SKU or category…"
+                style={{...inputStyle, marginBottom:"12px"}}
+              />
+              <div style={{border:"1px solid var(--line)",borderRadius:"6px",maxHeight:"380px",overflowY:"auto"}}>
+                {reportPickerResults.length === 0 && <div style={{padding:"16px",textAlign:"center",color:"var(--text-dim)",fontSize:"13px"}}>No item matches "{reportPickerQuery}".</div>}
+                {reportPickerResults.map(s => (
+                  <div key={s.id} className="row-btn"
+                    onClick={() => { setReportItem(s.item); setReportPickerOpen(false); setReportPickerQuery(""); }}
+                    style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:"10px",padding:"10px 12px",borderBottom:"1px solid var(--line)",cursor:"pointer"}}>
+                    <div style={{minWidth:0}}>
+                      <div style={{fontSize:"13px",fontWeight:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{s.item}</div>
+                      <div style={{fontSize:"11px",color:"var(--text-dim)"}}>{s.category}</div>
+                    </div>
+                    <div className="mono" style={{fontSize:"13px",fontWeight:700,color: s.qty<=s.reorder ? "var(--red)" : "var(--text)",flexShrink:0}}>{s.qty} {s.unit}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {reportItem && reportData && (
         <div onClick={() => setReportItem(null)} style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.55)",display:"flex",justifyContent:"center",padding:"30px 16px",overflowY:"auto",zIndex:100}}>
