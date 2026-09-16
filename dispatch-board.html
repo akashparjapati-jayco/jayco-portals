@@ -110,6 +110,12 @@ if (isConfigured && typeof firebase !== "undefined") {
 }
 
 const DOC_REF = () => db.collection("dispatch").doc("board");
+// One backup doc per calendar date, in the SAME "dispatch" collection as
+// the live board — so it's covered by whatever security rule already
+// allows read/write on /dispatch/{doc}, with no extra Firebase Console
+// setup needed. Kept forever (a few KB/day is negligible) so a deleted
+// or corrupted live doc can always be restored from the last daily copy.
+const BACKUP_DOC_REF = () => db.collection("dispatch").doc(`backup_${today()}`);
 
 // ---------- Reference data (JAYCO product world) — used across item pickers ----------
 const DEFAULT_PLUMMER_SERIES = ["SN 205","SN 505","SN 605","SNA 505","SNH 605","SAF 22515","SD 3130","SDAF 22528","SNLN 505","SOFN 522","SONL 522"];
@@ -485,7 +491,12 @@ function App() {
       tx.set(DOC_REF(), next);
       return next;
     }))
-      .then((next) => { setData(next); setSaveState("idle"); lastFailedUpdaterRef.current = null; })
+      .then((next) => {
+        setData(next);
+        setSaveState("idle");
+        lastFailedUpdaterRef.current = null;
+        BACKUP_DOC_REF().set({ ...next, backedUpAt: new Date().toISOString() }).catch(e => console.warn("Daily backup write failed:", e));
+      })
       .catch((err) => {
         console.error("Dispatch board save failed:", err);
         lastFailedUpdaterRef.current = updater;
@@ -495,6 +506,22 @@ function App() {
 
   const retryLastSave = () => {
     if (lastFailedUpdaterRef.current) persist(lastFailedUpdaterRef.current);
+  };
+
+  // Lets anyone on staff grab a local copy of the whole board on demand —
+  // independent of Firestore, so a deleted or corrupted database document
+  // doesn't mean the data is gone if someone downloaded a recent copy.
+  const downloadBackup = () => {
+    if (!data) return;
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `jayco-dispatch-board-backup-${today()}.json`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
   };
 
   const paintLog = data ? data.paintLog : [];
@@ -1843,6 +1870,9 @@ function App() {
         <div style={{fontSize:"11px",color:"#c9c9c9",marginBottom:"8px"}}>
           Working as <strong>{userName || "Unknown"}</strong> · <button onClick={changeUserName} style={{background:"none",border:"none",color:"#9a9a9a",fontSize:"11px",textDecoration:"underline",cursor:"pointer",padding:0}}>change</button>
         </div>
+        <button onClick={downloadBackup} title="Save everything on this board right now as a file on this device — a safety copy independent of the shared database" style={{width:"100%",padding:"7px 10px",marginBottom:"10px",background:"rgba(255,255,255,0.06)",border:"1px solid rgba(255,255,255,0.14)",borderRadius:"6px",color:"#e8e8e8",fontSize:"11px",fontWeight:600,cursor:"pointer"}}>
+          ⭳ Download Backup (.json)
+        </button>
         <div style={{fontSize:"11px",color:"#8a8a8a"}}>
           Plummer Block &amp; Bearing Housing Division<br/>Dharti Industrial Park, Kheda
         </div>
