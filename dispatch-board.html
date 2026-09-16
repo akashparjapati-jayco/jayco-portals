@@ -13,21 +13,14 @@
   service cloud.firestore {
     match /databases/{database}/documents {
       match /dispatch/{doc} {
-        allow read, write: if request.auth != null;
+        allow read, write: if true;
       }
     }
   }
   ------------------------------------------------------------
-  This requires a signed-in Firebase Authentication user for every
-  read and write. This app has no self-serve sign-up screen, so the
-  only people who can sign in are staff accounts YOU create by hand
-  in Firebase Console > Authentication > Users > Add user (enable
-  the "Email/Password" sign-in provider first, under Sign-in method).
-
-  IMPORTANT — if your rule currently reads "allow read, write: if
-  true", replace it with the rule above now. The old open rule let
-  anyone who found this page's URL read, edit, or delete the entire
-  board directly through the Firestore API, with no sign-in needed.
+  This is OPEN access (no login) scoped only to the /dispatch
+  collection, matching the single shared board this file uses.
+  Tighten later if you add authentication.
   ============================================================
 -->
 
@@ -49,7 +42,6 @@
 <script crossorigin src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
@@ -103,19 +95,16 @@ const firebaseConfig = {
 };
 
 let db = null;
-let auth = null;
 let firebaseReady = false;
 const isConfigured = firebaseConfig.apiKey && firebaseConfig.apiKey.indexOf("PASTE_YOUR") !== 0;
 if (isConfigured && typeof firebase !== "undefined") {
   try {
     firebase.initializeApp(firebaseConfig);
     db = firebase.firestore();
-    auth = firebase.auth();
     firebaseReady = true;
   } catch (e) {
     console.warn("Firebase init failed, running in local-only mode:", e);
     db = null;
-    auth = null;
     firebaseReady = false;
   }
 }
@@ -302,41 +291,30 @@ const normalizeData = (raw) => {
 };
 
 // ============================================================
-// Staff sign-in gate, backed by real Firebase Authentication.
-// Replaces the old client-side password check, which only hid the
-// UI — it never stopped anyone who found this page's Firebase config
-// from reading or writing the database directly. There is no
-// self-serve sign-up screen here: the only accounts that can sign in
-// are ones an admin creates by hand in Firebase Console >
-// Authentication > Users (after enabling the Email/Password sign-in
-// provider), so a stranger can't just make their own login.
+// Shared-password gate. NOT real security — the password lives
+// in this file's source, so a technical visitor could read it.
+// It just keeps casual/accidental access out. For real access
+// control, switch to Firebase Authentication instead.
 // ============================================================
+const BOARD_PASSWORD = "P@2026";
+const UNLOCK_KEY = "jaycoDispatchBoardUnlocked";
+
 function Gate({ children }) {
-  const [authUser, setAuthUser] = useState(undefined); // undefined = still checking
-  const [email, setEmail] = useState("");
+  const [unlocked, setUnlocked] = useState(() => {
+    try { return localStorage.getItem(UNLOCK_KEY) === "1"; } catch (e) { return false; }
+  });
   const [pw, setPw] = useState("");
-  const [err, setErr] = useState("");
-  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState(false);
 
-  useEffect(() => {
-    if (!firebaseReady || !auth) { setAuthUser(null); return; }
-    const unsub = auth.onAuthStateChanged(u => setAuthUser(u));
-    return () => unsub();
-  }, []);
+  if (unlocked) return children;
 
-  // No Firebase project configured — nothing to gate, matches the
-  // app's existing local-only fallback mode.
-  if (!firebaseReady || !auth) return children;
-  if (authUser === undefined) return null;
-  if (authUser) return children;
-
-  const trySignIn = () => {
-    if (!email.trim() || !pw) return;
-    setBusy(true);
-    setErr("");
-    auth.signInWithEmailAndPassword(email.trim(), pw)
-      .catch(e => setErr(e && e.message ? e.message : "Sign-in failed."))
-      .finally(() => setBusy(false));
+  const tryUnlock = () => {
+    if (pw === BOARD_PASSWORD) {
+      try { localStorage.setItem(UNLOCK_KEY, "1"); } catch (e) {}
+      setUnlocked(true);
+    } else {
+      setErr(true);
+    }
   };
 
   return (
@@ -346,36 +324,22 @@ function Gate({ children }) {
           <div style={{ fontFamily:"'Space Grotesk','Inter',sans-serif", fontWeight:700, fontSize:"18px", color:"var(--text)" }}>Jayco Engineering</div>
           <div style={{ fontSize:"12.5px", color:"var(--text-dim)", marginTop:"2px" }}>Dispatch Board — staff sign in</div>
         </div>
-        <div style={{ marginBottom:"10px" }}>
-          <label style={{ display:"block", fontSize:"12px", fontWeight:600, color:"var(--text)", marginBottom:"4px" }}>Staff Email</label>
-          <input
-            type="email"
-            autoFocus
-            value={email}
-            onChange={e => { setEmail(e.target.value); setErr(""); }}
-            onKeyDown={e => { if (e.key === "Enter") trySignIn(); }}
-            placeholder="you@jayco.local"
-            style={{ width:"100%", padding:"9px 11px", border:`1px solid ${err ? "#dc2626" : "var(--line)"}`, borderRadius:"8px", fontSize:"13px", boxSizing:"border-box" }}
-          />
-        </div>
         <div style={{ marginBottom:"14px" }}>
           <label style={{ display:"block", fontSize:"12px", fontWeight:600, color:"var(--text)", marginBottom:"4px" }}>Password</label>
           <input
             type="password"
+            autoFocus
             value={pw}
-            onChange={e => { setPw(e.target.value); setErr(""); }}
-            onKeyDown={e => { if (e.key === "Enter") trySignIn(); }}
+            onChange={e => { setPw(e.target.value); setErr(false); }}
+            onKeyDown={e => { if (e.key === "Enter") tryUnlock(); }}
             placeholder="Staff password"
             style={{ width:"100%", padding:"9px 11px", border:`1px solid ${err ? "#dc2626" : "var(--line)"}`, borderRadius:"8px", fontSize:"13px", boxSizing:"border-box" }}
           />
         </div>
-        <button onClick={trySignIn} disabled={busy} style={{ width:"100%", padding:"10px", background:"var(--red)", color:"#fff", border:"none", borderRadius:"8px", fontWeight:600, fontSize:"13px", cursor:"pointer", opacity: busy ? 0.7 : 1 }}>
-          {busy ? "Signing in…" : "Sign In"}
+        <button onClick={tryUnlock} style={{ width:"100%", padding:"10px", background:"var(--red)", color:"#fff", border:"none", borderRadius:"8px", fontWeight:600, fontSize:"13px", cursor:"pointer" }}>
+          Unlock
         </button>
-        {err && <div style={{ color:"#dc2626", fontSize:"12.5px", marginTop:"10px", textAlign:"center" }}>{err}</div>}
-        <div style={{ fontSize:"11px", color:"var(--text-dim)", marginTop:"14px", textAlign:"center" }}>
-          Accounts are created by your admin in the Firebase Console — there is no self sign-up here.
-        </div>
+        {err && <div style={{ color:"#dc2626", fontSize:"12.5px", marginTop:"10px", textAlign:"center" }}>Incorrect password.</div>}
       </div>
     </div>
   );
@@ -441,7 +405,6 @@ function App() {
     try { localStorage.removeItem(USER_NAME_KEY); } catch (e) {}
     if (typeof window !== "undefined" && window.location) window.location.reload();
   };
-  const signOutStaff = () => { if (auth) auth.signOut(); };
 
   const [entryMode, setEntryMode] = useState("paint");
   const [challanDraft, setChallanDraft] = useState({ date:today(), painterName:"", items:[] });
@@ -1879,7 +1842,6 @@ function App() {
         </div>
         <div style={{fontSize:"11px",color:"#c9c9c9",marginBottom:"8px"}}>
           Working as <strong>{userName || "Unknown"}</strong> · <button onClick={changeUserName} style={{background:"none",border:"none",color:"#9a9a9a",fontSize:"11px",textDecoration:"underline",cursor:"pointer",padding:0}}>change</button>
-          {firebaseReady && auth && <> · <button onClick={signOutStaff} style={{background:"none",border:"none",color:"#9a9a9a",fontSize:"11px",textDecoration:"underline",cursor:"pointer",padding:0}}>sign out</button></>}
         </div>
         <div style={{fontSize:"11px",color:"#8a8a8a"}}>
           Plummer Block &amp; Bearing Housing Division<br/>Dharti Industrial Park, Kheda
