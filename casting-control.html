@@ -950,7 +950,7 @@ function viewCastingRecords(){
   const rows = [...state.challans]
     .sort((a,b) => String(b.challanDate||'').localeCompare(String(a.challanDate||''))
                 || String(b.challanNumber||'').localeCompare(String(a.challanNumber||''), 'en', {numeric:true}))
-    .filter(c => match(c.challanNumber, c.foundryName,
+    .filter(c => match(c.challanNumber, c.invoiceNumber, c.foundryName,
     getPOs(c).map(p=>p.purchaseOrderNumber).join(' '),
     c.items.map(i=>i.itemName+' '+i.material).join(' ')));
   return `<section class="data-panel">
@@ -959,13 +959,14 @@ function viewCastingRecords(){
       <button class="btn primary" data-new-challan>＋ New challan</button>
     </div>
     <div class="table-scroll"><table>
-      <thead><tr><th>Challan No.</th><th>Date</th><th>Foundry name</th><th>JAYCO P/O No.</th><th>P/O Date</th>
+      <thead><tr><th>Challan No.</th><th>Invoice No.</th><th>Date</th><th>Foundry name</th><th>JAYCO P/O No.</th><th>P/O Date</th>
       <th class="num">Items</th><th class="num">Qty</th><th class="num">Foundry Weight</th><th class="num">JAYCO Weight</th><th class="num">Difference</th><th class="num">Actions</th></tr></thead>
       <tbody>${ rows.map(c=>{
         const fc = foundryComplete(c), pos = getPOs(c);
         const diff = num(c.actualTotalWeight) - num(c.foundryTotalWeight);
         return `<tr>
           <td class="mono">${esc(c.challanNumber)}</td>
+          <td class="mono">${c.invoiceNumber ? esc(c.invoiceNumber) : '—'}</td>
           <td>${fmtDate(c.challanDate)}</td>
           <td>${esc(c.foundryName)}</td>
           <td>${pos.map(p=>`<div class="mono">${esc(p.purchaseOrderNumber)}</div>`).join('')||'—'}</td>
@@ -980,7 +981,7 @@ function viewCastingRecords(){
             <button class="btn icon" data-edit-challan="${esc(c.id)}" title="Edit">✎</button>
             <button class="btn icon danger" data-del-challan="${esc(c.id)}" title="Delete">🗑</button>
           </td></tr>`; }).join('')
-        || emptyRow(11, state.challans.length ? 'No closed challans match the search.' : 'No closed challans yet. Select New challan to begin.') }
+        || emptyRow(12, state.challans.length ? 'No closed challans match the search.' : 'No closed challans yet. Select New challan to begin.') }
       </tbody></table></div></section>`;
 }
 
@@ -1855,7 +1856,7 @@ function viewPendingItems(){
 /* ---- Insert Casting Details ---- */
 function blankLine(){ return {masterCode:'', itemName:'', itemType:DEFAULT_TYPES[0], material:'Cast Iron', quantity:'', foundryWeight:'', actualWeight:'', poNumber:''}; }
 function blankPO(){ return {purchaseOrderNumber:'', purchaseOrderDate: today()}; }
-function blankEntry(){ return {challanNumber:'', challanDate: today(), foundryName:'', newFoundry:false, purchaseOrders:[blankPO()], items:[blankLine()]}; }
+function blankEntry(){ return {challanNumber:'', challanDate: today(), invoiceNumber:'', foundryName:'', newFoundry:false, purchaseOrders:[blankPO()], items:[blankLine()]}; }
 
 function viewInsertCasting(){
   if(!state.entryForm) state.entryForm = blankEntry();
@@ -1882,6 +1883,7 @@ function viewInsertCasting(){
       <div class="form-grid">
         <label class="field">Challan No. *<input type="text" required maxlength="80" name="challanNumber" value="${esc(f.challanNumber)}" placeholder="e.g. BSF/CH/1024"></label>
         <label class="field">Date *<input type="date" required name="challanDate" value="${esc(f.challanDate)}"></label>
+        <label class="field">Invoice No.<input type="text" maxlength="80" name="invoiceNumber" value="${esc(f.invoiceNumber)}" placeholder="e.g. BSF/INV/2026/45"></label>
         <label class="field">Foundry Name *
           ${ f.newFoundry
             ? `<div style="display:flex;gap:8px">
@@ -2060,7 +2062,7 @@ function modalViewChallan(id){
   if(!c) return;
   const fc = foundryComplete(c), pos = getPOs(c), groups = groupChallanItems(c);
   openModal(`<div class="modal-head"><h3>Challan ${esc(c.challanNumber)}</h3>
-    <p>${fmtDate(c.challanDate)} · ${esc(c.foundryName)} · ${pos.length} P/O${pos.length===1?'':'s'} · ${c.items.length} item${c.items.length===1?'':'s'}</p></div>
+    <p>${c.invoiceNumber ? 'Invoice ' + esc(c.invoiceNumber) + ' · ' : ''}${fmtDate(c.challanDate)} · ${esc(c.foundryName)} · ${pos.length} P/O${pos.length===1?'':'s'} · ${c.items.length} item${c.items.length===1?'':'s'}</p></div>
     <div style="padding:0 1.25rem;overflow-y:auto;flex:1 1 auto;min-height:0">
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:.6rem;margin-bottom:1rem">
         ${pos.map((p,i)=>`<div style="border:1px solid var(--border);background:#f8fafc;padding:.7rem">
@@ -2165,8 +2167,8 @@ function buildChallanPdf(c){
   doc.text('CASTING INWARD CHALLAN', M, y);
 
   y += 14;
-  const bw = (CW - 20) / 3, bh = 44;
-  [['CHALLAN NO.', c.challanNumber], ['CHALLAN DATE', fmtDate(c.challanDate)], ['FOUNDRY NAME', c.foundryName]]
+  const bw = (CW - 30) / 4, bh = 44;
+  [['CHALLAN NO.', c.challanNumber], ['INVOICE NO.', c.invoiceNumber || '—'], ['CHALLAN DATE', fmtDate(c.challanDate)], ['FOUNDRY NAME', c.foundryName]]
   .forEach(([k, v], n) => {
     const x = M + n * (bw + 10);
     doc.setDrawColor(...LINE); doc.setFillColor(...SOFT);
@@ -2297,7 +2299,7 @@ function shareWhatsApp(c){
   const fc = foundryComplete(c), pos = getPOs(c), groups = groupChallanItems(c);
   const lines = [
     '*JAYCO ENGINEERING INDIA*','*Casting Inward Challan*',
-    `Challan: ${c.challanNumber}`, `Date: ${fmtDate(c.challanDate)}`, `Foundry: ${c.foundryName}`,
+    `Challan: ${c.challanNumber}`, ...(c.invoiceNumber ? [`Invoice: ${c.invoiceNumber}`] : []), `Date: ${fmtDate(c.challanDate)}`, `Foundry: ${c.foundryName}`,
     ...pos.map((p,i)=>`JAYCO P/O ${i+1}: ${p.purchaseOrderNumber} | Date: ${fmtDate(p.purchaseOrderDate)}`),
     ''
   ];
@@ -2344,7 +2346,7 @@ function currentFormChallan(){
   }
   return {
     id: state.editingChallanId || 'draft',
-    challanNumber: f.challanNumber, challanDate: f.challanDate, foundryName: f.foundryName,
+    challanNumber: f.challanNumber, challanDate: f.challanDate, invoiceNumber: f.invoiceNumber, foundryName: f.foundryName,
     purchaseOrderNumber: f.purchaseOrders[0].purchaseOrderNumber,
     purchaseOrderDate: f.purchaseOrders[0].purchaseOrderDate,
     purchaseOrders: f.purchaseOrders, status: state.editingChallanId ? 'Closed' : 'Draft',
@@ -2808,7 +2810,7 @@ document.addEventListener('click', async (e) => {
     closeModal();
     state.editingChallanId = c.id;
     state.entryForm = {
-      challanNumber:c.challanNumber, challanDate:c.challanDate, foundryName:c.foundryName,
+      challanNumber:c.challanNumber, challanDate:c.challanDate, invoiceNumber:c.invoiceNumber||'', foundryName:c.foundryName,
       newFoundry: !foundryOptions().all.includes(c.foundryName),
       purchaseOrders:getPOs(c).map(p=>({...p})),
       items:c.items.map((i,n)=>({
@@ -3017,7 +3019,7 @@ document.getElementById('toggle-sidebar').addEventListener('click', () => docume
 /* entry form live binding */
 document.addEventListener('input', e => {
   const el = e.target;
-  if(el.name && ['challanNumber','challanDate','foundryName'].includes(el.name) && el.closest('#entry-form') && state.entryForm){
+  if(el.name && ['challanNumber','challanDate','invoiceNumber','foundryName'].includes(el.name) && el.closest('#entry-form') && state.entryForm){
     state.entryForm[el.name] = el.value; return;   // no re-render: keeps focus
   }
   if(el.name && ['poNumber','poDate','foundryName','notes','generatedBy'].includes(el.name) && el.closest('#po-form') && state.poForm){
