@@ -126,12 +126,12 @@ const DEFAULT_SEAL_TYPES = ["Taconite Seal","Labyrinth Seal","Felt Seal","V-Ring
 const DEFAULT_PILLOW_BLOCKS = ["UCP 205","UCP 305","UCP 2305","UCFL 205","UCFC 205"];
 const DEFAULT_WOODEN_BOX_SIZES = ["Small (9x9x9\")","Medium (15x15x12\")","Large (24x18x18\")","Custom Crate"];
 const DEFAULT_CORRUGATED_BOX_SIZES = ["Small (8x8x6\")","Medium (12x12x10\")","Large (18x18x14\")","Extra Large (24x20x18\")"];
-const STOCK_CATEGORIES = ["Plummer Block","Pillow Block","Adapter Sleeve","Locating Ring","Bearing","Seal","ATA End Cover","Lock Nut","Lock Washer"];
+const STOCK_CATEGORIES = ["Plummer Block","Pillow Block","Adapter Sleeve","Locating Ring","Bearing","Seal","End Cover","Lock Nut","Lock Washer"];
 const CATEGORY_COLORS = {
   "Plummer Block": "#2563eb", "Pillow Block": "#7c3aed", "Adapter Sleeve": "#ea580c",
   "Locating Ring": "#0891b2", "Bearing": "#16a34a", "Seal": "#b45309",
   "Wooden Box": "#78716c", "Corrugated Box": "#a16207",
-  "ATA End Cover": "#4b5563", "Lock Nut": "#be123c", "Lock Washer": "#6d28d9",
+  "End Cover": "#4b5563", "Lock Nut": "#be123c", "Lock Washer": "#6d28d9",
 };
 const categoryColor = (cat) => CATEGORY_COLORS[cat] || "#64748b";
 const TABS = [
@@ -583,7 +583,7 @@ function App() {
       { label:"Bearing", qty: sumByCategory("Bearing") },
       { label:"Locating Ring", qty: sumByCategory("Locating Ring") },
       { label:"Seal", qty: sumByCategory("Seal") },
-      { label:"ATA End Cover", qty: sumByCategory("ATA End Cover") },
+      { label:"End Cover", qty: sumByCategory("End Cover") },
       { label:"Lock Nut", qty: sumByCategory("Lock Nut") },
       { label:"Lock Washer", qty: sumByCategory("Lock Washer") },
       { label:"Wooden Box", qty: sumByCategory("Wooden Box") + sumBoxBalance("Wooden Box") },
