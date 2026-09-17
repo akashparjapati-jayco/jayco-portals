@@ -1571,9 +1571,9 @@ function renderDespatchRegisterReport(q){
       });
     }
     despatches.sort((a,b)=>{
-      const da = a.despatchDate && a.despatchDate.toDate ? a.despatchDate.toDate() : new Date(a.despatchDate||0);
-      const db_ = b.despatchDate && b.despatchDate.toDate ? b.despatchDate.toDate() : new Date(b.despatchDate||0);
-      return db_ - da;
+      const ia = a.invoiceNumber || '';
+      const ib = b.invoiceNumber || '';
+      return ib.localeCompare(ia, undefined, {numeric:true, sensitivity:'base'});
     });
     document.getElementById('reportRowCount').textContent = `${despatches.length} despatch(es)`;
     lastReportData = {
