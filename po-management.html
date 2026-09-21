@@ -1753,6 +1753,13 @@ document.getElementById('despatchModalSave').onclick = async ()=>{
   const dateVal = document.getElementById('despatchModalDate').value;
   const invoice = document.getElementById('despatchModalInvoice').value.trim();
   if(!newQty || newQty <= 0 || !dateVal){ toast('Enter a valid quantity and date.', 'error'); return; }
+  const poItem = PO_ITEMS.find(i=>i.id===editingDespatch.poItemId);
+  if(poItem){
+    const otherPending = poItem.pendingQty + editingDespatch.qtyDespatched; // pending as if this despatch didn't exist yet
+    if(newQty > otherPending){
+      if(!confirm(`${editingDespatch.itemCode}: ${newQty} is more than the pending qty (${otherPending}) for this PO line. Save anyway?`)) return;
+    }
+  }
   try{
     await db.runTransaction(async tx=>{
       const itemRef = db.collection('poItems').doc(editingDespatch.poItemId);
