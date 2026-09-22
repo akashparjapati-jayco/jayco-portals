@@ -134,6 +134,16 @@ tr.click{cursor:pointer}tr.click:hover td{background:#fafbfc}
 .cred{background:var(--panel2);border-radius:10px;padding:14px;margin:12px 0}
 .cred b{font-size:30px;font-weight:700;letter-spacing:1px;display:block}
 ol.help{padding-left:18px;margin:10px 0}
+.pp{display:flex;gap:14px;align-items:center}
+.pp-img{width:96px;height:96px;border-radius:50%;flex:none;background:var(--panel2) center/cover no-repeat;border:2px dashed #c9ced5;display:grid;place-items:center;color:var(--mute);overflow:hidden}
+.pp-img.has{border:3px solid var(--red)}
+.pp-img svg{width:40px;height:40px}
+.pp-btns{display:flex;flex-direction:column;gap:8px;flex:1}
+.pp-btns .btn{font-size:17px;padding:10px 12px}
+.f.bad .pp-img{border-color:var(--red)}
+.av{width:40px;height:40px;border-radius:50%;object-fit:cover;flex:none;background:var(--panel2)}
+.av.lg{width:88px;height:88px;border:3px solid var(--red)}
+.avrow{display:flex;gap:14px;align-items:center}
 @media (max-width:430px){.top{padding:8px 12px}.who{gap:4px;flex-wrap:nowrap}.who .chip{padding:6px 8px;font-size:13px}.brand{font-size:24px}}
 </style>
 </head>
@@ -160,7 +170,7 @@ en: {
   demo:'Demo mode: data is saved on this phone only. Add the Firebase config to share data between phones.',
   openLink:'This page was opened as a file (from WhatsApp or Downloads). Phones block location and camera for files. Open the app from this link instead:',
   help1:"Turn on Location in the phone's quick settings.", help2:'In Chrome, tap the icon left of the web address, then Permissions, then Location: Allow.', help3:'Still blocked? Phone Settings, Apps, Chrome, Permissions, Location: Allow.',
-  regIntro:'Fill in exactly as on your Aadhaar and bank passbook.', secPersonal:'Personal', name:'Name', father:"Father's name", surname:'Surname', dob:'Date of birth', address:'Full address',
+  regIntro:'Fill in exactly as on your Aadhaar and bank passbook.', photo:'Your photo', takePhoto:'Take photo', choosePhotoBtn:'Choose from gallery', photoHint:'Clear face, no cap or sunglasses.', e_photo:'Add your photo.', photoAdded:'Photo added ({kb} KB)', changePhoto:'Change photo', secPersonal:'Personal', name:'Name', father:"Father's name", surname:'Surname', dob:'Date of birth', address:'Full address',
   secLogin:'Login and ID', mobileUser:'Mobile number (this is your username)', aadhaar:'Aadhaar card number (12 digits)',
   secBank:'Bank (for salary)', bank:'Bank name', acc:'Bank account number', acc2:'Re-enter account number', ifsc:'IFSC / NEFT code',
   secJob:'Job', join:'Joining date (optional)', consent:'I confirm these details are correct and allow JAYCO Engineering India to use them for attendance and salary payment.',
@@ -222,7 +232,7 @@ gu: {
   demo:'ડેમો મોડ: ડેટા ફક્ત આ ફોનમાં સેવ થાય છે. બધા ફોન વચ્ચે ડેટા માટે Firebase સેટ કરો.',
   openLink:'આ પેજ ફાઇલ તરીકે ખોલ્યું છે (WhatsApp અથવા Downloads માંથી). ફાઇલમાં લોકેશન અને કૅમેરા બંધ રહે છે. આ લિંક પરથી એપ ખોલો:',
   help1:'ફોનના ક્વિક સેટિંગ્સમાં Location ચાલુ કરો.', help2:'Chrome માં વેબ એડ્રેસની ડાબી બાજુના આઇકન પર ટૅપ કરો → Permissions → Location: Allow.', help3:'હજી બંધ છે? ફોન Settings → Apps → Chrome → Permissions → Location: Allow.',
-  regIntro:'બધી વિગત આધાર કાર્ડ અને બેંક પાસબુક મુજબ ભરો.', secPersonal:'અંગત વિગત', name:'નામ', father:'પિતાનું નામ', surname:'અટક', dob:'જન્મ તારીખ', address:'પૂરું સરનામું',
+  regIntro:'બધી વિગત આધાર કાર્ડ અને બેંક પાસબુક મુજબ ભરો.', photo:'તમારો ફોટો', takePhoto:'ફોટો પાડો', choosePhotoBtn:'ગેલેરીમાંથી પસંદ કરો', photoHint:'ચહેરો સાફ દેખાય, ટોપી કે ગોગલ્સ વગર.', e_photo:'તમારો ફોટો ઉમેરો.', photoAdded:'ફોટો ઉમેરાયો ({kb} KB)', changePhoto:'ફોટો બદલો', secPersonal:'અંગત વિગત', name:'નામ', father:'પિતાનું નામ', surname:'અટક', dob:'જન્મ તારીખ', address:'પૂરું સરનામું',
   secLogin:'લૉગિન અને ઓળખ', mobileUser:'મોબાઇલ નંબર (આ તમારું યુઝરનેમ છે)', aadhaar:'આધાર કાર્ડ નંબર (12 અંક)',
   secBank:'બેંક (પગાર માટે)', bank:'બેંકનું નામ', acc:'બેંક ખાતા નંબર', acc2:'ખાતા નંબર ફરી લખો', ifsc:'IFSC / NEFT કોડ',
   secJob:'નોકરી', join:'જોડાયાની તારીખ (વૈકલ્પિક)', consent:'હું ખાતરી આપું છું કે આ વિગતો સાચી છે અને JAYCO Engineering India ને હાજરી અને પગાર ચુકવણી માટે તેનો ઉપયોગ કરવાની મંજૂરી આપું છું.',
@@ -443,6 +453,7 @@ function calcDay(punches, isToday) {
   return { ms, reg, ot, open: isOpen && isToday, missing, status, first: ps[0]?.t, last: ps[ps.length-1]?.t, lastType: ps[ps.length-1]?.type, count: ps.length };
 }
 const stLabel = c => t('st_' + c);
+const avatar = (p, cls = '') => p && p.photo ? `<img class="av ${cls}" src="${p.photo}" alt="">` : `<span class="av ${cls}"></span>`;
 
 /* ============ boot & auth ============ */
 function boot() {
@@ -498,6 +509,14 @@ const fld = (id, key, type = 'text', attr = '') =>
     : `<input id="r_${id}" type="${type}" ${attr}>`}<small class="emsg"></small></label>`;
 function regForm() {
   return `<p class="muted small">${t('regIntro')}</p>
+  <div class="legend">${t('photo')}</div>
+  <div class="f" id="w_photo"><div class="pp">
+    <div class="pp-img${S.regPhoto ? ' has' : ''}" id="pp_img" ${S.regPhoto ? `style="background-image:url(${S.regPhoto})"` : ''}>${S.regPhoto ? '' : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/></svg>'}</div>
+    <div class="pp-btns">
+      <label class="btn">${t('takePhoto')}<input type="file" accept="image/*" capture="user" hidden onchange="regPhoto(this)"></label>
+      <label class="btn sec">${t('choosePhotoBtn')}<input type="file" accept="image/*" hidden onchange="regPhoto(this)"></label>
+    </div></div>
+    <small class="muted small" id="pp_note">${t('photoHint')}</small><small class="emsg"></small></div>
   <div class="legend">${t('secPersonal')}</div>
   ${fld('name', 'name')}${fld('father', 'father')}${fld('surname', 'surname')}${fld('dob', 'dob', 'date')}
   ${fld('address', 'address', 'area', 'maxlength="300"')}
@@ -514,12 +533,33 @@ function regForm() {
   <label class="f consent" id="w_ok"><input type="checkbox" id="r_ok"><span>${t('consent')}<small class="emsg"></small></span></label>
   <button class="btn big" id="r_btn" onclick="doRegister()">${t('register')}</button>`;
 }
+// Profile photo: 240x240 square, compressed to about 12 KB
+function regPhoto(inp) {
+  const f = inp.files[0]; inp.value = ''; if (!f) return;
+  if (!/^image\//.test(f.type)) return toast(t('choosePhoto'), 1);
+  const im = new Image(), u = URL.createObjectURL(f);
+  im.onload = () => {
+    URL.revokeObjectURL(u);
+    const W = 240, c = document.createElement('canvas'); c.width = c.height = W;
+    const g = c.getContext('2d'), s = Math.min(im.naturalWidth, im.naturalHeight);
+    g.drawImage(im, (im.naturalWidth - s) / 2, (im.naturalHeight - s) / 2, s, s, 0, 0, W, W);
+    let q = 0.75, url = c.toDataURL('image/jpeg', q);
+    while (url.length * 0.75 > 12 * 1024 && q > 0.3) { q -= 0.08; url = c.toDataURL('image/jpeg', q); }
+    S.regPhoto = url;
+    const box = $('#pp_img'); box.classList.add('has'); box.style.backgroundImage = `url(${url})`; box.innerHTML = '';
+    $('#pp_note').textContent = t('photoAdded', { kb: Math.round(url.length * 0.75 / 1024) });
+    $('#w_photo').classList.remove('bad');
+  };
+  im.onerror = () => toast(t('photoBad'), 1);
+  im.src = u;
+}
 async function doRegister() {
   const g = id => (($('#r_' + id) || {}).value || '').trim();
   const p = { name: g('name'), fatherName: g('father'), surname: g('surname'), dob: g('dob'), mobile: g('mobile'),
     address: g('address'), aadhaar: g('aadhaar').replace(/\s/g, ''), bankName: g('bank'), accountNo: g('acc').replace(/\s/g, ''),
-    ifsc: g('ifsc').toUpperCase(), joiningDate: g('join') };
+    ifsc: g('ifsc').toUpperCase(), joiningDate: g('join'), photo: S.regPhoto || '' };
   const errs = [];
+  if (!p.photo) errs.push(['photo', 'e_photo']);
   if (!p.name) errs.push(['name', 'e_name']);
   if (!p.fatherName) errs.push(['father', 'e_father']);
   if (!p.surname) errs.push(['surname', 'e_surname']);
@@ -540,7 +580,7 @@ async function doRegister() {
   S.registering = true;
   try {
     const u = await DB.register(p, pass);
-    S.registering = false; await enter(u);
+    S.registering = false; S.regPhoto = null; await enter(u);
     sheet(`<h2 style="margin-top:0">${t('regDone')}</h2>
       <p class="muted">${t('saveThese')}</p>
       <div class="cred"><span class="muted small">${t('userLbl')}</span><b>${esc(p.mobile)}</b></div>
@@ -737,7 +777,7 @@ function profileKV(p, admin) {
   return `<dl class="kv">${rows.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join('')}</dl>`;
 }
 async function empProfile(m) {
-  m.innerHTML = `<h1>${esc(fullName(S.profile))}</h1>${profileKV(S.profile, false)}
+  m.innerHTML = `<div class="avrow">${avatar(S.profile, 'lg')}<h1>${esc(fullName(S.profile))}</h1></div>${profileKV(S.profile, false)}
     <p class="warnbox small">${t('profileNote')}</p>
     <button class="btn sec big" onclick="logout()">${t('logout')}</button>`;
 }
@@ -746,7 +786,7 @@ async function dayDetail(uid, d) {
   try {
     const [ps, ws, emp] = await Promise.all([DB.punches({ uid, date: d }), DB.work({ uid, date: d }), uid === S.user.uid ? S.profile : DB.profile(uid)]);
     const sp = sortP(ps), c = calcDay(sp, d === dateKey());
-    setSheet(`<div class="sheet-h"><h2 style="margin:0">${esc(fullName(emp))}</h2>${closeBtn()}</div>
+    setSheet(`<div class="sheet-h"><div class="avrow">${avatar(emp)}<h2 style="margin:0">${esc(fullName(emp))}</h2></div>${closeBtn()}</div>
       <p class="muted">${fmtDate(d)} · ${stLabel(c.status)}</p>
       <div class="stats"><div><b>${fmtHM(c.ms)}</b><span>${t('worked')}</span></div><div><b>${fmtHM(c.reg)}</b><span>${t('regular')}</span></div><div><b class="ot">${fmtHM(c.ot)}</b><span>${t('overtime')}</span></div></div>
       ${c.missing ? `<p class="warnbox small">${t('missingNote')}</p>` : ''}
@@ -775,7 +815,7 @@ async function adminToday(m) {
     <div class="bar"><input type="date" value="${d}" max="${dateKey()}" onchange="S.ad=this.value;render()"></div>
     <div class="stats"><div><b>${present}</b><span>${t('came')}</span></div><div><b>${isToday ? inside : '—'}</b><span>${t('insideNow')}</span></div><div><b>${rows.length - present}</b><span>${t('absent')}</span></div></div>
     ${S.settings.lat == null ? `<p class="warnbox">${t('setFactory')}</p>` : ''}
-    ${rows.length ? `<ul class="list">${rows.map(({ e, c, st, w }) => `<li class="click" onclick="dayDetail('${e.uid}','${d}')">
+    ${rows.length ? `<ul class="list">${rows.map(({ e, c, st, w }) => `<li class="click" onclick="dayDetail('${e.uid}','${d}')">${avatar(e)}
       <div class="grow"><b>${esc(fullName(e))}</b><div class="muted small">${c.count ? `${t('thIn')} ${fmtT(c.first)} · ${fmtHM(c.ms)}${c.ot ? ` · OT ${fmtHM(c.ot)}` : ''} · ${t('workPostsN', { n: w })}` : esc(e.mobile)}</div></div>
       <span class="state ${st[0]}">${stLabel(st[1])}</span></li>`).join('')}</ul>` : `<p class="muted">${t('noStaff')}</p>`}`;
 }
@@ -814,10 +854,10 @@ async function adminStaff(m) {
   S.emps = (await DB.employees()).sort(byName);
   m.innerHTML = `<h1>${t('tStaff')}</h1>
     <div class="bar"><span class="muted">${t('registeredN', { n: S.emps.length })}</span><button class="chip" onclick="dlStaff()">${t('dlBank')}</button></div>
-    ${S.emps.length ? `<ul class="list">${S.emps.map((e, i) => `<li class="click" onclick="staffDetail(${i})"><div class="grow"><b>${esc(fullName(e))}</b><div class="muted small">${esc(e.mobile)} · ${t('joined', { d: fmtDate(e.joiningDate) || '—' })}</div></div><span class="muted small">${esc(e.bankName)}</span></li>`).join('')}</ul>`
+    ${S.emps.length ? `<ul class="list">${S.emps.map((e, i) => `<li class="click" onclick="staffDetail(${i})">${avatar(e)}<div class="grow"><b>${esc(fullName(e))}</b><div class="muted small">${esc(e.mobile)} · ${t('joined', { d: fmtDate(e.joiningDate) || '—' })}</div></div><span class="muted small">${esc(e.bankName)}</span></li>`).join('')}</ul>`
     : `<p class="muted">${t('noStaffShort')}</p>`}`;
 }
-function staffDetail(i) { const e = S.emps[i]; sheet(`<div class="sheet-h"><h2 style="margin:0">${esc(fullName(e))}</h2>${closeBtn()}</div>${profileKV(e, true)}<p class="muted small">${t('passwordIs', { p: esc(dobPass(e.dob)) })}</p>`); }
+function staffDetail(i) { const e = S.emps[i]; sheet(`<div class="sheet-h"><div class="avrow">${avatar(e, 'lg')}<h2 style="margin:0">${esc(fullName(e))}</h2></div>${closeBtn()}</div>${profileKV(e, true)}<p class="muted small">${t('passwordIs', { p: esc(dobPass(e.dob)) })}</p>`); }
 function dlStaff() {
   csv('JAYCO_staff_bank_list.csv', [['Name', "Father's name", 'Surname', 'Mobile', 'DOB', 'Joining date', 'Bank', 'Account no.', 'IFSC', 'Aadhaar (masked)', 'Address'],
     ...S.emps.map(e => [e.name, e.fatherName, e.surname, e.mobile, fmtDate(e.dob), fmtDate(e.joiningDate), e.bankName, xlText(e.accountNo), e.ifsc, maskAad(e.aadhaar), e.address])]);
