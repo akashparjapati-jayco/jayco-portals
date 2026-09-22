@@ -1,102 +1,109 @@
 <!DOCTYPE html>
 <!--
   JAYCO Staff Attendance — single-file app (GitHub Pages + Firebase)
+  Light theme · English / ગુજરાતી
   --------------------------------------------------------------
-  SETUP (10 minutes)
-  1. Firebase console → create project "jayco-attendance" (keep it separate: it holds Aadhaar + bank data).
-  2. Build → Authentication → Sign-in method → enable "Email/Password".
+  SETUP
+  1. Firebase console → create project "jayco-attendance".
+  2. Authentication → Sign-in method → enable "Email/Password".
      Authentication → Settings → Authorized domains → add: akashparjapati-jayco.github.io
-  3. Build → Firestore Database → create (asia-south1 Mumbai) → Rules tab → paste firestore.rules → Publish.
-  4. Project settings → Your apps → Web app → copy firebaseConfig and paste it into CONFIG.FIREBASE below.
-  5. Put your own mobile number in CONFIG.ADMIN_MOBILES (and the same number in firestore.rules).
-  6. Upload this file to the jayco-portals repo as attendance.html.
-  7. Open the page, register yourself with that mobile number, then Settings → set factory location.
+  3. Firestore Database → create (asia-south1 Mumbai) → Rules → paste firestore.rules → Publish.
+  4. Project settings → Your apps → Web app → copy firebaseConfig into CONFIG.FIREBASE below.
+  5. Put your mobile number in CONFIG.ADMIN_MOBILES (and the same number in firestore.rules).
+  6. Upload to the jayco-portals repo as attendance.html.
   Without CONFIG.FIREBASE the app runs in demo mode (data stays on one phone only).
 -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#131517">
+<meta name="theme-color" content="#ffffff">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="JAYCO Attendance">
 <title>JAYCO Attendance</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600&family=Noto+Sans+Gujarati:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <style>
-:root{--bg:#131517;--panel:#1b1f23;--panel2:#252a2f;--line:#333a41;--ink:#eceef0;--mute:#8e979f;--red:#e30016;--ok:#2fb56a;--warn:#f2a900;--bad:#ff5a6a}
+:root{--bg:#f4f5f7;--panel:#ffffff;--panel2:#eff1f4;--line:#e0e3e8;--ink:#14181d;--mute:#5b646e;--red:#e30016;--redsoft:#fdecee;--ok:#15914d;--oksoft:#e6f5ec;--warn:#a86f00;--warnsoft:#fff6e0;--bad:#c8001a;
+  --body:Barlow,"Noto Sans Gujarati",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --cond:"Barlow Condensed","Noto Sans Gujarati","Arial Narrow",Arial,sans-serif;
+  --shadow:0 1px 2px rgba(20,24,29,.05),0 6px 18px rgba(20,24,29,.06)}
 :root{padding-top:env(safe-area-inset-top,0px)}
 *{box-sizing:border-box}
 html,body{margin:0;min-height:100%}
-body{background:var(--bg);color:var(--ink);font:16px/1.45 Barlow,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;-webkit-font-smoothing:antialiased}
-h1,h2,h3,.cond,.brand,.stats b,.dial button,.btn,.t,.tag,.hero-a,.far,.seg button,.nav button{font-family:"Barlow Condensed","Arial Narrow",Arial,sans-serif}
-h1{font-size:30px;line-height:1.05;margin:4px 0;font-weight:700}
+body{background:var(--bg);color:var(--ink);font:16px/1.5 var(--body);-webkit-font-smoothing:antialiased}
+h1,h2,h3,.cond,.brand,.stats b,.dial button,.btn,.t,.tag,.hero-a,.far,.seg button,.nav button,.cred b{font-family:var(--cond)}
+h1{font-size:30px;line-height:1.1;margin:4px 0;font-weight:700}
 h2{font-size:21px;margin:26px 0 10px;font-weight:600}
 h3{font-size:18px;margin:20px 0 8px;font-weight:600}
 .muted{color:var(--mute)}.small{font-size:13.5px}.err{color:var(--bad)}
 .wrap{max-width:560px;margin:0 auto;padding:18px 16px 110px}
-.top{position:sticky;top:0;z-index:5;background:var(--bg);display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 16px;border-bottom:3px solid var(--red)}
+.top{position:sticky;top:0;z-index:5;background:var(--panel);display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 16px;border-bottom:3px solid var(--red);box-shadow:0 2px 10px rgba(20,24,29,.05)}
 .brand{font-weight:700;font-size:28px;color:var(--red);letter-spacing:1.5px;line-height:1}
-.brand small{display:block;color:var(--mute);font:500 13px Barlow,sans-serif;letter-spacing:0;margin-top:3px}
-.who{display:flex;gap:6px}
-.chip{background:var(--panel2);color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:7px 11px;font:500 14px Barlow,sans-serif;cursor:pointer;text-decoration:none;display:inline-block}
-.nav{position:fixed;left:0;right:0;bottom:0;z-index:6;display:flex;background:var(--panel);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom,0px)}
+.brand small{display:block;color:var(--mute);font:500 13px var(--body);letter-spacing:0;margin-top:3px}
+.who{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+.chip{background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:7px 11px;font:500 14px var(--body);cursor:pointer;text-decoration:none;display:inline-block}
+.chip:hover{border-color:#c9ced5}
+.chip.lang{border-color:var(--red);color:var(--red);font-weight:600}
+.nav{position:fixed;left:0;right:0;bottom:0;z-index:6;display:flex;background:var(--panel);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom,0px);box-shadow:0 -2px 10px rgba(20,24,29,.04)}
 .nav button{flex:1;background:none;border:0;border-top:3px solid transparent;margin-top:-1px;color:var(--mute);padding:12px 4px 13px;font-size:17px;font-weight:600;cursor:pointer}
-.nav button.on{color:var(--ink);border-top-color:var(--red)}
-.dial{width:236px;height:236px;margin:18px auto 8px;border-radius:50%;display:grid;place-items:center;background:conic-gradient(var(--ok) calc(var(--p)*1%),var(--panel2) 0)}
-.dial.ot{background:conic-gradient(var(--warn) calc(var(--o)*1%),var(--ok) 0)}
-.dial button{width:196px;height:196px;border-radius:50%;border:0;background:var(--red);color:#fff;font-size:64px;font-weight:700;line-height:.9;cursor:pointer;box-shadow:inset 0 -8px 0 rgba(0,0,0,.22)}
+.nav button.on{color:var(--red);border-top-color:var(--red)}
+.dial{width:236px;height:236px;margin:18px auto 8px;border-radius:50%;display:grid;place-items:center;background:conic-gradient(var(--ok) calc(var(--p)*1%),#e7e9ed 0)}
+.dial.ot{background:conic-gradient(#e0a100 calc(var(--o)*1%),var(--ok) 0)}
+.dial button{width:196px;height:196px;border-radius:50%;border:0;background:var(--red);color:#fff;font-size:64px;font-weight:700;line-height:.9;cursor:pointer;box-shadow:inset 0 -8px 0 rgba(0,0,0,.16),0 10px 24px rgba(227,0,22,.25)}
 .dial button:active{transform:scale(.97)}
-.dial button.out{background:var(--bg);color:var(--ink);border:3px solid var(--red)}
+.dial button.out{background:var(--panel);color:var(--red);border:4px solid var(--red);box-shadow:0 8px 20px rgba(20,24,29,.08)}
 .dial button:disabled{opacity:.35;cursor:not-allowed}
-.dial button small{display:block;font:500 15px/1.3 Barlow,sans-serif;margin-top:8px;opacity:.9}
+.dial button small{display:block;font:500 15px/1.3 var(--body);margin-top:8px;opacity:.95}
 .gu{text-align:center;color:var(--mute);font-size:14px;margin:0 0 6px}
-.stats{display:grid;grid-template-columns:repeat(3,1fr);border:1px solid var(--line);border-radius:10px;overflow:hidden;margin:14px 0}
-.stats div{padding:10px 6px;text-align:center;background:var(--panel)}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);border:1px solid var(--line);border-radius:10px;overflow:hidden;margin:14px 0;background:var(--panel);box-shadow:var(--shadow)}
+.stats div{padding:10px 6px;text-align:center}
 .stats div+div{border-left:1px solid var(--line)}
 .stats b{display:block;font-size:24px;font-weight:600}
 .stats span{font-size:12.5px;color:var(--mute)}
 .stats .ot{color:var(--warn)}
-.list{list-style:none;margin:0;padding:0;border-top:1px solid var(--line)}
-.list li{display:flex;align-items:center;gap:10px;padding:11px 2px;border-bottom:1px solid var(--line)}
-.list li.click{cursor:pointer}
+.list{list-style:none;margin:0;padding:0;background:var(--panel);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.list li{display:flex;align-items:center;gap:10px;padding:11px 12px;border-bottom:1px solid var(--line)}
+.list li:last-child{border-bottom:0}
+.list li.click{cursor:pointer}.list li.click:hover{background:#fafbfc}
 .grow{flex:1;min-width:0}
 .tag{font-size:14px;font-weight:700;padding:3px 8px;border-radius:4px;min-width:44px;text-align:center;display:inline-block}
-.tag.IN{background:var(--ok);color:#062010}.tag.OUT{background:var(--panel2);color:var(--ink);border:1px solid var(--line)}
+.tag.IN{background:var(--ok);color:#fff}.tag.OUT{background:var(--panel2);color:var(--ink);border:1px solid var(--line)}
 .t{font-size:20px;font-weight:600}
 .f{display:block;margin:0 0 12px}
 .f>span{display:block;font-size:14px;color:var(--mute);margin-bottom:5px}
 .f .emsg{display:none;color:var(--bad);font-size:13px;margin-top:4px}
-.f.bad .emsg{display:block}.f.bad input,.f.bad textarea{border-color:var(--red)}
-input,textarea,select{width:100%;background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:12px;font:16px Barlow,sans-serif}
+.f.bad .emsg{display:block}.f.bad input,.f.bad textarea{border-color:var(--red);background:#fffafa}
+input,textarea,select{width:100%;background:var(--panel);color:var(--ink);border:1px solid #d3d7dd;border-radius:8px;padding:12px;font:16px var(--body)}
 input[type=checkbox]{width:20px;height:20px;accent-color:var(--red);flex:none;margin:2px 0 0}
-input:focus,textarea:focus,select:focus{outline:2px solid var(--red);outline-offset:0}
+input:focus,textarea:focus,select:focus{outline:2px solid var(--red);outline-offset:0;border-color:transparent}
 .row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-.btn{display:inline-flex;align-items:center;justify-content:center;background:var(--red);color:#fff;border:0;border-radius:8px;padding:12px 18px;font-size:19px;font-weight:600;cursor:pointer;text-decoration:none}
+.btn{display:inline-flex;align-items:center;justify-content:center;text-align:center;background:var(--red);color:#fff;border:0;border-radius:8px;padding:12px 18px;font-size:19px;font-weight:600;cursor:pointer;text-decoration:none}
 .btn.big{width:100%;padding:15px;font-size:21px}
-.btn.sec{background:var(--panel2);color:var(--ink);border:1px solid var(--line)}
+.btn.sec{background:var(--panel);color:var(--ink);border:1.5px solid var(--ink)}
 .btn:disabled{opacity:.5;cursor:wait}
-button:focus-visible,.btn:focus-visible,.chip:focus-visible{outline:2px solid #fff;outline-offset:2px}
+button:focus-visible,.btn:focus-visible,.chip:focus-visible{outline:2px solid var(--red);outline-offset:2px}
 .state{font-size:13px;font-weight:600;padding:3px 9px;border-radius:20px;white-space:nowrap}
-.state.in{background:rgba(47,181,106,.15);color:var(--ok)}.state.left{background:var(--panel2);color:var(--mute)}.state.abs{background:rgba(227,0,22,.15);color:var(--bad)}
-.warnbox{border-left:4px solid var(--warn);background:var(--panel);padding:10px 12px;border-radius:0 8px 8px 0;margin:12px 0}
-.tbl{overflow-x:auto;border:1px solid var(--line);border-radius:10px}
+.state.in{background:var(--oksoft);color:var(--ok)}.state.left{background:var(--panel2);color:var(--mute)}.state.abs{background:var(--redsoft);color:var(--bad)}
+.warnbox{border-left:4px solid #e0a100;background:var(--warnsoft);padding:10px 12px;border-radius:0 8px 8px 0;margin:12px 0}
+.warnbox a{color:var(--ink);word-break:break-all}
+.tbl{overflow-x:auto;border:1px solid var(--line);border-radius:10px;background:var(--panel)}
 table{border-collapse:collapse;width:100%;font-size:14.5px;white-space:nowrap}
 th,td{padding:9px 10px;text-align:left;border-bottom:1px solid var(--line)}
-th{background:var(--panel);color:var(--mute);font-weight:500}
-tr.click{cursor:pointer}tr.click:hover td{background:var(--panel)}
+tr:last-child td{border-bottom:0}
+th{background:var(--panel2);color:var(--mute);font-weight:500}
+tr.click{cursor:pointer}tr.click:hover td{background:#fafbfc}
 .num{text-align:right;font-variant-numeric:tabular-nums}
-tfoot td{font-weight:600;background:var(--panel)}
-.sheet-bg{position:fixed;inset:0;z-index:20;background:rgba(0,0,0,.65);display:flex;align-items:flex-end;justify-content:center}
-.sheet{background:var(--panel);width:100%;max-width:560px;max-height:92vh;overflow:auto;border-radius:14px 14px 0 0;padding:18px 16px calc(22px + env(safe-area-inset-bottom,0px));border-top:3px solid var(--red);animation:up .18s ease-out}
+.sheet-bg{position:fixed;inset:0;z-index:20;background:rgba(20,24,29,.45);display:flex;align-items:flex-end;justify-content:center}
+.sheet{background:var(--panel);width:100%;max-width:560px;max-height:92vh;overflow:auto;border-radius:14px 14px 0 0;padding:18px 16px calc(22px + env(safe-area-inset-bottom,0px));border-top:4px solid var(--red);animation:up .18s ease-out}
 @keyframes up{from{transform:translateY(24px);opacity:.6}}
 @media (prefers-reduced-motion:reduce){.sheet{animation:none}.dial button:active{transform:none}}
 .sheet-h{display:flex;justify-content:space-between;align-items:center;gap:10px}
-.cam{position:relative;aspect-ratio:3/4;background:#000;border-radius:10px;overflow:hidden;margin:12px 0;max-height:42vh;margin-inline:auto}
+.cam{position:relative;aspect-ratio:3/4;background:#000;border-radius:10px;overflow:hidden;margin:12px auto;max-height:42vh}
 .cam video{width:100%;height:100%;object-fit:cover;transform:scaleX(-1)}
 .far{font-size:46px;font-weight:700;color:var(--bad);line-height:1;margin:6px 0}
 .okline{color:var(--ok);font-weight:600;margin:4px 0}
@@ -106,24 +113,28 @@ tfoot td{font-weight:600;background:var(--panel)}
 .photos figure{margin:0}
 .photos img{width:100%;border-radius:8px;display:block;aspect-ratio:3/4;object-fit:cover;background:var(--panel2)}
 .photos figcaption{font-size:13px;color:var(--mute);margin-top:4px}
-.kv{display:grid;grid-template-columns:auto 1fr;gap:8px 14px;font-size:15px;margin:10px 0}
+.photos a{color:var(--mute)}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:8px 14px;font-size:15px;margin:10px 0;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px}
+.sheet .kv{border:0;padding:0}
 .kv dt{color:var(--mute)}.kv dd{margin:0;word-break:break-word}
-#toast{position:fixed;left:50%;bottom:86px;transform:translate(-50%,20px);background:var(--ink);color:var(--bg);padding:11px 16px;border-radius:8px;font-weight:600;opacity:0;pointer-events:none;transition:.2s;z-index:40;max-width:90vw;text-align:center}
-#toast.show{opacity:1;transform:translate(-50%,0)}#toast.bad{background:var(--red);color:#fff}
-.work{background:var(--bg);border-left:3px solid var(--red);padding:10px 12px;border-radius:0 8px 8px 0;margin-bottom:8px;white-space:pre-wrap;word-break:break-word}
-.wrap .work{background:var(--panel)}
+#toast{position:fixed;left:50%;bottom:86px;transform:translate(-50%,20px);background:var(--ink);color:#fff;padding:11px 16px;border-radius:8px;font-weight:600;opacity:0;pointer-events:none;transition:.2s;z-index:40;max-width:90vw;text-align:center;box-shadow:var(--shadow)}
+#toast.show{opacity:1;transform:translate(-50%,0)}#toast.bad{background:var(--red)}
+.work{background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--red);padding:10px 12px;border-radius:0 8px 8px 0;margin-bottom:8px;white-space:pre-wrap;word-break:break-word}
 .work .muted{font-size:13px;display:block;margin-bottom:3px;white-space:normal}
-.authcard{max-width:440px;margin:0 auto;padding:30px 18px 60px}
+.authcard{max-width:440px;margin:0 auto;padding:24px 18px 60px}
+.authtop{display:flex;justify-content:space-between;align-items:flex-start}
 .hero-a{font-size:68px;line-height:.85;font-weight:700;color:var(--red);letter-spacing:3px}
-.seg{display:flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;margin:18px 0}
+.seg{display:flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;margin:18px 0;background:var(--panel)}
 .seg button{flex:1;padding:11px;background:none;border:0;color:var(--mute);font-size:18px;font-weight:600;cursor:pointer}
 .seg button.on{background:var(--red);color:#fff}
 .bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:12px 0}
 .bar input{width:auto}
 .consent{display:flex;gap:10px;align-items:flex-start;font-size:14px;color:var(--mute)}
-.legend{font-size:15px;color:var(--ink);font-weight:600;margin:22px 0 10px;padding-bottom:6px;border-bottom:1px solid var(--line)}
-.cred{background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:14px;margin:12px 0}
-.cred b{font:700 30px "Barlow Condensed",sans-serif;letter-spacing:1px;display:block}
+.legend{font-size:15px;color:var(--ink);font-weight:600;margin:22px 0 10px;padding-bottom:6px;border-bottom:2px solid var(--line)}
+.cred{background:var(--panel2);border-radius:10px;padding:14px;margin:12px 0}
+.cred b{font-size:30px;font-weight:700;letter-spacing:1px;display:block}
+ol.help{padding-left:18px;margin:10px 0}
+@media (max-width:430px){.top{padding:8px 12px}.who{gap:4px;flex-wrap:nowrap}.who .chip{padding:6px 8px;font-size:13px}.brand{font-size:24px}}
 </style>
 </head>
 <body>
@@ -136,8 +147,151 @@ const CONFIG = {
   // FIREBASE: { apiKey:"...", authDomain:"jayco-attendance.firebaseapp.com", projectId:"jayco-attendance", appId:"..." },
   FIREBASE: null,
   ADMIN_MOBILES: ['9999999999'],          // mobile numbers that get the Admin panel
-  EMAIL_DOMAIN: 'staff.jaycohousing.com'  // internal login id = mobile@this-domain (no mail is sent)
+  EMAIL_DOMAIN: 'staff.jaycohousing.com', // internal login id = mobile@this-domain (no mail is sent)
+  APP_URL: 'https://akashparjapati-jayco.github.io/jayco-portals/attendance.html'
 };
+
+/* ============ language: English / ગુજરાતી ============ */
+const L = {
+en: {
+  appSub:'Staff attendance', login:'Log in', newReg:'New registration', logout:'Log out', langBtn:'ગુજરાતી',
+  mobile:'Mobile number', passLbl:'Password (date of birth as DDMMYY)', passEx:'Born 15-08-1995 → password 150895',
+  loggingIn:'Logging in…', e_mobile10:'Enter your 10-digit mobile number.', e_pass6:'Password is 6 digits: DDMMYY.',
+  demo:'Demo mode: data is saved on this phone only. Add the Firebase config to share data between phones.',
+  openLink:'This page was opened as a file (from WhatsApp or Downloads). Phones block location and camera for files. Open the app from this link instead:',
+  help1:"Turn on Location in the phone's quick settings.", help2:'In Chrome, tap the icon left of the web address, then Permissions, then Location: Allow.', help3:'Still blocked? Phone Settings, Apps, Chrome, Permissions, Location: Allow.',
+  regIntro:'Fill in exactly as on your Aadhaar and bank passbook.', secPersonal:'Personal', name:'Name', father:"Father's name", surname:'Surname', dob:'Date of birth', address:'Full address',
+  secLogin:'Login and ID', mobileUser:'Mobile number (this is your username)', aadhaar:'Aadhaar card number (12 digits)',
+  secBank:'Bank (for salary)', bank:'Bank name', acc:'Bank account number', acc2:'Re-enter account number', ifsc:'IFSC / NEFT code',
+  secJob:'Job', join:'Joining date (optional)', consent:'I confirm these details are correct and allow JAYCO Engineering India to use them for attendance and salary payment.',
+  register:'Register', registering:'Registering…',
+  e_name:'Enter your name.', e_father:"Enter your father's name.", e_surname:'Enter your surname.', e_dob:'Select your date of birth.', e_dobYear:'Check the year of birth.',
+  e_address:'Enter your full address.', e_mobile:'Enter a valid 10-digit mobile number.', e_aadhaar:'Aadhaar number is not valid. Check all 12 digits.', e_bank:'Enter your bank name.',
+  e_acc:'Account number must be 9 to 18 digits.', e_acc2:'Account numbers do not match.', e_ifsc:'IFSC must look like SBIN0001234 (11 characters).', e_ok:'Tick this box to continue.',
+  regDone:'Registration complete', saveThese:'Save these details. Take a screenshot.', userLbl:'Username (mobile)', passLbl2:'Password (date of birth DDMMYY)', startPunching:'Start punching',
+  wrongCred:'Mobile number or password is wrong.', already:'This mobile number is already registered. Log in instead.', network:'No internet. Check mobile data and try again.',
+  denied:'Access denied by server rules. Contact the office.', tooMany:'Too many attempts. Wait a few minutes and try again.', weak:'Password must be 6 digits (DDMMYY).',
+  storageFull:'Phone storage is full. Switch the app to cloud (Firebase) mode.', missingProfile:'Your login works but your registration details are missing. Contact the office.',
+  tPunch:'Punch', tWork:'Daily work', tHistory:'History', tProfile:'Profile', tToday:'Today', tMonthly:'Monthly', tStaff:'Staff', tSettings:'Settings',
+  myPunch:'My punch', admin:'Admin', adminPanel:'Admin panel',
+  morning:'Good morning', afternoon:'Good afternoon', evening:'Good evening',
+  tapIn:'Tap to punch in', tapOut:'Tap to punch out', hintIn:'Press when you arrive for work', hintOut:'Press when you leave',
+  worked:'Worked', regularOf:'Regular of {h}h', regular:'Regular', overtime:'Overtime',
+  noFactory:'Factory location is not set yet. Ask the admin to set it in Settings.', todaysPunches:"Today's punches", noPunch:'No punch yet today.',
+  fromFactory:'{d} m from factory', session:'session {t}', selfieTag:'selfie', galleryTag:'gallery photo',
+  lunchNote:'Going out for lunch or work outside? Punch OUT, then punch IN when you are back. Only time inside is counted.',
+  noGeo:'This phone does not support location.', locBlocked:'Location permission is blocked. Allow location for this site in browser settings.',
+  locTimeout:'Location timed out. Step into the open and try again.', locFail:'Could not read location. Turn on GPS and try again.',
+  waitMin:'You just punched. Wait one minute.', punchTitle:'Punch {type}', checkingLoc:'Checking your location…', tryAgain:'Try again',
+  outside:'You are outside the factory. Punch is allowed only within {r} m of JAYCO factory.',
+  accuracy:'GPS accuracy ±{a} m. If you are inside, turn on high-accuracy location and step near an open area.', checkAgain:'Check again',
+  inside:'Inside factory area ({d} m)', startWork:'Start work', endWork:'End work', takeHere:'{act} — take photo here', uploadSelfie:'Upload selfie',
+  selfieHintIn:'Take a selfie to start work', selfieHintOut:'Take a selfie to end work', fromGallery:'Choose from gallery', galleryAge:'Gallery photo must be under 10 minutes old.',
+  camBlocked:'Camera preview is not available here. Use "Upload selfie".', camStarting:'Camera is still starting. Tap again.', choosePhoto:'Choose a photo file.',
+  photoOld:'This photo is old. Take a new photo now and upload it.', photoBad:'This photo could not be read. Try another.', saving:'Saving punch…',
+  started:'Work started at {t} (photo {kb} KB)', ended:'Work ended at {t} (photo {kb} KB)', close:'Close',
+  workIntro:'Write what you did: machine, part, quantity.', todaysWork:"Today's work", workPh:'Example: SN 516 plummer block, 40 pcs boring done on VMC 2',
+  postWork:'Post work', postedToday:'Posted today', nothingPosted:'Nothing posted today yet.', writeFirst:'Write your work first.', workPosted:'Work posted',
+  myAtt:'My attendance', daysPresent:'Days present', regHrs:'Regular hrs', otHrs:'Overtime hrs',
+  thDate:'Date', thIn:'In', thOut:'Out', thWorked:'Worked', thOT:'OT', thStatus:'Status', tapDay:'Tap a day to see punches, photos and work.', noMonth:'No attendance in this month.',
+  st_present:'Present', st_half:'Half day', st_absent:'Absent', st_missing:'Missing OUT', st_inside:'Inside', st_left:'Left',
+  aadhaarLbl:'Aadhaar', bankLbl:'Bank', accLbl:'Account no.', ifscLbl:'IFSC', joinLbl:'Joining date', show:'Show',
+  profileNote:'Username: your mobile number. Password: your date of birth as DDMMYY. To correct any detail, contact the office.',
+  missingNote:'A punch is missing (IN without OUT). That part is not counted.', punches:'Punches', noPunches:'No punches.', workPostedH:'Work posted', noWork:'No work posted.',
+  map:'map', photoNA:'Photo not available', gallery:'Gallery', selfie:'Selfie',
+  came:'Came', insideNow:'Inside now', absent:'Absent', setFactory:'Set the factory location in Settings. Staff cannot punch until then.',
+  workPostsN:'{n} work post(s)', noStaff:'No staff registered yet. Share this page link with your team so they can register.',
+  monthlyReport:'Monthly report', dlSummary:'Download summary CSV', dlDaily:'Download day-wise CSV',
+  thEmp:'Employee', thFull:'Full', thHalf:'Half', thPaid:'Paid days', thReg:'Regular h', thOTh:'OT h', thMiss:'Missing OUT',
+  reportNote:'Full day = {hd}h or more inside. Regular capped at {sh}h per day; time above that is overtime{blk}. Days with a missing OUT punch count only completed IN→OUT pairs.',
+  blk:', counted in {m}-minute blocks', noStaffShort:'No staff registered yet.',
+  registeredN:'{n} registered', dlBank:'Download bank list CSV', joined:'joined {d}', passwordIs:'Password: {p}',
+  factoryLoc:'Factory location', locHelp:'Stand at the factory gate and tap the button. Or open the location in Google Maps, long-press the pin, copy the numbers and paste them below.',
+  useHere:'Use my current location', pasteLbl:'Paste coordinates or Google Maps link', lat:'Latitude', lng:'Longitude', checkMap:'Check saved point on Google Maps',
+  radius:'Allowed distance (metres)', workHours:'Working hours', shiftH:'Regular hours per day', halfH:'Half day if less than (hrs)', otBlocks:'Count overtime in blocks of',
+  exact:'Exact minutes', m15:'15 minutes', m30:'30 minutes', h1:'1 hour', punchPhoto:'Punch photo',
+  allowGallery:'Also allow choosing a photo from the gallery (must be under 10 minutes old). Selfie upload from the phone camera is always on.',
+  maxPhoto:'Maximum photo size', kb8:'8 KB (smallest)', kb15:'15 KB (recommended)', kb25:'25 KB (clearer)', saveSettings:'Save settings',
+  coordsFilled:'Coordinates filled. Tap Save settings.', readingLoc:'Reading location…', locRead:'Location read (±{a} m). Tap Save settings.',
+  badCoords:'Enter a valid latitude and longitude.', saved:'Settings saved'
+},
+gu: {
+  appSub:'સ્ટાફ હાજરી', login:'લૉગ ઇન', newReg:'નવી નોંધણી', logout:'લૉગ આઉટ', langBtn:'English',
+  mobile:'મોબાઇલ નંબર', passLbl:'પાસવર્ડ (જન્મ તારીખ DDMMYY)', passEx:'જન્મ 15-08-1995 → પાસવર્ડ 150895',
+  loggingIn:'લૉગ ઇન થઈ રહ્યું છે…', e_mobile10:'તમારો 10 અંકનો મોબાઇલ નંબર લખો.', e_pass6:'પાસવર્ડ 6 અંકનો છે: DDMMYY.',
+  demo:'ડેમો મોડ: ડેટા ફક્ત આ ફોનમાં સેવ થાય છે. બધા ફોન વચ્ચે ડેટા માટે Firebase સેટ કરો.',
+  openLink:'આ પેજ ફાઇલ તરીકે ખોલ્યું છે (WhatsApp અથવા Downloads માંથી). ફાઇલમાં લોકેશન અને કૅમેરા બંધ રહે છે. આ લિંક પરથી એપ ખોલો:',
+  help1:'ફોનના ક્વિક સેટિંગ્સમાં Location ચાલુ કરો.', help2:'Chrome માં વેબ એડ્રેસની ડાબી બાજુના આઇકન પર ટૅપ કરો → Permissions → Location: Allow.', help3:'હજી બંધ છે? ફોન Settings → Apps → Chrome → Permissions → Location: Allow.',
+  regIntro:'બધી વિગત આધાર કાર્ડ અને બેંક પાસબુક મુજબ ભરો.', secPersonal:'અંગત વિગત', name:'નામ', father:'પિતાનું નામ', surname:'અટક', dob:'જન્મ તારીખ', address:'પૂરું સરનામું',
+  secLogin:'લૉગિન અને ઓળખ', mobileUser:'મોબાઇલ નંબર (આ તમારું યુઝરનેમ છે)', aadhaar:'આધાર કાર્ડ નંબર (12 અંક)',
+  secBank:'બેંક (પગાર માટે)', bank:'બેંકનું નામ', acc:'બેંક ખાતા નંબર', acc2:'ખાતા નંબર ફરી લખો', ifsc:'IFSC / NEFT કોડ',
+  secJob:'નોકરી', join:'જોડાયાની તારીખ (વૈકલ્પિક)', consent:'હું ખાતરી આપું છું કે આ વિગતો સાચી છે અને JAYCO Engineering India ને હાજરી અને પગાર ચુકવણી માટે તેનો ઉપયોગ કરવાની મંજૂરી આપું છું.',
+  register:'નોંધણી કરો', registering:'નોંધણી થઈ રહી છે…',
+  e_name:'તમારું નામ લખો.', e_father:'પિતાનું નામ લખો.', e_surname:'અટક લખો.', e_dob:'જન્મ તારીખ પસંદ કરો.', e_dobYear:'જન્મનું વર્ષ તપાસો.',
+  e_address:'પૂરું સરનામું લખો.', e_mobile:'સાચો 10 અંકનો મોબાઇલ નંબર લખો.', e_aadhaar:'આધાર નંબર ખોટો છે. બધા 12 અંક તપાસો.', e_bank:'બેંકનું નામ લખો.',
+  e_acc:'ખાતા નંબર 9 થી 18 અંકનો હોવો જોઈએ.', e_acc2:'બંને ખાતા નંબર સરખા નથી.', e_ifsc:'IFSC આ રીતે હોવો જોઈએ: SBIN0001234 (11 અક્ષર).', e_ok:'આગળ વધવા આ ખાનું ટિક કરો.',
+  regDone:'નોંધણી પૂર્ણ', saveThese:'આ વિગતો સાચવો. સ્ક્રીનશૉટ લઈ લો.', userLbl:'યુઝરનેમ (મોબાઇલ)', passLbl2:'પાસવર્ડ (જન્મ તારીખ DDMMYY)', startPunching:'પંચિંગ શરૂ કરો',
+  wrongCred:'મોબાઇલ નંબર અથવા પાસવર્ડ ખોટો છે.', already:'આ મોબાઇલ નંબર પહેલેથી નોંધાયેલ છે. લૉગ ઇન કરો.', network:'ઇન્ટરનેટ નથી. મોબાઇલ ડેટા તપાસી ફરી પ્રયત્ન કરો.',
+  denied:'પરવાનગી નથી. ઑફિસનો સંપર્ક કરો.', tooMany:'ઘણા પ્રયત્નો થયા. થોડી મિનિટ રાહ જોઈ ફરી પ્રયત્ન કરો.', weak:'પાસવર્ડ 6 અંકનો (DDMMYY) હોવો જોઈએ.',
+  storageFull:'ફોનની સ્ટોરેજ ભરાઈ ગઈ છે. એપને Firebase મોડમાં ફેરવો.', missingProfile:'લૉગિન થયું પણ નોંધણીની વિગતો મળી નથી. ઑફિસનો સંપર્ક કરો.',
+  tPunch:'પંચ', tWork:'રોજનું કામ', tHistory:'ઇતિહાસ', tProfile:'પ્રોફાઇલ', tToday:'આજે', tMonthly:'માસિક', tStaff:'સ્ટાફ', tSettings:'સેટિંગ્સ',
+  myPunch:'મારો પંચ', admin:'એડમિન', adminPanel:'એડમિન પેનલ',
+  morning:'સુપ્રભાત', afternoon:'નમસ્તે', evening:'શુભ સાંજ',
+  tapIn:'પંચ ઇન કરવા દબાવો', tapOut:'પંચ આઉટ કરવા દબાવો', hintIn:'કામ પર આવો ત્યારે દબાવો', hintOut:'બહાર જાઓ ત્યારે દબાવો',
+  worked:'કામના કલાક', regularOf:'નિયમિત ({h} કલાક)', regular:'નિયમિત', overtime:'ઓવરટાઇમ',
+  noFactory:'ફેક્ટરીનું લોકેશન હજી સેટ નથી. એડમિનને Settings માં સેટ કરવા કહો.', todaysPunches:'આજના પંચ', noPunch:'આજે હજી કોઈ પંચ નથી.',
+  fromFactory:'ફેક્ટરીથી {d} મીટર', session:'સમય {t}', selfieTag:'સેલ્ફી', galleryTag:'ગેલેરી ફોટો',
+  lunchNote:'જમવા કે બહાર કામે જાઓ ત્યારે OUT પંચ કરો, પાછા આવો ત્યારે IN પંચ કરો. ફક્ત અંદરનો સમય ગણાય છે.',
+  noGeo:'આ ફોનમાં લોકેશન સુવિધા નથી.', locBlocked:'લોકેશનની પરવાનગી બંધ છે. બ્રાઉઝર સેટિંગ્સમાં આ સાઇટ માટે Location ચાલુ કરો.',
+  locTimeout:'લોકેશન મળ્યું નહીં. ખુલ્લી જગ્યામાં જઈ ફરી પ્રયત્ન કરો.', locFail:'લોકેશન વાંચી શકાયું નહીં. GPS ચાલુ કરી ફરી પ્રયત્ન કરો.',
+  waitMin:'તમે હમણાં જ પંચ કર્યું. એક મિનિટ રાહ જુઓ.', punchTitle:'પંચ {type}', checkingLoc:'તમારું લોકેશન તપાસી રહ્યા છીએ…', tryAgain:'ફરી પ્રયત્ન કરો',
+  outside:'તમે ફેક્ટરીની બહાર છો. JAYCO ફેક્ટરીથી {r} મીટરની અંદર જ પંચ થઈ શકે.',
+  accuracy:'GPS ચોકસાઈ ±{a} મીટર. તમે અંદર હો તો હાઇ-એક્યુરસી લોકેશન ચાલુ કરી ખુલ્લી જગ્યા પાસે જાઓ.', checkAgain:'ફરી તપાસો',
+  inside:'ફેક્ટરી વિસ્તારમાં છો ({d} મીટર)', startWork:'કામ શરૂ કરો', endWork:'કામ પૂરું કરો', takeHere:'{act} — અહીં ફોટો લો', uploadSelfie:'સેલ્ફી અપલોડ કરો',
+  selfieHintIn:'કામ શરૂ કરવા સેલ્ફી લો', selfieHintOut:'કામ પૂરું કરવા સેલ્ફી લો', fromGallery:'ગેલેરીમાંથી પસંદ કરો', galleryAge:'ગેલેરી ફોટો 10 મિનિટથી જૂનો ન હોવો જોઈએ.',
+  camBlocked:'અહીં કૅમેરા પ્રિવ્યૂ ઉપલબ્ધ નથી. "સેલ્ફી અપલોડ કરો" વાપરો.', camStarting:'કૅમેરા શરૂ થઈ રહ્યો છે. ફરી ટૅપ કરો.', choosePhoto:'ફોટો ફાઇલ પસંદ કરો.',
+  photoOld:'આ ફોટો જૂનો છે. હમણાં નવો ફોટો લઈ અપલોડ કરો.', photoBad:'આ ફોટો ખૂલ્યો નહીં. બીજો ફોટો અજમાવો.', saving:'પંચ સેવ થઈ રહ્યું છે…',
+  started:'કામ શરૂ: {t} (ફોટો {kb} KB)', ended:'કામ પૂરું: {t} (ફોટો {kb} KB)', close:'બંધ કરો',
+  workIntro:'આજે શું કામ કર્યું તે લખો: મશીન, પાર્ટ, નંગ.', todaysWork:'આજનું કામ', workPh:'ઉદાહરણ: SN 516 પ્લમર બ્લોક, VMC 2 પર 40 નંગ બોરિંગ',
+  postWork:'કામ મોકલો', postedToday:'આજે મોકલેલું', nothingPosted:'આજે હજી કંઈ મોકલ્યું નથી.', writeFirst:'પહેલાં તમારું કામ લખો.', workPosted:'કામ મોકલાયું',
+  myAtt:'મારી હાજરી', daysPresent:'હાજર દિવસ', regHrs:'નિયમિત કલાક', otHrs:'ઓવરટાઇમ કલાક',
+  thDate:'તારીખ', thIn:'ઇન', thOut:'આઉટ', thWorked:'કલાક', thOT:'OT', thStatus:'સ્થિતિ', tapDay:'પંચ, ફોટા અને કામ જોવા દિવસ પર ટૅપ કરો.', noMonth:'આ મહિનામાં હાજરી નથી.',
+  st_present:'હાજર', st_half:'અડધો દિવસ', st_absent:'ગેરહાજર', st_missing:'OUT પંચ બાકી', st_inside:'અંદર', st_left:'ગયા',
+  aadhaarLbl:'આધાર', bankLbl:'બેંક', accLbl:'ખાતા નંબર', ifscLbl:'IFSC', joinLbl:'જોડાયાની તારીખ', show:'બતાવો',
+  profileNote:'યુઝરનેમ: તમારો મોબાઇલ નંબર. પાસવર્ડ: જન્મ તારીખ DDMMYY. કોઈ વિગત સુધારવા ઑફિસનો સંપર્ક કરો.',
+  missingNote:'એક પંચ બાકી છે (IN પછી OUT નથી). એ સમય ગણાયો નથી.', punches:'પંચ', noPunches:'કોઈ પંચ નથી.', workPostedH:'મોકલેલું કામ', noWork:'કોઈ કામ મોકલ્યું નથી.',
+  map:'નકશો', photoNA:'ફોટો ઉપલબ્ધ નથી', gallery:'ગેલેરી', selfie:'સેલ્ફી',
+  came:'આવ્યા', insideNow:'હાલ અંદર', absent:'ગેરહાજર', setFactory:'Settings માં ફેક્ટરી લોકેશન સેટ કરો. ત્યાં સુધી સ્ટાફ પંચ નહીં કરી શકે.',
+  workPostsN:'{n} કામ', noStaff:'હજી કોઈ સ્ટાફ નોંધાયો નથી. નોંધણી માટે આ લિંક ટીમને મોકલો.',
+  monthlyReport:'માસિક રિપોર્ટ', dlSummary:'સારાંશ CSV ડાઉનલોડ', dlDaily:'દિવસવાર CSV ડાઉનલોડ',
+  thEmp:'કર્મચારી', thFull:'પૂરા', thHalf:'અડધા', thPaid:'પગારી દિવસ', thReg:'નિયમિત ક.', thOTh:'OT ક.', thMiss:'OUT બાકી',
+  reportNote:'પૂરો દિવસ = અંદર {hd} કલાક કે વધુ. દરરોજ નિયમિત વધુમાં વધુ {sh} કલાક; તેથી વધુ સમય ઓવરટાઇમ{blk}. OUT પંચ બાકી હોય તે દિવસે ફક્ત પૂરા IN→OUT સમય ગણાય.',
+  blk:', {m} મિનિટના ભાગમાં ગણાય', noStaffShort:'હજી કોઈ સ્ટાફ નોંધાયો નથી.',
+  registeredN:'{n} નોંધાયેલા', dlBank:'બેંક યાદી CSV ડાઉનલોડ', joined:'જોડાયા {d}', passwordIs:'પાસવર્ડ: {p}',
+  factoryLoc:'ફેક્ટરી લોકેશન', locHelp:'ફેક્ટરીના ગેટ પર ઊભા રહી બટન દબાવો. અથવા Google Maps માં પિન પર લાંબું દબાવી આંકડા કૉપી કરી નીચે પેસ્ટ કરો.',
+  useHere:'મારું હાલનું લોકેશન વાપરો', pasteLbl:'કોઓર્ડિનેટ્સ અથવા Google Maps લિંક પેસ્ટ કરો', lat:'અક્ષાંશ (Latitude)', lng:'રેખાંશ (Longitude)', checkMap:'સેવ કરેલું સ્થળ Google Maps પર જુઓ',
+  radius:'મંજૂર અંતર (મીટર)', workHours:'કામના કલાક', shiftH:'દૈનિક નિયમિત કલાક', halfH:'આનાથી ઓછા કલાક હોય તો અડધો દિવસ', otBlocks:'ઓવરટાઇમ આ ભાગમાં ગણો',
+  exact:'ચોક્કસ મિનિટ', m15:'15 મિનિટ', m30:'30 મિનિટ', h1:'1 કલાક', punchPhoto:'પંચ ફોટો',
+  allowGallery:'ગેલેરીમાંથી ફોટો પસંદ કરવાની પણ મંજૂરી આપો (10 મિનિટથી જૂનો ન હોય). ફોન કૅમેરાથી સેલ્ફી અપલોડ હંમેશાં ચાલુ છે.',
+  maxPhoto:'ફોટોની મહત્તમ સાઇઝ', kb8:'8 KB (સૌથી નાની)', kb15:'15 KB (ભલામણ)', kb25:'25 KB (વધુ સ્પષ્ટ)', saveSettings:'સેટિંગ્સ સેવ કરો',
+  coordsFilled:'કોઓર્ડિનેટ્સ ભરાયા. સેટિંગ્સ સેવ કરો દબાવો.', readingLoc:'લોકેશન વાંચી રહ્યા છીએ…', locRead:'લોકેશન મળ્યું (±{a} મીટર). સેટિંગ્સ સેવ કરો દબાવો.',
+  badCoords:'સાચા અક્ષાંશ અને રેખાંશ લખો.', saved:'સેટિંગ્સ સેવ થયા'
+}};
+function t(k, v) {
+  const s = (L[S.lang] && L[S.lang][k]) ?? L.en[k] ?? k;
+  return v ? s.replace(/\{(\w+)\}/g, (_, x) => v[x] ?? '') : s;
+}
+function initialLang() {
+  try { const s = localStorage.getItem('jayco_lang'); if (s === 'en' || s === 'gu') return s; } catch (e) {}
+  return /^gu/i.test(navigator.language || '') ? 'gu' : 'en';
+}
+function setLang(l) {
+  S.lang = l; try { localStorage.setItem('jayco_lang', l); } catch (e) {}
+  document.documentElement.lang = l;
+  closeSheet(); if (S.user) render(); else renderAuth();
+}
+function toggleLang() { setLang(S.lang === 'en' ? 'gu' : 'en'); }
+const langChip = () => `<button class="chip lang" onclick="toggleLang()" aria-label="Change language">${t('langBtn')}</button>`;
 
 /* ============ helpers ============ */
 const $ = s => document.querySelector(s);
@@ -156,10 +310,13 @@ const fullName = p => p ? `${p.name} ${p.surname}` : '';
 const byName = (a, b) => fullName(a).localeCompare(fullName(b));
 const groupBy = (arr, k) => arr.reduce((o, x) => ((o[x[k]] = o[x[k]] || []).push(x), o), {});
 const H = 3600000;
+const SECURE = window.isSecureContext;
+const openLinkMsg = () => `${t('openLink')}<br><a href="${CONFIG.APP_URL}">${CONFIG.APP_URL}</a>`;
+const permHelp = () => `<ol class="help small muted"><li>${t('help1')}</li><li>${t('help2')}</li><li>${t('help3')}</li></ol>`;
 
 function toast(msg, bad) {
-  const t = $('#toast'); t.textContent = msg; t.className = 'show' + (bad ? ' bad' : '');
-  clearTimeout(toast._t); toast._t = setTimeout(() => t.className = '', 3400);
+  const el = $('#toast'); el.textContent = msg; el.className = 'show' + (bad ? ' bad' : '');
+  clearTimeout(toast._t); toast._t = setTimeout(() => el.className = '', 3400);
 }
 function haversine(la1, lo1, la2, lo2) {
   const R = 6371000, r = x => x * Math.PI / 180;
@@ -174,12 +331,12 @@ function verhoeff(num) {
 }
 function errMsg(e) {
   const c = (e && e.code) || '';
-  if (/invalid-credential|wrong-password|user-not-found|invalid-login|invalid-email/.test(c)) return 'Mobile number or password is wrong.';
-  if (c.includes('email-already-in-use')) return 'This mobile number is already registered. Log in instead.';
-  if (c.includes('network')) return 'No internet. Check mobile data and try again.';
-  if (c.includes('permission-denied')) return 'Access denied by server rules. Contact the office.';
-  if (c.includes('too-many-requests')) return 'Too many attempts. Wait a few minutes and try again.';
-  if (c.includes('weak-password')) return 'Password must be 6 digits (DDMMYY).';
+  if (/invalid-credential|wrong-password|user-not-found|invalid-login|invalid-email/.test(c)) return t('wrongCred');
+  if (c.includes('email-already-in-use')) return t('already');
+  if (c.includes('network')) return t('network');
+  if (c.includes('permission-denied')) return t('denied');
+  if (c.includes('too-many-requests')) return t('tooMany');
+  if (c.includes('weak-password')) return t('weak');
   return (e && e.message) || String(e);
 }
 function csv(name, rows) {
@@ -188,26 +345,26 @@ function csv(name, rows) {
   a.href = URL.createObjectURL(new Blob(['\ufeff' + s], { type: 'text/csv;charset=utf-8' }));
   a.download = name; document.body.appendChild(a); a.click(); a.remove();
 }
-const xlText = v => v ? `="${v}"` : ''; // keeps long numbers intact in Excel
+const xlText = v => v ? `="${v}"` : '';
 
 /* ============ data layer: demo (this phone only) ============ */
 const Local = {
   K: 'jayco_att_v1', S: 'jayco_att_session', cb: null,
   d() { try { return JSON.parse(localStorage.getItem(this.K)) || {}; } catch (e) { return {}; } },
-  w(x) { try { localStorage.setItem(this.K, JSON.stringify(x)); } catch (e) { throw new Error('Phone storage is full. Switch the app to cloud (Firebase) mode.'); } },
+  w(x) { try { localStorage.setItem(this.K, JSON.stringify(x)); } catch (e) { throw new Error(t('storageFull')); } },
   id: p => p + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
   init() {},
   onAuth(cb) { this.cb = cb; let s = null; try { s = JSON.parse(localStorage.getItem(this.S)); } catch (e) {} cb(s); },
   async register(p, pass) {
     const x = this.d(); x.users = x.users || {}; x.employees = x.employees || {};
-    if (x.users[p.mobile]) throw new Error('This mobile number is already registered. Log in instead.');
+    if (x.users[p.mobile]) throw new Error(t('already'));
     const uid = this.id('u'); x.users[p.mobile] = { uid, pass };
     x.employees[uid] = { ...p, uid, createdAt: Date.now(), active: true }; this.w(x);
     const u = { uid, mobile: p.mobile }; localStorage.setItem(this.S, JSON.stringify(u)); return u;
   },
   async login(m, p) {
     const u = (this.d().users || {})[m];
-    if (!u || u.pass !== p) throw new Error('Mobile number or password is wrong.');
+    if (!u || u.pass !== p) throw new Error(t('wrongCred'));
     const s = { uid: u.uid, mobile: m }; localStorage.setItem(this.S, JSON.stringify(s)); this.cb && this.cb(s);
   },
   async logout() { localStorage.removeItem(this.S); this.cb && this.cb(null); },
@@ -262,9 +419,10 @@ const Cloud = {
 };
 
 const DB = CONFIG.FIREBASE ? Cloud : Local;
-// Factory: Jayco Engineering India, Plot 18/19-20, Dharti Industrial Park, Mirjapur (Kheda) — Google Maps pin
+// Factory: Jayco Engineering India, Dharti Industrial Park, Mirjapur (Kheda) — Google Maps pin
 const DEF = { lat: 22.991259, lng: 72.841697, radius: 100, shiftHours: 8, otRoundMin: 15, halfDayHours: 4, allowUpload: true, photoKB: 15 };
-const S = { user: null, profile: null, admin: false, settings: { ...DEF }, view: 'emp', tab: 'today', authMode: 'login', today: { punches: [], work: [] } };
+const S = { lang: 'en', user: null, profile: null, admin: false, settings: { ...DEF }, view: 'emp', tab: 'today', authMode: 'login', today: { punches: [] } };
+S.lang = initialLang(); document.documentElement.lang = S.lang;
 
 /* ============ attendance maths ============ */
 function sortP(ps) { return ps.slice().sort((a, b) => a.t - b.t); }
@@ -281,9 +439,10 @@ function calcDay(punches, isToday) {
   const shift = st.shiftHours * H, reg = Math.min(ms, shift);
   let ot = Math.max(0, ms - shift);
   const r = (+st.otRoundMin || 0) * 60000; if (r) ot = Math.floor(ot / r) * r;
-  const status = ms === 0 ? (ps.length ? 'Missing OUT' : 'Absent') : ms < st.halfDayHours * H ? 'Half day' : 'Present';
+  const status = ms === 0 ? (ps.length ? 'missing' : 'absent') : ms < st.halfDayHours * H ? 'half' : 'present';
   return { ms, reg, ot, open: isOpen && isToday, missing, status, first: ps[0]?.t, last: ps[ps.length-1]?.t, lastType: ps[ps.length-1]?.type, count: ps.length };
 }
+const stLabel = c => t('st_' + c);
 
 /* ============ boot & auth ============ */
 function boot() {
@@ -298,7 +457,7 @@ async function enter(u) {
     S.settings = { ...DEF, ...((await DB.settings()) || {}) };
   } catch (e) { toast(errMsg(e), 1); }
   if (!S.profile && !S.admin) {
-    $('#app').innerHTML = `<div class="authcard"><div class="hero-a">JAYCO</div><p class="err">Your login works but your registration details are missing. Contact the office.</p><button class="btn" onclick="logout()">Log out</button></div>`;
+    $('#app').innerHTML = `<div class="authcard"><div class="hero-a">JAYCO</div><p class="err">${t('missingProfile')}</p><button class="btn" onclick="logout()">${t('logout')}</button></div>`;
     return;
   }
   S.view = S.admin ? 'admin' : 'emp'; S.tab = 'today'; render();
@@ -309,53 +468,51 @@ function renderAuth() {
   clearInterval(S.timer);
   const reg = S.authMode === 'reg';
   $('#app').innerHTML = `<div class="authcard">
-    <div class="hero-a">JAYCO</div>
-    <div class="cond" style="font-size:22px;margin-top:6px">Staff attendance</div>
-    ${DB === Local ? '<p class="warnbox small">Demo mode: data is saved on this phone only. Add the Firebase config to share data between phones.</p>' : ''}
+    <div class="authtop"><div class="hero-a">JAYCO</div>${langChip()}</div>
+    <div class="cond" style="font-size:22px;margin-top:6px">${t('appSub')}</div>
+    ${!SECURE ? `<p class="warnbox small">${openLinkMsg()}</p>` : ''}
+    ${DB === Local ? `<p class="warnbox small">${t('demo')}</p>` : ''}
     <div class="seg" role="tablist">
-      <button class="${reg ? '' : 'on'}" onclick="S.authMode='login';renderAuth()">Log in</button>
-      <button class="${reg ? 'on' : ''}" onclick="S.authMode='reg';renderAuth()">New registration</button>
+      <button class="${reg ? '' : 'on'}" onclick="S.authMode='login';renderAuth()">${t('login')}</button>
+      <button class="${reg ? 'on' : ''}" onclick="S.authMode='reg';renderAuth()">${t('newReg')}</button>
     </div>
     ${reg ? regForm() : loginForm()}
   </div>`;
 }
 function loginForm() {
-  return `<label class="f"><span>Mobile number</span><input id="l_m" type="tel" inputmode="numeric" maxlength="10" autocomplete="username"></label>
-  <label class="f"><span>Password (date of birth as DDMMYY)</span><input id="l_p" type="password" inputmode="numeric" maxlength="6" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()"></label>
-  <p class="muted small">Born 15-08-1995 → password 150895. પાસવર્ડ = જન્મ તારીખ (DDMMYY)</p>
-  <button class="btn big" id="l_btn" onclick="doLogin()">Log in</button>`;
+  return `<label class="f"><span>${t('mobile')}</span><input id="l_m" type="tel" inputmode="numeric" maxlength="10" autocomplete="username"></label>
+  <label class="f"><span>${t('passLbl')}</span><input id="l_p" type="password" inputmode="numeric" maxlength="6" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()"></label>
+  <p class="muted small">${t('passEx')}</p>
+  <button class="btn big" id="l_btn" onclick="doLogin()">${t('login')}</button>`;
 }
 async function doLogin() {
   const m = $('#l_m').value.trim(), p = $('#l_p').value.trim();
-  if (!/^\d{10}$/.test(m)) return toast('Enter your 10-digit mobile number.', 1);
-  if (!/^\d{6}$/.test(p)) return toast('Password is 6 digits: DDMMYY.', 1);
-  const b = $('#l_btn'); b.disabled = true; b.textContent = 'Logging in…';
-  try { await DB.login(m, p); } catch (e) { toast(errMsg(e), 1); b.disabled = false; b.textContent = 'Log in'; }
+  if (!/^\d{10}$/.test(m)) return toast(t('e_mobile10'), 1);
+  if (!/^\d{6}$/.test(p)) return toast(t('e_pass6'), 1);
+  const b = $('#l_btn'); b.disabled = true; b.textContent = t('loggingIn');
+  try { await DB.login(m, p); } catch (e) { toast(errMsg(e), 1); b.disabled = false; b.textContent = t('login'); }
 }
-const fld = (id, label, type = 'text', attr = '') =>
-  `<label class="f" id="w_${id}"><span>${label}</span>${type === 'area'
+const fld = (id, key, type = 'text', attr = '') =>
+  `<label class="f" id="w_${id}"><span>${t(key)}</span>${type === 'area'
     ? `<textarea id="r_${id}" rows="3" ${attr}></textarea>`
     : `<input id="r_${id}" type="${type}" ${attr}>`}<small class="emsg"></small></label>`;
 function regForm() {
-  return `<p class="muted small">Fill in exactly as on your Aadhaar and bank passbook. બધી વિગત આધાર કાર્ડ અને બેંક પાસબુક મુજબ ભરો.</p>
-  <div class="legend">Personal</div>
-  ${fld('name', 'Name')}
-  ${fld('father', "Father's name")}
-  ${fld('surname', 'Surname')}
-  ${fld('dob', 'Date of birth', 'date')}
-  ${fld('address', 'Full address', 'area', 'maxlength="300"')}
-  <div class="legend">Login and ID</div>
-  ${fld('mobile', 'Mobile number (this is your username)', 'tel', 'inputmode="numeric" maxlength="10"')}
-  ${fld('aadhaar', 'Aadhaar card number (12 digits)', 'text', 'inputmode="numeric" maxlength="14" autocomplete="off"')}
-  <div class="legend">Bank (for salary)</div>
-  ${fld('bank', 'Bank name', 'text', 'placeholder="State Bank of India"')}
-  ${fld('acc', 'Bank account number', 'text', 'inputmode="numeric" maxlength="18" autocomplete="off"')}
-  ${fld('acc2', 'Re-enter account number', 'text', 'inputmode="numeric" maxlength="18" autocomplete="off" onpaste="return false"')}
-  ${fld('ifsc', 'IFSC / NEFT code', 'text', 'maxlength="11" style="text-transform:uppercase" placeholder="SBIN0001234"')}
-  <div class="legend">Job</div>
-  ${fld('join', 'Joining date (optional)', 'date')}
-  <label class="f consent" id="w_ok"><input type="checkbox" id="r_ok"><span>I confirm these details are correct and allow JAYCO Engineering India to use them for attendance and salary payment.<small class="emsg"></small></span></label>
-  <button class="btn big" id="r_btn" onclick="doRegister()">Register</button>`;
+  return `<p class="muted small">${t('regIntro')}</p>
+  <div class="legend">${t('secPersonal')}</div>
+  ${fld('name', 'name')}${fld('father', 'father')}${fld('surname', 'surname')}${fld('dob', 'dob', 'date')}
+  ${fld('address', 'address', 'area', 'maxlength="300"')}
+  <div class="legend">${t('secLogin')}</div>
+  ${fld('mobile', 'mobileUser', 'tel', 'inputmode="numeric" maxlength="10"')}
+  ${fld('aadhaar', 'aadhaar', 'text', 'inputmode="numeric" maxlength="14" autocomplete="off"')}
+  <div class="legend">${t('secBank')}</div>
+  ${fld('bank', 'bank', 'text', 'placeholder="State Bank of India"')}
+  ${fld('acc', 'acc', 'text', 'inputmode="numeric" maxlength="18" autocomplete="off"')}
+  ${fld('acc2', 'acc2', 'text', 'inputmode="numeric" maxlength="18" autocomplete="off" onpaste="return false"')}
+  ${fld('ifsc', 'ifsc', 'text', 'maxlength="11" style="text-transform:uppercase" placeholder="SBIN0001234"')}
+  <div class="legend">${t('secJob')}</div>
+  ${fld('join', 'join', 'date')}
+  <label class="f consent" id="w_ok"><input type="checkbox" id="r_ok"><span>${t('consent')}<small class="emsg"></small></span></label>
+  <button class="btn big" id="r_btn" onclick="doRegister()">${t('register')}</button>`;
 }
 async function doRegister() {
   const g = id => (($('#r_' + id) || {}).value || '').trim();
@@ -363,56 +520,56 @@ async function doRegister() {
     address: g('address'), aadhaar: g('aadhaar').replace(/\s/g, ''), bankName: g('bank'), accountNo: g('acc').replace(/\s/g, ''),
     ifsc: g('ifsc').toUpperCase(), joiningDate: g('join') };
   const errs = [];
-  if (!p.name) errs.push(['name', 'Enter your name.']);
-  if (!p.fatherName) errs.push(['father', "Enter your father's name."]);
-  if (!p.surname) errs.push(['surname', 'Enter your surname.']);
-  if (!p.dob) errs.push(['dob', 'Select your date of birth.']);
-  else { const age = (Date.now() - new Date(p.dob)) / (365.25 * 24 * H); if (age < 14 || age > 80) errs.push(['dob', 'Check the year of birth.']); }
-  if (p.address.length < 10) errs.push(['address', 'Enter your full address.']);
-  if (!/^[6-9]\d{9}$/.test(p.mobile)) errs.push(['mobile', 'Enter a valid 10-digit mobile number.']);
-  if (!/^[2-9]\d{11}$/.test(p.aadhaar) || !verhoeff(p.aadhaar)) errs.push(['aadhaar', 'Aadhaar number is not valid. Check all 12 digits.']);
-  if (!p.bankName) errs.push(['bank', 'Enter your bank name.']);
-  if (!/^\d{9,18}$/.test(p.accountNo)) errs.push(['acc', 'Account number must be 9 to 18 digits.']);
-  if (p.accountNo !== g('acc2').replace(/\s/g, '')) errs.push(['acc2', 'Account numbers do not match.']);
-  if (!/^[A-Z]{4}0[A-Z0-9]{6}$/.test(p.ifsc)) errs.push(['ifsc', 'IFSC must look like SBIN0001234 (11 characters).']);
-  if (!$('#r_ok').checked) errs.push(['ok', 'Tick this box to continue.']);
+  if (!p.name) errs.push(['name', 'e_name']);
+  if (!p.fatherName) errs.push(['father', 'e_father']);
+  if (!p.surname) errs.push(['surname', 'e_surname']);
+  if (!p.dob) errs.push(['dob', 'e_dob']);
+  else { const age = (Date.now() - new Date(p.dob)) / (365.25 * 24 * H); if (age < 14 || age > 80) errs.push(['dob', 'e_dobYear']); }
+  if (p.address.length < 10) errs.push(['address', 'e_address']);
+  if (!/^[6-9]\d{9}$/.test(p.mobile)) errs.push(['mobile', 'e_mobile']);
+  if (!/^[2-9]\d{11}$/.test(p.aadhaar) || !verhoeff(p.aadhaar)) errs.push(['aadhaar', 'e_aadhaar']);
+  if (!p.bankName) errs.push(['bank', 'e_bank']);
+  if (!/^\d{9,18}$/.test(p.accountNo)) errs.push(['acc', 'e_acc']);
+  if (p.accountNo !== g('acc2').replace(/\s/g, '')) errs.push(['acc2', 'e_acc2']);
+  if (!/^[A-Z]{4}0[A-Z0-9]{6}$/.test(p.ifsc)) errs.push(['ifsc', 'e_ifsc']);
+  if (!$('#r_ok').checked) errs.push(['ok', 'e_ok']);
   document.querySelectorAll('.f.bad').forEach(e => e.classList.remove('bad'));
-  errs.forEach(([id, msg]) => { const w = $('#w_' + id); if (w) { w.classList.add('bad'); w.querySelector('.emsg').textContent = msg; } });
-  if (errs.length) { toast(errs[0][1], 1); $('#w_' + errs[0][0]).scrollIntoView({ block: 'center', behavior: 'smooth' }); return; }
-  const pass = dobPass(p.dob), b = $('#r_btn'); b.disabled = true; b.textContent = 'Registering…';
+  errs.forEach(([id, k]) => { const w = $('#w_' + id); if (w) { w.classList.add('bad'); w.querySelector('.emsg').textContent = t(k); } });
+  if (errs.length) { toast(t(errs[0][1]), 1); $('#w_' + errs[0][0]).scrollIntoView({ block: 'center', behavior: 'smooth' }); return; }
+  const pass = dobPass(p.dob), b = $('#r_btn'); b.disabled = true; b.textContent = t('registering');
   S.registering = true;
   try {
     const u = await DB.register(p, pass);
     S.registering = false; await enter(u);
-    sheet(`<h2 style="margin-top:0">Registration complete</h2>
-      <p class="muted">Save these details. Take a screenshot.</p>
-      <div class="cred"><span class="muted small">Username (mobile)</span><b>${esc(p.mobile)}</b></div>
-      <div class="cred"><span class="muted small">Password (date of birth DDMMYY)</span><b>${esc(pass)}</b></div>
-      <button class="btn big" onclick="closeSheet()">Start punching</button>`);
-  } catch (e) { S.registering = false; toast(errMsg(e), 1); b.disabled = false; b.textContent = 'Register'; }
+    sheet(`<h2 style="margin-top:0">${t('regDone')}</h2>
+      <p class="muted">${t('saveThese')}</p>
+      <div class="cred"><span class="muted small">${t('userLbl')}</span><b>${esc(p.mobile)}</b></div>
+      <div class="cred"><span class="muted small">${t('passLbl2')}</span><b>${esc(pass)}</b></div>
+      <button class="btn big" onclick="closeSheet()">${t('startPunching')}</button>`);
+  } catch (e) { S.registering = false; toast(errMsg(e), 1); b.disabled = false; b.textContent = t('register'); }
 }
 
 /* ============ shell ============ */
 function header() {
-  const sw = S.admin && S.profile ? `<button class="chip" onclick="switchView()">${S.view === 'admin' ? 'My punch' : 'Admin'}</button>` : '';
-  const sub = S.view === 'admin' ? 'Admin panel' : esc(fullName(S.profile));
-  return `<header class="top"><div class="brand">JAYCO<small>${sub}</small></div><div class="who">${sw}<button class="chip" onclick="logout()">Log out</button></div></header>`;
+  const sw = S.admin && S.profile ? `<button class="chip" onclick="switchView()">${S.view === 'admin' ? t('myPunch') : t('admin')}</button>` : '';
+  const sub = S.view === 'admin' ? t('adminPanel') : esc(fullName(S.profile));
+  return `<header class="top"><div class="brand">JAYCO<small>${sub}</small></div><div class="who">${langChip()}${sw}<button class="chip" onclick="logout()">${t('logout')}</button></div></header>`;
 }
 function switchView() { S.view = S.view === 'admin' ? 'emp' : 'admin'; S.tab = 'today'; render(); }
-function go(t) { S.tab = t; render(); window.scrollTo(0, 0); }
+function go(k) { S.tab = k; render(); window.scrollTo(0, 0); }
 async function render() {
   clearInterval(S.timer);
   if (!S.user) return renderAuth();
   const emp = S.view === 'emp';
-  const tabs = emp ? [['today', 'Punch'], ['work', 'Daily work'], ['history', 'History'], ['me', 'Profile']]
-                   : [['today', 'Today'], ['report', 'Monthly'], ['staff', 'Staff'], ['settings', 'Settings']];
-  if (!tabs.some(t => t[0] === S.tab)) S.tab = 'today';
+  const tabs = emp ? [['today', 'tPunch'], ['work', 'tWork'], ['history', 'tHistory'], ['me', 'tProfile']]
+                   : [['today', 'tToday'], ['report', 'tMonthly'], ['staff', 'tStaff'], ['settings', 'tSettings']];
+  if (!tabs.some(x => x[0] === S.tab)) S.tab = 'today';
   $('#app').innerHTML = header() + '<main class="wrap" id="main"><div class="spin"></div></main>' +
-    `<nav class="nav">${tabs.map(([k, l]) => `<button class="${S.tab === k ? 'on' : ''}" onclick="go('${k}')">${l}</button>`).join('')}</nav>`;
+    `<nav class="nav">${tabs.map(([k, l]) => `<button class="${S.tab === k ? 'on' : ''}" onclick="go('${k}')">${t(l)}</button>`).join('')}</nav>`;
   const fn = emp ? { today: empToday, work: empWork, history: empHistory, me: empProfile }[S.tab]
                  : { today: adminToday, report: adminReport, staff: adminStaff, settings: adminSettings }[S.tab];
   const m = $('#main');
-  try { await fn(m); } catch (e) { console.error(e); m.innerHTML = `<p class="err">${esc(errMsg(e))}</p><button class="btn sec" onclick="render()">Try again</button>`; }
+  try { await fn(m); } catch (e) { console.error(e); m.innerHTML = `<p class="err">${esc(errMsg(e))}</p><button class="btn sec" onclick="render()">${t('tryAgain')}</button>`; }
 }
 function sheet(html) {
   closeSheet();
@@ -423,71 +580,70 @@ function sheet(html) {
 }
 function setSheet(html) { const s = document.querySelector('#sheet .sheet'); if (s) s.innerHTML = html; }
 function closeSheet() { stopCam(); const s = $('#sheet'); if (s) s.remove(); }
-const closeBtn = '<button class="chip" onclick="closeSheet()">Close</button>';
+const closeBtn = () => `<button class="chip" onclick="closeSheet()">${t('close')}</button>`;
 
 /* ============ employee: punch ============ */
-function greet() { const h = new Date().getHours(); return h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening'; }
+function greet() { const h = new Date().getHours(); return t(h < 12 ? 'morning' : h < 17 ? 'afternoon' : 'evening'); }
 function liveHTML() {
   const ps = S.today.punches, c = calcDay(ps, true), sh = S.settings.shiftHours * H, next = nextType(ps), noF = S.settings.lat == null;
   const over = c.ms > sh, p = Math.min(c.ms / sh, 1) * 100, o = Math.min((c.ms - sh) / (4 * H), 1) * 100;
   return `<div class="dial ${over ? 'ot' : ''}" style="--p:${p.toFixed(1)};--o:${over ? o.toFixed(1) : 0}">
-      <button class="${next === 'OUT' ? 'out' : ''}" onclick="startPunch()" ${noF ? 'disabled' : ''} aria-label="Punch ${next}">${next}<small>${next === 'IN' ? 'Tap to punch in' : 'Tap to punch out'}</small></button></div>
-    <p class="gu">${next === 'IN' ? 'કામ પર આવો ત્યારે દબાવો' : 'બહાર જાઓ ત્યારે દબાવો'}</p>
-    <div class="stats"><div><b>${fmtHM(c.ms)}</b><span>Worked</span></div><div><b>${fmtHM(c.reg)}</b><span>Regular of ${S.settings.shiftHours}h</span></div><div><b class="ot">${fmtHM(c.ot)}</b><span>Overtime</span></div></div>`;
+      <button class="${next === 'OUT' ? 'out' : ''}" onclick="startPunch()" ${noF ? 'disabled' : ''} aria-label="Punch ${next}">${next}<small>${t(next === 'IN' ? 'tapIn' : 'tapOut')}</small></button></div>
+    <p class="gu">${t(next === 'IN' ? 'hintIn' : 'hintOut')}</p>
+    <div class="stats"><div><b>${fmtHM(c.ms)}</b><span>${t('worked')}</span></div><div><b>${fmtHM(c.reg)}</b><span>${t('regularOf', { h: S.settings.shiftHours })}</span></div><div><b class="ot">${fmtHM(c.ot)}</b><span>${t('overtime')}</span></div></div>`;
 }
 function punchList(ps) {
-  const s = sortP(ps); if (!s.length) return '<p class="muted">No punch yet today.</p>';
+  const s = sortP(ps); if (!s.length) return `<p class="muted">${t('noPunch')}</p>`;
   let lastIn = null;
   return `<ul class="list">${s.map(p => {
     let sess = '';
-    if (p.type === 'IN') lastIn = p.t; else if (lastIn !== null) { sess = ` · session ${fmtHM(p.t - lastIn)}`; lastIn = null; }
-    return `<li><span class="tag ${p.type}">${p.type}</span><span class="t">${fmtT(p.t)}</span><span class="grow muted small">${p.dist} m from factory${sess}${p.src === 'upload' ? ' · gallery photo' : p.src === 'selfie' ? ' · selfie' : ''}</span></li>`;
+    if (p.type === 'IN') lastIn = p.t; else if (lastIn !== null) { sess = ' · ' + t('session', { t: fmtHM(p.t - lastIn) }); lastIn = null; }
+    const src = p.src === 'upload' ? ' · ' + t('galleryTag') : p.src === 'selfie' ? ' · ' + t('selfieTag') : '';
+    return `<li><span class="tag ${p.type}">${p.type}</span><span class="t">${fmtT(p.t)}</span><span class="grow muted small">${t('fromFactory', { d: p.dist })}${sess}${src}</span></li>`;
   }).join('')}</ul>`;
 }
 async function empToday(m) {
-  const d = dateKey();
-  S.today.punches = await DB.punches({ uid: S.user.uid, date: d });
+  S.today.punches = await DB.punches({ uid: S.user.uid, date: dateKey() });
   const noF = S.settings.lat == null;
   m.innerHTML = `<h1>${greet()}, ${esc(S.profile.name)}</h1>
-    <p class="muted">${new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long' })}</p>
+    <p class="muted">${new Date().toLocaleDateString(S.lang === 'gu' ? 'gu-IN' : 'en-IN', { weekday: 'long', day: 'numeric', month: 'long' })}</p>
+    ${!SECURE ? `<p class="warnbox small">${openLinkMsg()}</p>` : ''}
     <div id="live">${liveHTML()}</div>
-    ${noF ? '<p class="warnbox">Factory location is not set yet. Ask the admin to set it in Settings.</p>' : ''}
-    <h2>Today's punches</h2>${punchList(S.today.punches)}
-    <p class="muted small" style="margin-top:14px">Going out for lunch or work outside? Punch OUT, then punch IN when you are back. Only time inside is counted.</p>`;
+    ${noF ? `<p class="warnbox">${t('noFactory')}</p>` : ''}
+    <h2>${t('todaysPunches')}</h2>${punchList(S.today.punches)}
+    <p class="muted small" style="margin-top:14px">${t('lunchNote')}</p>`;
   if (calcDay(S.today.punches, true).open) S.timer = setInterval(() => { const l = $('#live'); if (l) l.innerHTML = liveHTML(); }, 30000);
 }
 function getPos() {
   return new Promise((res, rej) => {
-    if (!navigator.geolocation) return rej(new Error('This phone does not support location.'));
-    navigator.geolocation.getCurrentPosition(res, e => rej(new Error(
-      e.code === 1 ? 'Location permission is blocked. Allow location for this site in browser settings.'
-      : e.code === 3 ? 'Location timed out. Step into the open and try again.'
-      : 'Could not read location. Turn on GPS and try again.')),
+    if (!navigator.geolocation) return rej(Object.assign(new Error(t('noGeo')), { perm: false }));
+    navigator.geolocation.getCurrentPosition(res, e => rej(Object.assign(new Error(t(e.code === 1 ? 'locBlocked' : e.code === 3 ? 'locTimeout' : 'locFail')), { perm: e.code === 1 })),
       { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 });
   });
 }
 function pstep(html) { const s = $('#pstep'); if (s) s.innerHTML = html; }
 async function startPunch() {
   const s = sortP(S.today.punches), last = s[s.length - 1];
-  if (last && Date.now() - last.t < 60000) return toast('You just punched. Wait one minute.', 1);
+  if (last && Date.now() - last.t < 60000) return toast(t('waitMin'), 1);
   const type = nextType(S.today.punches);
-  sheet(`<div class="sheet-h"><h2 style="margin:0">Punch ${type}</h2>${closeBtn}</div><div id="pstep"><p>Checking your location…</p><div class="spin"></div></div>`);
+  sheet(`<div class="sheet-h"><h2 style="margin:0">${t('punchTitle', { type })}</h2>${closeBtn()}</div><div id="pstep"><p>${t('checkingLoc')}</p><div class="spin"></div></div>`);
+  if (!SECURE) return pstep(`<p class="err">${openLinkMsg()}</p>`);
   let pos;
-  try { pos = await getPos(); } catch (e) { return pstep(`<p class="err">${esc(e.message)}</p><button class="btn big" onclick="startPunch()">Try again</button>`); }
+  try { pos = await getPos(); } catch (e) { return pstep(`<p class="err">${esc(e.message)}</p>${e.perm ? permHelp() : ''}<button class="btn big" onclick="startPunch()">${t('tryAgain')}</button>`); }
   const { latitude: lat, longitude: lng, accuracy } = pos.coords;
   const dist = Math.round(haversine(lat, lng, S.settings.lat, S.settings.lng)), R = +S.settings.radius, acc = Math.round(accuracy);
-  if (dist > R) return pstep(`<div class="far">${dist} m</div><p>You are outside the factory. Punch is allowed only within ${R} m of JAYCO factory.</p>
-    <p class="muted small">GPS accuracy ±${acc} m. If you are inside, turn on high-accuracy location and step near an open area.</p>
-    <button class="btn big" onclick="startPunch()">Check again</button>`);
+  if (dist > R) return pstep(`<div class="far">${dist} m</div><p>${t('outside', { r: R })}</p>
+    <p class="muted small">${t('accuracy', { a: acc })}</p>
+    <button class="btn big" onclick="startPunch()">${t('checkAgain')}</button>`);
   S.pending = { type, lat, lng, acc, dist };
-  const act = type === 'IN' ? 'Start work' : 'End work';
-  pstep(`<p class="okline">Inside factory area (${dist} m)</p>
+  const act = t(type === 'IN' ? 'startWork' : 'endWork');
+  pstep(`<p class="okline">${t('inside', { d: dist })}</p>
     <div class="cam" id="camwrap"><video id="vid" playsinline muted autoplay></video></div>
-    <button class="btn big" id="snap" onclick="snap()">${act} — take photo here</button>
-    <label class="btn sec big" style="margin-top:10px">Upload selfie<input type="file" accept="image/*" capture="user" hidden onchange="snapFile(this,'selfie')"></label>
-    <p class="gu" style="margin-top:6px">${type === 'IN' ? 'કામ શરૂ કરવા સેલ્ફી લો' : 'કામ પૂરું કરવા સેલ્ફી લો'}</p>
-    ${S.settings.allowUpload ? `<label class="chip" style="display:block;text-align:center;margin-top:6px">Choose from gallery<input type="file" accept="image/*" hidden onchange="snapFile(this,'upload')"></label>
-    <p class="muted small" style="text-align:center">Gallery photo must be under 10 minutes old.</p>` : ''}`);
+    <button class="btn big" id="snap" onclick="snap()">${t('takeHere', { act })}</button>
+    <label class="btn sec big" style="margin-top:10px">${t('uploadSelfie')}<input type="file" accept="image/*" capture="user" hidden onchange="snapFile(this,'selfie')"></label>
+    <p class="gu" style="margin-top:6px">${t(type === 'IN' ? 'selfieHintIn' : 'selfieHintOut')}</p>
+    ${S.settings.allowUpload ? `<label class="chip" style="display:block;text-align:center;margin-top:6px">${t('fromGallery')}<input type="file" accept="image/*" hidden onchange="snapFile(this,'upload')"></label>
+    <p class="muted small" style="text-align:center">${t('galleryAge')}</p>` : ''}`);
   openCam();
 }
 async function openCam() {
@@ -497,11 +653,11 @@ async function openCam() {
     v.srcObject = S.stream; await v.play();
   } catch (e) {
     const w = $('#camwrap'); if (!w) return;
-    w.outerHTML = `<p class="muted">Camera preview is not available here. Use "Upload selfie".</p>`;
+    w.outerHTML = `<p class="muted">${t('camBlocked')}</p>`;
     const b = $('#snap'); if (b) b.remove();
   }
 }
-function stopCam() { if (S.stream) { S.stream.getTracks().forEach(t => t.stop()); S.stream = null; } }
+function stopCam() { if (S.stream) { S.stream.getTracks().forEach(x => x.stop()); S.stream = null; } }
 // Small, stamped JPEG: 240x320 px, quality stepped down until it fits the KB limit (default 15 KB)
 function stamp(src, sw, sh) {
   const W = 240, Hh = 320, c = document.createElement('canvas'); c.width = W; c.height = Hh;
@@ -520,45 +676,45 @@ function stamp(src, sw, sh) {
   return url;
 }
 function snap() {
-  const v = $('#vid'); if (!v || !v.videoWidth) return toast('Camera is still starting. Tap again.', 1);
+  const v = $('#vid'); if (!v || !v.videoWidth) return toast(t('camStarting'), 1);
   S.pending.src = 'camera';
   const img = stamp(v, v.videoWidth, v.videoHeight); stopCam(); savePunch(img);
 }
 function snapFile(inp, src) {
   const f = inp.files[0]; if (!f) return;
-  if (!/^image\//.test(f.type)) return toast('Choose a photo file.', 1);
-  if (src !== 'camera' && Date.now() - f.lastModified > 10 * 60000) { inp.value = ''; return toast('This photo is old. Take a new photo now and upload it.', 1); }
+  if (!/^image\//.test(f.type)) return toast(t('choosePhoto'), 1);
+  if (src !== 'camera' && Date.now() - f.lastModified > 10 * 60000) { inp.value = ''; return toast(t('photoOld'), 1); }
   S.pending.src = src;
   const im = new Image(), u = URL.createObjectURL(f);
   im.onload = () => { URL.revokeObjectURL(u); stopCam(); savePunch(stamp(im, im.naturalWidth, im.naturalHeight)); };
-  im.onerror = () => toast('This photo could not be read. Try another.', 1);
+  im.onerror = () => toast(t('photoBad'), 1);
   im.src = u;
 }
 async function savePunch(photo) {
-  pstep('<p>Saving punch…</p><div class="spin"></div>');
+  pstep(`<p>${t('saving')}</p><div class="spin"></div>`);
   const p = S.pending, now = new Date();
   try {
     await DB.addPunch({ uid: S.user.uid, name: fullName(S.profile), mobile: S.user.mobile, date: dateKey(now), month: monthKey(now),
       type: p.type, clientAt: now.getTime(), lat: +p.lat.toFixed(6), lng: +p.lng.toFixed(6), acc: p.acc, dist: p.dist, src: p.src || 'camera', kb: p.kb || 0 }, photo);
-    closeSheet(); toast(`${p.type === 'IN' ? 'Work started' : 'Work ended'} at ${fmtT(now)} (photo ${p.kb} KB)`); render();
-  } catch (e) { pstep(`<p class="err">${esc(errMsg(e))}</p><button class="btn big" onclick="startPunch()">Try again</button>`); }
+    closeSheet(); toast(t(p.type === 'IN' ? 'started' : 'ended', { t: fmtT(now), kb: p.kb })); render();
+  } catch (e) { pstep(`<p class="err">${esc(errMsg(e))}</p><button class="btn big" onclick="startPunch()">${t('tryAgain')}</button>`); }
 }
 
 /* ============ employee: work, history, profile ============ */
-function workItem(w) { return `<div class="work"><span class="muted">${fmtT(w.t)}${w.showDate ? ' · ' + fmtDate(w.date) : ''}</span>${esc(w.text)}</div>`; }
+function workItem(w) { return `<div class="work"><span class="muted">${fmtT(w.t)}</span>${esc(w.text)}</div>`; }
 async function empWork(m) {
   const ws = sortP(await DB.work({ uid: S.user.uid, date: dateKey() })).reverse();
-  m.innerHTML = `<h1>Daily work</h1>
-    <p class="muted">Write what you did: machine, part, quantity. આજે શું કામ કર્યું તે લખો.</p>
-    <label class="f"><span>Today's work</span><textarea id="wtxt" rows="5" maxlength="1000" placeholder="Example: SN 516 plummer block, 40 pcs boring done on VMC 2"></textarea></label>
-    <button class="btn big" id="wbtn" onclick="postWork()">Post work</button>
-    <h2>Posted today</h2>${ws.map(workItem).join('') || '<p class="muted">Nothing posted today yet.</p>'}`;
+  m.innerHTML = `<h1>${t('tWork')}</h1>
+    <p class="muted">${t('workIntro')}</p>
+    <label class="f"><span>${t('todaysWork')}</span><textarea id="wtxt" rows="5" maxlength="1000" placeholder="${esc(t('workPh'))}"></textarea></label>
+    <button class="btn big" id="wbtn" onclick="postWork()">${t('postWork')}</button>
+    <h2>${t('postedToday')}</h2>${ws.map(workItem).join('') || `<p class="muted">${t('nothingPosted')}</p>`}`;
 }
 async function postWork() {
-  const t = $('#wtxt').value.trim(); if (t.length < 3) return toast('Write your work first.', 1);
+  const x = $('#wtxt').value.trim(); if (x.length < 3) return toast(t('writeFirst'), 1);
   const b = $('#wbtn'); b.disabled = true;
   const now = new Date();
-  try { await DB.addWork({ uid: S.user.uid, name: fullName(S.profile), date: dateKey(now), month: monthKey(now), text: t, clientAt: now.getTime() }); toast('Work posted'); render(); }
+  try { await DB.addWork({ uid: S.user.uid, name: fullName(S.profile), date: dateKey(now), month: monthKey(now), text: x, clientAt: now.getTime() }); toast(t('workPosted')); render(); }
   catch (e) { toast(errMsg(e), 1); b.disabled = false; }
 }
 async function empHistory(m) {
@@ -566,42 +722,42 @@ async function empHistory(m) {
   const days = groupBy(await DB.punches({ uid: S.user.uid, month: ym }), 'date');
   const rows = Object.keys(days).sort().reverse().map(d => ({ d, c: calcDay(days[d], d === today) }));
   let pres = 0, reg = 0, ot = 0;
-  rows.forEach(({ c }) => { pres += c.status === 'Present' ? 1 : c.status === 'Half day' ? 0.5 : 0; reg += c.reg; ot += c.ot; });
-  m.innerHTML = `<h1>My attendance</h1>
+  rows.forEach(({ c }) => { pres += c.status === 'present' ? 1 : c.status === 'half' ? 0.5 : 0; reg += c.reg; ot += c.ot; });
+  m.innerHTML = `<h1>${t('myAtt')}</h1>
     <div class="bar"><input type="month" value="${ym}" max="${monthKey()}" onchange="S.hm=this.value;render()"></div>
-    <div class="stats"><div><b>${pres}</b><span>Days present</span></div><div><b>${hrs(reg)}</b><span>Regular hrs</span></div><div><b class="ot">${hrs(ot)}</b><span>Overtime hrs</span></div></div>
-    ${rows.length ? `<div class="tbl"><table><thead><tr><th>Date</th><th>In</th><th>Out</th><th class="num">Worked</th><th class="num">OT</th><th>Status</th></tr></thead><tbody>
-    ${rows.map(({ d, c }) => `<tr class="click" onclick="dayDetail('${S.user.uid}','${d}')"><td>${fmtDate(d).slice(0, 5)}</td><td>${fmtT(c.first)}</td><td>${c.lastType === 'OUT' ? fmtT(c.last) : '—'}</td><td class="num">${fmtHM(c.ms)}</td><td class="num">${fmtHM(c.ot)}</td><td>${c.status}</td></tr>`).join('')}
-    </tbody></table></div><p class="muted small">Tap a day to see punches, photos and work.</p>` : '<p class="muted">No attendance in this month.</p>'}`;
+    <div class="stats"><div><b>${pres}</b><span>${t('daysPresent')}</span></div><div><b>${hrs(reg)}</b><span>${t('regHrs')}</span></div><div><b class="ot">${hrs(ot)}</b><span>${t('otHrs')}</span></div></div>
+    ${rows.length ? `<div class="tbl"><table><thead><tr><th>${t('thDate')}</th><th>${t('thIn')}</th><th>${t('thOut')}</th><th class="num">${t('thWorked')}</th><th class="num">${t('thOT')}</th><th>${t('thStatus')}</th></tr></thead><tbody>
+    ${rows.map(({ d, c }) => `<tr class="click" onclick="dayDetail('${S.user.uid}','${d}')"><td>${fmtDate(d).slice(0, 5)}</td><td>${fmtT(c.first)}</td><td>${c.lastType === 'OUT' ? fmtT(c.last) : '—'}</td><td class="num">${fmtHM(c.ms)}</td><td class="num">${fmtHM(c.ot)}</td><td>${stLabel(c.status)}</td></tr>`).join('')}
+    </tbody></table></div><p class="muted small">${t('tapDay')}</p>` : `<p class="muted">${t('noMonth')}</p>`}`;
 }
 function profileKV(p, admin) {
-  const rows = [['Name', p.name], ["Father's name", p.fatherName], ['Surname', p.surname], ['Date of birth', fmtDate(p.dob)], ['Mobile', p.mobile],
-    ['Address', p.address], ['Aadhaar', `<span id="aad">${esc(maskAad(p.aadhaar))}</span>${admin ? ` <button class="chip" onclick="this.previousElementSibling.textContent='${esc(p.aadhaar)}';this.remove()">Show</button>` : ''}`],
-    ['Bank', p.bankName], ['Account no.', admin ? p.accountNo : maskAcc(p.accountNo)], ['IFSC', p.ifsc], ['Joining date', fmtDate(p.joiningDate) || '—']];
-  return `<dl class="kv">${rows.map(([k, v]) => `<dt>${k}</dt><dd>${k === 'Aadhaar' ? v : esc(v)}</dd>`).join('')}</dl>`;
+  const rows = [[t('name'), esc(p.name)], [t('father'), esc(p.fatherName)], [t('surname'), esc(p.surname)], [t('dob'), fmtDate(p.dob)], [t('mobile'), esc(p.mobile)],
+    [t('address'), esc(p.address)], [t('aadhaarLbl'), `<span>${esc(maskAad(p.aadhaar))}</span>${admin ? ` <button class="chip" onclick="this.previousElementSibling.textContent='${esc(p.aadhaar)}';this.remove()">${t('show')}</button>` : ''}`],
+    [t('bankLbl'), esc(p.bankName)], [t('accLbl'), esc(admin ? p.accountNo : maskAcc(p.accountNo))], [t('ifscLbl'), esc(p.ifsc)], [t('joinLbl'), fmtDate(p.joiningDate) || '—']];
+  return `<dl class="kv">${rows.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join('')}</dl>`;
 }
 async function empProfile(m) {
   m.innerHTML = `<h1>${esc(fullName(S.profile))}</h1>${profileKV(S.profile, false)}
-    <p class="warnbox small">Username: your mobile number. Password: your date of birth as DDMMYY. To correct any detail, contact the office.</p>
-    <button class="btn sec big" onclick="logout()">Log out</button>`;
+    <p class="warnbox small">${t('profileNote')}</p>
+    <button class="btn sec big" onclick="logout()">${t('logout')}</button>`;
 }
 async function dayDetail(uid, d) {
   sheet('<div class="spin"></div>');
   try {
     const [ps, ws, emp] = await Promise.all([DB.punches({ uid, date: d }), DB.work({ uid, date: d }), uid === S.user.uid ? S.profile : DB.profile(uid)]);
     const sp = sortP(ps), c = calcDay(sp, d === dateKey());
-    setSheet(`<div class="sheet-h"><h2 style="margin:0">${esc(fullName(emp))}</h2>${closeBtn}</div>
-      <p class="muted">${fmtDate(d)} · ${c.status}</p>
-      <div class="stats"><div><b>${fmtHM(c.ms)}</b><span>Worked</span></div><div><b>${fmtHM(c.reg)}</b><span>Regular</span></div><div><b class="ot">${fmtHM(c.ot)}</b><span>Overtime</span></div></div>
-      ${c.missing ? '<p class="warnbox small">A punch is missing (IN without OUT). That part is not counted.</p>' : ''}
-      <h3>Punches</h3>
-      <div class="photos">${sp.map(p => `<figure><img data-ph="${p.id}" alt="${p.type} photo at ${fmtT(p.t)}"><figcaption><span class="tag ${p.type}">${p.type}</span> ${fmtT(p.t)}${p.src === 'upload' ? ' <b style="color:var(--warn)">Gallery</b>' : p.src === 'selfie' ? ' <b style="color:var(--ok)">Selfie</b>' : ''}<br>${p.dist} m${p.kb ? ` · ${p.kb} KB` : ''}${S.admin ? ` · <a class="muted" href="https://www.google.com/maps?q=${p.lat},${p.lng}" target="_blank" rel="noopener">map</a>` : ''}</figcaption></figure>`).join('') || '<p class="muted">No punches.</p>'}</div>
-      <h3>Work posted</h3>${sortP(ws).map(workItem).join('') || '<p class="muted">No work posted.</p>'}`);
+    setSheet(`<div class="sheet-h"><h2 style="margin:0">${esc(fullName(emp))}</h2>${closeBtn()}</div>
+      <p class="muted">${fmtDate(d)} · ${stLabel(c.status)}</p>
+      <div class="stats"><div><b>${fmtHM(c.ms)}</b><span>${t('worked')}</span></div><div><b>${fmtHM(c.reg)}</b><span>${t('regular')}</span></div><div><b class="ot">${fmtHM(c.ot)}</b><span>${t('overtime')}</span></div></div>
+      ${c.missing ? `<p class="warnbox small">${t('missingNote')}</p>` : ''}
+      <h3>${t('punches')}</h3>
+      <div class="photos">${sp.map(p => `<figure><img data-ph="${p.id}" alt="${p.type} ${fmtT(p.t)}"><figcaption><span class="tag ${p.type}">${p.type}</span> ${fmtT(p.t)}${p.src === 'upload' ? ` <b style="color:var(--warn)">${t('gallery')}</b>` : p.src === 'selfie' ? ` <b style="color:var(--ok)">${t('selfie')}</b>` : ''}<br>${p.dist} m${p.kb ? ` · ${p.kb} KB` : ''}${S.admin ? ` · <a href="https://www.google.com/maps?q=${p.lat},${p.lng}" target="_blank" rel="noopener">${t('map')}</a>` : ''}</figcaption></figure>`).join('') || `<p class="muted">${t('noPunches')}</p>`}</div>
+      <h3>${t('workPostedH')}</h3>${sortP(ws).map(workItem).join('') || `<p class="muted">${t('noWork')}</p>`}`);
     document.querySelectorAll('img[data-ph]').forEach(async im => {
       const src = await DB.photo(im.dataset.ph).catch(() => null);
-      if (src) im.src = src; else im.alt = 'Photo not available';
+      if (src) im.src = src; else im.alt = t('photoNA');
     });
-  } catch (e) { setSheet(`<p class="err">${esc(errMsg(e))}</p>${closeBtn}`); }
+  } catch (e) { setSheet(`<p class="err">${esc(errMsg(e))}</p>${closeBtn()}`); }
 }
 
 /* ============ admin ============ */
@@ -611,17 +767,17 @@ async function adminToday(m) {
   const pb = groupBy(ps, 'uid'), wb = groupBy(ws, 'uid');
   const rows = emps.filter(e => e.active !== false).sort(byName).map(e => {
     const c = calcDay(pb[e.uid] || [], isToday);
-    const st = c.open ? ['in', 'Inside'] : c.count ? ['left', c.status === 'Missing OUT' || c.missing ? 'Missing OUT' : 'Left'] : ['abs', 'Absent'];
+    const st = c.open ? ['in', 'inside'] : c.count ? ['left', c.status === 'missing' || c.missing ? 'missing' : 'left'] : ['abs', 'absent'];
     return { e, c, st, w: (wb[e.uid] || []).length };
   });
   const inside = rows.filter(r => r.c.open).length, present = rows.filter(r => r.c.count).length;
-  m.innerHTML = `<h1>${isToday ? 'Today' : fmtDate(d)}</h1>
+  m.innerHTML = `<h1>${isToday ? t('tToday') : fmtDate(d)}</h1>
     <div class="bar"><input type="date" value="${d}" max="${dateKey()}" onchange="S.ad=this.value;render()"></div>
-    <div class="stats"><div><b>${present}</b><span>Came</span></div><div><b>${inside}</b><span>${isToday ? 'Inside now' : '—'}</span></div><div><b>${rows.length - present}</b><span>Absent</span></div></div>
-    ${S.settings.lat == null ? '<p class="warnbox">Set the factory location in Settings. Staff cannot punch until then.</p>' : ''}
+    <div class="stats"><div><b>${present}</b><span>${t('came')}</span></div><div><b>${isToday ? inside : '—'}</b><span>${t('insideNow')}</span></div><div><b>${rows.length - present}</b><span>${t('absent')}</span></div></div>
+    ${S.settings.lat == null ? `<p class="warnbox">${t('setFactory')}</p>` : ''}
     ${rows.length ? `<ul class="list">${rows.map(({ e, c, st, w }) => `<li class="click" onclick="dayDetail('${e.uid}','${d}')">
-      <div class="grow"><b>${esc(fullName(e))}</b><div class="muted small">${c.count ? `In ${fmtT(c.first)} · ${fmtHM(c.ms)}${c.ot ? ` · OT ${fmtHM(c.ot)}` : ''} · ${w} work post${w === 1 ? '' : 's'}` : esc(e.mobile)}</div></div>
-      <span class="state ${st[0]}">${st[1]}</span></li>`).join('')}</ul>` : '<p class="muted">No staff registered yet. Share this page link with your team so they can register.</p>'}`;
+      <div class="grow"><b>${esc(fullName(e))}</b><div class="muted small">${c.count ? `${t('thIn')} ${fmtT(c.first)} · ${fmtHM(c.ms)}${c.ot ? ` · OT ${fmtHM(c.ot)}` : ''} · ${t('workPostsN', { n: w })}` : esc(e.mobile)}</div></div>
+      <span class="state ${st[0]}">${stLabel(st[1])}</span></li>`).join('')}</ul>` : `<p class="muted">${t('noStaff')}</p>`}`;
 }
 async function adminReport(m) {
   const ym = S.rm || monthKey(), today = dateKey();
@@ -630,75 +786,78 @@ async function adminReport(m) {
   S.rep = emps.sort(byName).map(e => {
     const days = groupBy(pb[e.uid] || [], 'date'); let pres = 0, half = 0, reg = 0, ot = 0, miss = 0; const daily = [];
     Object.keys(days).sort().forEach(d => { const c = calcDay(days[d], d === today);
-      if (c.status === 'Present') pres++; else if (c.status === 'Half day') half++;
+      if (c.status === 'present') pres++; else if (c.status === 'half') half++;
       if (c.missing) miss++; reg += c.reg; ot += c.ot; daily.push({ d, c }); });
     return { e, pres, half, paid: pres + half / 2, reg, ot, miss, daily };
   });
   S.repMonth = ym;
-  m.innerHTML = `<h1>Monthly report</h1>
+  const st = S.settings, blk = +st.otRoundMin ? t('blk', { m: st.otRoundMin }) : '';
+  m.innerHTML = `<h1>${t('monthlyReport')}</h1>
     <div class="bar"><input type="month" value="${ym}" max="${monthKey()}" onchange="S.rm=this.value;render()">
-      <button class="chip" onclick="dlSummary()">Download summary CSV</button><button class="chip" onclick="dlDaily()">Download day-wise CSV</button></div>
-    ${S.rep.length ? `<div class="tbl"><table><thead><tr><th>Employee</th><th class="num">Full</th><th class="num">Half</th><th class="num">Paid days</th><th class="num">Regular h</th><th class="num">OT h</th><th class="num">Missing OUT</th></tr></thead><tbody>
+      <button class="chip" onclick="dlSummary()">${t('dlSummary')}</button><button class="chip" onclick="dlDaily()">${t('dlDaily')}</button></div>
+    ${S.rep.length ? `<div class="tbl"><table><thead><tr><th>${t('thEmp')}</th><th class="num">${t('thFull')}</th><th class="num">${t('thHalf')}</th><th class="num">${t('thPaid')}</th><th class="num">${t('thReg')}</th><th class="num">${t('thOTh')}</th><th class="num">${t('thMiss')}</th></tr></thead><tbody>
     ${S.rep.map(r => `<tr><td>${esc(fullName(r.e))}</td><td class="num">${r.pres}</td><td class="num">${r.half}</td><td class="num">${r.paid}</td><td class="num">${hrs(r.reg)}</td><td class="num">${hrs(r.ot)}</td><td class="num">${r.miss || ''}</td></tr>`).join('')}
-    </tbody></table></div>` : '<p class="muted">No staff registered yet.</p>'}
-    <p class="muted small">Full day = ${S.settings.halfDayHours}h or more inside. Regular capped at ${S.settings.shiftHours}h per day; time above that is overtime${+S.settings.otRoundMin ? `, counted in ${S.settings.otRoundMin}-minute blocks` : ''}. Days with a missing OUT punch count only completed IN→OUT pairs.</p>`;
+    </tbody></table></div>` : `<p class="muted">${t('noStaffShort')}</p>`}
+    <p class="muted small">${t('reportNote', { hd: st.halfDayHours, sh: st.shiftHours, blk })}</p>`;
 }
+const stEn = k => L.en['st_' + k];
 function dlSummary() {
   csv(`JAYCO_attendance_summary_${S.repMonth}.csv`, [['Employee', 'Mobile', 'Full days', 'Half days', 'Paid days', 'Regular hrs', 'OT hrs', 'Missing OUT days'],
     ...S.rep.map(r => [fullName(r.e), r.e.mobile, r.pres, r.half, r.paid, hrs(r.reg), hrs(r.ot), r.miss])]);
 }
 function dlDaily() {
   const out = [['Date', 'Employee', 'Mobile', 'First IN', 'Last punch', 'Punches', 'Worked hrs', 'Regular hrs', 'OT hrs', 'Status']];
-  S.rep.forEach(r => r.daily.forEach(({ d, c }) => out.push([fmtDate(d), fullName(r.e), r.e.mobile, fmtT(c.first), `${c.lastType} ${fmtT(c.last)}`, c.count, hrs(c.ms), hrs(c.reg), hrs(c.ot), c.status])));
+  S.rep.forEach(r => r.daily.forEach(({ d, c }) => out.push([fmtDate(d), fullName(r.e), r.e.mobile, fmtT(c.first), `${c.lastType} ${fmtT(c.last)}`, c.count, hrs(c.ms), hrs(c.reg), hrs(c.ot), stEn(c.status)])));
   csv(`JAYCO_attendance_daywise_${S.repMonth}.csv`, out);
 }
 async function adminStaff(m) {
   S.emps = (await DB.employees()).sort(byName);
-  m.innerHTML = `<h1>Staff</h1>
-    <div class="bar"><span class="muted">${S.emps.length} registered</span><button class="chip" onclick="dlStaff()">Download bank list CSV</button></div>
-    ${S.emps.length ? `<ul class="list">${S.emps.map((e, i) => `<li class="click" onclick="staffDetail(${i})"><div class="grow"><b>${esc(fullName(e))}</b><div class="muted small">${esc(e.mobile)} · joined ${fmtDate(e.joiningDate) || '—'}</div></div><span class="muted small">${esc(e.bankName)}</span></li>`).join('')}</ul>`
-    : '<p class="muted">No staff registered yet.</p>'}`;
+  m.innerHTML = `<h1>${t('tStaff')}</h1>
+    <div class="bar"><span class="muted">${t('registeredN', { n: S.emps.length })}</span><button class="chip" onclick="dlStaff()">${t('dlBank')}</button></div>
+    ${S.emps.length ? `<ul class="list">${S.emps.map((e, i) => `<li class="click" onclick="staffDetail(${i})"><div class="grow"><b>${esc(fullName(e))}</b><div class="muted small">${esc(e.mobile)} · ${t('joined', { d: fmtDate(e.joiningDate) || '—' })}</div></div><span class="muted small">${esc(e.bankName)}</span></li>`).join('')}</ul>`
+    : `<p class="muted">${t('noStaffShort')}</p>`}`;
 }
-function staffDetail(i) { const e = S.emps[i]; sheet(`<div class="sheet-h"><h2 style="margin:0">${esc(fullName(e))}</h2>${closeBtn}</div>${profileKV(e, true)}<p class="muted small">Password: ${esc(dobPass(e.dob))}</p>`); }
+function staffDetail(i) { const e = S.emps[i]; sheet(`<div class="sheet-h"><h2 style="margin:0">${esc(fullName(e))}</h2>${closeBtn()}</div>${profileKV(e, true)}<p class="muted small">${t('passwordIs', { p: esc(dobPass(e.dob)) })}</p>`); }
 function dlStaff() {
   csv('JAYCO_staff_bank_list.csv', [['Name', "Father's name", 'Surname', 'Mobile', 'DOB', 'Joining date', 'Bank', 'Account no.', 'IFSC', 'Aadhaar (masked)', 'Address'],
     ...S.emps.map(e => [e.name, e.fatherName, e.surname, e.mobile, fmtDate(e.dob), fmtDate(e.joiningDate), e.bankName, xlText(e.accountNo), e.ifsc, maskAad(e.aadhaar), e.address])]);
 }
 function adminSettings(m) {
   const s = S.settings;
-  m.innerHTML = `<h1>Settings</h1>
-    <h2>Factory location</h2>
-    <p class="muted small">Stand at the factory gate and tap the button. Or open the location in Google Maps, long-press the pin, copy the numbers and paste them below.</p>
-    <button class="btn sec big" onclick="useHere()">Use my current location</button>
-    <label class="f" style="margin-top:14px"><span>Paste coordinates or Google Maps link</span><input id="s_paste" placeholder="22.8543, 72.6921" oninput="parseLoc(this.value)"></label>
-    <div class="row2"><label class="f"><span>Latitude</span><input id="s_lat" inputmode="decimal" value="${s.lat ?? ''}"></label><label class="f"><span>Longitude</span><input id="s_lng" inputmode="decimal" value="${s.lng ?? ''}"></label></div>
-    ${s.lat != null ? `<a class="chip" href="https://www.google.com/maps?q=${s.lat},${s.lng}" target="_blank" rel="noopener">Check saved point on Google Maps</a>` : ''}
-    <label class="f" style="margin-top:14px"><span>Allowed distance (metres)</span><input id="s_rad" type="number" min="30" max="1000" value="${s.radius}"></label>
-    <h2>Working hours</h2>
-    <div class="row2"><label class="f"><span>Regular hours per day</span><input id="s_sh" type="number" min="1" max="16" step="0.5" value="${s.shiftHours}"></label>
-    <label class="f"><span>Half day if less than (hrs)</span><input id="s_hd" type="number" min="0" max="12" step="0.5" value="${s.halfDayHours}"></label></div>
-    <label class="f"><span>Count overtime in blocks of</span><select id="s_ot">${[[0, 'Exact minutes'], [15, '15 minutes'], [30, '30 minutes'], [60, '1 hour']].map(([v, l]) => `<option value="${v}" ${+s.otRoundMin === v ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
-    <h2>Punch photo</h2>
-    <label class="f consent"><input type="checkbox" id="s_up" ${s.allowUpload ? 'checked' : ''}><span>Also allow choosing a photo from the gallery (must be under 10 minutes old). Selfie upload from the phone camera is always on.</span></label>
-    <label class="f"><span>Maximum photo size</span><select id="s_kb">${[[8, '8 KB (smallest)'], [15, '15 KB (recommended)'], [25, '25 KB (clearer)']].map(([v, l]) => `<option value="${v}" ${+s.photoKB === v ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
-    <button class="btn big" id="s_btn" onclick="saveSettings()">Save settings</button>`;
+  m.innerHTML = `<h1>${t('tSettings')}</h1>
+    <h2>${t('factoryLoc')}</h2>
+    <p class="muted small">${t('locHelp')}</p>
+    <button class="btn sec big" onclick="useHere()">${t('useHere')}</button>
+    <label class="f" style="margin-top:14px"><span>${t('pasteLbl')}</span><input id="s_paste" placeholder="22.991259, 72.841697" oninput="parseLoc(this.value)"></label>
+    <div class="row2"><label class="f"><span>${t('lat')}</span><input id="s_lat" inputmode="decimal" value="${s.lat ?? ''}"></label><label class="f"><span>${t('lng')}</span><input id="s_lng" inputmode="decimal" value="${s.lng ?? ''}"></label></div>
+    ${s.lat != null ? `<a class="chip" href="https://www.google.com/maps?q=${s.lat},${s.lng}" target="_blank" rel="noopener">${t('checkMap')}</a>` : ''}
+    <label class="f" style="margin-top:14px"><span>${t('radius')}</span><input id="s_rad" type="number" min="30" max="1000" value="${s.radius}"></label>
+    <h2>${t('workHours')}</h2>
+    <div class="row2"><label class="f"><span>${t('shiftH')}</span><input id="s_sh" type="number" min="1" max="16" step="0.5" value="${s.shiftHours}"></label>
+    <label class="f"><span>${t('halfH')}</span><input id="s_hd" type="number" min="0" max="12" step="0.5" value="${s.halfDayHours}"></label></div>
+    <label class="f"><span>${t('otBlocks')}</span><select id="s_ot">${[[0, 'exact'], [15, 'm15'], [30, 'm30'], [60, 'h1']].map(([v, l]) => `<option value="${v}" ${+s.otRoundMin === v ? 'selected' : ''}>${t(l)}</option>`).join('')}</select></label>
+    <h2>${t('punchPhoto')}</h2>
+    <label class="f consent"><input type="checkbox" id="s_up" ${s.allowUpload ? 'checked' : ''}><span>${t('allowGallery')}</span></label>
+    <label class="f"><span>${t('maxPhoto')}</span><select id="s_kb">${[[8, 'kb8'], [15, 'kb15'], [25, 'kb25']].map(([v, l]) => `<option value="${v}" ${+s.photoKB === v ? 'selected' : ''}>${t(l)}</option>`).join('')}</select></label>
+    <button class="btn big" id="s_btn" onclick="saveSettings()">${t('saveSettings')}</button>`;
 }
 function parseLoc(v) {
   const x = v.match(/(-?\d{1,2}\.\d{3,})\s*,\s*(-?\d{1,3}\.\d{3,})/);
-  if (x) { $('#s_lat').value = x[1]; $('#s_lng').value = x[2]; toast('Coordinates filled. Tap Save settings.'); }
+  if (x) { $('#s_lat').value = x[1]; $('#s_lng').value = x[2]; toast(t('coordsFilled')); }
 }
 async function useHere() {
-  toast('Reading location…');
+  toast(t('readingLoc'));
   try { const p = await getPos(); $('#s_lat').value = p.coords.latitude.toFixed(6); $('#s_lng').value = p.coords.longitude.toFixed(6);
-    toast(`Location read (±${Math.round(p.coords.accuracy)} m). Tap Save settings.`); }
+    toast(t('locRead', { a: Math.round(p.coords.accuracy) })); }
   catch (e) { toast(e.message, 1); }
 }
 async function saveSettings() {
   const lat = parseFloat($('#s_lat').value), lng = parseFloat($('#s_lng').value);
-  if (isNaN(lat) || isNaN(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180) return toast('Enter a valid latitude and longitude.', 1);
-  const s = { lat, lng, radius: Math.max(30, +$('#s_rad').value || 100), shiftHours: +$('#s_sh').value || 8, halfDayHours: +$('#s_hd').value || 0, otRoundMin: +$('#s_ot').value, allowUpload: $('#s_up').checked, photoKB: +$('#s_kb').value };
+  if (isNaN(lat) || isNaN(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180) return toast(t('badCoords'), 1);
+  const s = { lat, lng, radius: Math.max(30, +$('#s_rad').value || 100), shiftHours: +$('#s_sh').value || 8, halfDayHours: +$('#s_hd').value || 0,
+    otRoundMin: +$('#s_ot').value, allowUpload: $('#s_up').checked, photoKB: +$('#s_kb').value };
   const b = $('#s_btn'); b.disabled = true;
-  try { await DB.saveSettings(s); S.settings = { ...DEF, ...s }; toast('Settings saved'); render(); }
+  try { await DB.saveSettings(s); S.settings = { ...DEF, ...s }; toast(t('saved')); render(); }
   catch (e) { toast(errMsg(e), 1); b.disabled = false; }
 }
 
