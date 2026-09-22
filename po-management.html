@@ -822,6 +822,171 @@ function loadAll(){
   db.collection("purchaseOrders").orderBy("createdAt","desc").onSnapshot(snap=>{
     PO_HEADERS = snap.docs.map(d=>({id:d.id, ...d.data()}));
   });
+  runAutoMergeDuplicates();
+}
+
+/* ---------------- Auto-merge duplicate Customers / Items / PO numbers ----------------
+   Double entry (same customer, item, or PO number typed twice — different case/spacing)
+   used to sit around as separate records. This runs once per sign-in, finds any records
+   that are the same thing typed twice, and folds the newer copy into the original —
+   moving its PO lines / despatches across first, then removing the duplicate. */
+let autoMergeRan = false;
+function normalizeNameKey(raw){ return String(raw||'').trim().replace(/\s+/g,' ').toLowerCase(); }
+function normalizePoNoKey(raw){ return String(raw||'').trim().replace(/\s+/g,' ').toUpperCase(); }
+function docCreatedMs(d){ return d.createdAt && d.createdAt.toMillis ? d.createdAt.toMillis() : 0; }
+async function commitWrites(writes){
+  const CHUNK = 400;
+  for(let i=0;i<writes.length;i+=CHUNK){
+    const batch = db.batch();
+    writes.slice(i,i+CHUNK).forEach(w=>{
+      if(w.type==='delete') batch.delete(w.ref); else batch.update(w.ref, w.data);
+    });
+    await batch.commit();
+  }
+}
+
+async function mergeDuplicateCustomers(){
+  const snap = await db.collection('customers').get();
+  const customers = snap.docs.map(d=>({id:d.id, ...d.data()}));
+  const groups = {};
+  customers.forEach(c=>{
+    const key = normalizeNameKey(c.name);
+    if(!key) return;
+    (groups[key] = groups[key] || []).push(c);
+  });
+  let mergedCount = 0;
+  for(const key in groups){
+    const group = groups[key];
+    if(group.length < 2) continue;
+    const sorted = group.slice().sort((a,b)=>docCreatedMs(a)-docCreatedMs(b));
+    const primary = sorted[0];
+    const dups = sorted.slice(1);
+    const mergedExclusive = group.some(c=>c.isExclusive);
+    const writes = [];
+    if(mergedExclusive && !primary.isExclusive){
+      writes.push({type:'update', ref: db.collection('customers').doc(primary.id), data:{isExclusive:true}});
+    }
+    for(const dup of dups){
+      const [itemsSnap, despSnap, posSnap] = await Promise.all([
+        db.collection('poItems').where('customerId','==',dup.id).get(),
+        db.collection('despatches').where('customerId','==',dup.id).get(),
+        db.collection('purchaseOrders').where('customerId','==',dup.id).get(),
+      ]);
+      const data = {customerId:primary.id, customerName:primary.name, isExclusive:mergedExclusive};
+      itemsSnap.docs.forEach(d=> writes.push({type:'update', ref:d.ref, data}));
+      despSnap.docs.forEach(d=> writes.push({type:'update', ref:d.ref, data}));
+      posSnap.docs.forEach(d=> writes.push({type:'update', ref:d.ref, data}));
+      writes.push({type:'delete', ref: db.collection('customers').doc(dup.id)});
+    }
+    if(writes.length){ await commitWrites(writes); mergedCount += dups.length; }
+  }
+  return mergedCount;
+}
+
+async function mergeDuplicateItems(){
+  const snap = await db.collection('items').get();
+  const items = snap.docs.map(d=>({id:d.id, ...d.data()}));
+  const groups = {};
+  items.forEach(it=>{
+    const key = normalizeItemCode(it.itemCode);
+    if(!key) return;
+    (groups[key] = groups[key] || []).push(it);
+  });
+  let mergedCount = 0;
+  for(const key in groups){
+    const group = groups[key];
+    if(group.length < 2) continue;
+    const sorted = group.slice().sort((a,b)=>docCreatedMs(a)-docCreatedMs(b));
+    const primary = sorted[0];
+    const dups = sorted.slice(1);
+    const writes = [];
+    const description = primary.description || (dups.find(d=>d.description)||{}).description || primary.description || '';
+    const material = primary.material || (dups.find(d=>d.material)||{}).material || primary.material || '';
+    const primaryUpdate = {};
+    if(primary.itemCode !== key) primaryUpdate.itemCode = key;
+    if(description !== (primary.description||'')) primaryUpdate.description = description;
+    if(material !== (primary.material||'')) primaryUpdate.material = material;
+    if(Object.keys(primaryUpdate).length) writes.push({type:'update', ref: db.collection('items').doc(primary.id), data:primaryUpdate});
+
+    const rawCodes = new Set(group.map(m=>m.itemCode).filter(c=>c && c!==key));
+    for(const rawCode of rawCodes){
+      const [poItemsSnap, despSnap] = await Promise.all([
+        db.collection('poItems').where('itemCode','==',rawCode).get(),
+        db.collection('despatches').where('itemCode','==',rawCode).get(),
+      ]);
+      poItemsSnap.docs.forEach(d=> writes.push({type:'update', ref:d.ref, data:{itemCode:key}}));
+      despSnap.docs.forEach(d=> writes.push({type:'update', ref:d.ref, data:{itemCode:key}}));
+    }
+    dups.forEach(dup=> writes.push({type:'delete', ref: db.collection('items').doc(dup.id)}));
+    if(writes.length){ await commitWrites(writes); mergedCount += dups.length; }
+  }
+  return mergedCount;
+}
+
+async function mergeDuplicatePoNumbers(){
+  const snap = await db.collection('purchaseOrders').get();
+  const headers = snap.docs.map(d=>({id:d.id, ...d.data()}));
+  const groups = {};
+  headers.forEach(h=>{
+    const poKey = normalizePoNoKey(h.poNo);
+    if(!poKey || !h.customerId) return;
+    const key = h.customerId + '||' + poKey;
+    (groups[key] = groups[key] || []).push(h);
+  });
+  let mergedCount = 0;
+  for(const key in groups){
+    const group = groups[key];
+    if(group.length < 2) continue;
+    const sorted = group.slice().sort((a,b)=>docCreatedMs(a)-docCreatedMs(b));
+    const primary = sorted[0];
+    const dups = sorted.slice(1);
+    const writes = [];
+    let mergedAttachments = Array.isArray(primary.attachments) ? primary.attachments.slice() : [];
+    let deliveryRemark = primary.deliveryRemark || '';
+    for(const dup of dups){
+      if(Array.isArray(dup.attachments)) mergedAttachments = mergedAttachments.concat(dup.attachments);
+      if(!deliveryRemark && dup.deliveryRemark) deliveryRemark = dup.deliveryRemark;
+      const [poItemsSnap, despSnap] = await Promise.all([
+        db.collection('poItems').where('poId','==',dup.id).get(),
+        db.collection('despatches').where('poId','==',dup.id).get(),
+      ]);
+      const data = {poId:primary.id, poNo:primary.poNo};
+      poItemsSnap.docs.forEach(d=> writes.push({type:'update', ref:d.ref, data}));
+      despSnap.docs.forEach(d=> writes.push({type:'update', ref:d.ref, data}));
+      writes.push({type:'delete', ref: db.collection('purchaseOrders').doc(dup.id)});
+    }
+    const seenUrl = new Set();
+    mergedAttachments = mergedAttachments.filter(a=>{
+      if(!a || !a.url || seenUrl.has(a.url)) return false;
+      seenUrl.add(a.url); return true;
+    });
+    const primaryUpdate = {};
+    if(mergedAttachments.length !== (primary.attachments||[]).length) primaryUpdate.attachments = mergedAttachments;
+    if(deliveryRemark !== (primary.deliveryRemark||'')) primaryUpdate.deliveryRemark = deliveryRemark;
+    if(Object.keys(primaryUpdate).length) writes.push({type:'update', ref: db.collection('purchaseOrders').doc(primary.id), data:primaryUpdate});
+    if(writes.length){ await commitWrites(writes); mergedCount += dups.length; }
+  }
+  return mergedCount;
+}
+
+async function runAutoMergeDuplicates(){
+  if(autoMergeRan) return;
+  autoMergeRan = true;
+  try{
+    const customerCount = await mergeDuplicateCustomers();
+    const itemCount = await mergeDuplicateItems();
+    const poCount = await mergeDuplicatePoNumbers();
+    const total = customerCount + itemCount + poCount;
+    if(total > 0){
+      const parts = [];
+      if(customerCount) parts.push(`${customerCount} customer${customerCount>1?'s':''}`);
+      if(itemCount) parts.push(`${itemCount} item${itemCount>1?'s':''}`);
+      if(poCount) parts.push(`${poCount} PO number${poCount>1?'s':''}`);
+      toast(`Merged duplicate entries: ${parts.join(', ')}.`, 'success');
+    }
+  }catch(e){
+    console.error('Auto-merge duplicates failed', e);
+  }
 }
 
 function statusFor(item){
