@@ -1063,28 +1063,18 @@ function viewReports(){
   });
   const foundryList = Object.values(foundryAgg).sort((a,b)=>b.jaycoWt-a.jaycoWt);
 
-  /* Item-wise (size-wise) totals — total castings received per pattern, irrespective of foundry or month. */
+  /* Item-wise (size-wise) totals — total quantity of castings received per pattern, irrespective of foundry or month. */
   const itemAgg = {};
   rows.forEach(c=>{
     c.items.forEach(it=>{
       const key = it.itemName || 'Unknown item';
-      if(!itemAgg[key]) itemAgg[key] = {itemName:key, itemType:it.itemType, material:it.material,
-        challanIds:new Set(), qty:0, jaycoWt:0, foundryWt:0, diffSum:0, complete:0, missing:0};
+      if(!itemAgg[key]) itemAgg[key] = {itemName:key, itemType:it.itemType, material:it.material, challanIds:new Set(), qty:0};
       const g = itemAgg[key];
       g.challanIds.add(c.id);
       g.qty += num(it.quantity);
-      g.jaycoWt += num(it.actualTotalWeight ?? it.actualWeight);
-      if(num(it.foundryTotalWeight ?? it.foundryWeight) > 0){
-        g.foundryWt += num(it.foundryTotalWeight ?? it.foundryWeight);
-        g.diffSum += num(it.actualTotalWeight ?? it.actualWeight) - num(it.foundryTotalWeight ?? it.foundryWeight);
-        g.complete++;
-      } else g.missing++;
     });
   });
   const itemList = Object.values(itemAgg).sort((a,b)=>b.qty-a.qty);
-  const fwCellItem = g => g.complete>0
-    ? fmtWt(g.foundryWt) + (g.missing ? `<div style="font-size:11px;color:var(--ink-faint)">${g.missing} line${g.missing===1?'':'s'} pending</div>` : '')
-    : `<span style="color:var(--ink-faint)">Not entered</span>`;
 
   return `
   <div class="metrics" style="margin-bottom:26px">
@@ -1138,18 +1128,14 @@ function viewReports(){
       <p style="margin:8px 0 0;font-size:13px;color:var(--ink-soft);line-height:1.6">How much of each casting has come in from foundries so far, across every challan — highest quantity first.</p></div>
     </div>
     <div class="table-scroll"><table>
-      <thead><tr><th>Casting</th><th>Type</th><th>Material</th><th class="num">Challans</th><th class="num">Qty received</th>
-      <th class="num">Foundry Weight</th><th class="num">JAYCO Weight</th><th class="num">Difference</th></tr></thead>
+      <thead><tr><th>Casting</th><th>Type</th><th>Material</th><th class="num">Challans</th><th class="num">Qty received</th></tr></thead>
       <tbody>${ itemList.map(g=>`<tr>
         <td><b>${esc(g.itemName)}</b></td>
         <td>${esc(g.itemType)||'—'}</td>
         <td>${esc(g.material)||'—'}</td>
         <td class="num">${g.challanIds.size}</td>
         <td class="num"><b>${g.qty}</b></td>
-        <td class="num">${fwCellItem(g)}</td>
-        <td class="num">${fmtWt(g.jaycoWt)}</td>
-        <td class="num">${diffCell(g)}</td>
-      </tr>`).join('') || emptyRow(8, state.challans.length ? 'No castings match the search.' : 'No casting challans received yet.') }</tbody>
+      </tr>`).join('') || emptyRow(5, state.challans.length ? 'No castings match the search.' : 'No casting challans received yet.') }</tbody>
     </table></div>
   </section>`;
 }
