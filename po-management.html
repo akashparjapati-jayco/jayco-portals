@@ -440,6 +440,7 @@ tr.clickable:hover td{background:var(--blue-100)!important;}
     <div class="toolbar">
       <input id="custSearch" placeholder="Search customer, item, or PO no…"/>
       <button class="btn btn-primary" id="addCustBtn">+ Add customer</button>
+      <button class="btn btn-secondary" id="findDupCustBtn">Find possible duplicates</button>
       <button class="btn btn-secondary" id="exportCustomersBtn">Export to Excel</button>
       <button class="btn btn-secondary" id="exportPendingDetailsBtn">Export Pending Details</button>
     </div>
@@ -454,11 +455,23 @@ tr.clickable:hover td{background:var(--blue-100)!important;}
     <div class="toolbar">
       <input id="itemSearch" placeholder="Search item code, description, or material…"/>
       <button class="btn btn-primary" id="addItemMasterBtn">+ Add item</button>
+      <button class="btn btn-secondary" id="findDupItemBtn">Find possible duplicates</button>
       <button class="btn btn-secondary" id="exportItemsBtn">Export to Excel</button>
       <span class="hint" id="itemCount" style="margin-left:auto;"></span>
     </div>
     <div class="card"><div class="table-wrap"><table id="itemMasterTable"></table></div></div>
   </section>
+
+  <!-- ============ DUPLICATE REVIEW MODAL ============ -->
+  <div class="modal-bg" id="dupModalBg">
+    <div class="modal modal-wide">
+      <h3 id="dupModalTitle">Possible duplicates</h3>
+      <div id="dupModalBody" style="max-height:64vh;overflow-y:auto;"></div>
+      <div style="display:flex;justify-content:flex-end;margin-top:14px;">
+        <button class="btn btn-secondary" id="dupModalClose">Close</button>
+      </div>
+    </div>
+  </div>
 
   <!-- ============ IMPORT ============ -->
   <section class="page" id="page-import">
@@ -855,6 +868,28 @@ async function commitWrites(writes){
   }
 }
 
+async function mergeCustomerGroup(primary, dups){
+  if(!dups.length) return;
+  const mergedExclusive = primary.isExclusive || dups.some(c=>c.isExclusive);
+  const writes = [];
+  if(mergedExclusive && !primary.isExclusive){
+    writes.push({type:'update', ref: db.collection('customers').doc(primary.id), data:{isExclusive:true}});
+  }
+  for(const dup of dups){
+    const [itemsSnap, despSnap, posSnap] = await Promise.all([
+      db.collection('poItems').where('customerId','==',dup.id).get(),
+      db.collection('despatches').where('customerId','==',dup.id).get(),
+      db.collection('purchaseOrders').where('customerId','==',dup.id).get(),
+    ]);
+    const data = {customerId:primary.id, customerName:primary.name, isExclusive:mergedExclusive};
+    itemsSnap.docs.forEach(d=> writes.push({type:'update', ref:d.ref, data}));
+    despSnap.docs.forEach(d=> writes.push({type:'update', ref:d.ref, data}));
+    posSnap.docs.forEach(d=> writes.push({type:'update', ref:d.ref, data}));
+    writes.push({type:'delete', ref: db.collection('customers').doc(dup.id)});
+  }
+  if(writes.length) await commitWrites(writes);
+}
+
 async function mergeDuplicateCustomers(){
   const snap = await db.collection('customers').get();
   const customers = snap.docs.map(d=>({id:d.id, ...d.data()}));
@@ -871,26 +906,34 @@ async function mergeDuplicateCustomers(){
     const sorted = group.slice().sort((a,b)=>docCreatedMs(a)-docCreatedMs(b));
     const primary = sorted[0];
     const dups = sorted.slice(1);
-    const mergedExclusive = group.some(c=>c.isExclusive);
-    const writes = [];
-    if(mergedExclusive && !primary.isExclusive){
-      writes.push({type:'update', ref: db.collection('customers').doc(primary.id), data:{isExclusive:true}});
-    }
-    for(const dup of dups){
-      const [itemsSnap, despSnap, posSnap] = await Promise.all([
-        db.collection('poItems').where('customerId','==',dup.id).get(),
-        db.collection('despatches').where('customerId','==',dup.id).get(),
-        db.collection('purchaseOrders').where('customerId','==',dup.id).get(),
-      ]);
-      const data = {customerId:primary.id, customerName:primary.name, isExclusive:mergedExclusive};
-      itemsSnap.docs.forEach(d=> writes.push({type:'update', ref:d.ref, data}));
-      despSnap.docs.forEach(d=> writes.push({type:'update', ref:d.ref, data}));
-      posSnap.docs.forEach(d=> writes.push({type:'update', ref:d.ref, data}));
-      writes.push({type:'delete', ref: db.collection('customers').doc(dup.id)});
-    }
-    if(writes.length){ await commitWrites(writes); mergedCount += dups.length; }
+    await mergeCustomerGroup(primary, dups);
+    mergedCount += dups.length;
   }
   return mergedCount;
+}
+
+async function mergeItemGroup(primary, dups, canonicalCode){
+  const key = canonicalCode || primary.itemCode;
+  const writes = [];
+  const description = primary.description || (dups.find(d=>d.description)||{}).description || primary.description || '';
+  const material = primary.material || (dups.find(d=>d.material)||{}).material || primary.material || '';
+  const primaryUpdate = {};
+  if(primary.itemCode !== key) primaryUpdate.itemCode = key;
+  if(description !== (primary.description||'')) primaryUpdate.description = description;
+  if(material !== (primary.material||'')) primaryUpdate.material = material;
+  if(Object.keys(primaryUpdate).length) writes.push({type:'update', ref: db.collection('items').doc(primary.id), data:primaryUpdate});
+
+  const rawCodes = new Set([primary, ...dups].map(m=>m.itemCode).filter(c=>c && c!==key));
+  for(const rawCode of rawCodes){
+    const [poItemsSnap, despSnap] = await Promise.all([
+      db.collection('poItems').where('itemCode','==',rawCode).get(),
+      db.collection('despatches').where('itemCode','==',rawCode).get(),
+    ]);
+    poItemsSnap.docs.forEach(d=> writes.push({type:'update', ref:d.ref, data:{itemCode:key}}));
+    despSnap.docs.forEach(d=> writes.push({type:'update', ref:d.ref, data:{itemCode:key}}));
+  }
+  dups.forEach(dup=> writes.push({type:'delete', ref: db.collection('items').doc(dup.id)}));
+  if(writes.length) await commitWrites(writes);
 }
 
 async function mergeDuplicateItems(){
@@ -909,26 +952,8 @@ async function mergeDuplicateItems(){
     const sorted = group.slice().sort((a,b)=>docCreatedMs(a)-docCreatedMs(b));
     const primary = sorted[0];
     const dups = sorted.slice(1);
-    const writes = [];
-    const description = primary.description || (dups.find(d=>d.description)||{}).description || primary.description || '';
-    const material = primary.material || (dups.find(d=>d.material)||{}).material || primary.material || '';
-    const primaryUpdate = {};
-    if(primary.itemCode !== key) primaryUpdate.itemCode = key;
-    if(description !== (primary.description||'')) primaryUpdate.description = description;
-    if(material !== (primary.material||'')) primaryUpdate.material = material;
-    if(Object.keys(primaryUpdate).length) writes.push({type:'update', ref: db.collection('items').doc(primary.id), data:primaryUpdate});
-
-    const rawCodes = new Set(group.map(m=>m.itemCode).filter(c=>c && c!==key));
-    for(const rawCode of rawCodes){
-      const [poItemsSnap, despSnap] = await Promise.all([
-        db.collection('poItems').where('itemCode','==',rawCode).get(),
-        db.collection('despatches').where('itemCode','==',rawCode).get(),
-      ]);
-      poItemsSnap.docs.forEach(d=> writes.push({type:'update', ref:d.ref, data:{itemCode:key}}));
-      despSnap.docs.forEach(d=> writes.push({type:'update', ref:d.ref, data:{itemCode:key}}));
-    }
-    dups.forEach(dup=> writes.push({type:'delete', ref: db.collection('items').doc(dup.id)}));
-    if(writes.length){ await commitWrites(writes); mergedCount += dups.length; }
+    await mergeItemGroup(primary, dups, key);
+    mergedCount += dups.length;
   }
   return mergedCount;
 }
@@ -998,6 +1023,138 @@ async function runAutoMergeDuplicates(){
     console.error('Auto-merge duplicates failed', e);
   }
 }
+
+/* ---------------- Possible-duplicate review (names that are close but not identical) ----------------
+   The auto-merge above only catches exact matches (same spelling, different case/spacing). A name typed
+   with a real spelling difference — "S T C Industries" vs "STC Industriess" — needs a human to confirm
+   before merging, since two genuinely different customers/items can also have similar-looking names. */
+function levenshtein(a, b){
+  a = a || ''; b = b || '';
+  const m = a.length, n = b.length;
+  if(!m) return n;
+  if(!n) return m;
+  let prev = Array.from({length:n+1}, (_,i)=>i);
+  for(let i=1;i<=m;i++){
+    const cur = [i];
+    for(let j=1;j<=n;j++){
+      cur[j] = a[i-1]===b[j-1] ? prev[j-1] : 1 + Math.min(prev[j-1], prev[j], cur[j-1]);
+    }
+    prev = cur;
+  }
+  return prev[n];
+}
+function isNearDuplicateKey(a, b){
+  if(!a || !b || a===b) return false;
+  const dist = levenshtein(a,b);
+  const maxLen = Math.max(a.length, b.length);
+  if(maxLen <= 4) return dist <= 1;
+  if(maxLen <= 8) return dist <= 2;
+  return dist/maxLen <= 0.22;
+}
+// Item codes are often a short prefix + a running number (SN 511, SN 512, SN 513…) — those are
+// genuinely different products one digit apart, not typos, so never flag codes whose numbers differ.
+function isNearDuplicateItemCode(a, b){
+  if(!a || !b || a===b) return false;
+  const digitsOf = s => (s.match(/\d+/g)||[]).map(d=>String(parseInt(d,10))).join(',');
+  if(digitsOf(a) !== digitsOf(b)) return false;
+  return isNearDuplicateKey(a, b);
+}
+function findNearDuplicateGroups(list, keyFn, matchFn){
+  matchFn = matchFn || isNearDuplicateKey;
+  const keys = list.map(keyFn);
+  const parent = list.map((_,i)=>i);
+  function find(i){ while(parent[i]!==i){ parent[i]=parent[parent[i]]; i=parent[i]; } return i; }
+  function union(i,j){ const ri=find(i), rj=find(j); if(ri!==rj) parent[ri]=rj; }
+  for(let i=0;i<list.length;i++){
+    for(let j=i+1;j<list.length;j++){
+      if(!keys[i] || !keys[j] || keys[i]===keys[j]) continue; // exact matches are already auto-merged
+      if(matchFn(keys[i], keys[j])) union(i,j);
+    }
+  }
+  const clusters = {};
+  list.forEach((item,i)=>{
+    const root = find(i);
+    (clusters[root] = clusters[root] || []).push(item);
+  });
+  return Object.values(clusters).filter(g=>g.length>1);
+}
+
+let dupReviewMode = null; // 'customers' | 'items'
+let dupReviewGroups = [];
+function lineCountForCustomer(c){ return PO_ITEMS.filter(i=>i.customerId===c.id).length; }
+function lineCountForItem(it){ return PO_ITEMS.filter(i=>i.itemCode===it.itemCode).length; }
+
+function openDupReviewModal(mode){
+  dupReviewMode = mode;
+  const isCust = mode==='customers';
+  const list = isCust ? CUSTOMERS : ITEMS;
+  const keyFn = isCust ? (c=>normalizeNameKey(c.name)) : (it=>normalizeItemCode(it.itemCode));
+  const matchFn = isCust ? isNearDuplicateKey : isNearDuplicateItemCode;
+  const lineCountFn = isCust ? lineCountForCustomer : lineCountForItem;
+  dupReviewGroups = findNearDuplicateGroups(list, keyFn, matchFn).map(group=>
+    group.slice().sort((a,b)=> lineCountFn(b)-lineCountFn(a) || docCreatedMs(a)-docCreatedMs(b))
+  );
+  document.getElementById('dupModalTitle').textContent = isCust ? 'Possible duplicate customers' : 'Possible duplicate items';
+  renderDupReviewModal();
+  document.getElementById('dupModalBg').classList.add('show');
+}
+function renderDupReviewModal(){
+  const isCust = dupReviewMode==='customers';
+  const lineCountFn = isCust ? lineCountForCustomer : lineCountForItem;
+  const body = document.getElementById('dupModalBody');
+  if(!dupReviewGroups.length){
+    body.innerHTML = `<div class="empty">No likely duplicates found${isCust?' among customers':' among items'}.</div>`;
+    return;
+  }
+  body.innerHTML = dupReviewGroups.map((group, gi)=> `
+    <div class="card card-pad" style="margin-bottom:12px;">
+      <div style="font-weight:700;margin-bottom:8px;font-size:13px;">Possible match ${gi+1}</div>
+      <table>
+        <tr><th style="width:34px;">Keep</th><th>${isCust?'Customer':'Item code'}</th><th class="text-right">PO lines</th></tr>
+        ${group.map((rec,ri)=>`<tr>
+          <td><input type="radio" name="dupkeep-${gi}" value="${ri}" ${ri===0?'checked':''}/></td>
+          <td>${esc(isCust ? rec.name : rec.itemCode)}${isCust && rec.isExclusive ? ' <span class="badge badge-exclusive">EXCLUSIVE</span>' : ''}</td>
+          <td class="text-right mono">${lineCountFn(rec)}</td>
+        </tr>`).join('')}
+      </table>
+      <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:10px;">
+        <button class="btn btn-secondary" data-dismiss-group="${gi}">Not a duplicate</button>
+        <button class="btn btn-primary" data-merge-group="${gi}">Merge into selected</button>
+      </div>
+    </div>
+  `).join('');
+  body.querySelectorAll('[data-dismiss-group]').forEach(btn=>{
+    btn.onclick = ()=>{
+      dupReviewGroups.splice(+btn.dataset.dismissGroup, 1);
+      renderDupReviewModal();
+    };
+  });
+  body.querySelectorAll('[data-merge-group]').forEach(btn=>{
+    btn.onclick = async ()=>{
+      const gi = +btn.dataset.mergeGroup;
+      const group = dupReviewGroups[gi];
+      const checked = body.querySelector(`input[name="dupkeep-${gi}"]:checked`);
+      const keepIdx = checked ? +checked.value : 0;
+      const primary = group[keepIdx];
+      const dups = group.filter((_,i)=>i!==keepIdx);
+      btn.disabled = true; btn.textContent = 'Merging…';
+      try{
+        if(dupReviewMode==='customers') await mergeCustomerGroup(primary, dups);
+        else await mergeItemGroup(primary, dups);
+        toast(`Merged ${dups.length} duplicate${dups.length>1?'s':''} into "${dupReviewMode==='customers'?primary.name:primary.itemCode}".`, 'success');
+        dupReviewGroups.splice(gi, 1);
+        renderDupReviewModal();
+      }catch(e){
+        console.error(e);
+        toast('Could not merge — see console.', 'error');
+        btn.disabled = false; btn.textContent = 'Merge into selected';
+      }
+    };
+  });
+}
+document.getElementById('findDupCustBtn').onclick = ()=>{ if(requireDb()) openDupReviewModal('customers'); };
+document.getElementById('findDupItemBtn').onclick = ()=>{ if(requireDb()) openDupReviewModal('items'); };
+document.getElementById('dupModalClose').onclick = ()=> document.getElementById('dupModalBg').classList.remove('show');
 
 function statusFor(item){
   if(item.despatchedQty <= 0) return 'Pending';
