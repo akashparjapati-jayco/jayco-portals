@@ -435,14 +435,16 @@ tr.clickable:hover td{background:var(--blue-100)!important;}
   <!-- ============ CUSTOMERS ============ -->
   <section class="page" id="page-customers">
     <div class="page-head">
-      <div><h1>Customers</h1><p>Mark a customer as "exclusive" to track them separately, the way STC is tracked today.</p></div>
+      <div><h1>Party Master</h1><p>The full list of parties (customers). Mark a party as "exclusive" to track them separately, the way STC is tracked today.</p></div>
     </div>
     <div class="toolbar">
-      <input id="custSearch" placeholder="Search customer, item, or PO no…"/>
-      <button class="btn btn-primary" id="addCustBtn">+ Add customer</button>
+      <input id="custSearch" placeholder="Search party, item, or PO no…"/>
+      <button class="btn btn-primary" id="addCustBtn">+ Add party</button>
       <button class="btn btn-secondary" id="findDupCustBtn">Find possible duplicates</button>
+      <button class="btn btn-secondary" id="mergeSelectedPartiesBtn" disabled>Merge selected</button>
       <button class="btn btn-secondary" id="exportCustomersBtn">Export to Excel</button>
       <button class="btn btn-secondary" id="exportPendingDetailsBtn">Export Pending Details</button>
+      <span class="hint" id="partySelectHint" style="margin-left:auto;"></span>
     </div>
     <div class="card"><div class="table-wrap"><table id="custTable"></table></div></div>
   </section>
@@ -579,14 +581,14 @@ service cloud.firestore {
 
 <div class="modal-bg" id="custModalBg">
   <div class="modal">
-    <h3 id="custModalTitle">Add customer</h3>
+    <h3 id="custModalTitle">Add party</h3>
     <div class="field">
-      <label>Customer name</label>
+      <label>Party name</label>
       <input id="custModalName"/>
     </div>
     <div class="field checkbox-row">
       <input type="checkbox" id="custModalExclusive"/>
-      <label style="margin:0;">Track as exclusive customer (like STC)</label>
+      <label style="margin:0;">Track as exclusive party (like STC)</label>
     </div>
     <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:10px;">
       <button class="btn btn-secondary" id="custModalCancel">Cancel</button>
@@ -778,7 +780,7 @@ const NAV = [
   {id:'despatch', icon:'▶', label:'Record Despatch'},
   {id:'register', icon:'☰', label:'PO Register'},
   {id:'reports', icon:'▤', label:'Reports'},
-  {id:'customers', icon:'◐', label:'Customers'},
+  {id:'customers', icon:'◐', label:'Party Master'},
   {id:'items', icon:'▧', label:'Items'},
   {id:'import', icon:'⇪', label:'Import Masters'},
   {id:'setup', icon:'⚙', label:'Firebase Setup'},
@@ -1094,7 +1096,19 @@ function openDupReviewModal(mode){
   dupReviewGroups = findNearDuplicateGroups(list, keyFn, matchFn).map(group=>
     group.slice().sort((a,b)=> lineCountFn(b)-lineCountFn(a) || docCreatedMs(a)-docCreatedMs(b))
   );
-  document.getElementById('dupModalTitle').textContent = isCust ? 'Possible duplicate customers' : 'Possible duplicate items';
+  document.getElementById('dupModalTitle').textContent = isCust ? 'Possible duplicate parties' : 'Possible duplicate items';
+  renderDupReviewModal();
+  document.getElementById('dupModalBg').classList.add('show');
+}
+function openManualMergeModal(mode, ids){
+  dupReviewMode = mode;
+  const isCust = mode==='customers';
+  const list = isCust ? CUSTOMERS : ITEMS;
+  const lineCountFn = isCust ? lineCountForCustomer : lineCountForItem;
+  const group = list.filter(rec=> ids.includes(rec.id))
+    .sort((a,b)=> lineCountFn(b)-lineCountFn(a) || docCreatedMs(a)-docCreatedMs(b));
+  dupReviewGroups = group.length > 1 ? [group] : [];
+  document.getElementById('dupModalTitle').textContent = isCust ? 'Merge selected parties' : 'Merge selected items';
   renderDupReviewModal();
   document.getElementById('dupModalBg').classList.add('show');
 }
@@ -1103,14 +1117,14 @@ function renderDupReviewModal(){
   const lineCountFn = isCust ? lineCountForCustomer : lineCountForItem;
   const body = document.getElementById('dupModalBody');
   if(!dupReviewGroups.length){
-    body.innerHTML = `<div class="empty">No likely duplicates found${isCust?' among customers':' among items'}.</div>`;
+    body.innerHTML = `<div class="empty">No likely duplicates found${isCust?' among parties':' among items'}.</div>`;
     return;
   }
   body.innerHTML = dupReviewGroups.map((group, gi)=> `
     <div class="card card-pad" style="margin-bottom:12px;">
       <div style="font-weight:700;margin-bottom:8px;font-size:13px;">Possible match ${gi+1}</div>
       <table>
-        <tr><th style="width:34px;">Keep</th><th>${isCust?'Customer':'Item code'}</th><th class="text-right">PO lines</th></tr>
+        <tr><th style="width:34px;">Keep</th><th>${isCust?'Party':'Item code'}</th><th class="text-right">PO lines</th></tr>
         ${group.map((rec,ri)=>`<tr>
           <td><input type="radio" name="dupkeep-${gi}" value="${ri}" ${ri===0?'checked':''}/></td>
           <td>${esc(isCust ? rec.name : rec.itemCode)}${isCust && rec.isExclusive ? ' <span class="badge badge-exclusive">EXCLUSIVE</span>' : ''}</td>
@@ -1139,8 +1153,13 @@ function renderDupReviewModal(){
       const dups = group.filter((_,i)=>i!==keepIdx);
       btn.disabled = true; btn.textContent = 'Merging…';
       try{
-        if(dupReviewMode==='customers') await mergeCustomerGroup(primary, dups);
-        else await mergeItemGroup(primary, dups);
+        if(dupReviewMode==='customers'){
+          await mergeCustomerGroup(primary, dups);
+          dups.forEach(d=> selectedPartyIds.delete(d.id));
+          updatePartySelectUi();
+        } else {
+          await mergeItemGroup(primary, dups);
+        }
         toast(`Merged ${dups.length} duplicate${dups.length>1?'s':''} into "${dupReviewMode==='customers'?primary.name:primary.itemCode}".`, 'success');
         dupReviewGroups.splice(gi, 1);
         renderDupReviewModal();
@@ -2217,6 +2236,12 @@ document.getElementById('exportReportBtn').onclick = ()=>{
 /* ---------------- Customers ---------------- */
 document.getElementById('custSearch').addEventListener('input', renderCustomers);
 let lastCustomersList = [];
+let selectedPartyIds = new Set();
+function updatePartySelectUi(){
+  document.getElementById('mergeSelectedPartiesBtn').disabled = selectedPartyIds.size < 2;
+  document.getElementById('partySelectHint').textContent =
+    selectedPartyIds.size ? `${selectedPartyIds.size} selected` : '';
+}
 function renderCustomers(){
   const q = document.getElementById('custSearch').value.trim().toLowerCase();
   const matchingIds = new Set();
@@ -2230,14 +2255,17 @@ function renderCustomers(){
   }
   const list = CUSTOMERS.filter(c=>matchingIds.has(c.id)).sort((a,b)=>a.name.localeCompare(b.name));
   lastCustomersList = list;
+  const liveIds = new Set(CUSTOMERS.map(c=>c.id));
+  Array.from(selectedPartyIds).forEach(id=>{ if(!liveIds.has(id)) selectedPartyIds.delete(id); });
   document.getElementById('custTable').innerHTML =
-    `<tr><th>Customer</th><th>Tracking</th><th class="text-right">Open PO lines</th><th class="text-right">Total pending</th><th></th></tr>` +
+    `<tr><th></th><th>Party</th><th>Tracking</th><th class="text-right">Open PO lines</th><th class="text-right">Total pending</th><th></th></tr>` +
     (list.length ? list.map(c=>{
       const lines = PO_ITEMS.filter(i=>i.customerId===c.id);
       const openLines = lines.filter(i=>i.pendingQty>0);
       const pending = openLines.reduce((s,i)=>s+i.pendingQty,0);
       return `
       <tr class="clickable" data-cust-row="${c.id}">
+        <td><input type="checkbox" class="party-select" data-id="${c.id}" ${selectedPartyIds.has(c.id)?'checked':''}/></td>
         <td>${esc(c.name)}</td>
         <td>${c.isExclusive ? '<span class="badge badge-exclusive" style="margin-left:0;">EXCLUSIVE</span>' : 'Standard'}</td>
         <td class="text-right mono">${openLines.length}</td>
@@ -2247,13 +2275,20 @@ function renderCustomers(){
           <button class="btn btn-ghost" data-del-cust="${c.id}" style="color:var(--red);">Delete</button>
         </td>
       </tr>`;
-    }).join('') : `<tr><td colspan="5"><div class="empty">No customers match.</div></td></tr>`);
+    }).join('') : `<tr><td colspan="6"><div class="empty">No parties match.</div></td></tr>`);
   document.querySelectorAll('#custTable tr[data-cust-row]').forEach(tr=>{
     tr.onclick = (e)=>{
-      if(e.target.closest('button')) return;
+      if(e.target.closest('button') || e.target.closest('input')) return;
       const c = CUSTOMERS.find(x=>x.id===tr.dataset.custRow);
       const openLines = PO_ITEMS.filter(i=>i.customerId===c.id && i.pendingQty>0);
-      openLineListModal(`Customer: ${c.name}`, `${openLines.length} open line(s)${c.isExclusive?' · Exclusive customer':''}`, openLines);
+      openLineListModal(`Party: ${c.name}`, `${openLines.length} open line(s)${c.isExclusive?' · Exclusive party':''}`, openLines);
+    };
+  });
+  document.querySelectorAll('#custTable input.party-select').forEach(cb=>{
+    cb.onclick = e=> e.stopPropagation();
+    cb.onchange = ()=>{
+      if(cb.checked) selectedPartyIds.add(cb.dataset.id); else selectedPartyIds.delete(cb.dataset.id);
+      updatePartySelectUi();
     };
   });
   document.querySelectorAll('#custTable button[data-edit-cust]').forEach(b=>{
@@ -2262,16 +2297,22 @@ function renderCustomers(){
   document.querySelectorAll('#custTable button[data-del-cust]').forEach(b=>{
     b.onclick = (e)=>{ e.stopPropagation(); deleteCustomer(b.dataset.delCust); };
   });
+  updatePartySelectUi();
 }
 document.getElementById('addCustBtn').onclick = ()=> openCustModal(null);
+document.getElementById('mergeSelectedPartiesBtn').onclick = ()=>{
+  if(!requireDb()) return;
+  if(selectedPartyIds.size < 2) return;
+  openManualMergeModal('customers', Array.from(selectedPartyIds));
+};
 document.getElementById('exportCustomersBtn').onclick = ()=>{
-  const headers = ['Customer','Tracking','Open PO lines','Total pending'];
+  const headers = ['Party','Tracking','Open PO lines','Total pending'];
   const rows = lastCustomersList.map(c=>{
     const openLines = PO_ITEMS.filter(i=>i.customerId===c.id && i.pendingQty>0);
     const pending = openLines.reduce((s,i)=>s+i.pendingQty,0);
     return [c.name, c.isExclusive ? 'Exclusive' : 'Standard', openLines.length, pending];
   });
-  exportRowsToExcel(headers, rows, 'Customers');
+  exportRowsToExcel(headers, rows, 'Parties');
 };
 
 document.getElementById('exportPendingDetailsBtn').onclick = ()=>{
@@ -2279,7 +2320,7 @@ document.getElementById('exportPendingDetailsBtn').onclick = ()=>{
   const rows = PO_ITEMS
     .filter(i=>i.pendingQty>0 && custIds.has(i.customerId))
     .sort((a,b)=> a.customerName.localeCompare(b.customerName) || new Date(b.poDate) - new Date(a.poDate));
-  const headers = ['PO Date','Customer','PO No','Item','Material','Ordered','Despatched','Pending','Status'];
+  const headers = ['PO Date','Party','PO No','Item','Material','Ordered','Despatched','Pending','Status'];
   const data = rows.map(i=>[
     fmtDate(i.poDate), i.customerName, i.poNo, i.itemCode, i.material||'',
     i.orderedQty, i.despatchedQty, i.pendingQty, statusFor(i)
@@ -2290,7 +2331,7 @@ document.getElementById('exportPendingDetailsBtn').onclick = ()=>{
 let editingCustomerId = null;
 function openCustModal(existing){
   editingCustomerId = existing ? existing.id : null;
-  document.getElementById('custModalTitle').textContent = existing ? 'Edit customer' : 'Add customer';
+  document.getElementById('custModalTitle').textContent = existing ? 'Edit party' : 'Add party';
   document.getElementById('custModalName').value = existing ? existing.name : '';
   document.getElementById('custModalExclusive').checked = existing ? !!existing.isExclusive : false;
   document.getElementById('custModalBg').classList.add('show');
@@ -2303,7 +2344,7 @@ document.getElementById('custModalSave').onclick = async ()=>{
   const isExclusive = document.getElementById('custModalExclusive').checked;
   if(!name){ toast('Enter a name.', 'error'); return; }
   const dup = CUSTOMERS.find(c=>c.name.toLowerCase()===name.toLowerCase() && c.id!==editingCustomerId);
-  if(dup){ toast('Another customer already has that name.', 'error'); return; }
+  if(dup){ toast('Another party already has that name.', 'error'); return; }
   try{
     if(editingCustomerId){
       await db.collection('customers').doc(editingCustomerId).update({name, isExclusive});
@@ -2316,12 +2357,12 @@ document.getElementById('custModalSave').onclick = async ()=>{
       itemsSnap.docs.forEach(d=> batch.update(d.ref, {customerName:name, isExclusive}));
       despSnap.docs.forEach(d=> batch.update(d.ref, {customerName:name, isExclusive}));
       if(!itemsSnap.empty || !despSnap.empty) await batch.commit();
-      toast('Customer updated.', 'success');
+      toast('Party updated.', 'success');
     } else {
       await db.collection('customers').add({
         name, isExclusive, createdAt: firebase.firestore.FieldValue.serverTimestamp()
       });
-      toast('Customer added.', 'success');
+      toast('Party added.', 'success');
     }
     document.getElementById('custModalBg').classList.remove('show');
     editingCustomerId = null;
@@ -2338,10 +2379,10 @@ async function deleteCustomer(id){
     toast(`Can't delete ${c.name} — they still have ${lineCount} PO line(s). Delete those first.`, 'error');
     return;
   }
-  if(!confirm(`Delete customer "${c.name}"? This can't be undone.`)) return;
+  if(!confirm(`Delete party "${c.name}"? This can't be undone.`)) return;
   try{
     await db.collection('customers').doc(id).delete();
-    toast('Customer deleted.', 'success');
+    toast('Party deleted.', 'success');
   }catch(e){
     console.error(e); toast('Could not delete — see console.', 'error');
   }
