@@ -1,0 +1,19 @@
+{
+  "id": "attendance.html",
+  "name": "JAYCO Staff Attendance",
+  "short_name": "JAYCO Attendance",
+  "description": "JAYCO Engineering India staff attendance: selfie punch IN/OUT, overtime and daily work.",
+  "start_url": "attendance.html?source=app",
+  "scope": "attendance",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#ffffff",
+  "theme_color": "#e30016",
+  "lang": "en-IN",
+  "categories": ["business", "productivity"],
+  "icons": [
+    { "src": "jayco-att-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "jayco-att-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "jayco-att-maskable.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

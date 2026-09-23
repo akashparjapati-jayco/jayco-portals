@@ -17,7 +17,12 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#ffffff">
+<meta name="theme-color" content="#e30016">
+<link rel="manifest" href="attendance.webmanifest">
+<link rel="icon" type="image/png" href="jayco-att-192.png">
+<link rel="apple-touch-icon" href="jayco-att-apple.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="JAYCO Attendance">
 <title>JAYCO Attendance</title>
@@ -134,6 +139,12 @@ tr.click{cursor:pointer}tr.click:hover td{background:#fafbfc}
 .cred{background:var(--panel2);border-radius:10px;padding:14px;margin:12px 0}
 .cred b{font-size:30px;font-weight:700;letter-spacing:1px;display:block}
 ol.help{padding-left:18px;margin:10px 0}
+.install{display:flex;align-items:center;gap:12px;background:var(--panel);border:1px solid var(--line);border-left:4px solid var(--red);border-radius:0 10px 10px 0;padding:10px 12px;margin:12px 0;box-shadow:var(--shadow)}
+.install img{width:44px;height:44px;border-radius:10px;flex:none}
+.install .grow b{display:block;font-size:15px}
+.install .btn{font-size:17px;padding:9px 14px}
+.install .x{background:none;border:0;color:var(--mute);font-size:22px;cursor:pointer;padding:0 4px}
+.ios-steps{padding-left:20px}.ios-steps li{margin:8px 0}
 .pp{display:flex;gap:14px;align-items:center}
 .pp-img{width:96px;height:96px;border-radius:50%;flex:none;background:var(--panel2) center/cover no-repeat;border:2px dashed #c9ced5;display:grid;place-items:center;color:var(--mute);overflow:hidden}
 .pp-img.has{border:3px solid var(--red)}
@@ -170,6 +181,7 @@ en: {
   demo:'Demo mode: data is saved on this phone only. Add the Firebase config to share data between phones.',
   openLink:'This page was opened as a file (from WhatsApp or Downloads). Phones block location and camera for files. Open the app from this link instead:',
   help1:"Turn on Location in the phone's quick settings.", help2:'In Chrome, tap the icon left of the web address, then Permissions, then Location: Allow.', help3:'Still blocked? Phone Settings, Apps, Chrome, Permissions, Location: Allow.',
+  installTitle:'Install JAYCO Attendance', installSub:'Open it from your home screen like any app.', install:'Install', iosTitle:'Add to Home Screen', ios1:'Tap the Share button at the bottom of Safari.', ios2:'Scroll and tap "Add to Home Screen".', ios3:'Tap "Add". The JAYCO icon appears on your home screen.', gotIt:'OK', installed:'App installed. Open it from your home screen.',
   regIntro:'Fill in exactly as on your Aadhaar and bank passbook.', photo:'Your photo', takePhoto:'Take photo', choosePhotoBtn:'Choose from gallery', photoHint:'Clear face, no cap or sunglasses.', e_photo:'Add your photo.', photoAdded:'Photo added ({kb} KB)', changePhoto:'Change photo', secPersonal:'Personal', name:'Name', father:"Father's name", surname:'Surname', dob:'Date of birth', address:'Full address',
   secLogin:'Login and ID', mobileUser:'Mobile number (this is your username)', aadhaar:'Aadhaar card number (12 digits)',
   secBank:'Bank (for salary)', bank:'Bank name', acc:'Bank account number', acc2:'Re-enter account number', ifsc:'IFSC / NEFT code',
@@ -232,6 +244,7 @@ gu: {
   demo:'ડેમો મોડ: ડેટા ફક્ત આ ફોનમાં સેવ થાય છે. બધા ફોન વચ્ચે ડેટા માટે Firebase સેટ કરો.',
   openLink:'આ પેજ ફાઇલ તરીકે ખોલ્યું છે (WhatsApp અથવા Downloads માંથી). ફાઇલમાં લોકેશન અને કૅમેરા બંધ રહે છે. આ લિંક પરથી એપ ખોલો:',
   help1:'ફોનના ક્વિક સેટિંગ્સમાં Location ચાલુ કરો.', help2:'Chrome માં વેબ એડ્રેસની ડાબી બાજુના આઇકન પર ટૅપ કરો → Permissions → Location: Allow.', help3:'હજી બંધ છે? ફોન Settings → Apps → Chrome → Permissions → Location: Allow.',
+  installTitle:'JAYCO હાજરી એપ ઇન્સ્ટોલ કરો', installSub:'બીજી એપની જેમ હોમ સ્ક્રીન પરથી ખોલો.', install:'ઇન્સ્ટોલ', iosTitle:'હોમ સ્ક્રીન પર ઉમેરો', ios1:'Safari ની નીચે Share બટન દબાવો.', ios2:'નીચે જઈ "Add to Home Screen" દબાવો.', ios3:'"Add" દબાવો. JAYCO આઇકન હોમ સ્ક્રીન પર આવી જશે.', gotIt:'બરાબર', installed:'એપ ઇન્સ્ટોલ થઈ ગઈ. હોમ સ્ક્રીન પરથી ખોલો.',
   regIntro:'બધી વિગત આધાર કાર્ડ અને બેંક પાસબુક મુજબ ભરો.', photo:'તમારો ફોટો', takePhoto:'ફોટો પાડો', choosePhotoBtn:'ગેલેરીમાંથી પસંદ કરો', photoHint:'ચહેરો સાફ દેખાય, ટોપી કે ગોગલ્સ વગર.', e_photo:'તમારો ફોટો ઉમેરો.', photoAdded:'ફોટો ઉમેરાયો ({kb} KB)', changePhoto:'ફોટો બદલો', secPersonal:'અંગત વિગત', name:'નામ', father:'પિતાનું નામ', surname:'અટક', dob:'જન્મ તારીખ', address:'પૂરું સરનામું',
   secLogin:'લૉગિન અને ઓળખ', mobileUser:'મોબાઇલ નંબર (આ તમારું યુઝરનેમ છે)', aadhaar:'આધાર કાર્ડ નંબર (12 અંક)',
   secBank:'બેંક (પગાર માટે)', bank:'બેંકનું નામ', acc:'બેંક ખાતા નંબર', acc2:'ખાતા નંબર ફરી લખો', ifsc:'IFSC / NEFT કોડ',
@@ -483,6 +496,7 @@ function renderAuth() {
     <div class="cond" style="font-size:22px;margin-top:6px">${t('appSub')}</div>
     ${!SECURE ? `<p class="warnbox small">${openLinkMsg()}</p>` : ''}
     ${DB === Local ? `<p class="warnbox small">${t('demo')}</p>` : ''}
+    <div id="installSlot">${installBanner()}</div>
     <div class="seg" role="tablist">
       <button class="${reg ? '' : 'on'}" onclick="S.authMode='login';renderAuth()">${t('login')}</button>
       <button class="${reg ? 'on' : ''}" onclick="S.authMode='reg';renderAuth()">${t('newReg')}</button>
@@ -648,6 +662,7 @@ async function empToday(m) {
   m.innerHTML = `<h1>${greet()}, ${esc(S.profile.name)}</h1>
     <p class="muted">${new Date().toLocaleDateString(S.lang === 'gu' ? 'gu-IN' : 'en-IN', { weekday: 'long', day: 'numeric', month: 'long' })}</p>
     ${!SECURE ? `<p class="warnbox small">${openLinkMsg()}</p>` : ''}
+    <div id="installSlot">${installBanner()}</div>
     <div id="live">${liveHTML()}</div>
     ${noF ? `<p class="warnbox">${t('noFactory')}</p>` : ''}
     <h2>${t('todaysPunches')}</h2>${punchList(S.today.punches)}
@@ -899,6 +914,35 @@ async function saveSettings() {
   const b = $('#s_btn'); b.disabled = true;
   try { await DB.saveSettings(s); S.settings = { ...DEF, ...s }; toast(t('saved')); render(); }
   catch (e) { toast(errMsg(e), 1); b.disabled = false; }
+}
+
+/* ============ install as mobile app (PWA) ============ */
+const STANDALONE = matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+const IOS = /iphone|ipad|ipod/i.test(navigator.userAgent) && !window.MSStream;
+let deferredPrompt = null;
+function installBanner() {
+  if (STANDALONE || !SECURE) return '';
+  try { if (sessionStorage.getItem('jayco_hide_install')) return ''; } catch (e) {}
+  if (!deferredPrompt && !IOS) return '';
+  return `<div class="install" id="installBox"><img src="jayco-att-192.png" alt=""><div class="grow"><b>${t('installTitle')}</b><span class="muted small">${t('installSub')}</span></div>
+    <button class="btn" onclick="doInstall()">${t('install')}</button><button class="x" aria-label="Close" onclick="hideInstall()">×</button></div>`;
+}
+function hideInstall() { try { sessionStorage.setItem('jayco_hide_install', '1'); } catch (e) {} const b = $('#installBox'); if (b) b.remove(); }
+async function doInstall() {
+  if (deferredPrompt) {
+    deferredPrompt.prompt();
+    const r = await deferredPrompt.userChoice; deferredPrompt = null;
+    if (r.outcome === 'accepted') hideInstall();
+    return;
+  }
+  if (IOS) sheet(`<div class="sheet-h"><h2 style="margin:0">${t('iosTitle')}</h2>${closeBtn()}</div>
+    <ol class="ios-steps"><li>${t('ios1')}</li><li>${t('ios2')}</li><li>${t('ios3')}</li></ol><button class="btn big" onclick="closeSheet()">${t('gotIt')}</button>`);
+}
+function showInstallSlot() { const s = $('#installSlot'); if (s) s.innerHTML = installBanner(); }
+window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); deferredPrompt = e; showInstallSlot(); });
+window.addEventListener('appinstalled', () => { deferredPrompt = null; hideInstall(); toast(t('installed')); });
+if ('serviceWorker' in navigator && SECURE && /^https?:/.test(location.protocol)) {
+  navigator.serviceWorker.register('attendance-sw.js', { scope: './attendance' }).catch(e => console.warn('SW', e));
 }
 
 boot();
