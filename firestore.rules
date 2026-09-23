@@ -1,0 +1,57 @@
+rules_version = '2';
+// JAYCO Attendance — Firestore rules
+// Admin: 9537254473 — must match CONFIG.ADMIN_MOBILES in attendance.html
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() { return request.auth != null; }
+    function isAdmin() {
+      return signedIn() && request.auth.token.email in [
+        '9537254473@staff.jaycohousing.com'
+      ];
+    }
+    function own()    { return signedIn() && resource.data.uid == request.auth.uid; }
+    function ownNew() { return signedIn() && request.resource.data.uid == request.auth.uid; }
+
+    // Employee profile: each person sees only their own; admin sees all. Only admin can edit after registration.
+    match /employees/{uid} {
+      allow get: if isAdmin() || (signedIn() && request.auth.uid == uid);
+      allow list: if isAdmin();
+      allow create: if signedIn() && request.auth.uid == uid;
+      allow update, delete: if isAdmin();
+    }
+
+    // Punches: time must be the server's clock, so phone time cannot be faked. Nobody but admin can edit or delete.
+    match /punches/{id} {
+      allow read: if isAdmin() || own();
+      allow create: if ownNew() && request.resource.data.at == request.time;
+      allow update, delete: if isAdmin();
+    }
+    match /punchPhotos/{id} {
+      allow read: if isAdmin() || own();
+      allow create: if ownNew();
+      allow update, delete: if isAdmin();
+    }
+    match /work/{id} {
+      allow read: if isAdmin() || own();
+      allow create: if ownNew();
+      allow update, delete: if isAdmin();
+    }
+
+
+    // Daily summary rows keep the admin reports fast at 100+ staff
+    match /days/{id} {
+      allow read: if isAdmin() || own();
+      allow create, update: if ownNew() && id == request.auth.uid + '_' + request.resource.data.date;
+      allow delete: if isAdmin();
+    }
+    match /employeePhotos/{uid} {
+      allow read: if isAdmin() || (signedIn() && request.auth.uid == uid);
+      allow create: if signedIn() && request.auth.uid == uid;
+      allow update, delete: if isAdmin();
+    }
+    match /settings/{id} {
+      allow read: if signedIn();
+      allow write: if isAdmin();
+    }
+  }
+}

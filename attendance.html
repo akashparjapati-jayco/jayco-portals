@@ -190,6 +190,8 @@ en: {
   demo:'Demo mode: data is saved on this phone only. Add the Firebase config to share data between phones.',
   openLink:'This page was opened as a file (from WhatsApp or Downloads). Phones block location and camera for files. Open the app from this link instead:',
   help1:"Turn on Location in the phone's quick settings.", help2:'In Chrome, tap the icon left of the web address, then Permissions, then Location: Allow.', help3:'Still blocked? Phone Settings, Apps, Chrome, Permissions, Location: Allow.',
+  noMatch:'No one matches this search.', dept:'Department', e_dept:'Choose your department.', deptAll:'All departments', search:'Search name or mobile', cleanup:'Storage cleanup', cleanupNote:'Delete punch photos older than the months you keep. Punch times, hours and work posts are never deleted.',
+  keepMonths:'Keep punch photos for', months3:'3 months', months6:'6 months', months12:'12 months', runCleanup:'Delete older photos now', cleaning:'Deleting old photos…', cleaned:'{n} old photos deleted', nothingOld:'No old photos to delete.', storageNote:'About {mb} MB of photos per month at this size.',
   installTitle:'Install JAYCO Attendance', installSub:'Open it from your home screen like any app.', install:'Install', iosTitle:'Add to Home Screen', ios1:'Tap the Share button at the bottom of Safari.', ios2:'Scroll and tap "Add to Home Screen".', ios3:'Tap "Add". The JAYCO icon appears on your home screen.', gotIt:'OK', installed:'App installed. Open it from your home screen.',
   regIntro:'Fill in exactly as on your Aadhaar and bank passbook.', photo:'Your photo', takePhoto:'Take photo', choosePhotoBtn:'Choose from gallery', photoHint:'Clear face, no cap or sunglasses.', e_photo:'Add your photo.', photoAdded:'Photo added ({kb} KB)', changePhoto:'Change photo', secPersonal:'Personal', name:'Name', father:"Father's name", surname:'Surname', dob:'Date of birth', address:'Full address',
   secLogin:'Login and ID', mobileUser:'Mobile number (this is your username)', aadhaar:'Aadhaar card number (12 digits)',
@@ -253,6 +255,8 @@ gu: {
   demo:'ડેમો મોડ: ડેટા ફક્ત આ ફોનમાં સેવ થાય છે. બધા ફોન વચ્ચે ડેટા માટે Firebase સેટ કરો.',
   openLink:'આ પેજ ફાઇલ તરીકે ખોલ્યું છે (WhatsApp અથવા Downloads માંથી). ફાઇલમાં લોકેશન અને કૅમેરા બંધ રહે છે. આ લિંક પરથી એપ ખોલો:',
   help1:'ફોનના ક્વિક સેટિંગ્સમાં Location ચાલુ કરો.', help2:'Chrome માં વેબ એડ્રેસની ડાબી બાજુના આઇકન પર ટૅપ કરો → Permissions → Location: Allow.', help3:'હજી બંધ છે? ફોન Settings → Apps → Chrome → Permissions → Location: Allow.',
+  noMatch:'આ શોધ પ્રમાણે કોઈ મળ્યું નથી.', dept:'વિભાગ', e_dept:'તમારો વિભાગ પસંદ કરો.', deptAll:'બધા વિભાગ', search:'નામ કે મોબાઇલ શોધો', cleanup:'સ્ટોરેજ સફાઈ', cleanupNote:'જૂના પંચ ફોટા કાઢી નાખો. પંચ સમય, કલાક અને કામની વિગત ક્યારેય કાઢવામાં આવતી નથી.',
+  keepMonths:'પંચ ફોટા આટલા સમય રાખો', months3:'3 મહિના', months6:'6 મહિના', months12:'12 મહિના', runCleanup:'જૂના ફોટા હમણાં કાઢો', cleaning:'જૂના ફોટા કાઢી રહ્યા છીએ…', cleaned:'{n} જૂના ફોટા કાઢ્યા', nothingOld:'કાઢવા જેવા જૂના ફોટા નથી.', storageNote:'આ સાઇઝે દર મહિને આશરે {mb} MB ફોટા.',
   installTitle:'JAYCO હાજરી એપ ઇન્સ્ટોલ કરો', installSub:'બીજી એપની જેમ હોમ સ્ક્રીન પરથી ખોલો.', install:'ઇન્સ્ટોલ', iosTitle:'હોમ સ્ક્રીન પર ઉમેરો', ios1:'Safari ની નીચે Share બટન દબાવો.', ios2:'નીચે જઈ "Add to Home Screen" દબાવો.', ios3:'"Add" દબાવો. JAYCO આઇકન હોમ સ્ક્રીન પર આવી જશે.', gotIt:'બરાબર', installed:'એપ ઇન્સ્ટોલ થઈ ગઈ. હોમ સ્ક્રીન પરથી ખોલો.',
   regIntro:'બધી વિગત આધાર કાર્ડ અને બેંક પાસબુક મુજબ ભરો.', photo:'તમારો ફોટો', takePhoto:'ફોટો પાડો', choosePhotoBtn:'ગેલેરીમાંથી પસંદ કરો', photoHint:'ચહેરો સાફ દેખાય, ટોપી કે ગોગલ્સ વગર.', e_photo:'તમારો ફોટો ઉમેરો.', photoAdded:'ફોટો ઉમેરાયો ({kb} KB)', changePhoto:'ફોટો બદલો', secPersonal:'અંગત વિગત', name:'નામ', father:'પિતાનું નામ', surname:'અટક', dob:'જન્મ તારીખ', address:'પૂરું સરનામું',
   secLogin:'લૉગિન અને ઓળખ', mobileUser:'મોબાઇલ નંબર (આ તમારું યુઝરનેમ છે)', aadhaar:'આધાર કાર્ડ નંબર (12 અંક)',
@@ -325,6 +329,8 @@ function setLang(l) {
 function toggleLang() { setLang(S.lang === 'en' ? 'gu' : 'en'); }
 const langChip = () => `<button class="chip lang" onclick="toggleLang()" aria-label="Change language">${t('langBtn')}</button>`;
 
+const DEPTS = ['Production', 'CNC / VMC', 'Foundry', 'Machine shop', 'Assembly', 'Quality', 'Store', 'Dispatch', 'Maintenance', 'Office', 'Other'];
+
 /* ============ helpers ============ */
 const $ = s => document.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -392,9 +398,16 @@ const Local = {
     const x = this.d(); x.users = x.users || {}; x.employees = x.employees || {};
     if (x.users[p.mobile]) throw new Error(t('already'));
     const uid = this.id('u'); x.users[p.mobile] = { uid, pass };
-    x.employees[uid] = { ...p, uid, createdAt: Date.now(), active: true }; this.w(x);
+    const { photo, ...rest } = p;
+    x.employees[uid] = { ...rest, uid, createdAt: Date.now(), active: true };
+    (x.empPhotos = x.empPhotos || {})[uid] = photo || ''; this.w(x);
     const u = { uid, mobile: p.mobile }; localStorage.setItem(this.S, JSON.stringify(u)); return u;
   },
+  async empPhoto(uid) { return (this.d().empPhotos || {})[uid] || null; },
+  async saveDay(d) { const x = this.d(); x.days = x.days || {}; x.days[d.uid + '_' + d.date] = d; this.w(x); },
+  async days(f) { return Object.values(this.d().days || {}).filter(o => Object.keys(f).every(k => o[k] === f[k])); },
+  async oldPhotoIds(beforeMonth) { return (this.d().punches || []).filter(p => p.month < beforeMonth && (this.d().photos || {})[p.id]).map(p => p.id); },
+  async deletePhotos(ids) { const x = this.d(); ids.forEach(i => delete (x.photos || {})[i]); this.w(x); return ids.length; },
   async login(m, p) {
     const u = (this.d().users || {})[m];
     if (!u || u.pass !== p) throw new Error(t('wrongCred'));
@@ -424,9 +437,27 @@ const Cloud = {
   ts: () => firebase.firestore.FieldValue.serverTimestamp(),
   onAuth(cb) { this.a.onAuthStateChanged(u => cb(u ? { uid: u.uid, mobile: u.email.split('@')[0] } : null)); },
   async register(p, pass) {
-    const c = await this.a.createUserWithEmailAndPassword(this.em(p.mobile), pass);
-    await this.db.collection('employees').doc(c.user.uid).set({ ...p, uid: c.user.uid, createdAt: Date.now(), active: true });
-    return { uid: c.user.uid, mobile: p.mobile };
+    const c = await this.a.createUserWithEmailAndPassword(this.em(p.mobile), pass), uid = c.user.uid;
+    const { photo, ...rest } = p, b = this.db.batch();
+    b.set(this.db.collection('employees').doc(uid), { ...rest, uid, createdAt: Date.now(), active: true });
+    b.set(this.db.collection('employeePhotos').doc(uid), { uid, photo: photo || '' });
+    await b.commit();
+    return { uid, mobile: p.mobile };
+  },
+  async empPhoto(uid) { const d = await this.db.collection('employeePhotos').doc(uid).get(); return d.exists ? d.data().photo : null; },
+  async saveDay(d) { await this.db.collection('days').doc(d.uid + '_' + d.date).set(d); },
+  days(f) { return this._q('days', f); },
+  async oldPhotoIds(beforeMonth) {
+    const s = await this.db.collection('punchPhotos').where('month', '<', beforeMonth).limit(400).get();
+    return s.docs.map(d => d.id);
+  },
+  async deletePhotos(ids) {
+    for (let i = 0; i < ids.length; i += 400) {
+      const b = this.db.batch();
+      ids.slice(i, i + 400).forEach(id => b.delete(this.db.collection('punchPhotos').doc(id)));
+      await b.commit();
+    }
+    return ids.length;
   },
   async login(m, p) { await this.a.signInWithEmailAndPassword(this.em(m), p); },
   async logout() { await this.a.signOut(); },
@@ -440,7 +471,7 @@ const Cloud = {
   async addPunch(p, photo) {
     const ref = this.db.collection('punches').doc(), b = this.db.batch();
     b.set(ref, { ...p, at: this.ts() });
-    b.set(this.db.collection('punchPhotos').doc(ref.id), { uid: p.uid, photo });
+    b.set(this.db.collection('punchPhotos').doc(ref.id), { uid: p.uid, month: p.month, date: p.date, photo });
     await b.commit();
   },
   punches(f) { return this._q('punches', f); },
@@ -453,7 +484,7 @@ const Cloud = {
 
 const DB = CONFIG.FIREBASE ? Cloud : Local;
 // Factory: Jayco Engineering India, Dharti Industrial Park, Mirjapur (Kheda) — Google Maps pin
-const DEF = { lat: 22.991259, lng: 72.841697, radius: 100, shiftHours: 8, otRoundMin: 15, halfDayHours: 4, allowUpload: true, photoKB: 15 };
+const DEF = { lat: 22.991259, lng: 72.841697, radius: 100, shiftHours: 8, otRoundMin: 15, halfDayHours: 4, allowUpload: true, photoKB: 8, keepMonths: 6 };
 const S = { lang: 'en', user: null, profile: null, admin: false, settings: { ...DEF }, view: 'emp', tab: 'today', authMode: 'login', today: { punches: [] } };
 S.lang = initialLang(); document.documentElement.lang = S.lang;
 
@@ -476,7 +507,13 @@ function calcDay(punches, isToday) {
   return { ms, reg, ot, open: isOpen && isToday, missing, status, first: ps[0]?.t, last: ps[ps.length-1]?.t, lastType: ps[ps.length-1]?.type, count: ps.length };
 }
 const stLabel = c => t('st_' + c);
-const avatar = (p, cls = '') => p && p.photo ? `<img class="av ${cls}" src="${p.photo}" alt="">` : `<span class="av ${cls}"></span>`;
+const avatar = (p, cls = '') => p ? `<img class="av ${cls}" data-emp="${p.uid}" alt="">` : '';
+function loadAvatars(root) {
+  (root || document).querySelectorAll('img[data-emp]').forEach(async im => {
+    const id = im.dataset.emp; im.removeAttribute('data-emp');
+    const src = await DB.empPhoto(id).catch(() => null); if (src) im.src = src;
+  });
+}
 
 /* ============ boot & auth ============ */
 function boot() {
@@ -496,7 +533,7 @@ async function enter(u) {
   }
   S.view = S.admin ? 'admin' : 'emp'; S.tab = 'today'; render();
 }
-function logout() { closeSheet(); clearInterval(S.timer); S.profile = null; S.admin = false; DB.logout(); }
+function logout() { closeSheet(); clearInterval(S.timer); S.profile = null; S.admin = false; S.empCache = null; DB.logout(); }
 
 function renderAuth() {
   clearInterval(S.timer);
@@ -553,6 +590,7 @@ function regForm() {
   ${fld('acc2', 'acc2', 'text', 'inputmode="numeric" maxlength="18" autocomplete="off" onpaste="return false"')}
   ${fld('ifsc', 'ifsc', 'text', 'maxlength="11" style="text-transform:uppercase" placeholder="SBIN0001234"')}
   <div class="legend">${t('secJob')}</div>
+  <label class="f" id="w_dept"><span>${t('dept')}</span><select id="r_dept"><option value=""></option>${DEPTS.map(d => `<option>${d}</option>`).join('')}</select><small class="emsg"></small></label>
   ${fld('join', 'join', 'date')}
   <label class="f consent" id="w_ok"><input type="checkbox" id="r_ok"><span>${t('consent')}<small class="emsg"></small></span></label>
   <button class="btn big" id="r_btn" onclick="doRegister()">${t('register')}</button>`;
@@ -581,7 +619,7 @@ async function doRegister() {
   const g = id => (($('#r_' + id) || {}).value || '').trim();
   const p = { name: g('name'), fatherName: g('father'), surname: g('surname'), dob: g('dob'), mobile: g('mobile'),
     address: g('address'), aadhaar: g('aadhaar').replace(/\s/g, ''), bankName: g('bank'), accountNo: g('acc').replace(/\s/g, ''),
-    ifsc: g('ifsc').toUpperCase(), joiningDate: g('join'), photo: S.regPhoto || '' };
+    ifsc: g('ifsc').toUpperCase(), joiningDate: g('join'), dept: g('dept'), photo: S.regPhoto || '' };
   const errs = [];
   if (!p.photo) errs.push(['photo', 'e_photo']);
   if (!p.name) errs.push(['name', 'e_name']);
@@ -596,6 +634,7 @@ async function doRegister() {
   if (!/^\d{9,18}$/.test(p.accountNo)) errs.push(['acc', 'e_acc']);
   if (p.accountNo !== g('acc2').replace(/\s/g, '')) errs.push(['acc2', 'e_acc2']);
   if (!/^[A-Z]{4}0[A-Z0-9]{6}$/.test(p.ifsc)) errs.push(['ifsc', 'e_ifsc']);
+  if (!p.dept) errs.push(['dept', 'e_dept']);
   if (!$('#r_ok').checked) errs.push(['ok', 'e_ok']);
   document.querySelectorAll('.f.bad').forEach(e => e.classList.remove('bad'));
   errs.forEach(([id, k]) => { const w = $('#w_' + id); if (w) { w.classList.add('bad'); w.querySelector('.emsg').textContent = t(k); } });
@@ -761,8 +800,23 @@ async function savePunch(photo) {
   try {
     await DB.addPunch({ uid: S.user.uid, name: fullName(S.profile), mobile: S.user.mobile, date: dateKey(now), month: monthKey(now),
       type: p.type, clientAt: now.getTime(), lat: +p.lat.toFixed(6), lng: +p.lng.toFixed(6), acc: p.acc, dist: p.dist, src: p.src || 'camera', kb: p.kb || 0 }, photo);
+    S.today.punches = S.today.punches.concat([{ type: p.type, t: now.getTime(), dist: p.dist, src: p.src }]);
+    await saveDaySummary().catch(e => console.warn('summary', e));
     closeSheet(); toast(t(p.type === 'IN' ? 'started' : 'ended', { t: fmtT(now), kb: p.kb })); render();
   } catch (e) { pstep(`<p class="err">${esc(errMsg(e))}</p><button class="btn big" onclick="startPunch()">${t('tryAgain')}</button>`); }
+}
+
+// One small summary row per employee per day keeps the admin reports fast at 100+ staff
+async function saveDaySummary() {
+  const d = dateKey(), c = calcDayClosed(S.today.punches);
+  await DB.saveDay({ uid: S.user.uid, name: fullName(S.profile), mobile: S.user.mobile, dept: S.profile.dept || '',
+    date: d, month: monthKey(), ms: c.ms, reg: c.reg, ot: c.ot, status: c.status, missing: c.missing,
+    first: c.first || 0, last: c.last || 0, lastType: c.lastType || '', count: c.count, open: c.openNow, updatedAt: Date.now() });
+}
+// same maths, but an unfinished shift is never counted as worked time
+function calcDayClosed(ps) {
+  const c = calcDay(ps, false), s = sortP(ps);
+  return { ...c, openNow: s.length > 0 && s[s.length-1].type === 'IN' };
 }
 
 /* ============ employee: work, history, profile ============ */
@@ -784,8 +838,8 @@ async function postWork() {
 }
 async function empHistory(m) {
   const ym = S.hm || monthKey(), today = dateKey();
-  const days = groupBy(await DB.punches({ uid: S.user.uid, month: ym }), 'date');
-  const rows = Object.keys(days).sort().reverse().map(d => ({ d, c: calcDay(days[d], d === today) }));
+  const rows = (await DB.days({ uid: S.user.uid, month: ym })).sort((a, b) => b.date.localeCompare(a.date))
+    .map(x => ({ d: x.date, c: x }));
   let pres = 0, reg = 0, ot = 0;
   rows.forEach(({ c }) => { pres += c.status === 'present' ? 1 : c.status === 'half' ? 0.5 : 0; reg += c.reg; ot += c.ot; });
   m.innerHTML = `<h1>${t('myAtt')}</h1>
@@ -798,13 +852,14 @@ async function empHistory(m) {
 function profileKV(p, admin) {
   const rows = [[t('name'), esc(p.name)], [t('father'), esc(p.fatherName)], [t('surname'), esc(p.surname)], [t('dob'), fmtDate(p.dob)], [t('mobile'), esc(p.mobile)],
     [t('address'), esc(p.address)], [t('aadhaarLbl'), `<span>${esc(maskAad(p.aadhaar))}</span>${admin ? ` <button class="chip" onclick="this.previousElementSibling.textContent='${esc(p.aadhaar)}';this.remove()">${t('show')}</button>` : ''}`],
-    [t('bankLbl'), esc(p.bankName)], [t('accLbl'), esc(admin ? p.accountNo : maskAcc(p.accountNo))], [t('ifscLbl'), esc(p.ifsc)], [t('joinLbl'), fmtDate(p.joiningDate) || '—']];
+    [t('dept'), esc(p.dept || '—')], [t('bankLbl'), esc(p.bankName)], [t('accLbl'), esc(admin ? p.accountNo : maskAcc(p.accountNo))], [t('ifscLbl'), esc(p.ifsc)], [t('joinLbl'), fmtDate(p.joiningDate) || '—']];
   return `<dl class="kv">${rows.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join('')}</dl>`;
 }
 async function empProfile(m) {
   m.innerHTML = `<div class="avrow">${avatar(S.profile, 'lg')}<h1>${esc(fullName(S.profile))}</h1></div>${profileKV(S.profile, false)}
     <p class="warnbox small">${t('profileNote')}</p>
     <button class="btn sec big" onclick="logout()">${t('logout')}</button>`;
+  loadAvatars(m);
 }
 async function dayDetail(uid, d) {
   sheet('<div class="spin"></div>');
@@ -818,6 +873,7 @@ async function dayDetail(uid, d) {
       <h3>${t('punches')}</h3>
       <div class="photos">${sp.map(p => `<figure><img data-ph="${p.id}" alt="${p.type} ${fmtT(p.t)}"><figcaption><span class="tag ${p.type}">${p.type}</span> ${fmtT(p.t)}${p.src === 'upload' ? ` <b style="color:var(--warn)">${t('gallery')}</b>` : p.src === 'selfie' ? ` <b style="color:var(--ok)">${t('selfie')}</b>` : ''}<br>${p.dist} m${p.kb ? ` · ${p.kb} KB` : ''}${S.admin ? ` · <a href="https://www.google.com/maps?q=${p.lat},${p.lng}" target="_blank" rel="noopener">${t('map')}</a>` : ''}</figcaption></figure>`).join('') || `<p class="muted">${t('noPunches')}</p>`}</div>
       <h3>${t('workPostedH')}</h3>${sortP(ws).map(workItem).join('') || `<p class="muted">${t('noWork')}</p>`}`);
+    loadAvatars($('#sheet'));
     document.querySelectorAll('img[data-ph]').forEach(async im => {
       const src = await DB.photo(im.dataset.ph).catch(() => null);
       if (src) im.src = src; else im.alt = t('photoNA');
@@ -828,47 +884,66 @@ async function dayDetail(uid, d) {
 /* ============ admin ============ */
 async function adminToday(m) {
   const d = S.ad || dateKey(), isToday = d === dateKey();
-  const [emps, ps, ws] = await Promise.all([DB.employees(), DB.punches({ date: d }), DB.work({ date: d })]);
-  const pb = groupBy(ps, 'uid'), wb = groupBy(ws, 'uid');
-  const rows = emps.filter(e => e.active !== false).sort(byName).map(e => {
-    const c = calcDay(pb[e.uid] || [], isToday);
-    const st = c.open ? ['in', 'inside'] : c.count ? ['left', c.status === 'missing' || c.missing ? 'missing' : 'left'] : ['abs', 'absent'];
+  const [emps, days, ws] = await Promise.all([loadEmps(), DB.days({ date: d }), DB.work({ date: d })]);
+  const db = {}; days.forEach(x => db[x.uid] = x);
+  const wb = groupBy(ws, 'uid');
+  let rows = emps.filter(e => e.active !== false).sort(byName).map(e => {
+    const c = db[e.uid] || { ms: 0, ot: 0, count: 0, status: 'absent' };
+    const st = c.open && isToday ? ['in', 'inside'] : c.count ? ['left', c.missing ? 'missing' : 'left'] : ['abs', 'absent'];
     return { e, c, st, w: (wb[e.uid] || []).length };
   });
   const inside = rows.filter(r => r.c.open).length, present = rows.filter(r => r.c.count).length;
+  rows = filterRows(rows);
   m.innerHTML = `<h1>${isToday ? t('tToday') : fmtDate(d)}</h1>
     <div class="bar"><input type="date" value="${d}" max="${dateKey()}" onchange="S.ad=this.value;render()"></div>
-    <div class="stats"><div><b>${present}</b><span>${t('came')}</span></div><div><b>${isToday ? inside : '—'}</b><span>${t('insideNow')}</span></div><div><b>${rows.length - present}</b><span>${t('absent')}</span></div></div>
-    ${S.settings.lat == null ? `<p class="warnbox">${t('setFactory')}</p>` : ''}
+    <div class="stats"><div><b>${present}</b><span>${t('came')}</span></div><div><b>${isToday ? inside : '—'}</b><span>${t('insideNow')}</span></div><div><b>${emps.length - present}</b><span>${t('absent')}</span></div></div>
+    ${filterBar()}
     ${rows.length ? `<ul class="list">${rows.map(({ e, c, st, w }) => `<li class="click" onclick="dayDetail('${e.uid}','${d}')">${avatar(e)}
-      <div class="grow"><b>${esc(fullName(e))}</b><div class="muted small">${c.count ? `${t('thIn')} ${fmtT(c.first)} · ${fmtHM(c.ms)}${c.ot ? ` · OT ${fmtHM(c.ot)}` : ''} · ${t('workPostsN', { n: w })}` : esc(e.mobile)}</div></div>
-      <span class="state ${st[0]}">${stLabel(st[1])}</span></li>`).join('')}</ul>` : `<p class="muted">${t('noStaff')}</p>`}`;
+      <div class="grow"><b>${esc(fullName(e))}</b><div class="muted small">${c.count ? `${t('thIn')} ${fmtT(c.first)} · ${fmtHM(c.ms)}${c.ot ? ` · OT ${fmtHM(c.ot)}` : ''} · ${t('workPostsN', { n: w })}` : `${esc(e.dept || '')} · ${esc(e.mobile)}`}</div></div>
+      <span class="state ${st[0]}">${stLabel(st[1])}</span></li>`).join('')}</ul>` : `<p class="muted">${emps.length ? t('noMatch') : t('noStaff')}</p>`}`;
+  loadAvatars(m);
 }
-async function adminReport(m) {
-  const ym = S.rm || monthKey(), today = dateKey();
-  const [emps, ps] = await Promise.all([DB.employees(), DB.punches({ month: ym })]);
-  const pb = groupBy(ps, 'uid');
-  S.rep = emps.sort(byName).map(e => {
-    const days = groupBy(pb[e.uid] || [], 'date'); let pres = 0, half = 0, reg = 0, ot = 0, miss = 0; const daily = [];
-    Object.keys(days).sort().forEach(d => { const c = calcDay(days[d], d === today);
-      if (c.status === 'present') pres++; else if (c.status === 'half') half++;
-      if (c.missing) miss++; reg += c.reg; ot += c.ot; daily.push({ d, c }); });
-    return { e, pres, half, paid: pres + half / 2, reg, ot, miss, daily };
+// employees list is read once per session: 100 rows is a lot to re-download on every tab switch
+async function loadEmps() { if (!S.empCache) S.empCache = await DB.employees(); return S.empCache; }
+function filterBar() {
+  return `<div class="bar"><input id="f_q" placeholder="${esc(t('search'))}" value="${esc(S.fq || '')}" oninput="S.fq=this.value;render()" style="flex:1;min-width:160px">
+    <select id="f_d" onchange="S.fd=this.value;render()"><option value="">${t('deptAll')}</option>${DEPTS.map(x => `<option ${S.fd === x ? 'selected' : ''}>${x}</option>`).join('')}</select></div>`;
+}
+function filterRows(rows) {
+  const q = (S.fq || '').trim().toLowerCase(), d = S.fd || '';
+  return rows.filter(r => {
+    const e = r.e || r;
+    if (d && (e.dept || '') !== d) return false;
+    if (q && !(fullName(e).toLowerCase().includes(q) || String(e.mobile).includes(q))) return false;
+    return true;
   });
+}
+
+async function adminReport(m) {
+  const ym = S.rm || monthKey();
+  const [emps, days] = await Promise.all([loadEmps(), DB.days({ month: ym })]);
+  const db = groupBy(days, 'uid');
+  S.rep = filterRows(emps.sort(byName).map(e => {
+    const mine = (db[e.uid] || []).sort((a, b) => a.date.localeCompare(b.date));
+    let pres = 0, half = 0, reg = 0, ot = 0, miss = 0;
+    mine.forEach(c => { if (c.status === 'present') pres++; else if (c.status === 'half') half++; if (c.missing) miss++; reg += c.reg; ot += c.ot; });
+    return { e, pres, half, paid: pres + half / 2, reg, ot, miss, daily: mine.map(c => ({ d: c.date, c })) };
+  }).map(r => ({ ...r, e: r.e })));
   S.repMonth = ym;
   const st = S.settings, blk = +st.otRoundMin ? t('blk', { m: st.otRoundMin }) : '';
   m.innerHTML = `<h1>${t('monthlyReport')}</h1>
     <div class="bar"><input type="month" value="${ym}" max="${monthKey()}" onchange="S.rm=this.value;render()">
       <button class="chip" onclick="dlSummary()">${t('dlSummary')}</button><button class="chip" onclick="dlDaily()">${t('dlDaily')}</button></div>
+    ${filterBar()}
     ${S.rep.length ? `<div class="tbl"><table><thead><tr><th>${t('thEmp')}</th><th class="num">${t('thFull')}</th><th class="num">${t('thHalf')}</th><th class="num">${t('thPaid')}</th><th class="num">${t('thReg')}</th><th class="num">${t('thOTh')}</th><th class="num">${t('thMiss')}</th></tr></thead><tbody>
     ${S.rep.map(r => `<tr><td>${esc(fullName(r.e))}</td><td class="num">${r.pres}</td><td class="num">${r.half}</td><td class="num">${r.paid}</td><td class="num">${hrs(r.reg)}</td><td class="num">${hrs(r.ot)}</td><td class="num">${r.miss || ''}</td></tr>`).join('')}
-    </tbody></table></div>` : `<p class="muted">${t('noStaffShort')}</p>`}
+    </tbody></table></div>` : `<p class="muted">${emps.length ? t('noMatch') : t('noStaffShort')}</p>`}
     <p class="muted small">${t('reportNote', { hd: st.halfDayHours, sh: st.shiftHours, blk })}</p>`;
 }
 const stEn = k => L.en['st_' + k];
 function dlSummary() {
-  csv(`JAYCO_attendance_summary_${S.repMonth}.csv`, [['Employee', 'Mobile', 'Full days', 'Half days', 'Paid days', 'Regular hrs', 'OT hrs', 'Missing OUT days'],
-    ...S.rep.map(r => [fullName(r.e), r.e.mobile, r.pres, r.half, r.paid, hrs(r.reg), hrs(r.ot), r.miss])]);
+  csv(`JAYCO_attendance_summary_${S.repMonth}.csv`, [['Employee', 'Mobile', 'Department', 'Full days', 'Half days', 'Paid days', 'Regular hrs', 'OT hrs', 'Missing OUT days'],
+    ...S.rep.map(r => [fullName(r.e), r.e.mobile, r.e.dept, r.pres, r.half, r.paid, hrs(r.reg), hrs(r.ot), r.miss])]);
 }
 function dlDaily() {
   const out = [['Date', 'Employee', 'Mobile', 'First IN', 'Last punch', 'Punches', 'Worked hrs', 'Regular hrs', 'OT hrs', 'Status']];
@@ -876,16 +951,19 @@ function dlDaily() {
   csv(`JAYCO_attendance_daywise_${S.repMonth}.csv`, out);
 }
 async function adminStaff(m) {
-  S.emps = (await DB.employees()).sort(byName);
+  const all = (await loadEmps()).sort(byName);
+  S.emps = filterRows(all);
   m.innerHTML = `<h1>${t('tStaff')}</h1>
-    <div class="bar"><span class="muted">${t('registeredN', { n: S.emps.length })}</span><button class="chip" onclick="dlStaff()">${t('dlBank')}</button></div>
-    ${S.emps.length ? `<ul class="list">${S.emps.map((e, i) => `<li class="click" onclick="staffDetail(${i})">${avatar(e)}<div class="grow"><b>${esc(fullName(e))}</b><div class="muted small">${esc(e.mobile)} · ${t('joined', { d: fmtDate(e.joiningDate) || '—' })}</div></div><span class="muted small">${esc(e.bankName)}</span></li>`).join('')}</ul>`
-    : `<p class="muted">${t('noStaffShort')}</p>`}`;
+    <div class="bar"><span class="muted">${t('registeredN', { n: all.length })}</span><button class="chip" onclick="dlStaff()">${t('dlBank')}</button></div>
+    ${filterBar()}
+    ${S.emps.length ? `<ul class="list">${S.emps.map((e, i) => `<li class="click" onclick="staffDetail(${i})">${avatar(e)}<div class="grow"><b>${esc(fullName(e))}</b><div class="muted small">${esc(e.dept || '')} · ${esc(e.mobile)}</div></div><span class="muted small">${t('joined', { d: fmtDate(e.joiningDate) || '—' })}</span></li>`).join('')}</ul>`
+    : `<p class="muted">${all.length ? t('noMatch') : t('noStaffShort')}</p>`}`;
+  loadAvatars(m);
 }
-function staffDetail(i) { const e = S.emps[i]; sheet(`<div class="sheet-h"><div class="avrow">${avatar(e, 'lg')}<h2 style="margin:0">${esc(fullName(e))}</h2></div>${closeBtn()}</div>${profileKV(e, true)}<p class="muted small">${t('passwordIs', { p: esc(dobPass(e.dob)) })}</p>`); }
+function staffDetail(i) { const e = S.emps[i]; sheet(`<div class="sheet-h"><div class="avrow">${avatar(e, 'lg')}<h2 style="margin:0">${esc(fullName(e))}</h2></div>${closeBtn()}</div>${profileKV(e, true)}<p class="muted small">${t('passwordIs', { p: esc(dobPass(e.dob)) })}</p>`); loadAvatars($('#sheet')); }
 function dlStaff() {
-  csv('JAYCO_staff_bank_list.csv', [['Name', "Father's name", 'Surname', 'Mobile', 'DOB', 'Joining date', 'Bank', 'Account no.', 'IFSC', 'Aadhaar (masked)', 'Address'],
-    ...S.emps.map(e => [e.name, e.fatherName, e.surname, e.mobile, fmtDate(e.dob), fmtDate(e.joiningDate), e.bankName, xlText(e.accountNo), e.ifsc, maskAad(e.aadhaar), e.address])]);
+  csv('JAYCO_staff_bank_list.csv', [['Name', "Father's name", 'Surname', 'Mobile', 'Department', 'DOB', 'Joining date', 'Bank', 'Account no.', 'IFSC', 'Aadhaar (masked)', 'Address'],
+    ...S.emps.map(e => [e.name, e.fatherName, e.surname, e.mobile, e.dept, fmtDate(e.dob), fmtDate(e.joiningDate), e.bankName, xlText(e.accountNo), e.ifsc, maskAad(e.aadhaar), e.address])]);
 }
 function adminSettings(m) {
   const s = S.settings;
@@ -904,7 +982,11 @@ function adminSettings(m) {
     <h2>${t('punchPhoto')}</h2>
     <label class="f consent"><input type="checkbox" id="s_up" ${s.allowUpload ? 'checked' : ''}><span>${t('allowGallery')}</span></label>
     <label class="f"><span>${t('maxPhoto')}</span><select id="s_kb">${[[8, 'kb8'], [15, 'kb15'], [25, 'kb25']].map(([v, l]) => `<option value="${v}" ${+s.photoKB === v ? 'selected' : ''}>${t(l)}</option>`).join('')}</select></label>
-    <button class="btn big" id="s_btn" onclick="saveSettings()">${t('saveSettings')}</button>`;
+    <h2>${t('cleanup')}</h2>
+    <p class="muted small">${t('cleanupNote')} ${t('storageNote', { mb: Math.round(100 * 4 * 22 * (+s.photoKB || 8) / 1024) })}</p>
+    <label class="f"><span>${t('keepMonths')}</span><select id="s_keep">${[[3, 'months3'], [6, 'months6'], [12, 'months12']].map(([v, l]) => `<option value="${v}" ${+s.keepMonths === v ? 'selected' : ''}>${t(l)}</option>`).join('')}</select></label>
+    <button class="btn sec big" id="c_btn" onclick="runCleanup()">${t('runCleanup')}</button>
+    <button class="btn big" id="s_btn" onclick="saveSettings()" style="margin-top:18px">${t('saveSettings')}</button>`;
 }
 function parseLoc(v) {
   const x = v.match(/(-?\d{1,2}\.\d{3,})\s*,\s*(-?\d{1,3}\.\d{3,})/);
@@ -916,11 +998,28 @@ async function useHere() {
     toast(t('locRead', { a: Math.round(p.coords.accuracy) })); }
   catch (e) { toast(e.message, 1); }
 }
+async function runCleanup() {
+  const keep = +$('#s_keep').value || 6, b = $('#c_btn');
+  const d = new Date(); d.setMonth(d.getMonth() - keep);
+  const before = monthKey(d);
+  b.disabled = true; b.textContent = t('cleaning');
+  let n = 0;
+  try {
+    for (;;) {
+      const ids = await DB.oldPhotoIds(before);
+      if (!ids.length) break;
+      n += await DB.deletePhotos(ids);
+      if (ids.length < 400) break;
+    }
+    toast(n ? t('cleaned', { n }) : t('nothingOld'));
+  } catch (e) { toast(errMsg(e), 1); }
+  b.disabled = false; b.textContent = t('runCleanup');
+}
 async function saveSettings() {
   const lat = parseFloat($('#s_lat').value), lng = parseFloat($('#s_lng').value);
   if (isNaN(lat) || isNaN(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180) return toast(t('badCoords'), 1);
   const s = { lat, lng, radius: Math.max(30, +$('#s_rad').value || 100), shiftHours: +$('#s_sh').value || 8, halfDayHours: +$('#s_hd').value || 0,
-    otRoundMin: +$('#s_ot').value, allowUpload: $('#s_up').checked, photoKB: +$('#s_kb').value };
+    otRoundMin: +$('#s_ot').value, allowUpload: $('#s_up').checked, photoKB: +$('#s_kb').value, keepMonths: +$('#s_keep').value };
   const b = $('#s_btn'); b.disabled = true;
   try { await DB.saveSettings(s); S.settings = { ...DEF, ...s }; toast(t('saved')); render(); }
   catch (e) { toast(errMsg(e), 1); b.disabled = false; }
