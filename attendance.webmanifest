@@ -1,7 +1,7 @@
 {
   "id": "attendance.html",
   "name": "JAYCO Staff Attendance",
-  "short_name": "JAYCO Attendance",
+  "short_name": "Attendance",
   "description": "JAYCO Engineering India staff attendance: selfie punch IN/OUT, overtime and daily work.",
   "start_url": "attendance.html?source=app",
   "scope": "attendance",
