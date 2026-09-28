@@ -158,6 +158,19 @@ ol.help{padding-left:18px;margin:10px 0}
 .flag{display:inline-block;font-size:12px;font-weight:600;padding:2px 7px;border-radius:20px;background:var(--warnsoft);color:var(--warn);margin:3px 4px 0 0}
 .togg{display:flex;gap:8px;align-items:center;font-size:14px;color:var(--mute)}
 .nav button{font-size:15px;padding:12px 2px 13px}
+@media (min-width:860px){
+  #app{display:flex;flex-direction:column;min-height:100vh}
+  .top{order:0}.nav{order:1}.wrap{order:2}
+  .wrap{max-width:960px;padding:22px 24px 40px}
+  .nav{position:static;border-top:0;border-bottom:1px solid var(--line);justify-content:center;gap:6px;box-shadow:none}
+  .nav button{flex:0 0 auto;padding:14px 22px;font-size:17px;border-top:0;border-bottom:3px solid transparent;margin:0}
+  .nav button.on{border-bottom-color:var(--red)}
+  .stats b{font-size:28px}
+  .photos{grid-template-columns:repeat(auto-fill,minmax(150px,1fr))}
+  .sheet-bg{align-items:center}
+  .sheet{max-width:720px;border-radius:14px;max-height:88vh}
+  #toast{bottom:28px}
+}
 .install{display:flex;align-items:center;gap:12px;background:var(--panel);border:1px solid var(--line);border-left:4px solid var(--red);border-radius:0 10px 10px 0;padding:10px 12px;margin:12px 0;box-shadow:var(--shadow)}
 .install img{width:44px;height:44px;border-radius:10px;flex:none}
 .install .grow b{display:block;font-size:15px}
@@ -210,7 +223,7 @@ en: {
   demo:'Demo mode: data is saved on this phone only. Add the Firebase config to share data between phones.',
   openLink:'This page was opened as a file (from WhatsApp or Downloads). Phones block location and camera for files. Open the app from this link instead:',
   help1:"Turn on Location in the phone's quick settings.", help2:'In Chrome, tap the icon left of the web address, then Permissions, then Location: Allow.', help3:'Still blocked? Phone Settings, Apps, Chrome, Permissions, Location: Allow.',
-  allClear:'Nothing to check on this day.', tLog:'Punch log', logTitle:'All punches', totalPunches:'Punches', flagged:'To check', onlyFlagged:'Show only punches to check', showPhotos:'Show photos',
+  notAdmin:'This is the office view. Your login is a worker login.', openWorkerApp:'Open the worker app', adminSub:'Office view', allClear:'Nothing to check on this day.', tLog:'Punch log', logTitle:'All punches', totalPunches:'Punches', flagged:'To check', onlyFlagged:'Show only punches to check', showPhotos:'Show photos',
   fGallery:'Gallery photo', fFar:'Far from factory', fOdd:'Odd hour', fNoPair:'No matching OUT', noPunchesDay:'No punches on this day.', noMatch:'No one matches this search.', dept:'Department', e_dept:'Choose your department.', deptAll:'All departments', search:'Search name or mobile', cleanup:'Storage cleanup', cleanupNote:'Delete punch photos older than the months you keep. Punch times, hours and work posts are never deleted.',
   keepMonths:'Keep punch photos for', months3:'3 months', months6:'6 months', months12:'12 months', runCleanup:'Delete older photos now', cleaning:'Deleting old photos…', cleaned:'{n} old photos deleted', nothingOld:'No old photos to delete.', storageNote:'About {mb} MB of photos per month at this size.',
   installTitle:'Install JAYCO Attendance', installSub:'Open it from your home screen like any app.', install:'Install', iosTitle:'Add to Home Screen', ios1:'Tap the Share button at the bottom of Safari.', ios2:'Scroll and tap "Add to Home Screen".', ios3:'Tap "Add". The JAYCO icon appears on your home screen.', gotIt:'OK', installed:'App installed. Open it from your home screen.',
@@ -276,7 +289,7 @@ gu: {
   demo:'ડેમો મોડ: ડેટા ફક્ત આ ફોનમાં સેવ થાય છે. બધા ફોન વચ્ચે ડેટા માટે Firebase સેટ કરો.',
   openLink:'આ પેજ ફાઇલ તરીકે ખોલ્યું છે (WhatsApp અથવા Downloads માંથી). ફાઇલમાં લોકેશન અને કૅમેરા બંધ રહે છે. આ લિંક પરથી એપ ખોલો:',
   help1:'ફોનના ક્વિક સેટિંગ્સમાં Location ચાલુ કરો.', help2:'Chrome માં વેબ એડ્રેસની ડાબી બાજુના આઇકન પર ટૅપ કરો → Permissions → Location: Allow.', help3:'હજી બંધ છે? ફોન Settings → Apps → Chrome → Permissions → Location: Allow.',
-  allClear:'આ દિવસે તપાસવા જેવું કંઈ નથી.', tLog:'પંચ યાદી', logTitle:'બધા પંચ', totalPunches:'પંચ', flagged:'તપાસવા જેવા', onlyFlagged:'ફક્ત તપાસવા જેવા પંચ બતાવો', showPhotos:'ફોટા બતાવો',
+  notAdmin:'આ ઑફિસ વ્યૂ છે. તમારું લૉગિન કામદારનું છે.', openWorkerApp:'કામદાર એપ ખોલો', adminSub:'ઑફિસ વ્યૂ', allClear:'આ દિવસે તપાસવા જેવું કંઈ નથી.', tLog:'પંચ યાદી', logTitle:'બધા પંચ', totalPunches:'પંચ', flagged:'તપાસવા જેવા', onlyFlagged:'ફક્ત તપાસવા જેવા પંચ બતાવો', showPhotos:'ફોટા બતાવો',
   fGallery:'ગેલેરી ફોટો', fFar:'ફેક્ટરીથી દૂર', fOdd:'અસામાન્ય સમય', fNoPair:'OUT પંચ નથી', noPunchesDay:'આ દિવસે કોઈ પંચ નથી.', noMatch:'આ શોધ પ્રમાણે કોઈ મળ્યું નથી.', dept:'વિભાગ', e_dept:'તમારો વિભાગ પસંદ કરો.', deptAll:'બધા વિભાગ', search:'નામ કે મોબાઇલ શોધો', cleanup:'સ્ટોરેજ સફાઈ', cleanupNote:'જૂના પંચ ફોટા કાઢી નાખો. પંચ સમય, કલાક અને કામની વિગત ક્યારેય કાઢવામાં આવતી નથી.',
   keepMonths:'પંચ ફોટા આટલા સમય રાખો', months3:'3 મહિના', months6:'6 મહિના', months12:'12 મહિના', runCleanup:'જૂના ફોટા હમણાં કાઢો', cleaning:'જૂના ફોટા કાઢી રહ્યા છીએ…', cleaned:'{n} જૂના ફોટા કાઢ્યા', nothingOld:'કાઢવા જેવા જૂના ફોટા નથી.', storageNote:'આ સાઇઝે દર મહિને આશરે {mb} MB ફોટા.',
   installTitle:'JAYCO હાજરી એપ ઇન્સ્ટોલ કરો', installSub:'બીજી એપની જેમ હોમ સ્ક્રીન પરથી ખોલો.', install:'ઇન્સ્ટોલ', iosTitle:'હોમ સ્ક્રીન પર ઉમેરો', ios1:'Safari ની નીચે Share બટન દબાવો.', ios2:'નીચે જઈ "Add to Home Screen" દબાવો.', ios3:'"Add" દબાવો. JAYCO આઇકન હોમ સ્ક્રીન પર આવી જશે.', gotIt:'બરાબર', installed:'એપ ઇન્સ્ટોલ થઈ ગઈ. હોમ સ્ક્રીન પરથી ખોલો.',
@@ -371,6 +384,8 @@ const byName = (a, b) => fullName(a).localeCompare(fullName(b));
 const groupBy = (arr, k) => arr.reduce((o, x) => ((o[x[k]] = o[x[k]] || []).push(x), o), {});
 const H = 3600000;
 const SECURE = window.isSecureContext;
+// ?admin opens the office view only: no punch button, no worker tabs
+const ADMIN_MODE = new URLSearchParams(location.search).has('admin');
 const openLinkMsg = () => `${t('openLink')}<br><a href="${CONFIG.APP_URL}">${CONFIG.APP_URL}</a>`;
 const permHelp = () => `<ol class="help small muted"><li>${t('help1')}</li><li>${t('help2')}</li><li>${t('help3')}</li></ol>`;
 
@@ -553,24 +568,25 @@ async function enter(u) {
     $('#app').innerHTML = `<div class="authcard"><div class="hero-a"><img src="${LOGO}" alt="JAYCO"></div><p class="err">${t('missingProfile')}</p><button class="btn" onclick="logout()">${t('logout')}</button></div>`;
     return;
   }
+  if (ADMIN_MODE && !S.admin) { $('#app').innerHTML = `<div class="authcard"><div class="hero-a"><img src="${LOGO}" alt="JAYCO"></div><p class="warnbox">${t('notAdmin')}</p><a class="btn big" href="attendance.html">${t('openWorkerApp')}</a> <button class="btn sec big" style="margin-top:10px" onclick="logout()">${t('logout')}</button></div>`; return; }
   S.view = S.admin ? 'admin' : 'emp'; S.tab = 'today'; render();
 }
 function logout() { closeSheet(); clearInterval(S.timer); S.profile = null; S.admin = false; S.empCache = null; DB.logout(); }
 
 function renderAuth() {
   clearInterval(S.timer);
-  const reg = S.authMode === 'reg';
+  const reg = !ADMIN_MODE && S.authMode === 'reg';
   $('#app').innerHTML = `<div class="authcard">
     <div class="authtop"><div class="hero-a"><img src="${LOGO}" alt="JAYCO"></div>${langChip()}</div>
-    <div class="cond" style="font-size:22px;margin-top:6px">${t('appSub')}</div>
-    ${reg ? '' : `<img class="mascot" src="${MASCOT}" alt="">`}
+    <div class="cond" style="font-size:22px;margin-top:6px">${ADMIN_MODE ? t('adminSub') : t('appSub')}</div>
+    ${reg || ADMIN_MODE ? '' : `<img class="mascot" src="${MASCOT}" alt="">`}
     ${!SECURE ? `<p class="warnbox small">${openLinkMsg()}</p>` : ''}
     ${DB === Local ? `<p class="warnbox small">${t('demo')}</p>` : ''}
     <div id="installSlot">${installBanner()}</div>
-    <div class="seg" role="tablist">
+    ${ADMIN_MODE ? '' : `<div class="seg" role="tablist">
       <button class="${reg ? '' : 'on'}" onclick="S.authMode='login';renderAuth()">${t('login')}</button>
       <button class="${reg ? 'on' : ''}" onclick="S.authMode='reg';renderAuth()">${t('newReg')}</button>
-    </div>
+    </div>`}
     ${reg ? regForm() : loginForm()}
   </div>`;
 }
@@ -677,7 +693,7 @@ async function doRegister() {
 
 /* ============ shell ============ */
 function header() {
-  const sw = S.admin && S.profile ? `<button class="chip" onclick="switchView()">${S.view === 'admin' ? t('myPunch') : t('admin')}</button>` : '';
+  const sw = S.admin && S.profile && !ADMIN_MODE ? `<button class="chip" onclick="switchView()">${S.view === 'admin' ? t('myPunch') : t('admin')}</button>` : '';
   const sub = S.view === 'admin' ? t('adminPanel') : esc(fullName(S.profile));
   return `<header class="top"><div class="brand"><img src="${LOGO}" alt="JAYCO"><small>${sub}</small></div><div class="who">${langChip()}${sw}<button class="chip" onclick="logout()">${t('logout')}</button></div></header>`;
 }
