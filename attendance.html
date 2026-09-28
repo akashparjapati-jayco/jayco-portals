@@ -153,6 +153,11 @@ ol.help{padding-left:18px;margin:10px 0}
 .mascot-sm{width:74px;vertical-align:middle;margin-right:8px}
 .empty{text-align:center;padding:10px 0}
 .empty img{width:150px;opacity:.95}
+.plist li{align-items:flex-start}
+.pthumb{width:52px;height:69px;border-radius:6px;object-fit:cover;background:var(--panel2);flex:none}
+.flag{display:inline-block;font-size:12px;font-weight:600;padding:2px 7px;border-radius:20px;background:var(--warnsoft);color:var(--warn);margin:3px 4px 0 0}
+.togg{display:flex;gap:8px;align-items:center;font-size:14px;color:var(--mute)}
+.nav button{font-size:15px;padding:12px 2px 13px}
 .install{display:flex;align-items:center;gap:12px;background:var(--panel);border:1px solid var(--line);border-left:4px solid var(--red);border-radius:0 10px 10px 0;padding:10px 12px;margin:12px 0;box-shadow:var(--shadow)}
 .install img{width:44px;height:44px;border-radius:10px;flex:none}
 .install .grow b{display:block;font-size:15px}
@@ -205,7 +210,8 @@ en: {
   demo:'Demo mode: data is saved on this phone only. Add the Firebase config to share data between phones.',
   openLink:'This page was opened as a file (from WhatsApp or Downloads). Phones block location and camera for files. Open the app from this link instead:',
   help1:"Turn on Location in the phone's quick settings.", help2:'In Chrome, tap the icon left of the web address, then Permissions, then Location: Allow.', help3:'Still blocked? Phone Settings, Apps, Chrome, Permissions, Location: Allow.',
-  noMatch:'No one matches this search.', dept:'Department', e_dept:'Choose your department.', deptAll:'All departments', search:'Search name or mobile', cleanup:'Storage cleanup', cleanupNote:'Delete punch photos older than the months you keep. Punch times, hours and work posts are never deleted.',
+  allClear:'Nothing to check on this day.', tLog:'Punch log', logTitle:'All punches', totalPunches:'Punches', flagged:'To check', onlyFlagged:'Show only punches to check', showPhotos:'Show photos',
+  fGallery:'Gallery photo', fFar:'Far from factory', fOdd:'Odd hour', fNoPair:'No matching OUT', noPunchesDay:'No punches on this day.', noMatch:'No one matches this search.', dept:'Department', e_dept:'Choose your department.', deptAll:'All departments', search:'Search name or mobile', cleanup:'Storage cleanup', cleanupNote:'Delete punch photos older than the months you keep. Punch times, hours and work posts are never deleted.',
   keepMonths:'Keep punch photos for', months3:'3 months', months6:'6 months', months12:'12 months', runCleanup:'Delete older photos now', cleaning:'Deleting old photos…', cleaned:'{n} old photos deleted', nothingOld:'No old photos to delete.', storageNote:'About {mb} MB of photos per month at this size.',
   installTitle:'Install JAYCO Attendance', installSub:'Open it from your home screen like any app.', install:'Install', iosTitle:'Add to Home Screen', ios1:'Tap the Share button at the bottom of Safari.', ios2:'Scroll and tap "Add to Home Screen".', ios3:'Tap "Add". The JAYCO icon appears on your home screen.', gotIt:'OK', installed:'App installed. Open it from your home screen.',
   regIntro:'Fill in exactly as on your Aadhaar and bank passbook.', photo:'Your photo', takePhoto:'Take photo', choosePhotoBtn:'Choose from gallery', photoHint:'Clear face, no cap or sunglasses.', e_photo:'Add your photo.', photoAdded:'Photo added ({kb} KB)', changePhoto:'Change photo', secPersonal:'Personal', name:'Name', father:"Father's name", surname:'Surname', dob:'Date of birth', address:'Full address',
@@ -270,7 +276,8 @@ gu: {
   demo:'ડેમો મોડ: ડેટા ફક્ત આ ફોનમાં સેવ થાય છે. બધા ફોન વચ્ચે ડેટા માટે Firebase સેટ કરો.',
   openLink:'આ પેજ ફાઇલ તરીકે ખોલ્યું છે (WhatsApp અથવા Downloads માંથી). ફાઇલમાં લોકેશન અને કૅમેરા બંધ રહે છે. આ લિંક પરથી એપ ખોલો:',
   help1:'ફોનના ક્વિક સેટિંગ્સમાં Location ચાલુ કરો.', help2:'Chrome માં વેબ એડ્રેસની ડાબી બાજુના આઇકન પર ટૅપ કરો → Permissions → Location: Allow.', help3:'હજી બંધ છે? ફોન Settings → Apps → Chrome → Permissions → Location: Allow.',
-  noMatch:'આ શોધ પ્રમાણે કોઈ મળ્યું નથી.', dept:'વિભાગ', e_dept:'તમારો વિભાગ પસંદ કરો.', deptAll:'બધા વિભાગ', search:'નામ કે મોબાઇલ શોધો', cleanup:'સ્ટોરેજ સફાઈ', cleanupNote:'જૂના પંચ ફોટા કાઢી નાખો. પંચ સમય, કલાક અને કામની વિગત ક્યારેય કાઢવામાં આવતી નથી.',
+  allClear:'આ દિવસે તપાસવા જેવું કંઈ નથી.', tLog:'પંચ યાદી', logTitle:'બધા પંચ', totalPunches:'પંચ', flagged:'તપાસવા જેવા', onlyFlagged:'ફક્ત તપાસવા જેવા પંચ બતાવો', showPhotos:'ફોટા બતાવો',
+  fGallery:'ગેલેરી ફોટો', fFar:'ફેક્ટરીથી દૂર', fOdd:'અસામાન્ય સમય', fNoPair:'OUT પંચ નથી', noPunchesDay:'આ દિવસે કોઈ પંચ નથી.', noMatch:'આ શોધ પ્રમાણે કોઈ મળ્યું નથી.', dept:'વિભાગ', e_dept:'તમારો વિભાગ પસંદ કરો.', deptAll:'બધા વિભાગ', search:'નામ કે મોબાઇલ શોધો', cleanup:'સ્ટોરેજ સફાઈ', cleanupNote:'જૂના પંચ ફોટા કાઢી નાખો. પંચ સમય, કલાક અને કામની વિગત ક્યારેય કાઢવામાં આવતી નથી.',
   keepMonths:'પંચ ફોટા આટલા સમય રાખો', months3:'3 મહિના', months6:'6 મહિના', months12:'12 મહિના', runCleanup:'જૂના ફોટા હમણાં કાઢો', cleaning:'જૂના ફોટા કાઢી રહ્યા છીએ…', cleaned:'{n} જૂના ફોટા કાઢ્યા', nothingOld:'કાઢવા જેવા જૂના ફોટા નથી.', storageNote:'આ સાઇઝે દર મહિને આશરે {mb} MB ફોટા.',
   installTitle:'JAYCO હાજરી એપ ઇન્સ્ટોલ કરો', installSub:'બીજી એપની જેમ હોમ સ્ક્રીન પરથી ખોલો.', install:'ઇન્સ્ટોલ', iosTitle:'હોમ સ્ક્રીન પર ઉમેરો', ios1:'Safari ની નીચે Share બટન દબાવો.', ios2:'નીચે જઈ "Add to Home Screen" દબાવો.', ios3:'"Add" દબાવો. JAYCO આઇકન હોમ સ્ક્રીન પર આવી જશે.', gotIt:'બરાબર', installed:'એપ ઇન્સ્ટોલ થઈ ગઈ. હોમ સ્ક્રીન પરથી ખોલો.',
   regIntro:'બધી વિગત આધાર કાર્ડ અને બેંક પાસબુક મુજબ ભરો.', photo:'તમારો ફોટો', takePhoto:'ફોટો પાડો', choosePhotoBtn:'ગેલેરીમાંથી પસંદ કરો', photoHint:'ચહેરો સાફ દેખાય, ટોપી કે ગોગલ્સ વગર.', e_photo:'તમારો ફોટો ઉમેરો.', photoAdded:'ફોટો ઉમેરાયો ({kb} KB)', changePhoto:'ફોટો બદલો', secPersonal:'અંગત વિગત', name:'નામ', father:'પિતાનું નામ', surname:'અટક', dob:'જન્મ તારીખ', address:'પૂરું સરનામું',
@@ -681,12 +688,12 @@ async function render() {
   if (!S.user) return renderAuth();
   const emp = S.view === 'emp';
   const tabs = emp ? [['today', 'tPunch'], ['work', 'tWork'], ['history', 'tHistory'], ['me', 'tProfile']]
-                   : [['today', 'tToday'], ['report', 'tMonthly'], ['staff', 'tStaff'], ['settings', 'tSettings']];
+                   : [['today', 'tToday'], ['log', 'tLog'], ['report', 'tMonthly'], ['staff', 'tStaff'], ['settings', 'tSettings']];
   if (!tabs.some(x => x[0] === S.tab)) S.tab = 'today';
   $('#app').innerHTML = header() + '<main class="wrap" id="main"><div class="spin"></div></main>' +
     `<nav class="nav">${tabs.map(([k, l]) => `<button class="${S.tab === k ? 'on' : ''}" onclick="go('${k}')">${t(l)}</button>`).join('')}</nav>`;
   const fn = emp ? { today: empToday, work: empWork, history: empHistory, me: empProfile }[S.tab]
-                 : { today: adminToday, report: adminReport, staff: adminStaff, settings: adminSettings }[S.tab];
+                 : { today: adminToday, log: adminLog, report: adminReport, staff: adminStaff, settings: adminSettings }[S.tab];
   const m = $('#main');
   try { await fn(m); } catch (e) { console.error(e); m.innerHTML = `<p class="err">${esc(errMsg(e))}</p><button class="btn sec" onclick="render()">${t('tryAgain')}</button>`; }
 }
@@ -935,6 +942,52 @@ function filterRows(rows) {
   });
 }
 
+// Punch log: every IN and OUT of one day, newest first, with the doubtful ones flagged
+function punchFlags(p, byUid) {
+  const f = [], R = +S.settings.radius || 100, hh = new Date(p.t).getHours();
+  if (p.src === 'upload') f.push('fGallery');
+  if (p.dist > R * 0.7) f.push('fFar');
+  if (hh < 5 || hh > 22) f.push('fOdd');
+  const mine = byUid[p.uid] || [];
+  if (p.type === 'IN' && !mine.some(x => x.type === 'OUT' && x.t > p.t)) f.push('fNoPair');
+  return f;
+}
+async function adminLog(m) {
+  const d = S.ad || dateKey();
+  const [emps, ps] = await Promise.all([loadEmps(), DB.punches({ date: d })]);
+  const dept = {}; emps.forEach(e => dept[e.uid] = e.dept || '');
+  const byUid = groupBy(ps, 'uid');
+  let rows = sortP(ps).reverse().map(p => ({ p, flags: punchFlags(p, byUid), dept: dept[p.uid] || '' }));
+  const flagged = rows.filter(r => r.flags.length).length;
+  const ins = ps.filter(p => p.type === 'IN').length;
+  const q = (S.fq || '').trim().toLowerCase();
+  let view = rows.filter(r => (!S.onlyFlag || r.flags.length)
+    && (!S.fd || r.dept === S.fd)
+    && (!q || String(r.p.name || '').toLowerCase().includes(q) || String(r.p.mobile || '').includes(q)));
+  m.innerHTML = `<h1>${t('logTitle')}</h1>
+    <div class="bar"><input type="date" value="${d}" max="${dateKey()}" onchange="S.ad=this.value;render()"></div>
+    <div class="stats"><div><b>${ps.length}</b><span>${t('totalPunches')}</span></div><div><b>${ins}</b><span>IN</span></div><div><b class="ot">${flagged}</b><span>${t('flagged')}</span></div></div>
+    ${filterBar()}
+    <label class="togg"><input type="checkbox" ${S.onlyFlag ? 'checked' : ''} onchange="S.onlyFlag=this.checked;render()" style="width:18px;height:18px"> ${t('onlyFlagged')}</label>
+    ${view.length ? `<ul class="list plist" style="margin-top:12px">${view.map(({ p, flags, dept: dp }) => `<li class="click" onclick="dayDetail('${p.uid}','${d}')">
+      <img class="pthumb" data-ph="${p.id}" alt="">
+      <div class="grow"><b>${esc(p.name || '')}</b>
+        <div class="muted small">${esc(dp)}${dp ? ' · ' : ''}${p.dist} m${p.kb ? ` · ${p.kb} KB` : ''}</div>
+        <div>${flags.map(f => `<span class="flag">${t(f)}</span>`).join('')}</div></div>
+      <div style="text-align:right"><span class="tag ${p.type}">${p.type}</span><div class="t">${fmtT(p.t)}</div></div></li>`).join('')}</ul>`
+    : `<p class="muted" style="margin-top:14px">${!ps.length ? t('noPunchesDay') : S.onlyFlag && !flagged ? t('allClear') : t('noMatch')}</p>`}`;
+  lazyPhotos(m);
+}
+// thumbnails download only when they scroll into view — 400 punches a day would be 3 MB otherwise
+function lazyPhotos(root) {
+  const io = new IntersectionObserver(es => es.forEach(async e => {
+    if (!e.isIntersecting) return;
+    const im = e.target; io.unobserve(im);
+    const id = im.dataset.ph; im.removeAttribute('data-ph');
+    const src = await DB.photo(id).catch(() => null); if (src) im.src = src;
+  }), { rootMargin: '200px' });
+  root.querySelectorAll('img[data-ph]').forEach(im => io.observe(im));
+}
 async function adminReport(m) {
   const ym = S.rm || monthKey();
   const [emps, days] = await Promise.all([loadEmps(), DB.days({ month: ym })]);
