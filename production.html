@@ -682,6 +682,7 @@ document.addEventListener('DOMContentLoaded', function(){
 <!-- TAB 4: FLOW REPORT -->
 <div id="tab-flow" class="tab-content">
   <div class="flow-toolbar">
+    <label>FY: <select id="flow-fy" onchange="setReportFY('flow')" style="border:1px solid var(--border);border-radius:4px;padding:5px 8px;font-size:12px"></select></label>
     <label>From: <input type="date" id="flow-from"></label>
     <label>To:   <input type="date" id="flow-to"></label>
     <label>Item: <input type="text" id="flow-item" placeholder="All items…" style="width:140px"></label>
@@ -717,6 +718,7 @@ document.addEventListener('DOMContentLoaded', function(){
 <!-- TAB: REJECTION REPORT -->
 <div id="tab-rejrep" class="tab-content">
   <div class="flow-toolbar">
+    <label>FY: <select id="rr-fy" onchange="setReportFY('rr')" style="border:1px solid var(--border);border-radius:4px;padding:5px 8px;font-size:12px"></select></label>
     <label>From: <input type="date" id="rr-from"></label>
     <label>To: <input type="date" id="rr-to"></label>
     <label>Stage: <select id="rr-stage" style="border:1px solid var(--border);border-radius:4px;padding:5px 8px;font-size:12px"><option value="">All Stages</option></select></label>
@@ -2399,14 +2401,40 @@ function initFlowTab() {
   }
 }
 
-function fyStartStr() {
-  var d = new Date(), y = d.getMonth() >= 3 ? d.getFullYear() : d.getFullYear() - 1;
-  return y + '-04-01';
+function fyStartYear(dateStr) {
+  var y = +dateStr.slice(0, 4), m = +dateStr.slice(5, 7);
+  return m >= 4 ? y : y - 1;
+}
+
+function fyStartStr() { return fyStartYear(todayStr()) + '-04-01'; }
+
+function fyLabel(y) { return 'FY ' + y + '-' + String(y + 1).slice(2); }
+
+function fillFYSelect(pfx) {
+  var sel = document.getElementById(pfx + '-fy'), cur = fyStartYear(todayStr()), min = cur;
+  allRecords.forEach(function(r) { if (r.date) min = Math.min(min, fyStartYear(r.date)); });
+  var keep = sel.value;
+  sel.innerHTML = '<option value="">Custom</option>';
+  for (var y = cur; y >= min; y--) sel.innerHTML += '<option value="' + y + '">' + fyLabel(y) + '</option>';
+  sel.value = keep;
+}
+
+function setReportFY(pfx) {
+  var y = +document.getElementById(pfx + '-fy').value;
+  if (!y) return;
+  var end = (y + 1) + '-03-31', today = todayStr();
+  document.getElementById(pfx + '-from').value = y + '-04-01';
+  document.getElementById(pfx + '-to').value = end > today ? today : end;
 }
 
 function fillFromDate(id) {
   var el = document.getElementById(id);
   if (!el.value) el.value = fyStartStr();
+  var pfx = id.split('-')[0];
+  fillFYSelect(pfx);
+  var sel = document.getElementById(pfx + '-fy');
+  var y = fyStartYear(el.value);
+  if (el.value === y + '-04-01') sel.value = String(y) || '';
 }
 
 function runFlowReport() {
