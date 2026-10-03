@@ -226,6 +226,8 @@ en: {
   eDomain:'App setup: this web address is not approved in Firebase (Authentication → Settings → Authorized domains). Show this to the office.',
   eProvider:'App setup: Email/Password login is switched off in Firebase (Authentication → Sign-in method). Show this to the office.',
   eDb:'App setup: the database is not reachable. Show this to the office.',
+  faceCheck:'Face check', faceOn:'Compare each punch selfie with the registration photo', faceNote:'Mismatches are only flagged for you to review. A punch is never blocked.',
+  faceReading:'Checking face…', faceNoneReg:'No face found in this photo. Take a clearer photo of your face.', fFace:'Face not matching', fNoFace:'No face in photo', faceOkTag:'Face OK',
   checkSetup:'Check app setup', checking:'Checking…', setupOk:'All checks passed. Login and punching should work.', setupTitle:'Setup check', copyResult:'Copy result', copied:'Copied',
   cAuth:'Login service', cProvider:'Mobile + password login', cDb:'Database read', cWrite:'Database write', cDomain:'Web address approved',
   notAdmin:'This is the office view. Your login is a worker login.', openWorkerApp:'Open the worker app', adminSub:'Office view', allClear:'Nothing to check on this day.', tLog:'Punch log', logTitle:'All punches', totalPunches:'Punches', flagged:'To check', onlyFlagged:'Show only punches to check', showPhotos:'Show photos',
@@ -296,6 +298,8 @@ gu: {
   eDomain:'એપ સેટઅપ: આ વેબ એડ્રેસ Firebase માં મંજૂર નથી (Authentication → Settings → Authorized domains). આ મેસેજ ઑફિસને બતાવો.',
   eProvider:'એપ સેટઅપ: Email/Password લૉગિન Firebase માં બંધ છે (Authentication → Sign-in method). આ મેસેજ ઑફિસને બતાવો.',
   eDb:'એપ સેટઅપ: ડેટાબેઝ સુધી પહોંચાતું નથી. આ મેસેજ ઑફિસને બતાવો.',
+  faceCheck:'ચહેરાની તપાસ', faceOn:'દરેક પંચ સેલ્ફીને નોંધણીના ફોટા સાથે સરખાવો', faceNote:'ફરક હોય તો ફક્ત તમારા માટે નિશાની થાય છે. પંચ ક્યારેય રોકાતું નથી.',
+  faceReading:'ચહેરો તપાસી રહ્યા છીએ…', faceNoneReg:'આ ફોટામાં ચહેરો મળ્યો નથી. ચહેરો સાફ દેખાય તેવો ફોટો લો.', fFace:'ચહેરો મળતો નથી', fNoFace:'ફોટામાં ચહેરો નથી', faceOkTag:'ચહેરો બરાબર',
   checkSetup:'એપ સેટઅપ તપાસો', checking:'તપાસી રહ્યા છીએ…', setupOk:'બધું બરાબર છે. લૉગિન અને પંચ ચાલવા જોઈએ.', setupTitle:'સેટઅપ તપાસ', copyResult:'પરિણામ કૉપી કરો', copied:'કૉપી થયું',
   cAuth:'લૉગિન સેવા', cProvider:'મોબાઇલ + પાસવર્ડ લૉગિન', cDb:'ડેટાબેઝ વાંચન', cWrite:'ડેટાબેઝ લેખન', cDomain:'વેબ એડ્રેસ મંજૂર',
   notAdmin:'આ ઑફિસ વ્યૂ છે. તમારું લૉગિન કામદારનું છે.', openWorkerApp:'કામદાર એપ ખોલો', adminSub:'ઑફિસ વ્યૂ', allClear:'આ દિવસે તપાસવા જેવું કંઈ નથી.', tLog:'પંચ યાદી', logTitle:'બધા પંચ', totalPunches:'પંચ', flagged:'તપાસવા જેવા', onlyFlagged:'ફક્ત તપાસવા જેવા પંચ બતાવો', showPhotos:'ફોટા બતાવો',
@@ -535,7 +539,7 @@ const Cloud = {
 
 const DB = CONFIG.FIREBASE ? Cloud : Local;
 // Factory: Jayco Engineering India, Dharti Industrial Park, Mirjapur (Kheda) — Google Maps pin
-const DEF = { lat: 22.991259, lng: 72.841697, radius: 100, shiftHours: 8, otRoundMin: 15, halfDayHours: 4, allowUpload: true, photoKB: 8, keepMonths: 6 };
+const DEF = { lat: 22.991259, lng: 72.841697, radius: 100, shiftHours: 8, otRoundMin: 15, halfDayHours: 4, allowUpload: true, photoKB: 8, keepMonths: 6, faceCheck: true, faceTol: 0.58 };
 const S = { lang: 'en', user: null, profile: null, admin: false, settings: { ...DEF }, view: 'emp', tab: 'today', authMode: 'login', today: { punches: [] } };
 S.lang = initialLang(); document.documentElement.lang = S.lang;
 
@@ -583,7 +587,7 @@ async function enter(u) {
     return;
   }
   if (ADMIN_MODE && !S.admin) { $('#app').innerHTML = `<div class="authcard"><div class="hero-a"><img src="${LOGO}" alt="JAYCO"></div><p class="warnbox">${t('notAdmin')}</p><a class="btn big" href="attendance.html">${t('openWorkerApp')}</a> <button class="btn sec big" style="margin-top:10px" onclick="logout()">${t('logout')}</button></div>`; return; }
-  S.view = S.admin ? 'admin' : 'emp'; S.tab = 'today'; render();
+  S.view = S.admin ? 'admin' : 'emp'; S.tab = 'today'; render(); warmFace();
 }
 function logout() { closeSheet(); clearInterval(S.timer); S.profile = null; S.admin = false; S.empCache = null; DB.logout(); }
 
@@ -685,6 +689,13 @@ function regPhoto(inp) {
     let q = 0.75, url = c.toDataURL('image/jpeg', q);
     while (url.length * 0.75 > 12 * 1024 && q > 0.3) { q -= 0.08; url = c.toDataURL('image/jpeg', q); }
     S.regPhoto = url;
+    if (S.settings.faceCheck) {
+      $('#pp_note').textContent = t('faceReading');
+      FACE.descriptor(im).then(d => {
+        S.regFace = d;
+        $('#pp_note').textContent = d ? t('photoAdded', { kb: Math.round(url.length * 0.75 / 1024) }) : t('faceNoneReg');
+      }).catch(() => { S.regFace = null; });
+    }
     const box = $('#pp_img'); box.classList.add('has'); box.style.backgroundImage = `url(${url})`; box.innerHTML = '';
     $('#pp_note').textContent = t('photoAdded', { kb: Math.round(url.length * 0.75 / 1024) });
     $('#w_photo').classList.remove('bad');
@@ -696,7 +707,7 @@ async function doRegister() {
   const g = id => (($('#r_' + id) || {}).value || '').trim();
   const p = { name: g('name'), fatherName: g('father'), surname: g('surname'), dob: g('dob'), mobile: g('mobile'),
     address: g('address'), aadhaar: g('aadhaar').replace(/\s/g, ''),
-    joiningDate: g('join'), dept: g('dept'), photo: S.regPhoto || '' };
+    joiningDate: g('join'), dept: g('dept'), photo: S.regPhoto || '', faceDesc: S.regFace || null };
   const errs = [];
   if (!p.photo) errs.push(['photo', 'e_photo']);
   if (!p.name) errs.push(['name', 'e_name']);
@@ -716,7 +727,7 @@ async function doRegister() {
   S.registering = true;
   try {
     const u = await DB.register(p, pass);
-    S.registering = false; S.regPhoto = null; await enter(u);
+    S.registering = false; S.regPhoto = null; S.regFace = null; await enter(u);
     sheet(`<h2 style="margin-top:0">${t('regDone')}</h2>
       <p class="muted">${t('saveThese')}</p>
       <div class="cred"><span class="muted small">${t('userLbl')}</span><b>${esc(p.mobile)}</b></div>
@@ -757,6 +768,39 @@ function sheet(html) {
 function setSheet(html) { const s = document.querySelector('#sheet .sheet'); if (s) s.innerHTML = html; }
 function closeSheet() { stopCam(); const s = $('#sheet'); if (s) s.remove(); }
 const closeBtn = () => `<button class="chip" onclick="closeSheet()">${t('close')}</button>`;
+
+/* ============ face matching (flags only, never blocks a punch) ============ */
+const FACE = {
+  dir: 'face', ready: false, loading: null,
+  async load() {
+    if (this.ready) return true;
+    if (!this.loading) this.loading = (async () => {
+      if (!window.faceapi) await new Promise((res, rej) => {
+        const s = document.createElement('script'); s.src = this.dir + '/face-api.min.js';
+        s.onload = res; s.onerror = () => rej(new Error('face-api not found')); document.head.appendChild(s);
+      });
+      await faceapi.nets.tinyFaceDetector.loadFromUri(this.dir);
+      await faceapi.nets.faceLandmark68TinyNet.loadFromUri(this.dir);
+      await faceapi.nets.faceRecognitionNet.loadFromUri(this.dir);
+      this.ready = true; return true;
+    })().catch(e => { console.warn('face', e); this.loading = null; return false; });
+    return this.loading;
+  },
+  // returns a 128-number face descriptor, or null when no face is found
+  async descriptor(el) {
+    if (!(await this.load())) return null;
+    const r = await faceapi.detectSingleFace(el, new faceapi.TinyFaceDetectorOptions({ inputSize: 320, scoreThreshold: 0.4 }))
+      .withFaceLandmarks(true).withFaceDescriptor();
+    return r ? Array.from(r.descriptor).map(x => +x.toFixed(4)) : null;
+  },
+  distance(a, b) {
+    if (!a || !b || a.length !== b.length) return null;
+    let s = 0; for (let i = 0; i < a.length; i++) s += (a[i] - b[i]) ** 2;
+    return Math.sqrt(s);
+  }
+};
+// warm the model up in the background so the punch itself is not slowed down
+function warmFace() { if (S.settings.faceCheck && DB === Cloud) setTimeout(() => FACE.load(), 2500); }
 
 /* ============ employee: punch ============ */
 function greet() { const h = new Date().getHours(); return t(h < 12 ? 'morning' : h < 17 ? 'afternoon' : 'evening'); }
@@ -852,10 +896,26 @@ function stamp(src, sw, sh) {
   S.pending.kb = Math.round(url.length * 0.75 / 1024);
   return url;
 }
-function snap() {
+async function snap() {
   const v = $('#vid'); if (!v || !v.videoWidth) return toast(t('camStarting'), 1);
   S.pending.src = 'camera';
-  const img = stamp(v, v.videoWidth, v.videoHeight); stopCam(); savePunch(img);
+  const img = stamp(v, v.videoWidth, v.videoHeight);
+  await matchFace(v); stopCam(); savePunch(img);
+}
+// compares this selfie with the registration photo; any failure here just means "not checked"
+async function matchFace(el) {
+  S.pending.faceDist = null; S.pending.faceOk = null;
+  if (!S.settings.faceCheck || !S.profile || !S.profile.faceDesc) return;
+  pstep(`<p>${t('faceReading')}</p><div class="spin"></div>`);
+  try {
+    const d = await Promise.race([FACE.descriptor(el), new Promise(r => setTimeout(() => r('timeout'), 12000))]);
+    if (d === 'timeout') return;
+    if (!d) { S.pending.faceOk = false; S.pending.faceDist = -1; return; }
+    const dist = FACE.distance(d, S.profile.faceDesc);
+    if (dist == null) return;
+    S.pending.faceDist = +dist.toFixed(3);
+    S.pending.faceOk = dist <= (+S.settings.faceTol || 0.58);
+  } catch (e) { console.warn('face', e); }
 }
 function snapFile(inp, src) {
   const f = inp.files[0]; if (!f) return;
@@ -863,7 +923,11 @@ function snapFile(inp, src) {
   if (src !== 'camera' && Date.now() - f.lastModified > 10 * 60000) { inp.value = ''; return toast(t('photoOld'), 1); }
   S.pending.src = src;
   const im = new Image(), u = URL.createObjectURL(f);
-  im.onload = () => { URL.revokeObjectURL(u); stopCam(); savePunch(stamp(im, im.naturalWidth, im.naturalHeight)); };
+  im.onload = async () => {
+    URL.revokeObjectURL(u);
+    const img = stamp(im, im.naturalWidth, im.naturalHeight);
+    await matchFace(im); stopCam(); savePunch(img);
+  };
   im.onerror = () => toast(t('photoBad'), 1);
   im.src = u;
 }
@@ -872,7 +936,7 @@ async function savePunch(photo) {
   const p = S.pending, now = new Date();
   try {
     await DB.addPunch({ uid: S.user.uid, name: fullName(S.profile), mobile: S.user.mobile, date: dateKey(now), month: monthKey(now),
-      type: p.type, clientAt: now.getTime(), lat: +p.lat.toFixed(6), lng: +p.lng.toFixed(6), acc: p.acc, dist: p.dist, src: p.src || 'camera', kb: p.kb || 0 }, photo);
+      type: p.type, clientAt: now.getTime(), lat: +p.lat.toFixed(6), lng: +p.lng.toFixed(6), acc: p.acc, dist: p.dist, src: p.src || 'camera', kb: p.kb || 0, faceOk: p.faceOk, faceDist: p.faceDist }, photo);
     S.today.punches = S.today.punches.concat([{ type: p.type, t: now.getTime(), dist: p.dist, src: p.src }]);
     await saveDaySummary().catch(e => console.warn('summary', e));
     closeSheet(); toast(t(p.type === 'IN' ? 'started' : 'ended', { t: fmtT(now), kb: p.kb })); render();
@@ -944,7 +1008,7 @@ async function dayDetail(uid, d) {
       <div class="stats"><div><b>${fmtHM(c.ms)}</b><span>${t('worked')}</span></div><div><b>${fmtHM(c.reg)}</b><span>${t('regular')}</span></div><div><b class="ot">${fmtHM(c.ot)}</b><span>${t('overtime')}</span></div></div>
       ${c.missing ? `<p class="warnbox small">${t('missingNote')}</p>` : ''}
       <h3>${t('punches')}</h3>
-      <div class="photos">${sp.map(p => `<figure><img data-ph="${p.id}" alt="${p.type} ${fmtT(p.t)}"><figcaption><span class="tag ${p.type}">${p.type}</span> ${fmtT(p.t)}${p.src === 'upload' ? ` <b style="color:var(--warn)">${t('gallery')}</b>` : p.src === 'selfie' ? ` <b style="color:var(--ok)">${t('selfie')}</b>` : ''}<br>${p.dist} m${p.kb ? ` · ${p.kb} KB` : ''}${S.admin ? ` · <a href="https://www.google.com/maps?q=${p.lat},${p.lng}" target="_blank" rel="noopener">${t('map')}</a>` : ''}</figcaption></figure>`).join('') || `<p class="muted">${t('noPunches')}</p>`}</div>
+      <div class="photos">${sp.map(p => `<figure><img data-ph="${p.id}" alt="${p.type} ${fmtT(p.t)}"><figcaption><span class="tag ${p.type}">${p.type}</span> ${fmtT(p.t)}${p.src === 'upload' ? ` <b style="color:var(--warn)">${t('gallery')}</b>` : p.src === 'selfie' ? ` <b style="color:var(--ok)">${t('selfie')}</b>` : ''}${p.faceOk === true ? ` <b style="color:var(--ok)">${t('faceOkTag')}</b>` : p.faceOk === false ? ` <b style="color:var(--bad)">${t(p.faceDist === -1 ? 'fNoFace' : 'fFace')}</b>` : ''}<br>${p.dist} m${p.kb ? ` · ${p.kb} KB` : ''}${S.admin ? ` · <a href="https://www.google.com/maps?q=${p.lat},${p.lng}" target="_blank" rel="noopener">${t('map')}</a>` : ''}</figcaption></figure>`).join('') || `<p class="muted">${t('noPunches')}</p>`}</div>
       <h3>${t('workPostedH')}</h3>${sortP(ws).map(workItem).join('') || `<p class="muted">${t('noWork')}</p>`}`);
     loadAvatars($('#sheet'));
     document.querySelectorAll('img[data-ph]').forEach(async im => {
@@ -1000,6 +1064,7 @@ function punchFlags(p, byUid) {
   if (hh < 5 || hh > 22) f.push('fOdd');
   const mine = byUid[p.uid] || [];
   if (p.type === 'IN' && !mine.some(x => x.type === 'OUT' && x.t > p.t)) f.push('fNoPair');
+  if (p.faceOk === false) f.push(p.faceDist === -1 ? 'fNoFace' : 'fFace');
   return f;
 }
 async function adminLog(m) {
@@ -1101,6 +1166,9 @@ function adminSettings(m) {
     <h2>${t('punchPhoto')}</h2>
     <label class="f consent"><input type="checkbox" id="s_up" ${s.allowUpload ? 'checked' : ''}><span>${t('allowGallery')}</span></label>
     <label class="f"><span>${t('maxPhoto')}</span><select id="s_kb">${[[8, 'kb8'], [15, 'kb15'], [25, 'kb25']].map(([v, l]) => `<option value="${v}" ${+s.photoKB === v ? 'selected' : ''}>${t(l)}</option>`).join('')}</select></label>
+    <h2>${t('faceCheck')}</h2>
+    <label class="f consent"><input type="checkbox" id="s_face" ${s.faceCheck ? 'checked' : ''}><span>${t('faceOn')}</span></label>
+    <p class="muted small">${t('faceNote')}</p>
     <h2>${t('cleanup')}</h2>
     <p class="muted small">${t('cleanupNote')} ${t('storageNote', { mb: Math.round(100 * 4 * 22 * (+s.photoKB || 8) / 1024) })}</p>
     <label class="f"><span>${t('keepMonths')}</span><select id="s_keep">${[[3, 'months3'], [6, 'months6'], [12, 'months12']].map(([v, l]) => `<option value="${v}" ${+s.keepMonths === v ? 'selected' : ''}>${t(l)}</option>`).join('')}</select></label>
@@ -1138,7 +1206,7 @@ async function saveSettings() {
   const lat = parseFloat($('#s_lat').value), lng = parseFloat($('#s_lng').value);
   if (isNaN(lat) || isNaN(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180) return toast(t('badCoords'), 1);
   const s = { lat, lng, radius: Math.max(30, +$('#s_rad').value || 100), shiftHours: +$('#s_sh').value || 8, halfDayHours: +$('#s_hd').value || 0,
-    otRoundMin: +$('#s_ot').value, allowUpload: $('#s_up').checked, photoKB: +$('#s_kb').value, keepMonths: +$('#s_keep').value };
+    otRoundMin: +$('#s_ot').value, allowUpload: $('#s_up').checked, photoKB: +$('#s_kb').value, keepMonths: +$('#s_keep').value, faceCheck: $('#s_face').checked, faceTol: +S.settings.faceTol || 0.58 };
   const b = $('#s_btn'); b.disabled = true;
   try { await DB.saveSettings(s); S.settings = { ...DEF, ...s }; toast(t('saved')); render(); }
   catch (e) { toast(errMsg(e), 1); b.disabled = false; }
