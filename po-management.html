@@ -412,6 +412,7 @@ tr.clickable:hover td{background:var(--blue-100)!important;}
       <div class="tab" data-tab="customerwise">Customer-wise pending</div>
       <div class="tab" data-tab="aging">Aging analysis</div>
       <div class="tab" data-tab="despatchreg">Despatch register</div>
+      <div class="tab" data-tab="invoicewise">Invoice-wise</div>
       <div class="tab" data-tab="trend">Monthly trend</div>
     </div>
     <div class="toolbar" id="reportToolbar">
@@ -1814,7 +1815,7 @@ document.getElementById('reportTabs').addEventListener('click', e=>{
   if(!e.target.classList.contains('tab')) return;
   currentReportTab = e.target.dataset.tab;
   document.querySelectorAll('#reportTabs .tab').forEach(t=>t.classList.toggle('active', t===e.target));
-  document.getElementById('reportDateRangeWrap').style.display = currentReportTab==='despatchreg' ? 'flex' : 'none';
+  document.getElementById('reportDateRangeWrap').style.display = (currentReportTab==='despatchreg' || currentReportTab==='invoicewise') ? 'flex' : 'none';
   renderReport();
 });
 document.getElementById('reportExclusive').addEventListener('change', renderReport);
@@ -1846,6 +1847,7 @@ function renderReport(){
   else if(currentReportTab === 'customerwise') renderCustomerwiseReport(items, q);
   else if(currentReportTab === 'aging') renderAgingReport(items, q);
   else if(currentReportTab === 'trend') renderTrendReport();
+  else if(currentReportTab === 'invoicewise') renderInvoicewiseReport(q);
   else renderDespatchRegisterReport(q);
 }
 
@@ -1960,12 +1962,11 @@ function renderAgingReport(items, q){
   });
 }
 
-function renderDespatchRegisterReport(q){
-  document.getElementById('reportTable').innerHTML = `<tr><td><div class="empty">Loading…</div></td></tr>`;
+function loadFilteredDespatches(q){
   const f = document.getElementById('reportExclusive').value;
   const dateFrom = document.getElementById('reportDateFrom').value;
   const dateTo = document.getElementById('reportDateTo').value;
-  db.collection('despatches').get().then(snap=>{
+  return db.collection('despatches').get().then(snap=>{
     let despatches = snap.docs.map(d=>({id:d.id, ...d.data()}));
     if(f==='yes') despatches = despatches.filter(d=>d.isExclusive);
     if(f==='no') despatches = despatches.filter(d=>!d.isExclusive);
@@ -1989,6 +1990,13 @@ function renderDespatchRegisterReport(q){
       const ib = b.invoiceNumber || '';
       return ib.localeCompare(ia, undefined, {numeric:true, sensitivity:'base'});
     });
+    return despatches;
+  });
+}
+function renderDespatchRegisterReport(q){
+  document.getElementById('reportTable').innerHTML = `<tr><td><div class="empty">Loading…</div></td></tr>`;
+  loadFilteredDespatches(q).then(despatches=>{
+    if(currentReportTab !== 'despatchreg') return;
     document.getElementById('reportRowCount').textContent = `${despatches.length} despatch(es)`;
     lastReportData = {
       headers: ['Date','Customer','PO No','Item','Qty Despatched','Invoice No','Attachments'],
@@ -2028,6 +2036,43 @@ function paintDespatchRegister(despatches){
   });
   document.querySelectorAll('#reportTable button[data-del-desp]').forEach(b=>{
     b.onclick = (e)=>{ e.stopPropagation(); deleteDespatch(despatches.find(x=>x.id===b.dataset.delDesp)); };
+  });
+}
+
+function renderInvoicewiseReport(q){
+  document.getElementById('reportTable').innerHTML = `<tr><td><div class="empty">Loading…</div></td></tr>`;
+  loadFilteredDespatches(q).then(despatches=>{
+    if(currentReportTab !== 'invoicewise') return;
+    // Group despatch lines by invoice; lines without an invoice number stay on their own row.
+    const byInv = new Map();
+    despatches.forEach(d=>{
+      const key = d.invoiceNumber ? 'inv:' + String(d.invoiceNumber).trim().toLowerCase() : 'desp:' + d.id;
+      if(!byInv.has(key)) byInv.set(key, {invoice:d.invoiceNumber||'—', date:d.despatchDate, customers:new Set(), pos:new Set(), lines:[], total:0});
+      const g = byInv.get(key);
+      g.customers.add(d.customerName);
+      if(d.poNo) g.pos.add(d.poNo);
+      g.lines.push({item:d.itemCode, qty:Number(d.qtyDespatched)||0});
+      g.total += Number(d.qtyDespatched)||0;
+    });
+    const rows = [...byInv.values()];
+    document.getElementById('reportRowCount').textContent = `${rows.length} invoice(s)`;
+    lastReportData = {
+      headers: ['Invoice No','Date','Customer','PO No','Items','Total Qty'],
+      rows: rows.map(r=>[r.invoice, fmtDate(r.date), [...r.customers].join(', '), [...r.pos].join(', '),
+        r.lines.map(l=>`${l.item} x ${l.qty}`).join(', '), r.total]),
+    };
+    document.getElementById('reportTable').innerHTML =
+      `<tr><th>Invoice No</th><th>Date</th><th>Customer</th><th>PO No</th><th>Items</th><th class="text-right">Qty</th></tr>` +
+      (rows.length ? rows.map(r=>`
+        <tr style="vertical-align:top;">
+          <td><strong>${esc(r.invoice)}</strong></td><td>${fmtDate(r.date)}</td>
+          <td>${esc([...r.customers].join(', '))}</td><td>${esc([...r.pos].join(', '))}</td>
+          <td>${r.lines.map(l=>`<div>${esc(l.item)}</div>`).join('')}${r.lines.length>1?'<div class="hint">Total</div>':''}</td>
+          <td class="text-right mono">${r.lines.map(l=>`<div>${l.qty}</div>`).join('')}${r.lines.length>1?`<div><strong>${r.total}</strong></div>`:''}</td>
+        </tr>`).join('') : `<tr><td colspan="6"><div class="empty">No invoices match.</div></td></tr>`);
+  }).catch(e=>{
+    console.error(e);
+    document.getElementById('reportTable').innerHTML = `<tr><td><div class="empty">Could not load despatches — see console.</div></td></tr>`;
   });
 }
 
