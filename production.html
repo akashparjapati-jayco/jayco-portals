@@ -2219,8 +2219,6 @@ var rrData = null;
 function initRejTab() {
   var to = document.getElementById('rr-to');
   if (!to.value) to.value = todayStr();
-  var from = document.getElementById('rr-from');
-  if (!from.value) { var d = new Date(); d.setDate(1); from.value = d.toISOString().slice(0,10); }
 }
 
 function runRejReport() {
@@ -2243,6 +2241,7 @@ function rrPctColor(rej, qty) {
 }
 
 function renderRejReport() {
+  fillFromDate('rr-from');
   var from = document.getElementById('rr-from').value, to = document.getElementById('rr-to').value;
   var stageF = document.getElementById('rr-stage').value, personF = document.getElementById('rr-person').value;
   var reasonF = document.getElementById('rr-reason').value;
@@ -2400,6 +2399,14 @@ function initFlowTab() {
   }
 }
 
+function fillFromDate(id) {
+  var el = document.getElementById(id);
+  if (el.value) return;
+  var min = '';
+  allRecords.forEach(function(r) { if (r.date && (!min || r.date < min)) min = r.date; });
+  if (min) el.value = min;
+}
+
 function runFlowReport() {
   if (allRecords.length > 0) { renderFlowReport(); return; }
   showLoad();
@@ -2417,6 +2424,7 @@ function runFlowReport() {
 }
 
 function renderFlowReport() {
+  fillFromDate('flow-from');
   var fromDate   = document.getElementById('flow-from').value;
   var toDate     = document.getElementById('flow-to').value;
   var itemFilter = (document.getElementById('flow-item').value || '').trim().toLowerCase();
