@@ -491,6 +491,7 @@ document.addEventListener('DOMContentLoaded', function(){
       <button class="nav-btn tab-btn active" onclick="switchTab('entry',this)"><span>📋</span><span class="nav-txt">&nbsp;Entry Form</span></button>
       <button class="nav-btn tab-btn" onclick="switchTab('dash',this)"><span>📊</span><span class="nav-txt">&nbsp;Dashboard</span></button>
       <button class="nav-btn tab-btn" onclick="switchTab('flow',this)"><span>🔍</span><span class="nav-txt">&nbsp;Flow Report</span></button>
+      <button class="nav-btn tab-btn" onclick="switchTab('rejrep',this)"><span>❌</span><span class="nav-txt">&nbsp;Rejection Report</span></button>
       <button class="nav-btn tab-btn" onclick="switchTab('layout',this)"><span>⚙</span><span class="nav-txt">&nbsp;Edit Layout</span></button>
       <div class="nav-label">Employee Register</div>
       <button class="nav-btn tab-btn" onclick="switchTab('employees',this)"><span>🧑‍💼</span><span class="nav-txt">&nbsp;Employees</span></button>
@@ -711,6 +712,28 @@ document.addEventListener('DOMContentLoaded', function(){
       <p style="color:var(--text3);font-size:12px;padding:10px 0">Chart appears after running the report.</p>
     </div>
   </div>
+</div>
+
+<!-- TAB: REJECTION REPORT -->
+<div id="tab-rejrep" class="tab-content">
+  <div class="flow-toolbar">
+    <label>From: <input type="date" id="rr-from"></label>
+    <label>To: <input type="date" id="rr-to"></label>
+    <label>Stage: <select id="rr-stage" style="border:1px solid var(--border);border-radius:4px;padding:5px 8px;font-size:12px"><option value="">All Stages</option></select></label>
+    <label>Person: <select id="rr-person" style="border:1px solid var(--border);border-radius:4px;padding:5px 8px;font-size:12px"><option value="">All Persons</option></select></label>
+    <label>Reason: <select id="rr-reason" style="border:1px solid var(--border);border-radius:4px;padding:5px 8px;font-size:12px"><option value="">All</option><option value="C">C – Casting</option><option value="M">M – Machining</option><option value="?">Not specified</option></select></label>
+    <label>Product: <input type="text" id="rr-item" placeholder="All products…" style="width:130px"></label>
+    <button class="btn btn-primary" onclick="runRejReport()">▶ Run Report</button>
+    <button class="btn btn-success" id="rr-download" onclick="downloadRejReport()" disabled>⭳ Download Excel</button>
+    <span id="rr-info" style="color:var(--text3);font-size:12px;margin-left:4px"></span>
+  </div>
+  <div id="rr-kpis"></div>
+  <div class="flow-wrap"><div id="rr-product" style="padding:40px;text-align:center;color:var(--text3)">Select a date range and click ▶ Run Report</div></div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:16px">
+    <div class="flow-chart-card"><h3>🏭 Rejection by Stage</h3><div id="rr-stage-tbl"></div></div>
+    <div class="flow-chart-card"><h3>👷 Rejection by Person</h3><div id="rr-person-tbl"></div></div>
+  </div>
+  <div class="flow-chart-card" style="margin-top:16px"><h3>📅 Daily Rejection Trend</h3><div id="rr-daily"></div></div>
 </div>
 
 <!-- TAB 3: EDIT LAYOUT -->
@@ -1055,7 +1078,7 @@ function hexToRgba(hex, a) {
 }
 
 /* ===== TABS ===== */
-var TAB_TITLES = { entry:'Entry Form', dash:'Dashboard', flow:'Flow Report', layout:'Edit Layout',
+var TAB_TITLES = { entry:'Entry Form', dash:'Dashboard', flow:'Flow Report', rejrep:'Rejection Report', layout:'Edit Layout',
   employees:'Employee Register & Attendance', shifts:'Shift Setup', payroll:'Salary Slip' };
 function switchTab(name, btn) {
   document.querySelectorAll('.tab-content').forEach(function(el){ el.classList.remove('active'); });
@@ -1068,6 +1091,7 @@ function switchTab(name, btn) {
   if (name === 'dash') loadDashboard();
   if (name === 'layout') renderLayoutEditor();
   if (name === 'flow') initFlowTab();
+  if (name === 'rejrep') initRejTab();
   if (name === 'employees') { erRenderEmployees(); erRenderAttendanceTab(); }
   if (name === 'shifts') erRenderShifts();
   if (name === 'payroll') erRenderPayrollTab();
@@ -2188,6 +2212,173 @@ var STAGE_FLOW = [
 ];
 
 var flowChart = null;
+
+/* ===== REJECTION REPORT (product-wise) ===== */
+var rrData = null;
+
+function initRejTab() {
+  var to = document.getElementById('rr-to');
+  if (!to.value) to.value = todayStr();
+  var from = document.getElementById('rr-from');
+  if (!from.value) { var d = new Date(); d.setDate(1); from.value = d.toISOString().slice(0,10); }
+}
+
+function runRejReport() {
+  if (allRecords.length > 0) { renderRejReport(); return; }
+  showLoad();
+  DB.ref('records').once('value')
+    .then(function(snapshot) {
+      hideLoad();
+      allRecords = [];
+      snapshot.forEach(function(child) { var r = child.val(); r._key = child.key; allRecords.push(r); });
+      renderRejReport();
+    })
+    .catch(function(err) { hideLoad(); toast('Load failed: ' + err.message, 'error'); });
+}
+
+function rrPct(rej, qty) { return qty > 0 ? (rej / qty * 100).toFixed(1) + '%' : (rej > 0 ? '—' : '0.0%'); }
+function rrPctColor(rej, qty) {
+  var p = qty > 0 ? rej / qty * 100 : (rej > 0 ? 100 : 0);
+  return p > 5 ? '#991b1b' : p > 2 ? '#92400e' : p > 0 ? '#713f12' : '#065f46';
+}
+
+function renderRejReport() {
+  var from = document.getElementById('rr-from').value, to = document.getElementById('rr-to').value;
+  var stageF = document.getElementById('rr-stage').value, personF = document.getElementById('rr-person').value;
+  var reasonF = document.getElementById('rr-reason').value;
+  var itemF = (document.getElementById('rr-item').value || '').trim().toLowerCase();
+
+  // refresh stage / person dropdowns
+  var stages = {}, persons = {};
+  allRecords.forEach(function(r) { if (r.stage) stages[flowNormStage(r.stage)] = 1; if (r.person) persons[r.person] = 1; });
+  function fillSel(id, obj, cur, all) {
+    var sel = document.getElementById(id);
+    sel.innerHTML = '<option value="">' + all + '</option>' +
+      Object.keys(obj).sort().map(function(k) { return '<option value="' + esc(k) + '">' + esc(k) + '</option>'; }).join('');
+    sel.value = cur;
+  }
+  fillSel('rr-stage', stages, stageF, 'All Stages');
+  fillSel('rr-person', persons, personF, 'All Persons');
+
+  var prod = {}, byStage = {}, byPerson = {}, byDay = {};
+  var tot = { qty: 0, rej: 0, C: 0, M: 0, U: 0 };
+  function bucket(map, key) { return map[key] || (map[key] = { qty: 0, rej: 0, C: 0, M: 0, U: 0 }); }
+
+  allRecords.forEach(function(r) {
+    if (from && r.date < from) return;
+    if (to && r.date > to) return;
+    var stage = flowNormStage(r.stage);
+    if (stageF && stage !== stageF) return;
+    if (personF && r.person !== personF) return;
+    var qty = parseFloat(r.quantity) || 0;
+    if (qty <= 0) return;
+    var isRej = isRejectionRecord(r), item = String(r.item || '').trim(), reason = '?';
+    if (isRej) {
+      var m = /^REJ-([^:]*):(.*)$/.exec(item);
+      if (m) { reason = m[1] || '?'; item = m[2].trim(); }
+      else { reason = (item.replace(/^REJECTION-?/i, '') || '?').toUpperCase(); item = '(Unlinked rejection)'; }
+      if (reason !== 'C' && reason !== 'M') reason = '?';
+      if (reasonF && reason !== reasonF) return;
+    }
+    if (!item) return;
+    if (itemF && item.toLowerCase().indexOf(itemF) < 0) return;
+    var rk = reason === 'C' ? 'C' : reason === 'M' ? 'M' : 'U';
+    var targets = [bucket(prod, item), bucket(byStage, stage), bucket(byPerson, r.person || '—'), bucket(byDay, r.date), tot];
+    targets.forEach(function(b) { if (isRej) { b.rej += qty; b[rk] += qty; } else b.qty += qty; });
+    var pb = prod[item];
+    if (isRej) { (pb.stages || (pb.stages = {}))[stage] = (pb.stages[stage] || 0) + qty; }
+  });
+
+  var items = Object.keys(prod).filter(function(k) { return prod[k].rej > 0 || (!reasonF && prod[k].qty > 0); })
+    .sort(function(a, b) { return prod[b].rej - prod[a].rej || prod[b].qty - prod[a].qty; });
+  rrData = { from: from, to: to, items: items, prod: prod, byStage: byStage, byPerson: byPerson, byDay: byDay, tot: tot };
+  document.getElementById('rr-download').disabled = !items.length;
+  document.getElementById('rr-info').textContent = items.length + ' product(s)';
+
+  var topItem = items.filter(function(k){return prod[k].rej>0;})[0];
+  document.getElementById('rr-kpis').innerHTML =
+    '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:14px">' +
+    [['Total Produced', tot.qty, '#1e293b'], ['Total Rejected', tot.rej, '#991b1b'], ['Rejection %', rrPct(tot.rej, tot.qty), rrPctColor(tot.rej, tot.qty)],
+     ['Casting (C)', tot.C, '#b45309'], ['Machining (M)', tot.M, '#1d4ed8'], ['Top Rejected Product', topItem ? esc(topItem) : '—', '#991b1b']]
+    .map(function(k) { return '<div class="flow-chart-card" style="padding:10px 14px"><div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase">' + k[0] +
+      '</div><div style="font-size:20px;font-weight:800;color:' + k[2] + '">' + k[1] + '</div></div>'; }).join('') + '</div>';
+
+  var TH = 'style="padding:7px 8px;background:var(--navy-dark);color:#fff;font-size:11px;text-align:right;white-space:nowrap"';
+  var THL = 'style="padding:7px 8px;background:var(--navy-dark);color:#fff;font-size:11px;text-align:left"';
+  function td(v, extra) { return '<td style="padding:6px 8px;border-bottom:1px solid var(--border);text-align:right;' + (extra || '') + '">' + v + '</td>'; }
+  function tdl(v) { return '<td style="padding:6px 8px;border-bottom:1px solid var(--border);font-weight:700">' + v + '</td>'; }
+
+  if (!items.length) {
+    document.getElementById('rr-product').innerHTML = '<div style="padding:40px;text-align:center;color:var(--text3)">No records found for the selected filters.</div>';
+  } else {
+    var h = '<table class="flow-table" style="min-width:760px"><thead><tr><th class="th-item" style="background:var(--navy-dark)">Product / SKU</th>' +
+      ['Produced', 'Rejected', 'Rej %', 'Casting (C)', 'Machining (M)', 'Not specified', 'Net Qty'].map(function(x){return '<th ' + TH + '>' + x + '</th>';}).join('') +
+      '<th ' + THL + '>Rejected at stage</th></tr></thead><tbody>';
+    items.forEach(function(k) {
+      var b = prod[k];
+      var st = Object.keys(b.stages || {}).sort(function(x, y) { return b.stages[y] - b.stages[x]; })
+        .map(function(x) { return esc(x) + ': ' + b.stages[x]; }).join(' · ') || '—';
+      h += '<tr><td class="td-item">' + esc(k) + '</td>' + td(b.qty) + td('<strong style="color:#991b1b">' + b.rej + '</strong>') +
+        td('<strong style="color:' + rrPctColor(b.rej, b.qty) + '">' + rrPct(b.rej, b.qty) + '</strong>') +
+        td(b.C || '—') + td(b.M || '—') + td(b.U || '—') + td(b.qty - b.rej) +
+        '<td style="padding:6px 8px;border-bottom:1px solid var(--border);font-size:11px;text-align:left">' + st + '</td></tr>';
+    });
+    h += '<tr class="flow-total-row"><td class="td-item">TOTAL</td>' + td(tot.qty) + td(tot.rej) + td(rrPct(tot.rej, tot.qty)) +
+      td(tot.C) + td(tot.M) + td(tot.U) + td(tot.qty - tot.rej) + '<td></td></tr></tbody></table>';
+    document.getElementById('rr-product').innerHTML = h;
+  }
+
+  function simple(map, keys, label) {
+    if (!keys.length) return '<p style="color:var(--text3);font-size:12px">No data.</p>';
+    var t = '<table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr><th ' + THL + '>' + label + '</th>' +
+      ['Produced', 'Rejected', 'Rej %', 'C', 'M'].map(function(x){return '<th ' + TH + '>' + x + '</th>';}).join('') + '</tr></thead><tbody>';
+    keys.forEach(function(k) { var b = map[k];
+      t += '<tr>' + tdl(esc(k)) + td(b.qty) + td('<strong style="color:#991b1b">' + b.rej + '</strong>') +
+        td('<span style="color:' + rrPctColor(b.rej, b.qty) + ';font-weight:700">' + rrPct(b.rej, b.qty) + '</span>') + td(b.C || '—') + td(b.M || '—') + '</tr>'; });
+    return t + '</tbody></table>';
+  }
+  var sKeys = Object.keys(byStage).sort(function(a, b) { return byStage[b].rej - byStage[a].rej; });
+  var pKeys = Object.keys(byPerson).filter(function(k){return byPerson[k].rej>0;}).sort(function(a, b) { return byPerson[b].rej - byPerson[a].rej; });
+  document.getElementById('rr-stage-tbl').innerHTML = simple(byStage, sKeys, 'Stage');
+  document.getElementById('rr-person-tbl').innerHTML = simple(byPerson, pKeys, 'Person');
+
+  var dKeys = Object.keys(byDay).filter(function(k){return byDay[k].rej>0;}).sort();
+  var maxRej = dKeys.reduce(function(m, k) { return Math.max(m, byDay[k].rej); }, 0) || 1;
+  document.getElementById('rr-daily').innerHTML = dKeys.length ? dKeys.map(function(k) {
+    var b = byDay[k];
+    return '<div style="display:flex;align-items:center;gap:8px;font-size:11px;margin:3px 0"><span style="width:78px;color:var(--text2)">' + k +
+      '</span><div style="flex:1;background:#f3f4f6;border-radius:3px"><div style="width:' + (b.rej / maxRej * 100) +
+      '%;background:#e53935;height:14px;border-radius:3px"></div></div><strong style="width:90px;text-align:right">' + b.rej + ' (' + rrPct(b.rej, b.qty) + ')</strong></div>';
+  }).join('') : '<p style="color:var(--text3);font-size:12px">No rejections in this range 🎉</p>';
+}
+
+function downloadRejReport() {
+  if (!rrData || !rrData.items.length) { toast('Run the report first', 'error'); return; }
+  var d = rrData, wb = XLSX.utils.book_new();
+  var a1 = [['Jayco Engineering — Product-wise Rejection Report'], ['Period', (d.from || 'start') + ' to ' + (d.to || 'today')], [],
+    ['Product', 'Produced', 'Rejected', 'Rej %', 'Casting (C)', 'Machining (M)', 'Not specified', 'Net Qty', 'Rejected at stage']];
+  d.items.forEach(function(k) { var b = d.prod[k];
+    a1.push([k, b.qty, b.rej, b.qty ? +(b.rej / b.qty * 100).toFixed(2) : 0, b.C, b.M, b.U, b.qty - b.rej,
+      Object.keys(b.stages || {}).map(function(s) { return s + ': ' + b.stages[s]; }).join(' | ')]); });
+  a1.push([], ['TOTAL', d.tot.qty, d.tot.rej, d.tot.qty ? +(d.tot.rej / d.tot.qty * 100).toFixed(2) : 0, d.tot.C, d.tot.M, d.tot.U, d.tot.qty - d.tot.rej]);
+  var ws1 = XLSX.utils.aoa_to_sheet(a1); ws1['!cols'] = [{wch:26},{wch:10},{wch:10},{wch:8},{wch:12},{wch:14},{wch:14},{wch:10},{wch:50}];
+  XLSX.utils.book_append_sheet(wb, ws1, 'By Product');
+  function sheet(map, label, name) {
+    var a = [[label, 'Produced', 'Rejected', 'Rej %', 'C', 'M', 'Not specified']];
+    Object.keys(map).sort(function(x, y) { return map[y].rej - map[x].rej; }).forEach(function(k) { var b = map[k];
+      a.push([k, b.qty, b.rej, b.qty ? +(b.rej / b.qty * 100).toFixed(2) : 0, b.C, b.M, b.U]); });
+    var ws = XLSX.utils.aoa_to_sheet(a); ws['!cols'] = [{wch:24}]; XLSX.utils.book_append_sheet(wb, ws, name);
+  }
+  sheet(d.byStage, 'Stage', 'By Stage'); sheet(d.byPerson, 'Person', 'By Person');
+  var daily = {}; Object.keys(d.byDay).sort().forEach(function(k) { daily[k] = d.byDay[k]; }); 
+  var a3 = [['Date', 'Produced', 'Rejected', 'Rej %']];
+  Object.keys(daily).forEach(function(k) { var b = daily[k]; a3.push([k, b.qty, b.rej, b.qty ? +(b.rej / b.qty * 100).toFixed(2) : 0]); });
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(a3), 'By Date');
+  XLSX.writeFile(wb, 'Jayco_Rejection_Report_' + (d.from || 'all') + '_to_' + (d.to || 'today') + '.xlsx');
+  toast('Report downloaded', 'success');
+}
+
+/* ===== FLOW REPORT ===== */
 
 // Normalize stage names from API (handles caps, spelling variants)
 function flowNormStage(stage) {
