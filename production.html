@@ -683,8 +683,8 @@ document.addEventListener('DOMContentLoaded', function(){
 <div id="tab-flow" class="tab-content">
   <div class="flow-toolbar">
     <label>FY: <select id="flow-fy" onchange="setReportFY('flow')" style="border:1px solid var(--border);border-radius:4px;padding:5px 8px;font-size:12px"></select></label>
-    <label>From: <input type="date" id="flow-from"></label>
-    <label>To:   <input type="date" id="flow-to"></label>
+    <label>From: <input type="date" id="flow-from" onchange="syncFYSelect('flow')"></label>
+    <label>To:   <input type="date" id="flow-to" onchange="syncFYSelect('flow')"></label>
     <label>Item: <input type="text" id="flow-item" placeholder="All items…" style="width:140px"></label>
     <button class="btn btn-primary" onclick="runFlowReport()">▶ Run Report</button>
     <button class="btn" onclick="clearFlowReport()">Clear</button>
@@ -719,8 +719,8 @@ document.addEventListener('DOMContentLoaded', function(){
 <div id="tab-rejrep" class="tab-content">
   <div class="flow-toolbar">
     <label>FY: <select id="rr-fy" onchange="setReportFY('rr')" style="border:1px solid var(--border);border-radius:4px;padding:5px 8px;font-size:12px"></select></label>
-    <label>From: <input type="date" id="rr-from"></label>
-    <label>To: <input type="date" id="rr-to"></label>
+    <label>From: <input type="date" id="rr-from" onchange="syncFYSelect('rr')"></label>
+    <label>To: <input type="date" id="rr-to" onchange="syncFYSelect('rr')"></label>
     <label>Stage: <select id="rr-stage" style="border:1px solid var(--border);border-radius:4px;padding:5px 8px;font-size:12px"><option value="">All Stages</option></select></label>
     <label>Person: <select id="rr-person" style="border:1px solid var(--border);border-radius:4px;padding:5px 8px;font-size:12px"><option value="">All Persons</option></select></label>
     <label>Reason: <select id="rr-reason" style="border:1px solid var(--border);border-radius:4px;padding:5px 8px;font-size:12px"><option value="">All</option><option value="C">C – Casting</option><option value="M">M – Machining</option><option value="?">Not specified</option></select></label>
@@ -2419,6 +2419,13 @@ function fillFYSelect(pfx) {
   sel.value = keep;
 }
 
+function syncFYSelect(pfx) {
+  var from = document.getElementById(pfx + '-from').value, to = document.getElementById(pfx + '-to').value;
+  var sel = document.getElementById(pfx + '-fy'), y = from ? fyStartYear(from) : 0, today = todayStr();
+  var end = (y + 1) + '-03-31';
+  sel.value = (from === y + '-04-01' && to === (end > today ? today : end)) ? String(y) : '';
+}
+
 function setReportFY(pfx) {
   var y = +document.getElementById(pfx + '-fy').value;
   if (!y) return;
@@ -2432,9 +2439,7 @@ function fillFromDate(id) {
   if (!el.value) el.value = fyStartStr();
   var pfx = id.split('-')[0];
   fillFYSelect(pfx);
-  var sel = document.getElementById(pfx + '-fy');
-  var y = fyStartYear(el.value);
-  if (el.value === y + '-04-01') sel.value = String(y) || '';
+  syncFYSelect(pfx);
 }
 
 function runFlowReport() {
