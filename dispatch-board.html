@@ -141,6 +141,7 @@ const TABS = [
   { id:"ledger", label:"Item Ledger" },
   { id:"master", label:"Master Report" },
   { id:"sales", label:"Sales Report" },
+  { id:"paintvsdispatch", label:"Paint vs Dispatch" },
   { id:"packing", label:"Packing / Dispatch Details" },
   { id:"boxes", label:"Box In/Out" },
 ];
@@ -457,6 +458,7 @@ function App() {
   const [salesFrom, setSalesFrom] = useState(() => today().slice(0, 8) + "01");
   const [salesTo, setSalesTo] = useState(today);
   const [salesCategory, setSalesCategory] = useState(null);
+  const [pvdCategory, setPvdCategory] = useState(null);
   const [ledgerFilter, setLedgerFilter] = useState("");
   const [openingEditing, setOpeningEditing] = useState(false);
   const [openingForm, setOpeningForm] = useState({ qty:"", date:"" });
@@ -756,6 +758,60 @@ function App() {
       .concat(Object.keys(byCat).filter(c => !catOrder.includes(c) && months.some(m => m[c])));
     return { range, total, slipCount: slipIds.size, categories, items, customers, months, monthCats };
   }, [dispatchSlips, stock, salesPeriod, salesFrom, salesTo, salesCategory]);
+  // Paint vs Dispatch tab: finished-goods inflow (New Paint challans + Vendor
+  // Bill purchases) against outflow (dispatch slips) over the same period
+  // buttons as the Sales Report. Repaint is shown for reference only — it
+  // never adds to Finish Stock, matching applyStockForItems.
+  const paintVsDispatch = useMemo(() => {
+    const range = salesPeriodRange(salesPeriod, salesFrom, salesTo);
+    const inRange = (d) => (!range.from || d >= range.from) && (!range.to || d <= range.to);
+    const stockOf = {};
+    stock.forEach(s => { stockOf[itemKey(s.item)] = s; });
+    const catFor = (item, fallback) => (stockOf[itemKey(item)] && stockOf[itemKey(item)].category) || fallback || "Other";
+    const blank = () => ({ painted: 0, repaint: 0, purchased: 0, dispatched: 0 });
+    const byCat = {}, byItem = {}, byMonth = {};
+    const add = (date, item, fallbackCat, field, qty) => {
+      if (!qty || !inRange(String(date || ""))) return;
+      const cat = catFor(item, fallbackCat);
+      byCat[cat] = byCat[cat] || { category: cat, ...blank() };
+      byCat[cat][field] += qty;
+      if (pvdCategory && cat !== pvdCategory) return;
+      const ik = itemKey(item);
+      if (!byItem[ik]) byItem[ik] = { item: String(item).trim(), category: cat, ...blank() };
+      byItem[ik][field] += qty;
+      const month = String(date).slice(0, 7);
+      byMonth[month] = byMonth[month] || { month, ...blank() };
+      byMonth[month][field] += qty;
+    };
+    paintLog.forEach(p => (p.items || []).forEach(row =>
+      add(p.date, row.item, row.category, row.paintType === "Repaint" ? "repaint" : "painted", Number(row.qty || 0))));
+    readyToSaleLog.forEach(b => (b.items || []).forEach(row =>
+      add(b.date, row.item, row.category, "purchased", Number(row.qty || 0))));
+    dispatchSlips.forEach(d => (d.items || []).forEach(row =>
+      add(d.date, row.item, null, "dispatched", Number(row.qty || 0))));
+    const withNet = (r) => ({ ...r, inflow: r.painted + r.purchased, net: r.painted + r.purchased - r.dispatched });
+    const catOrder = [...STOCK_CATEGORIES, "Other"];
+    const categories = Object.values(byCat).map(withNet)
+      .sort((a, b) => (catOrder.indexOf(a.category) + 1 || 99) - (catOrder.indexOf(b.category) + 1 || 99));
+    // Repaint-only rows would be all dashes here (Repaint stays in the
+    // product/month totals), so the item list keeps only stock movers.
+    const items = Object.values(byItem).filter(r => r.painted || r.purchased || r.dispatched).map(r => {
+      const row = withNet(r);
+      const st = stockOf[itemKey(r.item)];
+      row.stock = st ? Number(st.qty || 0) : null;
+      row.reorder = st ? Number(st.reorder || 0) : 0;
+      // "Paint more": selling faster than it's being made AND stock is at or
+      // below reorder. "Over-painted": made well beyond what went out.
+      row.flag = (row.dispatched > row.inflow && row.stock !== null && row.stock <= row.reorder) ? "paint"
+        : (row.inflow > 0 && row.dispatched === 0) || (row.dispatched > 0 && row.inflow >= row.dispatched * 2 && row.inflow - row.dispatched >= 10) ? "over"
+        : "";
+      return row;
+    }).sort((a, b) => b.dispatched - a.dispatched || b.inflow - a.inflow || naturalCompare(a.item, b.item));
+    const months = Object.values(byMonth).map(withNet).sort((a, b) => a.month < b.month ? 1 : -1);
+    const totals = (pvdCategory ? categories.filter(c => c.category === pvdCategory) : categories)
+      .reduce((t, c) => ({ painted: t.painted + c.painted, repaint: t.repaint + c.repaint, purchased: t.purchased + c.purchased, dispatched: t.dispatched + c.dispatched }), blank());
+    return { range, categories, items, months, totals: withNet(totals) };
+  }, [paintLog, readyToSaleLog, dispatchSlips, stock, salesPeriod, salesFrom, salesTo, pvdCategory]);
   const todaysPaint = useMemo(() => paintLog.filter(p => p.date === today()).flatMap(p => p.items), [paintLog]);
   const todaysDispatch = dispatchSlips.filter(d => d.date === today()).length;
 
@@ -1775,6 +1831,24 @@ function App() {
   const btnPrimary = { background:"var(--red)", color:"#fff", border:"none", padding:"9px 14px", fontWeight:700, fontSize:"13px", display:"flex", alignItems:"center", justifyContent:"center", gap:"6px", textTransform:"uppercase", letterSpacing:"0.5px" };
   const iconBtn = { background:"var(--panel2)", border:"1px solid var(--line)", color:"var(--text-dim)", padding:"6px 10px" };
   const iconBtnSmall = { ...iconBtn, padding:"3px 9px", fontWeight:700 };
+  // Period buttons + custom date range, shared by Sales Report and Paint vs
+  // Dispatch so both tabs always look at the same window.
+  const renderPeriodBar = () => <>
+      {SALES_PERIODS.map(p => {
+        const active = salesPeriod === p.id;
+        return <button key={p.id} onClick={() => setSalesPeriod(p.id)}
+          style={{...iconBtn, fontSize:"12px", fontWeight:600, padding:"7px 12px", background: active ? "var(--red)" : "var(--panel2)", color: active ? "#fff" : "var(--text-dim)", borderColor: active ? "var(--red)" : "var(--line)"}}>{p.label}</button>;
+      })}
+      {salesPeriod === "custom" && <>
+        <input type="date" value={salesFrom} onChange={e => setSalesFrom(e.target.value)} style={{...inputStyle, width:"150px", padding:"6px 8px"}} />
+        <span style={{fontSize:"12px",color:"var(--text-dim)"}}>to</span>
+        <input type="date" value={salesTo} onChange={e => setSalesTo(e.target.value)} style={{...inputStyle, width:"150px", padding:"6px 8px"}} />
+      </>}
+      <span style={{fontSize:"11px",color:"var(--text-dim)",marginLeft:"4px"}}>
+        {salesReport.range.from ? `${fmtDate(salesReport.range.from)} – ${fmtDate(salesReport.range.to > today() ? today() : (salesReport.range.to || today()))}` : "All dates"}
+      </span>
+  </>;
+
   const exportSalesCsv = () => {
     const esc = (v) => `"${String(v == null ? "" : v).replace(/"/g, '""')}"`;
     const lines = [["Item","Category","Series","Qty Dispatched","Slips","Last Dispatch"].map(esc).join(",")];
@@ -1939,6 +2013,7 @@ function App() {
     ledger: <svg {...svgIconProps}><path d="M6 3h12v18l-3-2-3 2-3-2-3 2Z"></path><path d="M9 8h6M9 12h6M9 16h3"></path></svg>,
     master: <svg {...svgIconProps}><path d="M4 19V10"></path><path d="M12 19V5"></path><path d="M20 19v-7"></path></svg>,
     sales: <svg {...svgIconProps}><path d="M3 17l6-6 4 4 8-8"></path><path d="M15 7h6v6"></path></svg>,
+    paintvsdispatch: <svg {...svgIconProps}><path d="M7 4v16"></path><path d="M3 8l4-4 4 4"></path><path d="M17 20V4"></path><path d="M13 16l4 4 4-4"></path></svg>,
     packing: <svg {...svgIconProps}><rect x="1" y="6" width="13" height="10" rx="1"></rect><path d="M14 9h4l3 3v4h-7z"></path><circle cx="5.5" cy="18" r="1.8"></circle><circle cx="17.5" cy="18" r="1.8"></circle></svg>,
     boxes: <svg {...svgIconProps}><path d="M12 3v18"></path><path d="M7 8l5-5 5 5"></path><path d="M7 16l5 5 5-5"></path></svg>,
   };
@@ -2593,19 +2668,7 @@ function App() {
         </div>
 
         <div style={{display:"flex",gap:"6px",flexWrap:"wrap",alignItems:"center",marginBottom:"12px"}}>
-          {SALES_PERIODS.map(p => {
-            const active = salesPeriod === p.id;
-            return <button key={p.id} onClick={() => setSalesPeriod(p.id)}
-              style={{...iconBtn, fontSize:"12px", fontWeight:600, padding:"7px 12px", background: active ? "var(--red)" : "var(--panel2)", color: active ? "#fff" : "var(--text-dim)", borderColor: active ? "var(--red)" : "var(--line)"}}>{p.label}</button>;
-          })}
-          {salesPeriod === "custom" && <>
-            <input type="date" value={salesFrom} onChange={e => setSalesFrom(e.target.value)} style={{...inputStyle, width:"150px", padding:"6px 8px"}} />
-            <span style={{fontSize:"12px",color:"var(--text-dim)"}}>to</span>
-            <input type="date" value={salesTo} onChange={e => setSalesTo(e.target.value)} style={{...inputStyle, width:"150px", padding:"6px 8px"}} />
-          </>}
-          <span style={{fontSize:"11px",color:"var(--text-dim)",marginLeft:"4px"}}>
-            {salesReport.range.from ? `${fmtDate(salesReport.range.from)} – ${fmtDate(salesReport.range.to > today() ? today() : (salesReport.range.to || today()))}` : "All dates"}
-          </span>
+          {renderPeriodBar()}
           <button onClick={exportSalesCsv} disabled={!salesReport.items.length} style={{...iconBtn, fontSize:"12px", fontWeight:600, padding:"7px 12px", marginLeft:"auto", opacity: salesReport.items.length ? 1 : 0.5}}>⭳ Export CSV</button>
         </div>
 
@@ -2740,6 +2803,160 @@ function App() {
             </table>
           </div>
         </div>}
+      </div>}
+
+      {tab === "paintvsdispatch" && <div>
+        <div style={{display:"flex",alignItems:"center",gap:"8px",marginBottom:"14px",flexWrap:"wrap"}}>
+          <div style={{width:"4px",height:"16px",background:"var(--red)",borderRadius:"2px"}} />
+          <div style={{fontSize:"14px",fontWeight:700}}>Paint vs Dispatch</div>
+          <div style={{fontSize:"11px",color:"var(--text-dim)"}}>· finished goods made (New Paint + Vendor Bill) against dispatched</div>
+        </div>
+
+        <div style={{display:"flex",gap:"6px",flexWrap:"wrap",alignItems:"center",marginBottom:"12px"}}>
+          {renderPeriodBar()}
+        </div>
+
+        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit, minmax(160px, 1fr))",gap:"12px",marginBottom:"18px"}}>
+          {[
+            { label:"New Paint", value: paintVsDispatch.totals.painted, sub: "added to stock", color:"#16a34a" },
+            { label:"Vendor Bill", value: paintVsDispatch.totals.purchased, sub: "bought ready", color:"#2563eb" },
+            { label:"Dispatched", value: paintVsDispatch.totals.dispatched, sub: "went out", color:"var(--red)" },
+            { label:"Net Change", value: (paintVsDispatch.totals.net > 0 ? "+" : "") + paintVsDispatch.totals.net, sub: paintVsDispatch.totals.net >= 0 ? "stock built up" : "stock drawn down", color: paintVsDispatch.totals.net >= 0 ? "#16a34a" : "var(--red)" },
+            { label:"Repaint", value: paintVsDispatch.totals.repaint, sub: "rework, not added", color:"var(--text-dim)" },
+          ].map(k => (
+            <div key={k.label} style={{background:"var(--panel)",border:"1px solid var(--line)",borderLeft:`3px solid ${k.color}`,borderRadius:"10px",padding:"14px 16px",boxShadow:"var(--shadow)"}}>
+              <div className="mono" style={{fontSize:"10.5px",letterSpacing:"1px",textTransform:"uppercase",color:"var(--text-dim)"}}>{k.label}</div>
+              <div style={{fontSize:"26px",fontWeight:700,margin:"4px 0 2px",color:k.label === "Net Change" ? k.color : "var(--text)"}}>{k.value}</div>
+              <div style={{fontSize:"11px",color:"var(--text-dim)"}}>{k.sub}</div>
+            </div>
+          ))}
+        </div>
+
+        {paintVsDispatch.categories.length === 0 ? (
+          <div style={{background:"var(--panel)",border:"1px solid var(--line)",borderRadius:"10px",padding:"30px 20px",textAlign:"center",color:"var(--text-dim)",fontSize:"13px"}}>
+            No paint challans, vendor bills or dispatch slips in this period.
+          </div>
+        ) : <>
+          <div style={{background:"var(--panel)",border:"1px solid var(--line)",borderRadius:"8px",overflow:"auto",marginBottom:"16px"}}>
+            <div style={{padding:"10px 14px",fontWeight:700,fontSize:"13px",borderBottom:"1px solid var(--line)"}}>Product-wise <span style={{fontWeight:400,fontSize:"11px",color:"var(--text-dim)"}}>· click a product to see only its items &amp; months</span></div>
+            <table style={{width:"100%",borderCollapse:"collapse",fontSize:"12.5px"}}>
+              <thead><tr style={{background:"var(--panel2)"}}>
+                <th style={reportThStyle}>Product</th>
+                <th style={{...reportThStyle,textAlign:"right"}}>New Paint</th>
+                <th style={{...reportThStyle,textAlign:"right"}}>Vendor Bill</th>
+                <th style={{...reportThStyle,textAlign:"right"}}>Dispatched</th>
+                <th style={{...reportThStyle,textAlign:"right"}}>Net</th>
+                <th style={{...reportThStyle,width:"30%"}}>Made vs Dispatched</th>
+                <th style={{...reportThStyle,textAlign:"right"}}>Repaint</th>
+              </tr></thead>
+              <tbody>
+                {paintVsDispatch.categories.map(c => {
+                  const color = categoryColor(c.category);
+                  const active = pvdCategory === c.category;
+                  const max = Math.max(c.inflow, c.dispatched, 1);
+                  return (
+                    <tr key={c.category} className="row-btn" onClick={() => setPvdCategory(active ? null : c.category)}
+                      style={{borderTop:"1px solid var(--line)",cursor:"pointer",background: active ? `${color}14` : "transparent"}}>
+                      <td style={{...reportTdStyle,fontWeight:600}}>
+                        <span style={{display:"inline-flex",alignItems:"center",gap:"7px"}}><span style={{width:"9px",height:"9px",borderRadius:"50%",background:color}} />{c.category}{active && " ✓"}</span>
+                      </td>
+                      <td className="mono" style={{...reportTdStyle,textAlign:"right"}}>{c.painted || "–"}</td>
+                      <td className="mono" style={{...reportTdStyle,textAlign:"right"}}>{c.purchased || "–"}</td>
+                      <td className="mono" style={{...reportTdStyle,textAlign:"right"}}>{c.dispatched || "–"}</td>
+                      <td className="mono" style={{...reportTdStyle,textAlign:"right",fontWeight:700,color: c.net < 0 ? "var(--red)" : c.net > 0 ? "#16a34a" : "var(--text-dim)"}}>{c.net > 0 ? "+" : ""}{c.net}</td>
+                      <td style={reportTdStyle}>
+                        <div style={{display:"flex",flexDirection:"column",gap:"3px"}}>
+                          <div style={{height:"6px",borderRadius:"3px",background:"#16a34a",width:`${(c.inflow / max) * 100}%`,minWidth: c.inflow ? "2px" : 0}} title={`Made ${c.inflow}`} />
+                          <div style={{height:"6px",borderRadius:"3px",background:"var(--red)",width:`${(c.dispatched / max) * 100}%`,minWidth: c.dispatched ? "2px" : 0}} title={`Dispatched ${c.dispatched}`} />
+                        </div>
+                      </td>
+                      <td className="mono" style={{...reportTdStyle,textAlign:"right",color:"var(--text-dim)"}}>{c.repaint || "–"}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+            <div style={{display:"flex",gap:"14px",padding:"8px 14px",fontSize:"11px",color:"var(--text-dim)",borderTop:"1px solid var(--line)"}}>
+              <span><span style={{display:"inline-block",width:"10px",height:"6px",borderRadius:"3px",background:"#16a34a",marginRight:"5px"}} />Made (New Paint + Vendor Bill)</span>
+              <span><span style={{display:"inline-block",width:"10px",height:"6px",borderRadius:"3px",background:"var(--red)",marginRight:"5px"}} />Dispatched</span>
+            </div>
+          </div>
+
+          {pvdCategory && (
+            <div style={{display:"flex",alignItems:"center",gap:"8px",marginBottom:"12px",fontSize:"12px"}}>
+              Showing <strong>{pvdCategory}</strong> only
+              <button onClick={() => setPvdCategory(null)} style={{...iconBtnSmall, fontSize:"11px"}}>✕ Show all</button>
+            </div>
+          )}
+
+          <div style={{background:"var(--panel)",border:"1px solid var(--line)",borderRadius:"8px",overflow:"auto",marginBottom:"16px"}}>
+            <div style={{padding:"10px 14px",fontWeight:700,fontSize:"13px",borderBottom:"1px solid var(--line)"}}>Month-wise {pvdCategory ? `· ${pvdCategory}` : ""}</div>
+            <table style={{width:"100%",borderCollapse:"collapse",fontSize:"12.5px"}}>
+              <thead><tr style={{background:"var(--panel2)"}}>
+                <th style={reportThStyle}>Month</th>
+                <th style={{...reportThStyle,textAlign:"right"}}>New Paint</th>
+                <th style={{...reportThStyle,textAlign:"right"}}>Vendor Bill</th>
+                <th style={{...reportThStyle,textAlign:"right"}}>Dispatched</th>
+                <th style={{...reportThStyle,textAlign:"right"}}>Net</th>
+                <th style={{...reportThStyle,textAlign:"right"}}>Repaint</th>
+              </tr></thead>
+              <tbody>
+                {paintVsDispatch.months.map(m => (
+                  <tr key={m.month} style={{borderTop:"1px solid var(--line)"}}>
+                    <td style={{...reportTdStyle,whiteSpace:"nowrap"}}>{fmtMonth(m.month)}</td>
+                    <td className="mono" style={{...reportTdStyle,textAlign:"right"}}>{m.painted || "–"}</td>
+                    <td className="mono" style={{...reportTdStyle,textAlign:"right"}}>{m.purchased || "–"}</td>
+                    <td className="mono" style={{...reportTdStyle,textAlign:"right"}}>{m.dispatched || "–"}</td>
+                    <td className="mono" style={{...reportTdStyle,textAlign:"right",fontWeight:700,color: m.net < 0 ? "var(--red)" : m.net > 0 ? "#16a34a" : "var(--text-dim)"}}>{m.net > 0 ? "+" : ""}{m.net}</td>
+                    <td className="mono" style={{...reportTdStyle,textAlign:"right",color:"var(--text-dim)"}}>{m.repaint || "–"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          <div style={{background:"var(--panel)",border:"1px solid var(--line)",borderRadius:"8px",overflow:"auto"}}>
+            <div style={{padding:"10px 14px",fontWeight:700,fontSize:"13px",borderBottom:"1px solid var(--line)"}}>
+              Item-wise <span style={{fontWeight:400,fontSize:"11px",color:"var(--text-dim)"}}>· most dispatched first · click an item for its full report</span>
+            </div>
+            <table style={{width:"100%",borderCollapse:"collapse",fontSize:"12.5px"}}>
+              <thead><tr style={{background:"var(--panel2)"}}>
+                <th style={reportThStyle}>Item</th>
+                <th style={reportThStyle}>Category</th>
+                <th style={{...reportThStyle,textAlign:"right"}}>New Paint</th>
+                <th style={{...reportThStyle,textAlign:"right"}}>Vendor Bill</th>
+                <th style={{...reportThStyle,textAlign:"right"}}>Dispatched</th>
+                <th style={{...reportThStyle,textAlign:"right"}}>Net</th>
+                <th style={{...reportThStyle,textAlign:"right"}}>Stock Now</th>
+                <th style={reportThStyle}>Status</th>
+              </tr></thead>
+              <tbody>
+                {paintVsDispatch.items.map((r, i) => {
+                  const color = categoryColor(r.category);
+                  return (
+                    <tr key={r.item + i} className="row-btn" onClick={() => { setMasterItem(r.item); setTab("master"); }} style={{borderTop:"1px solid var(--line)",cursor:"pointer"}}>
+                      <td style={{...reportTdStyle,fontWeight:600}}>{r.item}</td>
+                      <td style={reportTdStyle}><span style={{display:"inline-block",padding:"2px 8px",borderRadius:"100px",fontSize:"10.5px",fontWeight:600,background:`${color}1A`,color:color,border:`1px solid ${color}33`,whiteSpace:"nowrap"}}>{r.category}</span></td>
+                      <td className="mono" style={{...reportTdStyle,textAlign:"right"}}>{r.painted || "–"}</td>
+                      <td className="mono" style={{...reportTdStyle,textAlign:"right"}}>{r.purchased || "–"}</td>
+                      <td className="mono" style={{...reportTdStyle,textAlign:"right"}}>{r.dispatched || "–"}</td>
+                      <td className="mono" style={{...reportTdStyle,textAlign:"right",fontWeight:700,color: r.net < 0 ? "var(--red)" : r.net > 0 ? "#16a34a" : "var(--text-dim)"}}>{r.net > 0 ? "+" : ""}{r.net}</td>
+                      <td className="mono" style={{...reportTdStyle,textAlign:"right",color: r.stock !== null && r.stock <= r.reorder ? "var(--red)" : "var(--text)"}}>{r.stock === null ? "—" : r.stock}</td>
+                      <td style={reportTdStyle}>
+                        {r.flag === "paint" && <span style={{padding:"2px 8px",borderRadius:"100px",fontSize:"10.5px",fontWeight:700,background:"#dc262618",color:"#dc2626",border:"1px solid #dc262640",whiteSpace:"nowrap"}}>⚠ Paint more</span>}
+                        {r.flag === "over" && <span style={{padding:"2px 8px",borderRadius:"100px",fontSize:"10.5px",fontWeight:700,background:"#d9770618",color:"#b45309",border:"1px solid #d9770640",whiteSpace:"nowrap"}}>Over-painted</span>}
+                        {!r.flag && <span style={{fontSize:"11px",color:"var(--text-dim)"}}>OK</span>}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+            <div style={{padding:"8px 14px",fontSize:"11px",color:"var(--text-dim)",borderTop:"1px solid var(--line)"}}>
+              <strong style={{color:"#dc2626"}}>Paint more</strong> = dispatched more than was made in this period and stock is at/below reorder level. <strong style={{color:"#b45309"}}>Over-painted</strong> = made but nothing dispatched, or made at least double what went out.
+            </div>
+          </div>
+        </>}
       </div>}
 
       {tab === "packing" && <div>
