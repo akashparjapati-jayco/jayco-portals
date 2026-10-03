@@ -140,6 +140,7 @@ const TABS = [
   { id:"stock", label:"Finish Stock" },
   { id:"ledger", label:"Item Ledger" },
   { id:"master", label:"Master Report" },
+  { id:"sales", label:"Sales Report" },
   { id:"packing", label:"Packing / Dispatch Details" },
   { id:"boxes", label:"Box In/Out" },
 ];
@@ -239,6 +240,33 @@ const buildItemReportData = (itemName, stock, paintLog, itemLedger, openingStock
   const ledger = buildLedgerStatement(itemName, itemLedger, openingStock);
 
   return { item: itemName, category, series, stockRow, seriesRows, seriesTotal, monthlyRows, monthlyTotal, ledger };
+};
+
+// Date window for the Sales Report tab. Dates are compared as plain
+// "YYYY-MM-DD" strings (same as slip.date), so month/FY ends can be written
+// as "-31" without caring how many days the month really has.
+const SALES_PERIODS = [
+  { id:"month", label:"This Month" },
+  { id:"lastMonth", label:"Last Month" },
+  { id:"fy", label:"This FY" },
+  { id:"lastFy", label:"Last FY" },
+  { id:"all", label:"All Time" },
+  { id:"custom", label:"Custom" },
+];
+const salesPeriodRange = (period, from, to) => {
+  const t = today();
+  const [y, m] = t.split("-").map(Number);
+  const pad = (n) => String(n).padStart(2, "0");
+  const fyStart = m >= 4 ? y : y - 1;
+  if (period === "month") return { from:`${y}-${pad(m)}-01`, to:t };
+  if (period === "lastMonth") {
+    const ly = m === 1 ? y - 1 : y, lm = m === 1 ? 12 : m - 1;
+    return { from:`${ly}-${pad(lm)}-01`, to:`${ly}-${pad(lm)}-31` };
+  }
+  if (period === "fy") return { from:`${fyStart}-04-01`, to:t };
+  if (period === "lastFy") return { from:`${fyStart - 1}-04-01`, to:`${fyStart}-03-31` };
+  if (period === "custom") return { from: from || "", to: to || "" };
+  return { from:"", to:"" };
 };
 
 const SEED = {
@@ -425,6 +453,10 @@ function App() {
   const [reportPickerQuery, setReportPickerQuery] = useState("");
   const [masterItem, setMasterItem] = useState(null);
   const [masterQuery, setMasterQuery] = useState("");
+  const [salesPeriod, setSalesPeriod] = useState("month");
+  const [salesFrom, setSalesFrom] = useState(() => today().slice(0, 8) + "01");
+  const [salesTo, setSalesTo] = useState(today);
+  const [salesCategory, setSalesCategory] = useState(null);
   const [ledgerFilter, setLedgerFilter] = useState("");
   const [openingEditing, setOpeningEditing] = useState(false);
   const [openingForm, setOpeningForm] = useState({ qty:"", date:"" });
@@ -669,6 +701,61 @@ function App() {
   // all for whichever item's Report button was clicked.
   const reportData = useMemo(() => buildItemReportData(reportItem, stock, paintLog, itemLedger, openingStock), [reportItem, stock, paintLog, itemLedger, openingStock]);
   const masterReportData = useMemo(() => buildItemReportData(masterItem, stock, paintLog, itemLedger, openingStock), [masterItem, stock, paintLog, itemLedger, openingStock]);
+  // Sales Report tab: dispatch slips are the sales record (qty only — slips
+  // carry no rate), rolled up by category, item, customer and month. An
+  // item's category comes from its Finish Stock row; anything not found
+  // there is reported under "Other".
+  const salesReport = useMemo(() => {
+    const range = salesPeriodRange(salesPeriod, salesFrom, salesTo);
+    const inRange = (d) => (!range.from || d >= range.from) && (!range.to || d <= range.to);
+    const catOf = {};
+    stock.forEach(s => { catOf[itemKey(s.item)] = s.category; });
+    const byCat = {}, byItem = {}, byCust = {}, byMonth = {};
+    const slipIds = new Set();
+    let total = 0;
+    dispatchSlips.forEach(slip => {
+      if (!inRange(String(slip.date || ""))) return;
+      (slip.items || []).forEach(row => {
+        const qty = Number(row.qty || 0);
+        if (!qty) return;
+        const cat = catOf[itemKey(row.item)] || "Other";
+        if (!byCat[cat]) byCat[cat] = { category: cat, qty: 0, items: new Set() };
+        byCat[cat].qty += qty;
+        byCat[cat].items.add(itemKey(row.item));
+        if (salesCategory && cat !== salesCategory) return;
+        total += qty;
+        slipIds.add(slip.id);
+        const ik = itemKey(row.item);
+        if (!byItem[ik]) byItem[ik] = { item: String(row.item).trim(), category: cat, series: itemSeries(row.item), qty: 0, slips: new Set(), lastDate: "" };
+        byItem[ik].qty += qty;
+        byItem[ik].slips.add(slip.id);
+        if (String(slip.date) > byItem[ik].lastDate) byItem[ik].lastDate = String(slip.date);
+        const cust = String(slip.dest || "").trim() || "(not entered)";
+        const ck = cust.toLowerCase();
+        if (!byCust[ck]) byCust[ck] = { customer: cust, qty: 0, slips: new Set() };
+        byCust[ck].qty += qty;
+        byCust[ck].slips.add(slip.id);
+        const month = String(slip.date || "").slice(0, 7);
+        if (!byMonth[month]) byMonth[month] = { month, total: 0 };
+        byMonth[month][cat] = (byMonth[month][cat] || 0) + qty;
+        byMonth[month].total += qty;
+      });
+    });
+    const catOrder = [...STOCK_CATEGORIES, "Other"];
+    const categories = Object.values(byCat)
+      .map(c => ({ category: c.category, qty: c.qty, itemCount: c.items.size }))
+      .sort((a, b) => b.qty - a.qty);
+    const items = Object.values(byItem)
+      .map(r => ({ ...r, slips: r.slips.size }))
+      .sort((a, b) => b.qty - a.qty || naturalCompare(a.item, b.item));
+    const customers = Object.values(byCust)
+      .map(r => ({ ...r, slips: r.slips.size }))
+      .sort((a, b) => b.qty - a.qty);
+    const months = Object.values(byMonth).sort((a, b) => a.month < b.month ? 1 : -1);
+    const monthCats = catOrder.filter(c => months.some(m => m[c]))
+      .concat(Object.keys(byCat).filter(c => !catOrder.includes(c) && months.some(m => m[c])));
+    return { range, total, slipCount: slipIds.size, categories, items, customers, months, monthCats };
+  }, [dispatchSlips, stock, salesPeriod, salesFrom, salesTo, salesCategory]);
   const todaysPaint = useMemo(() => paintLog.filter(p => p.date === today()).flatMap(p => p.items), [paintLog]);
   const todaysDispatch = dispatchSlips.filter(d => d.date === today()).length;
 
@@ -1688,6 +1775,21 @@ function App() {
   const btnPrimary = { background:"var(--red)", color:"#fff", border:"none", padding:"9px 14px", fontWeight:700, fontSize:"13px", display:"flex", alignItems:"center", justifyContent:"center", gap:"6px", textTransform:"uppercase", letterSpacing:"0.5px" };
   const iconBtn = { background:"var(--panel2)", border:"1px solid var(--line)", color:"var(--text-dim)", padding:"6px 10px" };
   const iconBtnSmall = { ...iconBtn, padding:"3px 9px", fontWeight:700 };
+  const exportSalesCsv = () => {
+    const esc = (v) => `"${String(v == null ? "" : v).replace(/"/g, '""')}"`;
+    const lines = [["Item","Category","Series","Qty Dispatched","Slips","Last Dispatch"].map(esc).join(",")];
+    salesReport.items.forEach(r => lines.push([r.item, r.category, r.series, r.qty, r.slips, r.lastDate].map(esc).join(",")));
+    const blob = new Blob([lines.join("\n")], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `jayco-sales-report-${salesReport.range.from || "start"}-to-${salesReport.range.to || today()}${salesCategory ? "-" + salesCategory.replace(/\s+/g, "-") : ""}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  };
+
   const reportThStyle = { textAlign:"left", padding:"8px 12px", color:"var(--text-dim)", fontSize:"11px", letterSpacing:"0.4px" };
   const reportTdStyle = { padding:"8px 12px" };
 
@@ -1836,6 +1938,7 @@ function App() {
     stock: <svg {...svgIconProps}><path d="M21 8 12 3 3 8l9 5 9-5Z"></path><path d="M3 8v8l9 5 9-5V8"></path><path d="M12 13v8"></path></svg>,
     ledger: <svg {...svgIconProps}><path d="M6 3h12v18l-3-2-3 2-3-2-3 2Z"></path><path d="M9 8h6M9 12h6M9 16h3"></path></svg>,
     master: <svg {...svgIconProps}><path d="M4 19V10"></path><path d="M12 19V5"></path><path d="M20 19v-7"></path></svg>,
+    sales: <svg {...svgIconProps}><path d="M3 17l6-6 4 4 8-8"></path><path d="M15 7h6v6"></path></svg>,
     packing: <svg {...svgIconProps}><rect x="1" y="6" width="13" height="10" rx="1"></rect><path d="M14 9h4l3 3v4h-7z"></path><circle cx="5.5" cy="18" r="1.8"></circle><circle cx="17.5" cy="18" r="1.8"></circle></svg>,
     boxes: <svg {...svgIconProps}><path d="M12 3v18"></path><path d="M7 8l5-5 5 5"></path><path d="M7 16l5 5 5-5"></path></svg>,
   };
@@ -2480,6 +2583,163 @@ function App() {
             </div>
           </div>
         )}
+      </div>}
+
+      {tab === "sales" && <div>
+        <div style={{display:"flex",alignItems:"center",gap:"8px",marginBottom:"14px",flexWrap:"wrap"}}>
+          <div style={{width:"4px",height:"16px",background:"var(--red)",borderRadius:"2px"}} />
+          <div style={{fontSize:"14px",fontWeight:700}}>Sales Report</div>
+          <div style={{fontSize:"11px",color:"var(--text-dim)"}}>· product-wise qty dispatched, from Packing / Dispatch slips</div>
+        </div>
+
+        <div style={{display:"flex",gap:"6px",flexWrap:"wrap",alignItems:"center",marginBottom:"12px"}}>
+          {SALES_PERIODS.map(p => {
+            const active = salesPeriod === p.id;
+            return <button key={p.id} onClick={() => setSalesPeriod(p.id)}
+              style={{...iconBtn, fontSize:"12px", fontWeight:600, padding:"7px 12px", background: active ? "var(--red)" : "var(--panel2)", color: active ? "#fff" : "var(--text-dim)", borderColor: active ? "var(--red)" : "var(--line)"}}>{p.label}</button>;
+          })}
+          {salesPeriod === "custom" && <>
+            <input type="date" value={salesFrom} onChange={e => setSalesFrom(e.target.value)} style={{...inputStyle, width:"150px", padding:"6px 8px"}} />
+            <span style={{fontSize:"12px",color:"var(--text-dim)"}}>to</span>
+            <input type="date" value={salesTo} onChange={e => setSalesTo(e.target.value)} style={{...inputStyle, width:"150px", padding:"6px 8px"}} />
+          </>}
+          <span style={{fontSize:"11px",color:"var(--text-dim)",marginLeft:"4px"}}>
+            {salesReport.range.from ? `${fmtDate(salesReport.range.from)} – ${fmtDate(salesReport.range.to > today() ? today() : (salesReport.range.to || today()))}` : "All dates"}
+          </span>
+          <button onClick={exportSalesCsv} disabled={!salesReport.items.length} style={{...iconBtn, fontSize:"12px", fontWeight:600, padding:"7px 12px", marginLeft:"auto", opacity: salesReport.items.length ? 1 : 0.5}}>⭳ Export CSV</button>
+        </div>
+
+        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit, minmax(170px, 1fr))",gap:"12px",marginBottom:"18px"}}>
+          {[
+            { label:"Qty Dispatched", value: salesReport.total, sub: salesCategory || "all products" },
+            { label:"Dispatch Slips", value: salesReport.slipCount, sub: "in this period" },
+            { label:"Items Sold", value: salesReport.items.length, sub: "distinct SKUs" },
+            { label:"Customers", value: salesReport.customers.length, sub: salesReport.customers[0] ? `top: ${salesReport.customers[0].customer}` : "—" },
+          ].map(k => (
+            <div key={k.label} style={{background:"var(--panel)",border:"1px solid var(--line)",borderRadius:"10px",padding:"14px 16px",boxShadow:"var(--shadow)"}}>
+              <div className="mono" style={{fontSize:"10.5px",letterSpacing:"1px",textTransform:"uppercase",color:"var(--text-dim)"}}>{k.label}</div>
+              <div style={{fontSize:"26px",fontWeight:700,margin:"4px 0 2px"}}>{k.value}</div>
+              <div style={{fontSize:"11px",color:"var(--text-dim)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{k.sub}</div>
+            </div>
+          ))}
+        </div>
+
+        <div style={{fontWeight:700,fontSize:"13px",marginBottom:"8px"}}>Product-wise Sales <span style={{fontWeight:400,fontSize:"11px",color:"var(--text-dim)"}}>· click a product to see its items</span></div>
+        {salesReport.categories.length === 0 ? (
+          <div style={{background:"var(--panel)",border:"1px solid var(--line)",borderRadius:"10px",padding:"30px 20px",textAlign:"center",color:"var(--text-dim)",fontSize:"13px",marginBottom:"18px"}}>
+            No dispatch slips in this period.
+          </div>
+        ) : (
+          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit, minmax(180px, 1fr))",gap:"12px",marginBottom:"18px"}}>
+            {(() => {
+              const grand = salesReport.categories.reduce((a, c) => a + c.qty, 0) || 1;
+              return salesReport.categories.map(c => {
+                const color = categoryColor(c.category);
+                const active = salesCategory === c.category;
+                return (
+                  <div key={c.category} className="row-btn" onClick={() => setSalesCategory(active ? null : c.category)}
+                    style={{background:"var(--panel)",border:`1px solid ${active ? color : "var(--line)"}`,borderRadius:"10px",padding:"12px 14px",cursor:"pointer",boxShadow: active ? `0 0 0 2px ${color}40` : "var(--shadow)"}}>
+                    <div style={{display:"flex",alignItems:"center",gap:"7px",fontSize:"12.5px",fontWeight:600}}>
+                      <span style={{width:"9px",height:"9px",borderRadius:"50%",background:color,flexShrink:0}} />{c.category}
+                    </div>
+                    <div style={{fontSize:"22px",fontWeight:700,margin:"6px 0 6px"}}>{c.qty}</div>
+                    <div style={{height:"5px",background:"var(--panel2)",borderRadius:"3px",overflow:"hidden"}}>
+                      <div style={{width:`${(c.qty / grand) * 100}%`,height:"100%",background:color}} />
+                    </div>
+                    <div style={{fontSize:"10.5px",color:"var(--text-dim)",marginTop:"5px"}}>{Math.round((c.qty / grand) * 100)}% · {c.itemCount} item{c.itemCount === 1 ? "" : "s"}</div>
+                  </div>
+                );
+              });
+            })()}
+          </div>
+        )}
+        {salesCategory && (
+          <div style={{display:"flex",alignItems:"center",gap:"8px",marginBottom:"12px",fontSize:"12px"}}>
+            Showing <strong>{salesCategory}</strong> only
+            <button onClick={() => setSalesCategory(null)} style={{...iconBtnSmall, fontSize:"11px"}}>✕ Show all</button>
+          </div>
+        )}
+
+        {salesReport.items.length > 0 && <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit, minmax(340px, 1fr))",gap:"16px",alignItems:"start"}}>
+          <div style={{background:"var(--panel)",border:"1px solid var(--line)",borderRadius:"8px",overflow:"auto",gridColumn:"1 / -1"}}>
+            <div style={{padding:"10px 14px",fontWeight:700,fontSize:"13px",borderBottom:"1px solid var(--line)"}}>Item-wise Sales <span style={{fontWeight:400,fontSize:"11px",color:"var(--text-dim)"}}>· highest first · click an item for its full report</span></div>
+            <table style={{width:"100%",borderCollapse:"collapse",fontSize:"12.5px"}}>
+              <thead><tr style={{background:"var(--panel2)"}}>
+                <th style={reportThStyle}>#</th>
+                <th style={reportThStyle}>Item</th>
+                <th style={reportThStyle}>Category</th>
+                <th style={reportThStyle}>Series</th>
+                <th style={{...reportThStyle,textAlign:"right"}}>Qty</th>
+                <th style={{...reportThStyle,textAlign:"right"}}>Slips</th>
+                <th style={{...reportThStyle,width:"22%"}}>Share</th>
+                <th style={reportThStyle}>Last Dispatch</th>
+              </tr></thead>
+              <tbody>
+                {salesReport.items.map((r, i) => {
+                  const color = categoryColor(r.category);
+                  const pct = salesReport.total ? (r.qty / salesReport.total) * 100 : 0;
+                  return (
+                    <tr key={r.item + i} className="row-btn" onClick={() => { setMasterItem(r.item); setTab("master"); }} style={{borderTop:"1px solid var(--line)",cursor:"pointer"}}>
+                      <td style={{...reportTdStyle,color:"var(--text-dim)"}}>{i + 1}</td>
+                      <td style={{...reportTdStyle,fontWeight:600}}>{r.item}</td>
+                      <td style={reportTdStyle}><span style={{display:"inline-block",padding:"2px 8px",borderRadius:"100px",fontSize:"10.5px",fontWeight:600,background:`${color}1A`,color:color,border:`1px solid ${color}33`,whiteSpace:"nowrap"}}>{r.category}</span></td>
+                      <td style={{...reportTdStyle,color:"var(--text-dim)"}}>{r.series}</td>
+                      <td className="mono" style={{...reportTdStyle,textAlign:"right",fontWeight:700}}>{r.qty}</td>
+                      <td className="mono" style={{...reportTdStyle,textAlign:"right"}}>{r.slips}</td>
+                      <td style={reportTdStyle}>
+                        <div style={{display:"flex",alignItems:"center",gap:"6px"}}>
+                          <div style={{flex:1,height:"5px",background:"var(--panel2)",borderRadius:"3px",overflow:"hidden",minWidth:"40px"}}><div style={{width:`${pct}%`,height:"100%",background:color}} /></div>
+                          <span className="mono" style={{fontSize:"10.5px",color:"var(--text-dim)",width:"34px",textAlign:"right"}}>{pct.toFixed(pct < 10 ? 1 : 0)}%</span>
+                        </div>
+                      </td>
+                      <td style={{...reportTdStyle,color:"var(--text-dim)",whiteSpace:"nowrap"}}>{r.lastDate ? fmtDate(r.lastDate) : "—"}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+
+          <div style={{background:"var(--panel)",border:"1px solid var(--line)",borderRadius:"8px",overflow:"auto",gridColumn:"1 / -1"}}>
+            <div style={{padding:"10px 14px",fontWeight:700,fontSize:"13px",borderBottom:"1px solid var(--line)"}}>Month-wise Sales</div>
+            <table style={{width:"100%",borderCollapse:"collapse",fontSize:"12.5px"}}>
+              <thead><tr style={{background:"var(--panel2)"}}>
+                <th style={reportThStyle}>Month</th>
+                {salesReport.monthCats.map(c => <th key={c} style={{...reportThStyle,textAlign:"right",whiteSpace:"nowrap"}}>{c}</th>)}
+                <th style={{...reportThStyle,textAlign:"right"}}>Total</th>
+              </tr></thead>
+              <tbody>
+                {salesReport.months.map(m => (
+                  <tr key={m.month} style={{borderTop:"1px solid var(--line)"}}>
+                    <td style={{...reportTdStyle,whiteSpace:"nowrap"}}>{fmtMonth(m.month)}</td>
+                    {salesReport.monthCats.map(c => <td key={c} className="mono" style={{...reportTdStyle,textAlign:"right",color: m[c] ? "var(--text)" : "var(--text-dim)"}}>{m[c] || "–"}</td>)}
+                    <td className="mono" style={{...reportTdStyle,textAlign:"right",fontWeight:700}}>{m.total}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          <div style={{background:"var(--panel)",border:"1px solid var(--line)",borderRadius:"8px",overflow:"auto"}}>
+            <div style={{padding:"10px 14px",fontWeight:700,fontSize:"13px",borderBottom:"1px solid var(--line)"}}>Customer-wise Sales <span style={{fontWeight:400,fontSize:"11px",color:"var(--text-dim)"}}>· by slip destination</span></div>
+            <table style={{width:"100%",borderCollapse:"collapse",fontSize:"12.5px"}}>
+              <thead><tr style={{background:"var(--panel2)"}}>
+                <th style={reportThStyle}>Customer / Destination</th>
+                <th style={{...reportThStyle,textAlign:"right"}}>Qty</th>
+                <th style={{...reportThStyle,textAlign:"right"}}>Slips</th>
+              </tr></thead>
+              <tbody>
+                {salesReport.customers.map(c => (
+                  <tr key={c.customer} style={{borderTop:"1px solid var(--line)"}}>
+                    <td style={reportTdStyle}>{c.customer}</td>
+                    <td className="mono" style={{...reportTdStyle,textAlign:"right",fontWeight:700}}>{c.qty}</td>
+                    <td className="mono" style={{...reportTdStyle,textAlign:"right"}}>{c.slips}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>}
       </div>}
 
       {tab === "packing" && <div>
