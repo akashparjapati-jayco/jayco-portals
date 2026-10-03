@@ -2399,12 +2399,14 @@ function initFlowTab() {
   }
 }
 
+function fyStartStr() {
+  var d = new Date(), y = d.getMonth() >= 3 ? d.getFullYear() : d.getFullYear() - 1;
+  return y + '-04-01';
+}
+
 function fillFromDate(id) {
   var el = document.getElementById(id);
-  if (el.value) return;
-  var min = '';
-  allRecords.forEach(function(r) { if (r.date && (!min || r.date < min)) min = r.date; });
-  if (min) el.value = min;
+  if (!el.value) el.value = fyStartStr();
 }
 
 function runFlowReport() {
