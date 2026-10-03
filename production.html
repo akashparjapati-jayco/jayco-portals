@@ -691,11 +691,11 @@ document.addEventListener('DOMContentLoaded', function(){
   </div>
 
   <div class="flow-legend">
-    <span class="leg-item" style="background:#fee2e2;color:#991b1b">Loss &gt;15%</span>
-    <span class="leg-item" style="background:#fef3c7;color:#92400e">Loss 5–15%</span>
-    <span class="leg-item" style="background:#fef9c3;color:#713f12">Loss &lt;5%</span>
-    <span class="leg-item" style="background:#d1fae5;color:#065f46">No loss</span>
-    <span class="leg-item" style="background:#f3f4f6;color:#6b7280">Not yet reached</span>
+    <span class="leg-item" style="background:#d1fae5;color:#065f46">✓ Matched</span>
+    <span class="leg-item" style="background:#fef3c7;color:#92400e">⏳ Pending in stage</span>
+    <span class="leg-item" style="background:#ffedd5;color:#c2410c">⚠ Cap/Bottom unmatched</span>
+    <span class="leg-item" style="background:#f3e8ff;color:#7c3aed">▲ Extra (more than previous)</span>
+    <span class="leg-item" style="background:#fee2e2;color:#991b1b">Rejected</span>
   </div>
 
   <div id="flow-merge-check"></div>
@@ -2506,217 +2506,138 @@ function renderFlowReport() {
     });
   });
 
-  buildMergeCheck(items, itemStageQty);
-  buildFlowMatrix(items, itemStageQty, itemStageRej, itemStageRejReason, stageTotals, stageRejTotals);
+  buildFlowOverview(items, itemStageQty, itemStageRej);
   buildFlowChart(stageTotals, stageRejTotals);
 }
 
-/* ── Pre-assembly balance check (unchanged) ── */
-function buildMergeCheck(items, isq) {
-  var box = document.getElementById('flow-merge-check');
-  var warns = [];
-  items.forEach(function(item) {
-    var cap  = (isq[item] && isq[item]['1 (CAP)'])    || 0;
-    var base = (isq[item] && isq[item]['1 (Bottom)']) || 0;
-    if (!cap && !base) return;
-    var diff = cap - base;
-    if (Math.abs(diff) > 0) {
-      var shortPart = diff > 0 ? 'Base (Patli)' : 'Cap (Topi)';
-      var excess    = diff > 0 ? 'Cap' : 'Base';
-      warns.push(
-        '<div class="merge-warn">⚠ <strong>' + esc(item) + '</strong>: Cap=' + cap + ', Base=' + base +
-        ' → <span class="warn-short">' + Math.abs(diff) + ' ' + shortPart + ' units SHORT</span>' +
-        ' — ' + Math.abs(diff) + ' ' + excess + ' pieces sitting idle, cannot be assembled.</div>'
-      );
-    }
-  });
-  box.innerHTML = warns.length
-    ? '<div class="merge-check-box"><div class="merge-check-title">🔗 Pre-Assembly Balance Check</div>' + warns.join('') + '</div>'
-    : '<div class="merge-ok-box">✅ Pre-Assembly OK — Cap and Base quantities match for all items in this range.</div>';
-}
+/* ── Easy flow view: Cap + Bottom → Merge → Drill → Bearing → Grinding → Inspection → Colour ── */
+var FLOW_NAMES = {
+  '1 (CAP)':'Cap', '1 (Bottom)':'Bottom', '2 (Drill)':'Drill', '3 (Berrings)':'Bearing',
+  '4 (Grinding)':'Grinding', '5 (Inspection)':'Inspection', '6 (Paint)':'Colour'
+};
+var flowRows = [], flowFilter = 'all';
 
-/* ── Main flow matrix — rejection-aware ── */
-function buildFlowMatrix(items, isq, isrq, isrqReason, stageTotals, stageRejTotals) {
-  var N = STAGE_FLOW.length;
-
-  var html = '<table class="flow-table"><thead><tr>';
-  html += '<th class="th-item">Item / SKU</th>';
-  STAGE_FLOW.forEach(function(s, idx) {
-    html += '<th style="background:' + s.color + ';min-width:100px;line-height:1.3">' + s.label + '<br>' +
-            '<small style="font-weight:normal;opacity:.7">Gross · Rej · Net</small></th>';
-    if (idx < N - 1) html += '<th class="arrow-cell">→</th>';
-  });
-  html += '<th style="background:#7f1d1d;min-width:60px">Total<br>Loss</th>';
-  html += '<th style="background:#78350f;min-width:130px">Where (type)</th>';
-  html += '</tr></thead><tbody>';
-
-  items.forEach(function(item) {
-    var rowGross = STAGE_FLOW.map(function(s) { return (isq[item]  && isq[item][s.key])  || 0; });
-    var rowRej   = STAGE_FLOW.map(function(s) { return (isrq[item] && isrq[item][s.key]) || 0; });
-    var rowReason= STAGE_FLOW.map(function(s) { return (isrqReason[item] && isrqReason[item][s.key]) || ''; });
-    var rowNet   = rowGross.map(function(g, i) { return g - rowRej[i]; });
-    var leak     = calcItemLeak(rowGross, rowRej, rowNet);
-
-    html += '<tr><td class="td-item">' + esc(item) + '</td>';
-
-    rowGross.forEach(function(gross, idx) {
-      var rej    = rowRej[idx];
-      var net    = rowNet[idx];
-      var reason = rowReason[idx];
-      var prevNet = getPrevNet(rowNet, rowGross, idx); // what should have arrived
-      var transitLoss = (prevNet !== null && gross > 0 && prevNet > gross)
-        ? Math.max(0, prevNet - gross) : 0;
-
-      // Total loss at this stage = rejection + transit
-      var totalStageLoss = rej + transitLoss;
-      var bg = cellBg(totalStageLoss, prevNet !== null ? prevNet : gross);
-
-      html += '<td style="' + bg + ';text-align:center;vertical-align:top;padding:4px 5px">';
-      if (gross > 0 || rej > 0) {
-        // Gross
-        html += '<div style="font-size:13px;font-weight:800;color:var(--navy-dark)">' + (gross||0) + '</div>';
-        // Rejection (red)
-        if (rej > 0) {
-          html += '<div style="font-size:10px;font-weight:700;color:#c0392b">−' + rej +
-                  ' rej' + (reason ? '(' + reason + ')' : '') + '</div>';
-        }
-        // Net (blue) — only show if different from gross
-        if (rej > 0) {
-          var netColor = net >= 0 ? '#1e40af' : '#c0392b';
-          html += '<div style="font-size:10px;font-weight:700;color:' + netColor + '">Net: ' + net + '</div>';
-        }
-        // Transit loss (purple) — pieces lost in transit to this stage
-        if (transitLoss > 0) {
-          html += '<div style="font-size:10px;font-weight:700;color:#7c3aed">−' + transitLoss + ' transit</div>';
-        }
-      } else {
-        html += '<span style="color:#d1d5db;font-size:11px">—</span>';
-      }
-      html += '</td>';
-      if (idx < N - 1) html += '<td class="arrow-cell">→</td>';
+function flowComputeRows(items, isq, isrq) {
+  var LINEAR = ['2 (Drill)', '3 (Berrings)', '4 (Grinding)', '5 (Inspection)', '6 (Paint)'];
+  return items.map(function(item) {
+    var g = function(k) { return (isq[item] && isq[item][k]) || 0; };
+    var r = function(k) { return (isrq[item] && isrq[item][k]) || 0; };
+    var capNet = g('1 (CAP)') - r('1 (CAP)'), botNet = g('1 (Bottom)') - r('1 (Bottom)');
+    var merged = Math.max(0, Math.min(capNet, botNet));
+    var row = { item: item, cap: g('1 (CAP)'), capRej: r('1 (CAP)'), bot: g('1 (Bottom)'), botRej: r('1 (Bottom)'),
+      merged: merged, unmatched: Math.abs(capNet - botNet), unmatchedSide: capNet > botNet ? 'Cap' : 'Bottom',
+      stages: [], issues: [] };
+    if (row.unmatched > 0) row.issues.push({ t: 'unmatched', txt: (capNet > botNet ? 'Bottom' : 'Cap') + ' short ' + row.unmatched });
+    var expected = merged;
+    LINEAR.forEach(function(k) {
+      var gross = g(k), rej = r(k);
+      var diff = expected - gross;            // + = still pending, − = more than previous stage
+      var cell = { key: k, gross: gross, rej: rej, expected: expected, pending: 0, extra: 0 };
+      if (expected > 0 && diff > 0) cell.pending = diff;
+      if (gross > 0 && diff < 0) cell.extra = -diff;
+      if (cell.pending) row.issues.push({ t: 'pending', txt: FLOW_NAMES[k] + ' pending ' + cell.pending });
+      if (cell.extra)   row.issues.push({ t: 'extra', txt: FLOW_NAMES[k] + ' +' + cell.extra + ' extra' });
+      row.stages.push(cell);
+      expected = Math.max(0, gross - rej);
     });
-
-    html += '<td class="td-loss">' + (leak.total > 0 ? leak.total : '—') + '</td>';
-    html += '<td class="td-leak" style="font-size:10px">' + leak.stages + '</td>';
-    html += '</tr>';
+    return row;
   });
-
-  // Totals row (gross)
-  html += '<tr class="flow-total-row"><td class="td-item">TOTAL (Gross)</td>';
-  STAGE_FLOW.forEach(function(s, idx) {
-    html += '<td style="text-align:center"><strong>' + (stageTotals[s.key]||0) + '</strong>' +
-            (stageRejTotals[s.key] > 0 ? '<br><small style="color:#c0392b">−' + stageRejTotals[s.key] + ' rej</small>' : '') + '</td>';
-    if (idx < N - 1) html += '<td class="arrow-cell"></td>';
-  });
-  var assembled = stageTotals['2 (Drill)'] || 0;
-  var rejTotal  = Object.values ? Object.keys(stageRejTotals).reduce(function(s,k){ return s+stageRejTotals[k]; },0) : 0;
-  var painted   = stageTotals['6 (Paint)']  || 0;
-  html += '<td class="td-loss"><strong>' + Math.max(0, assembled - painted) + '</strong></td><td class="td-leak"></td></tr>';
-
-  // Rejection row
-  html += '<tr class="flow-loss-row"><td class="td-item" style="color:#c0392b">🔴 Rejections</td>';
-  STAGE_FLOW.forEach(function(s, idx) {
-    var r = stageRejTotals[s.key] || 0;
-    html += '<td style="text-align:center;color:#c0392b;font-weight:700">' + (r > 0 ? '-' + r : '') + '</td>';
-    if (idx < N - 1) html += '<td class="arrow-cell"></td>';
-  });
-  html += '<td style="text-align:center;color:#c0392b;font-weight:700">-' + rejTotal + '</td><td></td></tr>';
-
-  // Net row (after rejections)
-  html += '<tr class="flow-eff-row"><td class="td-item" style="color:#1e40af">🔵 Net (after rej)</td>';
-  STAGE_FLOW.forEach(function(s, idx) {
-    var net = (stageTotals[s.key] || 0) - (stageRejTotals[s.key] || 0);
-    html += '<td style="text-align:center;color:#1e40af;font-weight:700">' + (stageTotals[s.key] > 0 ? net : '') + '</td>';
-    if (idx < N - 1) html += '<td class="arrow-cell"></td>';
-  });
-  html += '<td></td><td></td></tr>';
-
-  // Efficiency row (based on net)
-  var baseline = (stageTotals['2 (Drill)'] || 0) - (stageRejTotals['2 (Drill)'] || 0) || 1;
-  html += '<tr style="background:#f8f9ff"><td class="td-item" style="color:#065f46">⚡ Efficiency</td>';
-  STAGE_FLOW.forEach(function(s, idx) {
-    if (s.role === 'parallel') { html += '<td></td>'; }
-    else {
-      var net = (stageTotals[s.key]||0) - (stageRejTotals[s.key]||0);
-      var eff = baseline > 0 ? (net / baseline * 100).toFixed(1) : '—';
-      var col = parseFloat(eff) >= 98 ? '#1e8449' : parseFloat(eff) >= 90 ? '#b7950b' : '#c0392b';
-      html += '<td style="text-align:center;color:' + col + ';font-weight:700">' + eff + '%</td>';
-    }
-    if (idx < N - 1) html += '<td class="arrow-cell"></td>';
-  });
-  html += '<td></td><td></td></tr>';
-
-  html += '</tbody></table>';
-  document.getElementById('flow-table-wrap').innerHTML = html;
 }
 
-/* ── Cell background: considers both rejection and transit loss ── */
-function cellBg(totalLoss, available) {
-  if (!totalLoss || totalLoss <= 0 || !available || available <= 0) return 'background:#d1fae5';
-  var pct = totalLoss / available * 100;
-  if (pct > 15) return 'background:#fee2e2';
-  if (pct > 5)  return 'background:#fef3c7';
-  return 'background:#fef9c3';
+function setFlowFilter(f) { flowFilter = f; renderFlowTable(); }
+
+function buildFlowOverview(items, isq, isrq) {
+  flowRows = flowComputeRows(items, isq, isrq);
+  var tot = { cap:0, bot:0, merged:0, unmatched:0, st:[0,0,0,0,0], pend:[0,0,0,0,0] };
+  var okCount = 0;
+  flowRows.forEach(function(r) {
+    tot.cap += r.cap; tot.bot += r.bot; tot.merged += r.merged; tot.unmatched += r.unmatched;
+    r.stages.forEach(function(c, i) { tot.st[i] += c.gross; tot.pend[i] += c.pending; });
+    if (!r.issues.length) okCount++;
+  });
+
+  // Pipeline strip
+  var N = ['Drill','Bearing','Grinding','Inspection','Colour'], COL = ['#1e8449','#b7950b','#c0392b','#7d3c98','#ca6f1e'];
+  function box(title, qty, color, sub, subColor) {
+    return '<div style="flex:1;min-width:110px;background:#fff;border:1px solid var(--border);border-top:4px solid ' + color +
+      ';border-radius:8px;padding:8px 10px;text-align:center"><div style="font-size:11px;font-weight:700;color:var(--text2)">' + title +
+      '</div><div style="font-size:22px;font-weight:800;color:var(--navy-dark)">' + qty + '</div>' +
+      (sub ? '<div style="font-size:10px;font-weight:700;color:' + subColor + '">' + sub + '</div>' : '') + '</div>';
+  }
+  var arrow = '<div style="align-self:center;font-size:18px;color:var(--text3)">➜</div>';
+  var strip = '<div style="display:flex;flex-direction:column;gap:6px;min-width:130px">' +
+      box('Cap', tot.cap, '#0e6655') + box('Bottom', tot.bot, '#2980b9') + '</div>' + arrow +
+    box('✅ Merged<br><small style="font-weight:500">(same qty)</small>', tot.merged, '#16a34a',
+        tot.unmatched ? tot.unmatched + ' unmatched' : 'all matched', tot.unmatched ? '#c2410c' : '#166534');
+  N.forEach(function(n, i) {
+    strip += arrow + box(n, tot.st[i], COL[i], tot.pend[i] ? '⏳ ' + tot.pend[i] + ' pending' : '✓ no pending', tot.pend[i] ? '#92400e' : '#166534');
+  });
+  document.getElementById('flow-merge-check').innerHTML =
+    '<div class="merge-check-box"><div class="merge-check-title">📦 Overall Flow — pieces at each step (after rejections)</div>' +
+    '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:stretch">' + strip + '</div>' +
+    '<div style="margin-top:10px;font-size:12px;color:var(--text2)"><strong>' + okCount + '</strong> of ' + flowRows.length +
+    ' products fully matched · <strong style="color:#c2410c">' + (flowRows.length - okCount) + '</strong> products need attention</div></div>';
+
+  renderFlowTable();
 }
-function pctColor(pct) {
-  if (pct >= 98) return '#1e8449';
-  if (pct >= 90) return '#b7950b';
-  return '#c0392b';
-}
 
-/* ── What NET quantity should arrive at this stage ── */
-function getPrevNet(rowNet, rowGross, idx) {
-  var role = STAGE_FLOW[idx].role;
-  if (role === 'parallel') return null;
-  if (role === 'merge') {
-    // Assembly needs 1 cap + 1 base; use NET of each parallel stream
-    var capNet  = rowNet[0];
-    var baseNet = rowNet[1];
-    if (!capNet && !baseNet) return null;
-    return Math.min(capNet || baseNet, baseNet || capNet);
+function renderFlowTable() {
+  var rows = flowRows.filter(function(r) {
+    if (flowFilter === 'ok') return !r.issues.length;
+    if (flowFilter === 'issue') return r.issues.length > 0;
+    if (flowFilter === 'unmatched') return r.unmatched > 0;
+    if (flowFilter === 'pending') return r.issues.some(function(i) { return i.t === 'pending'; });
+    return true;
+  });
+  function chip(f, label) {
+    var on = flowFilter === f;
+    return '<button class="btn' + (on ? ' btn-primary' : '') + '" style="padding:4px 12px" onclick="setFlowFilter(\'' + f + '\')">' + label + '</button>';
   }
-  return rowNet[idx - 1]; // NET of previous stage
-}
+  var h = '<div style="padding:10px 12px;display:flex;gap:6px;flex-wrap:wrap;align-items:center;background:#fff;border-bottom:1px solid var(--border)">' +
+    '<span style="font-size:11px;font-weight:700;color:var(--text2)">SHOW:</span>' +
+    chip('all','All') + chip('issue','⚠ Needs attention') + chip('unmatched','Cap/Bottom unmatched') + chip('pending','Pending in a stage') + chip('ok','✅ Fully matched') +
+    '<span style="margin-left:auto;font-size:11px;color:var(--text3)">' + rows.length + ' product(s)</span></div>';
+  h += '<div style="padding:6px 12px;font-size:11px;color:var(--text2);background:#f8fafc;border-bottom:1px solid var(--border)">' +
+    'How to read: big number = pieces entered at that step (<span style="color:#c0392b">red = rejected</span>). ' +
+    '<span style="color:#92400e;font-weight:700">⏳ pending</span> = good pieces from the previous step not yet entered here. ' +
+    '<span style="color:#7c3aed;font-weight:700">▲ extra</span> = more than the previous step sent (check entry). ' +
+    '<span style="color:#166534;font-weight:700">✓</span> = matches.</div>';
+  h += '<table class="flow-table"><thead><tr><th class="th-item">Product</th>' +
+    '<th style="background:#0e6655">Cap</th><th style="background:#2980b9">Bottom</th>' +
+    '<th style="background:#16a34a">✅ Merged<br><small style="font-weight:400">same qty</small></th>' +
+    '<th style="background:#ea580c">⚠ Unmatched<br><small style="font-weight:400">extra / short</small></th>' +
+    ['Drill','Bearing','Grinding','Inspection','Colour'].map(function(n, i) {
+      return '<th style="background:' + ['#1e8449','#b7950b','#c0392b','#7d3c98','#ca6f1e'][i] + '">' + n + '</th>'; }).join('') +
+    '<th style="background:#334155;min-width:170px">Status</th></tr></thead><tbody>';
 
-/* ── Per-item leak: distinguishes rejection vs transit loss ── */
-function calcItemLeak(rowGross, rowRej, rowNet) {
-  var total  = 0;
-  var stages = [];
-
-  // Pre-assembly imbalance (NET cap vs NET base)
-  var capNet  = rowNet[0];
-  var baseNet = rowNet[1];
-  if ((capNet || baseNet) && capNet !== baseNet) {
-    var diff = Math.abs(capNet - baseNet);
-    total += diff;
-    stages.push((capNet < baseNet ? 'Cap↓' : 'Base↓') + ':' + diff);
+  function qtyCell(gross, rej) {
+    if (!gross && !rej) return '<span style="color:#cbd5e1">—</span>';
+    return '<div style="font-size:14px;font-weight:800;color:var(--navy-dark)">' + gross + '</div>' +
+      (rej ? '<div style="font-size:10px;font-weight:700;color:#c0392b">rej ' + rej + '</div>' : '');
   }
-
-  // Rejections at each stage
-  for (var i = 0; i < rowRej.length; i++) {
-    if (rowRej[i] > 0) {
-      total += rowRej[i];
-      var label = STAGE_FLOW[i].label.split(' · ')[1] || STAGE_FLOW[i].label;
-      stages.push('<span style="color:#c0392b">' + label + ' rej:' + rowRej[i] + '</span>');
-    }
-  }
-
-  // Transit loss: NET of stage N vs gross of stage N+1 (for linear stages)
-  for (var j = 2; j < rowGross.length; j++) {
-    var prevN = rowNet[j - 1];
-    var currG = rowGross[j];
-    if (prevN > 0 && currG > 0 && prevN > currG) {
-      var transitLoss = prevN - currG;
-      total += transitLoss;
-      var lbl = STAGE_FLOW[j].label.split(' · ')[1] || STAGE_FLOW[j].label;
-      stages.push('<span style="color:#7c3aed">' + lbl + ' transit:' + transitLoss + '</span>');
-    }
-  }
-
-  return {
-    total:  total,
-    stages: stages.length ? stages.join(', ') : '<span style="color:#1e8449">None ✓</span>'
-  };
+  rows.forEach(function(r) {
+    h += '<tr><td class="td-item">' + esc(r.item) + '</td>' +
+      '<td>' + qtyCell(r.cap, r.capRej) + '</td><td>' + qtyCell(r.bot, r.botRej) + '</td>' +
+      '<td style="background:#f0fdf4"><strong style="font-size:14px;color:#166534">' + (r.merged || '—') + '</strong></td>' +
+      '<td style="background:' + (r.unmatched ? '#fff7ed' : '#fff') + '">' +
+        (r.unmatched ? '<strong style="color:#c2410c;font-size:14px">' + r.unmatched + '</strong><div style="font-size:10px;color:#c2410c;font-weight:700">' + r.unmatchedSide + ' extra</div>'
+                     : ((r.cap || r.bot) ? '<span style="color:#16a34a;font-weight:700">✓</span>' : '<span style="color:#cbd5e1">—</span>')) + '</td>';
+    r.stages.forEach(function(c) {
+      var bg = c.pending ? '#fef3c7' : c.extra ? '#f3e8ff' : (c.gross ? '#f0fdf4' : '#fff');
+      h += '<td style="background:' + bg + '">' + qtyCell(c.gross, c.rej) +
+        (c.pending ? '<div style="font-size:10px;font-weight:700;color:#92400e">⏳ ' + c.pending + ' pending</div>' : '') +
+        (c.extra ? '<div style="font-size:10px;font-weight:700;color:#7c3aed">▲ ' + c.extra + ' extra</div>' : '') +
+        ((c.gross && !c.pending && !c.extra) ? '<div style="font-size:10px;color:#16a34a;font-weight:700">✓</div>' : '') + '</td>';
+    });
+    h += '<td style="text-align:left;font-size:11px">' + (r.issues.length
+      ? r.issues.map(function(i) {
+          var c = i.t === 'unmatched' ? '#c2410c' : i.t === 'pending' ? '#92400e' : '#7c3aed';
+          return '<div style="color:' + c + ';font-weight:700">' + (i.t === 'unmatched' ? '⚠ ' : i.t === 'pending' ? '⏳ ' : '▲ ') + esc(i.txt) + '</div>'; }).join('')
+      : '<span style="color:#166534;font-weight:700">✅ All matched</span>') + '</td></tr>';
+  });
+  if (!rows.length) h += '<tr><td colspan="11" style="padding:30px;color:var(--text3)">No products in this filter.</td></tr>';
+  h += '</tbody></table>';
+  document.getElementById('flow-table-wrap').innerHTML = h;
 }
 
 /* ── Production funnel chart: stacked gross + rejection ── */
