@@ -218,8 +218,10 @@ const CONFIG = {
 const L = {
 en: {
   appSub:'Staff attendance', login:'Log in', newReg:'New registration', logout:'Log out', langBtn:'ગુજરાતી',
-  mobile:'Mobile number', passLbl:'Password (date of birth as DDMMYY)', passEx:'Born 15-08-1995 → password 150895',
-  loggingIn:'Logging in…', e_mobile10:'Enter your 10-digit mobile number.', e_pass6:'Password is 6 digits: DDMMYY.',
+  mobile:'Mobile number', passLbl:'PIN (4 digits)', passEx:'The PIN you set when you registered. Forgot it? Tell the office.',
+  secPin:'Your PIN', pin:'Choose a 4-digit PIN', pin2:'Re-enter the PIN', pinHint:'Do not use 1234 or your birth date. Do not share it.',
+  e_pin:'Choose a 4-digit PIN.', e_pin2:'Both PINs must be the same.', e_pinWeak:'Too easy to guess. Choose another PIN.',
+  loggingIn:'Logging in…', e_mobile10:'Enter your 10-digit mobile number.', e_pass6:'PIN is 4 digits.',
   demo:'Demo mode: data is saved on this phone only. Add the Firebase config to share data between phones.',
   openLink:'This page was opened as a file (from WhatsApp or Downloads). Phones block location and camera for files. Open the app from this link instead:',
   help1:"Turn on Location in the phone's quick settings.", help2:'In Chrome, tap the icon left of the web address, then Permissions, then Location: Allow.', help3:'Still blocked? Phone Settings, Apps, Chrome, Permissions, Location: Allow.',
@@ -241,9 +243,9 @@ en: {
   e_name:'Enter your name.', e_father:"Enter your father's name.", e_surname:'Enter your surname.', e_dob:'Select your date of birth.', e_dobYear:'Check the year of birth.',
   e_address:'Enter your full address.', e_mobile:'Enter a valid 10-digit mobile number.', e_aadhaar:'Aadhaar number is not valid. Check all 12 digits.',
   e_ok:'Tick this box to continue.',
-  regDone:'Registration complete', saveThese:'Save these details. Take a screenshot.', userLbl:'Username (mobile)', passLbl2:'Password (date of birth DDMMYY)', startPunching:'Start punching',
+  regDone:'Registration complete', saveThese:'Save these details. Take a screenshot.', userLbl:'Username (mobile)', passLbl2:'Your PIN', startPunching:'Start punching',
   wrongCred:'Mobile number or password is wrong.', already:'This mobile number is already registered. Log in instead.', network:'No internet. Check mobile data and try again.',
-  denied:'Access denied by server rules. Contact the office.', tooMany:'Too many attempts. Wait a few minutes and try again.', weak:'Password must be 6 digits (DDMMYY).',
+  denied:'Access denied by server rules. Contact the office.', tooMany:'Too many attempts. Wait a few minutes and try again.', weak:'PIN must be 4 digits.',
   storageFull:'Phone storage is full. Switch the app to cloud (Firebase) mode.', missingProfile:'Your login works but your registration details are missing. Contact the office.',
   tPunch:'Punch', tWork:'Daily work', tHistory:'History', tProfile:'Profile', tToday:'Today', tMonthly:'Monthly', tStaff:'Staff', tSettings:'Settings',
   myPunch:'My punch', admin:'Admin', adminPanel:'Admin panel',
@@ -269,7 +271,7 @@ en: {
   thDate:'Date', thIn:'In', thOut:'Out', thWorked:'Worked', thOT:'OT', thStatus:'Status', tapDay:'Tap a day to see punches, photos and work.', noMonth:'No attendance in this month.',
   st_present:'Present', st_half:'Half day', st_absent:'Absent', st_missing:'Missing OUT', st_inside:'Inside', st_left:'Left',
   aadhaarLbl:'Aadhaar', joinLbl:'Joining date', show:'Show',
-  profileNote:'Username: your mobile number. Password: your date of birth as DDMMYY. To correct any detail, contact the office.',
+  profileNote:'Username: your mobile number. Password: the PIN you chose. Forgot your PIN, or need a detail corrected? Contact the office.',
   missingNote:'A punch is missing (IN without OUT). That part is not counted.', punches:'Punches', noPunches:'No punches.', workPostedH:'Work posted', noWork:'No work posted.',
   map:'map', photoNA:'Photo not available', gallery:'Gallery', selfie:'Selfie',
   came:'Came', insideNow:'Inside now', absent:'Absent', setFactory:'Set the factory location in Settings. Staff cannot punch until then.',
@@ -290,8 +292,10 @@ en: {
 },
 gu: {
   appSub:'સ્ટાફ હાજરી', login:'લૉગ ઇન', newReg:'નવી નોંધણી', logout:'લૉગ આઉટ', langBtn:'English',
-  mobile:'મોબાઇલ નંબર', passLbl:'પાસવર્ડ (જન્મ તારીખ DDMMYY)', passEx:'જન્મ 15-08-1995 → પાસવર્ડ 150895',
-  loggingIn:'લૉગ ઇન થઈ રહ્યું છે…', e_mobile10:'તમારો 10 અંકનો મોબાઇલ નંબર લખો.', e_pass6:'પાસવર્ડ 6 અંકનો છે: DDMMYY.',
+  mobile:'મોબાઇલ નંબર', passLbl:'PIN (4 અંક)', passEx:'નોંધણી વખતે તમે રાખેલો PIN. ભૂલી ગયા? ઑફિસમાં જણાવો.',
+  secPin:'તમારો PIN', pin:'4 અંકનો PIN રાખો', pin2:'PIN ફરી લખો', pinHint:'1234 કે જન્મ તારીખ ન રાખો. PIN કોઈને ન કહો.',
+  e_pin:'4 અંકનો PIN રાખો.', e_pin2:'બંને PIN સરખા હોવા જોઈએ.', e_pinWeak:'આ PIN સહેલાઈથી ઓળખાઈ જાય. બીજો રાખો.',
+  loggingIn:'લૉગ ઇન થઈ રહ્યું છે…', e_mobile10:'તમારો 10 અંકનો મોબાઇલ નંબર લખો.', e_pass6:'PIN 4 અંકનો છે.',
   demo:'ડેમો મોડ: ડેટા ફક્ત આ ફોનમાં સેવ થાય છે. બધા ફોન વચ્ચે ડેટા માટે Firebase સેટ કરો.',
   openLink:'આ પેજ ફાઇલ તરીકે ખોલ્યું છે (WhatsApp અથવા Downloads માંથી). ફાઇલમાં લોકેશન અને કૅમેરા બંધ રહે છે. આ લિંક પરથી એપ ખોલો:',
   help1:'ફોનના ક્વિક સેટિંગ્સમાં Location ચાલુ કરો.', help2:'Chrome માં વેબ એડ્રેસની ડાબી બાજુના આઇકન પર ટૅપ કરો → Permissions → Location: Allow.', help3:'હજી બંધ છે? ફોન Settings → Apps → Chrome → Permissions → Location: Allow.',
@@ -313,9 +317,9 @@ gu: {
   e_name:'તમારું નામ લખો.', e_father:'પિતાનું નામ લખો.', e_surname:'અટક લખો.', e_dob:'જન્મ તારીખ પસંદ કરો.', e_dobYear:'જન્મનું વર્ષ તપાસો.',
   e_address:'પૂરું સરનામું લખો.', e_mobile:'સાચો 10 અંકનો મોબાઇલ નંબર લખો.', e_aadhaar:'આધાર નંબર ખોટો છે. બધા 12 અંક તપાસો.',
   e_ok:'આગળ વધવા આ ખાનું ટિક કરો.',
-  regDone:'નોંધણી પૂર્ણ', saveThese:'આ વિગતો સાચવો. સ્ક્રીનશૉટ લઈ લો.', userLbl:'યુઝરનેમ (મોબાઇલ)', passLbl2:'પાસવર્ડ (જન્મ તારીખ DDMMYY)', startPunching:'પંચિંગ શરૂ કરો',
+  regDone:'નોંધણી પૂર્ણ', saveThese:'આ વિગતો સાચવો. સ્ક્રીનશૉટ લઈ લો.', userLbl:'યુઝરનેમ (મોબાઇલ)', passLbl2:'તમારો PIN', startPunching:'પંચિંગ શરૂ કરો',
   wrongCred:'મોબાઇલ નંબર અથવા પાસવર્ડ ખોટો છે.', already:'આ મોબાઇલ નંબર પહેલેથી નોંધાયેલ છે. લૉગ ઇન કરો.', network:'ઇન્ટરનેટ નથી. મોબાઇલ ડેટા તપાસી ફરી પ્રયત્ન કરો.',
-  denied:'પરવાનગી નથી. ઑફિસનો સંપર્ક કરો.', tooMany:'ઘણા પ્રયત્નો થયા. થોડી મિનિટ રાહ જોઈ ફરી પ્રયત્ન કરો.', weak:'પાસવર્ડ 6 અંકનો (DDMMYY) હોવો જોઈએ.',
+  denied:'પરવાનગી નથી. ઑફિસનો સંપર્ક કરો.', tooMany:'ઘણા પ્રયત્નો થયા. થોડી મિનિટ રાહ જોઈ ફરી પ્રયત્ન કરો.', weak:'PIN 4 અંકનો હોવો જોઈએ.',
   storageFull:'ફોનની સ્ટોરેજ ભરાઈ ગઈ છે. એપને Firebase મોડમાં ફેરવો.', missingProfile:'લૉગિન થયું પણ નોંધણીની વિગતો મળી નથી. ઑફિસનો સંપર્ક કરો.',
   tPunch:'પંચ', tWork:'રોજનું કામ', tHistory:'ઇતિહાસ', tProfile:'પ્રોફાઇલ', tToday:'આજે', tMonthly:'માસિક', tStaff:'સ્ટાફ', tSettings:'સેટિંગ્સ',
   myPunch:'મારો પંચ', admin:'એડમિન', adminPanel:'એડમિન પેનલ',
@@ -341,7 +345,7 @@ gu: {
   thDate:'તારીખ', thIn:'ઇન', thOut:'આઉટ', thWorked:'કલાક', thOT:'OT', thStatus:'સ્થિતિ', tapDay:'પંચ, ફોટા અને કામ જોવા દિવસ પર ટૅપ કરો.', noMonth:'આ મહિનામાં હાજરી નથી.',
   st_present:'હાજર', st_half:'અડધો દિવસ', st_absent:'ગેરહાજર', st_missing:'OUT પંચ બાકી', st_inside:'અંદર', st_left:'ગયા',
   aadhaarLbl:'આધાર', joinLbl:'જોડાયાની તારીખ', show:'બતાવો',
-  profileNote:'યુઝરનેમ: તમારો મોબાઇલ નંબર. પાસવર્ડ: જન્મ તારીખ DDMMYY. કોઈ વિગત સુધારવા ઑફિસનો સંપર્ક કરો.',
+  profileNote:'યુઝરનેમ: તમારો મોબાઇલ નંબર. પાસવર્ડ: તમે રાખેલો PIN. PIN ભૂલી જાઓ કે વિગત સુધારવી હોય તો ઑફિસનો સંપર્ક કરો.',
   missingNote:'એક પંચ બાકી છે (IN પછી OUT નથી). એ સમય ગણાયો નથી.', punches:'પંચ', noPunches:'કોઈ પંચ નથી.', workPostedH:'મોકલેલું કામ', noWork:'કોઈ કામ મોકલ્યું નથી.',
   map:'નકશો', photoNA:'ફોટો ઉપલબ્ધ નથી', gallery:'ગેલેરી', selfie:'સેલ્ફી',
   came:'આવ્યા', insideNow:'હાલ અંદર', absent:'ગેરહાજર', setFactory:'Settings માં ફેક્ટરી લોકેશન સેટ કરો. ત્યાં સુધી સ્ટાફ પંચ નહીં કરી શકે.',
@@ -388,7 +392,7 @@ const fmtT = t => { const d = new Date(t); return `${pad(d.getHours())}:${pad(d.
 const fmtHM = ms => { const m = Math.max(0, Math.floor(ms / 60000)); return `${Math.floor(m/60)}h ${pad(m%60)}m`; };
 const hrs = ms => (ms / 3600000).toFixed(2);
 const fmtDate = k => k ? k.split('-').reverse().join('/') : '';
-const dobPass = dob => { const [y, m, d] = dob.split('-'); return d + m + y.slice(2); };
+const pinPass = pin => pin + pin;   // Firebase needs 6+ characters, so the 4-digit PIN is doubled
 const maskAad = a => a ? 'XXXX XXXX ' + String(a).slice(-4) : '';
 const fullName = p => p ? `${p.name} ${p.surname}` : '';
 const byName = (a, b) => fullName(a).localeCompare(fullName(b));
@@ -589,7 +593,7 @@ async function enter(u) {
   if (ADMIN_MODE && !S.admin) { $('#app').innerHTML = `<div class="authcard"><div class="hero-a"><img src="${LOGO}" alt="JAYCO"></div><p class="warnbox">${t('notAdmin')}</p><a class="btn big" href="attendance.html">${t('openWorkerApp')}</a> <button class="btn sec big" style="margin-top:10px" onclick="logout()">${t('logout')}</button></div>`; return; }
   S.view = S.admin ? 'admin' : 'emp'; S.tab = 'today'; render(); warmFace();
 }
-function logout() { closeSheet(); clearInterval(S.timer); S.profile = null; S.admin = false; S.empCache = null; DB.logout(); }
+function logout() { closeSheet(); clearInterval(S.timer); S.profile = null; S.admin = false; S.empCache = null; S.authMode = 'login'; DB.logout(); }
 
 function renderAuth() {
   clearInterval(S.timer);
@@ -610,7 +614,7 @@ function renderAuth() {
 }
 function loginForm() {
   return `<label class="f"><span>${t('mobile')}</span><input id="l_m" type="tel" inputmode="numeric" maxlength="10" autocomplete="username"></label>
-  <label class="f"><span>${t('passLbl')}</span><input id="l_p" type="password" inputmode="numeric" maxlength="6" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()"></label>
+  <label class="f"><span>${t('passLbl')}</span><input id="l_p" type="password" inputmode="numeric" maxlength="4" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()"></label>
   <p class="muted small">${t('passEx')}</p>
   <p style="text-align:center;margin:10px 0 0"><button class="chip" onclick="checkSetup()">${t('checkSetup')}</button></p>
   <button class="btn big" id="l_btn" onclick="doLogin()">${t('login')}</button>`;
@@ -646,9 +650,9 @@ function copySetup(txt) { navigator.clipboard.writeText(txt).then(() => toast(t(
 async function doLogin() {
   const m = $('#l_m').value.trim(), p = $('#l_p').value.trim();
   if (!/^\d{10}$/.test(m)) return toast(t('e_mobile10'), 1);
-  if (!/^\d{6}$/.test(p)) return toast(t('e_pass6'), 1);
+  if (!/^\d{4}$/.test(p)) return toast(t('e_pass6'), 1);
   const b = $('#l_btn'); b.disabled = true; b.textContent = t('loggingIn');
-  try { await DB.login(m, p); } catch (e) { toast(errMsg(e), 1); b.disabled = false; b.textContent = t('login'); }
+  try { await DB.login(m, pinPass(p)); } catch (e) { toast(errMsg(e), 1); b.disabled = false; b.textContent = t('login'); }
 }
 const fld = (id, key, type = 'text', attr = '') =>
   `<label class="f" id="w_${id}"><span>${t(key)}</span>${type === 'area'
@@ -670,6 +674,10 @@ function regForm() {
   <div class="legend">${t('secLogin')}</div>
   ${fld('mobile', 'mobileUser', 'tel', 'inputmode="numeric" maxlength="10"')}
   ${fld('aadhaar', 'aadhaar', 'text', 'inputmode="numeric" maxlength="14" autocomplete="off"')}
+  <div class="legend">${t('secPin')}</div>
+  ${fld('pin', 'pin', 'password', 'inputmode="numeric" maxlength="4" autocomplete="new-password"')}
+  ${fld('pin2', 'pin2', 'password', 'inputmode="numeric" maxlength="4" autocomplete="new-password" onpaste="return false"')}
+  <p class="muted small">${t('pinHint')}</p>
   <div class="legend">${t('secJob')}</div>
   <label class="f" id="w_dept"><span>${t('dept')}</span><select id="r_dept"><option value=""></option>${DEPTS.map(d => `<option>${d}</option>`).join('')}</select><small class="emsg"></small></label>
   ${fld('join', 'join', 'date')}
@@ -718,12 +726,16 @@ async function doRegister() {
   if (p.address.length < 10) errs.push(['address', 'e_address']);
   if (!/^[6-9]\d{9}$/.test(p.mobile)) errs.push(['mobile', 'e_mobile']);
   if (!/^[2-9]\d{11}$/.test(p.aadhaar) || !verhoeff(p.aadhaar)) errs.push(['aadhaar', 'e_aadhaar']);
+  const pin = g('pin');
+  if (!/^\d{4}$/.test(pin)) errs.push(['pin', 'e_pin']);
+  else if (/^(\d)\1{3}$/.test(pin) || ['1234', '4321', '0123', '2580'].includes(pin)) errs.push(['pin', 'e_pinWeak']);
+  if (pin !== g('pin2')) errs.push(['pin2', 'e_pin2']);
   if (!p.dept) errs.push(['dept', 'e_dept']);
   if (!$('#r_ok').checked) errs.push(['ok', 'e_ok']);
   document.querySelectorAll('.f.bad').forEach(e => e.classList.remove('bad'));
   errs.forEach(([id, k]) => { const w = $('#w_' + id); if (w) { w.classList.add('bad'); w.querySelector('.emsg').textContent = t(k); } });
   if (errs.length) { toast(t(errs[0][1]), 1); $('#w_' + errs[0][0]).scrollIntoView({ block: 'center', behavior: 'smooth' }); return; }
-  const pass = dobPass(p.dob), b = $('#r_btn'); b.disabled = true; b.textContent = t('registering');
+  const pass = pinPass(pin), b = $('#r_btn'); b.disabled = true; b.textContent = t('registering');
   S.registering = true;
   try {
     const u = await DB.register(p, pass);
@@ -731,7 +743,7 @@ async function doRegister() {
     sheet(`<h2 style="margin-top:0">${t('regDone')}</h2>
       <p class="muted">${t('saveThese')}</p>
       <div class="cred"><span class="muted small">${t('userLbl')}</span><b>${esc(p.mobile)}</b></div>
-      <div class="cred"><span class="muted small">${t('passLbl2')}</span><b>${esc(pass)}</b></div>
+      <div class="cred"><span class="muted small">${t('passLbl2')}</span><b>${esc(pin)}</b></div>
       <button class="btn big" onclick="closeSheet()">${t('startPunching')}</button>`);
   } catch (e) { S.registering = false; toast(errMsg(e), 1); b.disabled = false; b.textContent = t('register'); }
 }
@@ -771,12 +783,12 @@ const closeBtn = () => `<button class="chip" onclick="closeSheet()">${t('close')
 
 /* ============ face matching (flags only, never blocks a punch) ============ */
 const FACE = {
-  dir: 'face', ready: false, loading: null,
+  dir: '.', ready: false, loading: null,   // model files sit beside attendance.html
   async load() {
     if (this.ready) return true;
     if (!this.loading) this.loading = (async () => {
       if (!window.faceapi) await new Promise((res, rej) => {
-        const s = document.createElement('script'); s.src = this.dir + '/face-api.min.js';
+        const s = document.createElement('script'); s.src = 'face-api.min.js';
         s.onload = res; s.onerror = () => rej(new Error('face-api not found')); document.head.appendChild(s);
       });
       await faceapi.nets.tinyFaceDetector.loadFromUri(this.dir);
@@ -1144,7 +1156,7 @@ async function adminStaff(m) {
     : `<p class="muted">${all.length ? t('noMatch') : t('noStaffShort')}</p>`}`;
   loadAvatars(m);
 }
-function staffDetail(i) { const e = S.emps[i]; sheet(`<div class="sheet-h"><div class="avrow">${avatar(e, 'lg')}<h2 style="margin:0">${esc(fullName(e))}</h2></div>${closeBtn()}</div>${profileKV(e, true)}<p class="muted small">${t('passwordIs', { p: esc(dobPass(e.dob)) })}</p>`); loadAvatars($('#sheet')); }
+function staffDetail(i) { const e = S.emps[i]; sheet(`<div class="sheet-h"><div class="avrow">${avatar(e, 'lg')}<h2 style="margin:0">${esc(fullName(e))}</h2></div>${closeBtn()}</div>${profileKV(e, true)}`); loadAvatars($('#sheet')); }
 function dlStaff() {
   csv('JAYCO_staff_list.csv', [['Name', "Father's name", 'Surname', 'Mobile', 'Department', 'DOB', 'Joining date', 'Aadhaar (masked)', 'Address'],
     ...S.emps.map(e => [e.name, e.fatherName, e.surname, e.mobile, e.dept, fmtDate(e.dob), fmtDate(e.joiningDate), maskAad(e.aadhaar), e.address])]);
