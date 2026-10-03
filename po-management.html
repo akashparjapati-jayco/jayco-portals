@@ -153,6 +153,7 @@ tr:hover td{background:#f9fbfd;}
 .badge-pending{background:var(--amber-bg);color:var(--amber);}
 .badge-partial{background:var(--blue-100);color:var(--blue-600);}
 .badge-done{background:var(--green-bg);color:var(--green);}
+.badge-cancelled{background:var(--red-bg);color:var(--red);}
 .badge-exclusive{background:var(--navy-900);color:#fff;font-size:9.5px;padding:2px 7px;margin-left:6px;}
 
 .toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px;}
@@ -428,6 +429,7 @@ tr.clickable:hover td{background:var(--blue-100)!important;}
         <input type="date" id="reportDateTo" style="width:auto;"/>
       </span>
       <button class="btn btn-secondary" id="exportReportBtn">Export to Excel</button>
+      <button class="btn btn-primary" id="addCancelledInvBtn" style="display:none;">+ Add cancelled invoice</button>
       <span class="hint" id="reportRowCount" style="margin-left:auto;"></span>
     </div>
     <div class="card"><div class="table-wrap"><table id="reportTable"></table></div></div>
@@ -645,6 +647,34 @@ service cloud.firestore {
     <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:10px;">
       <button class="btn btn-secondary" id="despatchModalCancel">Cancel</button>
       <button class="btn btn-primary" id="despatchModalSave">Save changes</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-bg" id="cancelInvModalBg">
+  <div class="modal">
+    <h3>Add cancelled invoice</h3>
+    <div class="hint" style="margin-bottom:12px;">For an invoice number cancelled in Tally (e.g. e-invoice cancelled). It only keeps the invoice serial number complete — no PO or despatch quantity changes.</div>
+    <div class="field">
+      <label>Invoice number</label>
+      <input id="cancelInvNo" placeholder="e.g. 687/26-27"/>
+    </div>
+    <div class="field">
+      <label>Invoice date</label>
+      <input type="date" id="cancelInvDate"/>
+    </div>
+    <div class="field">
+      <label>Customer (optional)</label>
+      <input id="cancelInvCustomer" list="cancelInvCustList"/>
+      <datalist id="cancelInvCustList"></datalist>
+    </div>
+    <div class="field">
+      <label>Reason</label>
+      <input id="cancelInvReason" value="E-invoice cancelled in Tally"/>
+    </div>
+    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:10px;">
+      <button class="btn btn-secondary" id="cancelInvModalClose">Close</button>
+      <button class="btn btn-primary" id="cancelInvModalSave">Save</button>
     </div>
   </div>
 </div>
@@ -1816,6 +1846,7 @@ document.getElementById('reportTabs').addEventListener('click', e=>{
   currentReportTab = e.target.dataset.tab;
   document.querySelectorAll('#reportTabs .tab').forEach(t=>t.classList.toggle('active', t===e.target));
   document.getElementById('reportDateRangeWrap').style.display = (currentReportTab==='despatchreg' || currentReportTab==='invoicewise') ? 'flex' : 'none';
+  document.getElementById('addCancelledInvBtn').style.display = currentReportTab==='invoicewise' ? '' : 'none';
   renderReport();
 });
 document.getElementById('reportExclusive').addEventListener('change', renderReport);
@@ -2039,9 +2070,28 @@ function paintDespatchRegister(despatches){
   });
 }
 
+function invoiceDate(v){
+  if(!v) return null;
+  const d = v.toDate ? v.toDate() : new Date(v);
+  return isNaN(d) ? null : d;
+}
+// Invoice numbers cancelled in Tally, kept only so the serial number list has no gaps.
+function loadFilteredCancelledInvoices(q){
+  const f = document.getElementById('reportExclusive').value;
+  if(f) return Promise.resolve([]);
+  const dateFrom = document.getElementById('reportDateFrom').value;
+  const dateTo = document.getElementById('reportDateTo').value;
+  return db.collection('cancelledInvoices').get().then(snap=>{
+    let list = snap.docs.map(d=>({id:d.id, ...d.data()}));
+    if(q) list = list.filter(c=> matchText(c.invoiceNumber,q) || matchText(c.customerName,q) || matchText(c.reason,q));
+    if(dateFrom){ const from = new Date(dateFrom); list = list.filter(c=>{ const d = invoiceDate(c.invoiceDate); return !d || d >= from; }); }
+    if(dateTo){ const to = new Date(dateTo); to.setHours(23,59,59,999); list = list.filter(c=>{ const d = invoiceDate(c.invoiceDate); return !d || d <= to; }); }
+    return list;
+  });
+}
 function renderInvoicewiseReport(q){
   document.getElementById('reportTable').innerHTML = `<tr><td><div class="empty">Loading…</div></td></tr>`;
-  loadFilteredDespatches(q).then(despatches=>{
+  Promise.all([loadFilteredDespatches(q), loadFilteredCancelledInvoices(q)]).then(([despatches, cancelledList])=>{
     if(currentReportTab !== 'invoicewise') return;
     // Group despatch lines by invoice; lines without an invoice number stay on their own row.
     const byInv = new Map();
@@ -2055,25 +2105,96 @@ function renderInvoicewiseReport(q){
       g.total += Number(d.qtyDespatched)||0;
     });
     const rows = [...byInv.values()];
-    document.getElementById('reportRowCount').textContent = `${rows.length} invoice(s)`;
+    cancelledList.forEach(c=> rows.push({cancelledId:c.id, invoice:c.invoiceNumber||'—', date:c.invoiceDate,
+      customers:new Set(c.customerName?[c.customerName]:[]), pos:new Set(), lines:[], total:0, reason:c.reason||''}));
+    rows.sort((a,b)=> String(b.invoice).localeCompare(String(a.invoice), undefined, {numeric:true, sensitivity:'base'}));
+    document.getElementById('reportRowCount').textContent =
+      `${rows.length} invoice(s)` + (cancelledList.length ? ` · ${cancelledList.length} cancelled` : '');
     lastReportData = {
-      headers: ['Invoice No','Date','Customer','PO No','Items','Total Qty'],
+      headers: ['Invoice No','Date','Customer','PO No','Items','Total Qty','Status'],
       rows: rows.map(r=>[r.invoice, fmtDate(r.date), [...r.customers].join(', '), [...r.pos].join(', '),
-        r.lines.map(l=>`${l.item} x ${l.qty}`).join(', '), r.total]),
+        r.cancelledId ? '' : r.lines.map(l=>`${l.item} x ${l.qty}`).join(', '), r.cancelledId ? '' : r.total,
+        r.cancelledId ? `Cancelled${r.reason?' — '+r.reason:''}` : 'Active']),
     };
     document.getElementById('reportTable').innerHTML =
-      `<tr><th>Invoice No</th><th>Date</th><th>Customer</th><th>PO No</th><th>Items</th><th class="text-right">Qty</th></tr>` +
-      (rows.length ? rows.map(r=>`
+      `<tr><th>Invoice No</th><th>Date</th><th>Customer</th><th>PO No</th><th>Items</th><th class="text-right">Qty</th><th></th></tr>` +
+      (rows.length ? rows.map(r=> r.cancelledId ? `
+        <tr style="vertical-align:top;background:var(--red-bg);">
+          <td><strong style="text-decoration:line-through;">${esc(r.invoice)}</strong></td><td>${fmtDate(r.date)}</td>
+          <td>${esc([...r.customers].join(', ')||'—')}</td><td>—</td>
+          <td colspan="2"><span class="badge badge-cancelled">Cancelled</span> <span class="hint">${esc(r.reason)}</span></td>
+          <td style="white-space:nowrap;"><button class="btn btn-ghost" data-del-cinv="${r.cancelledId}" style="color:var(--red);">Remove</button></td>
+        </tr>` : `
         <tr style="vertical-align:top;">
           <td><strong>${esc(r.invoice)}</strong></td><td>${fmtDate(r.date)}</td>
           <td>${esc([...r.customers].join(', '))}</td><td>${esc([...r.pos].join(', '))}</td>
           <td>${r.lines.map(l=>`<div>${esc(l.item)}</div>`).join('')}${r.lines.length>1?'<div class="hint">Total</div>':''}</td>
           <td class="text-right mono">${r.lines.map(l=>`<div>${l.qty}</div>`).join('')}${r.lines.length>1?`<div><strong>${r.total}</strong></div>`:''}</td>
-        </tr>`).join('') : `<tr><td colspan="6"><div class="empty">No invoices match.</div></td></tr>`);
+          <td></td>
+        </tr>`).join('') : `<tr><td colspan="7"><div class="empty">No invoices match.</div></td></tr>`);
+    document.querySelectorAll('#reportTable button[data-del-cinv]').forEach(b=>{
+      b.onclick = ()=>{
+        const r = rows.find(x=>x.cancelledId===b.dataset.delCinv);
+        deleteCancelledInvoice(r);
+      };
+    });
   }).catch(e=>{
     console.error(e);
     document.getElementById('reportTable').innerHTML = `<tr><td><div class="empty">Could not load despatches — see console.</div></td></tr>`;
   });
+}
+
+function openCancelInvModal(){
+  if(!requireDb()) return;
+  document.getElementById('cancelInvNo').value = '';
+  document.getElementById('cancelInvDate').value = new Date().toISOString().slice(0,10);
+  document.getElementById('cancelInvCustomer').value = '';
+  document.getElementById('cancelInvReason').value = 'E-invoice cancelled in Tally';
+  const names = [...new Set(PO_ITEMS.map(i=>i.customerName).filter(Boolean))].sort();
+  document.getElementById('cancelInvCustList').innerHTML = names.map(n=>`<option value="${esc(n)}"></option>`).join('');
+  document.getElementById('cancelInvModalBg').classList.add('show');
+  document.getElementById('cancelInvNo').focus();
+}
+document.getElementById('addCancelledInvBtn').onclick = openCancelInvModal;
+document.getElementById('cancelInvModalClose').onclick = ()=> document.getElementById('cancelInvModalBg').classList.remove('show');
+document.getElementById('cancelInvModalSave').onclick = async ()=>{
+  if(!requireDb()) return;
+  const invoiceNumber = document.getElementById('cancelInvNo').value.trim();
+  const dateVal = document.getElementById('cancelInvDate').value;
+  if(!invoiceNumber || !dateVal){ toast('Enter the invoice number and date.', 'error'); return; }
+  const norm = invoiceNumber.toLowerCase();
+  try{
+    const [despSnap, cancSnap] = await Promise.all([db.collection('despatches').get(), db.collection('cancelledInvoices').get()]);
+    if(cancSnap.docs.some(d=> String(d.data().invoiceNumber||'').trim().toLowerCase() === norm)){
+      toast(`Invoice ${invoiceNumber} is already marked cancelled.`, 'error'); return;
+    }
+    if(despSnap.docs.some(d=> String(d.data().invoiceNumber||'').trim().toLowerCase() === norm)){
+      if(!confirm(`Invoice ${invoiceNumber} already has despatch entries in this portal. Add it as cancelled anyway?`)) return;
+    }
+    await db.collection('cancelledInvoices').add({
+      invoiceNumber,
+      invoiceDate: firebase.firestore.Timestamp.fromDate(new Date(dateVal)),
+      customerName: document.getElementById('cancelInvCustomer').value.trim(),
+      reason: document.getElementById('cancelInvReason').value.trim(),
+      createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+    });
+    toast(`Cancelled invoice ${invoiceNumber} added.`, 'success');
+    document.getElementById('cancelInvModalBg').classList.remove('show');
+    renderReport();
+  }catch(e){
+    console.error(e); toast('Could not save — see console.', 'error');
+  }
+};
+async function deleteCancelledInvoice(r){
+  if(!requireDb() || !r) return;
+  if(!confirm(`Remove cancelled invoice ${r.invoice} from the list?`)) return;
+  try{
+    await db.collection('cancelledInvoices').doc(r.cancelledId).delete();
+    toast('Removed.', 'success');
+    renderReport();
+  }catch(e){
+    console.error(e); toast('Could not remove — see console.', 'error');
+  }
 }
 
 function renderTrendReport(){
