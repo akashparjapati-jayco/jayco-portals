@@ -113,6 +113,10 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:var(--blue-500
 .g4{grid-template-columns:1fr 1fr 1fr 1fr;}
 .hint{font-size:11px;color:var(--text-dim);margin-top:3px;}
 .checkbox-row{display:flex;align-items:center;gap:8px;}
+.inv-type{display:inline-flex;border:1px solid var(--border);border-radius:9px;padding:3px;background:#fff;gap:3px;}
+.inv-type button{border:0;background:transparent;padding:7px 16px;border-radius:7px;font-size:13px;font-weight:600;cursor:pointer;color:var(--text-dim);font-family:inherit;}
+.inv-type button.active{background:var(--navy-900);color:#fff;}
+.inv-type button.active[data-type="cancelled"]{background:var(--red);}
 .checkbox-row input{width:auto;}
 
 /* Searchable dropdown (combobox) for Customer / Item fields */
@@ -330,51 +334,75 @@ tr.clickable:hover td{background:var(--blue-100)!important;}
   <!-- ============ DESPATCH ENTRY ============ -->
   <section class="page" id="page-despatch">
     <div class="page-head">
-      <div><h1>Record a Despatch</h1><p>Pick a customer, then tick off every item that's going out in this despatch.</p></div>
+      <div><h1>Record a Despatch</h1><p>Start with the invoice details, then tick off every item on that invoice. For an invoice cancelled in Tally, choose "Cancelled invoice".</p></div>
     </div>
     <div class="card card-pad">
+      <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:16px;">
+        <strong style="font-size:14px;">Invoice details</strong>
+        <div class="inv-type" id="despInvType">
+          <button type="button" data-type="regular" class="active">Regular invoice</button>
+          <button type="button" data-type="cancelled">Cancelled invoice</button>
+        </div>
+      </div>
       <div class="field-row g3" style="max-width:960px;">
         <div class="field">
-          <label>Customer</label>
+          <label>Invoice number</label>
+          <input id="despatchInvoice" placeholder="e.g. 692/26-27" autocomplete="off"/>
+        </div>
+        <div class="field">
+          <label>Invoice date</label>
+          <input type="date" id="despatchDate"/>
+        </div>
+        <div class="field">
+          <label>Customer <span class="hint" id="despCustOptional" style="display:none;">(optional)</span></label>
           <input id="despatchCustomer" placeholder="Start typing a customer…" autocomplete="off"/>
           <datalist id="despatchCustomerList"></datalist>
         </div>
-        <div class="field">
-          <label>PO number (optional — leave blank to show all open POs for this customer)</label>
-          <input id="despatchPoFilter" placeholder="e.g. VKS/2025-26/014"/>
-        </div>
-        <div class="field">
-          <label>Search item (optional — code or description)</label>
-          <input id="despatchItemFilter" placeholder="e.g. SN 511"/>
-        </div>
       </div>
 
-      <div id="despatchItemsWrap" style="display:none;">
-        <div class="table-wrap" style="margin-top:6px;">
-          <table id="despatchItemsTable"></table>
-        </div>
-
-        <div class="field-row g3" style="max-width:760px;margin-top:18px;border-top:1px solid var(--border);padding-top:16px;">
-          <div class="field">
-            <label>Despatch date <span class="hint">(applies to every ticked line)</span></label>
-            <input type="date" id="despatchDate"/>
-          </div>
-          <div class="field">
-            <label>Invoice number <span class="hint">(applies to every ticked line)</span></label>
-            <input id="despatchInvoice" placeholder="e.g. 128/25-26"/>
+      <div id="despCancelWrap" style="display:none;border-top:1px solid var(--border);padding-top:16px;">
+        <div class="field-row g3" style="max-width:960px;">
+          <div class="field" style="grid-column:span 2;">
+            <label>Reason for cancellation</label>
+            <input id="despCancelReason" value="E-invoice cancelled in Tally"/>
           </div>
           <div class="field" style="display:flex;align-items:flex-end;">
-            <button class="btn btn-primary" id="saveDespatchBtn" style="width:100%;">Save despatch</button>
+            <button class="btn btn-primary" id="saveCancelledInvBtn" style="width:100%;background:var(--red);border-color:var(--red);">Save cancelled invoice</button>
+          </div>
+        </div>
+        <p class="hint">Only the invoice number is recorded, so the invoice serial numbers stay complete. No PO or despatch quantity changes. It shows in Reports → Invoice-wise marked "Cancelled".</p>
+      </div>
+
+      <div id="despRegularWrap">
+        <div class="field-row g3" style="max-width:960px;border-top:1px solid var(--border);padding-top:16px;">
+          <div class="field">
+            <label>PO number (optional — leave blank to show all open POs for this customer)</label>
+            <input id="despatchPoFilter" placeholder="e.g. VKS/2025-26/014"/>
+          </div>
+          <div class="field">
+            <label>Search item (optional — code or description)</label>
+            <input id="despatchItemFilter" placeholder="e.g. SN 511"/>
           </div>
         </div>
 
-        <label>Attachments (optional) <span class="hint" style="display:inline;">— e.g. OneDrive links to Design, Drawing, Invoice copy… applies to every ticked line</span></label>
-        <div id="despAttachRows"></div>
-        <button class="btn btn-secondary" id="addDespAttachRowBtn" type="button">+ Add attachment</button>
+        <div id="despatchItemsWrap" style="display:none;">
+          <div class="table-wrap" style="margin-top:6px;">
+            <table id="despatchItemsTable"></table>
+          </div>
 
-        <div id="despatchSaveStatus" class="hint" style="margin-top:8px;"></div>
+          <div style="margin-top:18px;border-top:1px solid var(--border);padding-top:16px;">
+            <label>Attachments (optional) <span class="hint" style="display:inline;">— e.g. OneDrive links to Design, Drawing, Invoice copy… applies to every ticked line</span></label>
+            <div id="despAttachRows"></div>
+            <button class="btn btn-secondary" id="addDespAttachRowBtn" type="button">+ Add attachment</button>
+          </div>
+
+          <div style="display:flex;justify-content:flex-end;margin-top:16px;">
+            <button class="btn btn-primary" id="saveDespatchBtn" style="min-width:220px;">Save despatch</button>
+          </div>
+          <div id="despatchSaveStatus" class="hint" style="margin-top:8px;text-align:right;"></div>
+        </div>
+        <div id="despatchEmptyState" class="empty" style="display:none;">No open PO lines for this customer.</div>
       </div>
-      <div id="despatchEmptyState" class="empty" style="display:none;">No open PO lines for this customer.</div>
     </div>
   </section>
 
@@ -429,7 +457,6 @@ tr.clickable:hover td{background:var(--blue-100)!important;}
         <input type="date" id="reportDateTo" style="width:auto;"/>
       </span>
       <button class="btn btn-secondary" id="exportReportBtn">Export to Excel</button>
-      <button class="btn btn-primary" id="addCancelledInvBtn" style="display:none;">+ Add cancelled invoice</button>
       <span class="hint" id="reportRowCount" style="margin-left:auto;"></span>
     </div>
     <div class="card"><div class="table-wrap"><table id="reportTable"></table></div></div>
@@ -647,34 +674,6 @@ service cloud.firestore {
     <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:10px;">
       <button class="btn btn-secondary" id="despatchModalCancel">Cancel</button>
       <button class="btn btn-primary" id="despatchModalSave">Save changes</button>
-    </div>
-  </div>
-</div>
-
-<div class="modal-bg" id="cancelInvModalBg">
-  <div class="modal">
-    <h3>Add cancelled invoice</h3>
-    <div class="hint" style="margin-bottom:12px;">For an invoice number cancelled in Tally (e.g. e-invoice cancelled). It only keeps the invoice serial number complete — no PO or despatch quantity changes.</div>
-    <div class="field">
-      <label>Invoice number</label>
-      <input id="cancelInvNo" placeholder="e.g. 687/26-27"/>
-    </div>
-    <div class="field">
-      <label>Invoice date</label>
-      <input type="date" id="cancelInvDate"/>
-    </div>
-    <div class="field">
-      <label>Customer (optional)</label>
-      <input id="cancelInvCustomer" list="cancelInvCustList"/>
-      <datalist id="cancelInvCustList"></datalist>
-    </div>
-    <div class="field">
-      <label>Reason</label>
-      <input id="cancelInvReason" value="E-invoice cancelled in Tally"/>
-    </div>
-    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:10px;">
-      <button class="btn btn-secondary" id="cancelInvModalClose">Close</button>
-      <button class="btn btn-primary" id="cancelInvModalSave">Save</button>
     </div>
   </div>
 </div>
@@ -1585,6 +1584,53 @@ attachCombobox(document.getElementById('despatchCustomer'), ()=>{
 document.getElementById('despatchPoFilter').addEventListener('input', renderDespatchItemsTable);
 document.getElementById('despatchItemFilter').addEventListener('input', renderDespatchItemsTable);
 
+document.getElementById('despatchDate').value = new Date().toISOString().slice(0,10);
+let despInvType = 'regular';
+document.getElementById('despInvType').addEventListener('click', e=>{
+  const b = e.target.closest('button[data-type]');
+  if(!b) return;
+  despInvType = b.dataset.type;
+  document.querySelectorAll('#despInvType button').forEach(x=>x.classList.toggle('active', x===b));
+  const cancelled = despInvType === 'cancelled';
+  document.getElementById('despCancelWrap').style.display = cancelled ? 'block' : 'none';
+  document.getElementById('despRegularWrap').style.display = cancelled ? 'none' : 'block';
+  document.getElementById('despCustOptional').style.display = cancelled ? 'inline' : 'none';
+  if(!cancelled) renderDespatchItemsTable();
+});
+document.getElementById('saveCancelledInvBtn').onclick = async ()=>{
+  if(!requireDb()) return;
+  const invoiceNumber = document.getElementById('despatchInvoice').value.trim();
+  const dateVal = document.getElementById('despatchDate').value;
+  if(!invoiceNumber || !dateVal){ toast('Enter the invoice number and invoice date.', 'error'); return; }
+  const norm = invoiceNumber.toLowerCase();
+  const btn = document.getElementById('saveCancelledInvBtn');
+  btn.disabled = true;
+  try{
+    const [despSnap, cancSnap] = await Promise.all([db.collection('despatches').get(), db.collection('cancelledInvoices').get()]);
+    if(cancSnap.docs.some(d=> String(d.data().invoiceNumber||'').trim().toLowerCase() === norm)){
+      toast(`Invoice ${invoiceNumber} is already saved as cancelled.`, 'error'); return;
+    }
+    if(despSnap.docs.some(d=> String(d.data().invoiceNumber||'').trim().toLowerCase() === norm)){
+      if(!confirm(`Invoice ${invoiceNumber} already has despatch entries in this portal. Save it as cancelled anyway?`)) return;
+    }
+    await db.collection('cancelledInvoices').add({
+      invoiceNumber,
+      invoiceDate: firebase.firestore.Timestamp.fromDate(new Date(dateVal)),
+      customerName: document.getElementById('despatchCustomer').value.trim(),
+      reason: document.getElementById('despCancelReason').value.trim(),
+      createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+    });
+    toast(`Cancelled invoice ${invoiceNumber} saved.`, 'success');
+    document.getElementById('despatchInvoice').value = '';
+    document.getElementById('despatchCustomer').value = '';
+    document.getElementById('despCancelReason').value = 'E-invoice cancelled in Tally';
+  }catch(e){
+    console.error(e); toast('Could not save — see console.', 'error');
+  }finally{
+    btn.disabled = false;
+  }
+};
+
 function renderDespatchItemsTable(){
   const custName = document.getElementById('despatchCustomer').value.trim().toLowerCase();
   const poFilter = document.getElementById('despatchPoFilter').value.trim().toLowerCase();
@@ -1624,8 +1670,6 @@ function renderDespatchItemsTable(){
         <td><input type="number" min="1" max="${i.pendingQty}" class="desp-qty qty-input" data-id="${i.id}" placeholder="0" disabled/></td>
       </tr>`).join('');
 
-  document.getElementById('despatchDate').value = document.getElementById('despatchDate').value || new Date().toISOString().slice(0,10);
-
   document.querySelectorAll('.desp-check').forEach(cb=>{
     cb.onchange = ()=>{
       const row = cb.closest('tr');
@@ -1644,7 +1688,7 @@ document.getElementById('saveDespatchBtn').onclick = async ()=>{
   if(!requireDb()) return;
   const dateVal = document.getElementById('despatchDate').value;
   const invoice = document.getElementById('despatchInvoice').value.trim();
-  if(!dateVal){ toast('Enter a despatch date.', 'error'); return; }
+  if(!dateVal){ toast('Enter the invoice date.', 'error'); return; }
 
   const checked = Array.from(document.querySelectorAll('.desp-check:checked'));
   if(!checked.length){ toast('Tick at least one item to despatch.', 'error'); return; }
@@ -1846,7 +1890,6 @@ document.getElementById('reportTabs').addEventListener('click', e=>{
   currentReportTab = e.target.dataset.tab;
   document.querySelectorAll('#reportTabs .tab').forEach(t=>t.classList.toggle('active', t===e.target));
   document.getElementById('reportDateRangeWrap').style.display = (currentReportTab==='despatchreg' || currentReportTab==='invoicewise') ? 'flex' : 'none';
-  document.getElementById('addCancelledInvBtn').style.display = currentReportTab==='invoicewise' ? '' : 'none';
   renderReport();
 });
 document.getElementById('reportExclusive').addEventListener('change', renderReport);
@@ -2144,47 +2187,6 @@ function renderInvoicewiseReport(q){
   });
 }
 
-function openCancelInvModal(){
-  if(!requireDb()) return;
-  document.getElementById('cancelInvNo').value = '';
-  document.getElementById('cancelInvDate').value = new Date().toISOString().slice(0,10);
-  document.getElementById('cancelInvCustomer').value = '';
-  document.getElementById('cancelInvReason').value = 'E-invoice cancelled in Tally';
-  const names = [...new Set(PO_ITEMS.map(i=>i.customerName).filter(Boolean))].sort();
-  document.getElementById('cancelInvCustList').innerHTML = names.map(n=>`<option value="${esc(n)}"></option>`).join('');
-  document.getElementById('cancelInvModalBg').classList.add('show');
-  document.getElementById('cancelInvNo').focus();
-}
-document.getElementById('addCancelledInvBtn').onclick = openCancelInvModal;
-document.getElementById('cancelInvModalClose').onclick = ()=> document.getElementById('cancelInvModalBg').classList.remove('show');
-document.getElementById('cancelInvModalSave').onclick = async ()=>{
-  if(!requireDb()) return;
-  const invoiceNumber = document.getElementById('cancelInvNo').value.trim();
-  const dateVal = document.getElementById('cancelInvDate').value;
-  if(!invoiceNumber || !dateVal){ toast('Enter the invoice number and date.', 'error'); return; }
-  const norm = invoiceNumber.toLowerCase();
-  try{
-    const [despSnap, cancSnap] = await Promise.all([db.collection('despatches').get(), db.collection('cancelledInvoices').get()]);
-    if(cancSnap.docs.some(d=> String(d.data().invoiceNumber||'').trim().toLowerCase() === norm)){
-      toast(`Invoice ${invoiceNumber} is already marked cancelled.`, 'error'); return;
-    }
-    if(despSnap.docs.some(d=> String(d.data().invoiceNumber||'').trim().toLowerCase() === norm)){
-      if(!confirm(`Invoice ${invoiceNumber} already has despatch entries in this portal. Add it as cancelled anyway?`)) return;
-    }
-    await db.collection('cancelledInvoices').add({
-      invoiceNumber,
-      invoiceDate: firebase.firestore.Timestamp.fromDate(new Date(dateVal)),
-      customerName: document.getElementById('cancelInvCustomer').value.trim(),
-      reason: document.getElementById('cancelInvReason').value.trim(),
-      createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-    });
-    toast(`Cancelled invoice ${invoiceNumber} added.`, 'success');
-    document.getElementById('cancelInvModalBg').classList.remove('show');
-    renderReport();
-  }catch(e){
-    console.error(e); toast('Could not save — see console.', 'error');
-  }
-};
 async function deleteCancelledInvoice(r){
   if(!requireDb() || !r) return;
   if(!confirm(`Remove cancelled invoice ${r.invoice} from the list?`)) return;
