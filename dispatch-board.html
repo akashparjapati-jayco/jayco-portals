@@ -122,7 +122,13 @@ const DEFAULT_PLUMMER_SERIES = ["SN 205","SN 505","SN 605","SNA 505","SNH 605","
 const DEFAULT_ADAPTER_SLEEVES = ["H 205","H 305","H 2305","HE 2305","H 3122"];
 const DEFAULT_LOCATING_RINGS = ["FRB 22.5/52","FRA 25/58","FRB 30/62"];
 const DEFAULT_BEARINGS = ["22205","22305","22315 CC/W33","1205","2305","23122 CC/W33"];
-const DEFAULT_SEAL_TYPES = ["Taconite Seal","Labyrinth Seal","Felt Seal","V-Ring Seal","Nitrile Lip Seal","Double Lip Seal","End Cover (Open)","End Cover (Closed)"];
+const DEFAULT_SEAL_TYPES = ["Taconite Seal","Labyrinth Seal","Felt Seal","V-Ring Seal","Nitrile Lip Seal","Double Lip Seal"];
+// End covers used to sit in the Seal list above, which made the load-time
+// auto-recategorize flip any "End Cover (Open/Closed)" row back to Seal.
+// Kept as their own suggestion list (not in that auto-fix) instead.
+const DEFAULT_END_COVERS = ["End Cover (Open)","End Cover (Closed)"];
+const DEFAULT_LOCK_NUTS = Array.from({ length: 36 }, (_, i) => `KM ${i + 5}`);
+const DEFAULT_LOCK_WASHERS = Array.from({ length: 36 }, (_, i) => `MB ${i + 5}`);
 const DEFAULT_PILLOW_BLOCKS = ["UCP 205","UCP 305","UCP 2305","UCFL 205","UCFC 205"];
 const DEFAULT_WOODEN_BOX_SIZES = ["Small (9x9x9\")","Medium (15x15x12\")","Large (24x18x18\")","Custom Crate"];
 const DEFAULT_CORRUGATED_BOX_SIZES = ["Small (8x8x6\")","Medium (12x12x10\")","Large (18x18x14\")","Extra Large (24x20x18\")"];
@@ -572,6 +578,9 @@ function App() {
   const LOCATING_RINGS = DEFAULT_LOCATING_RINGS;
   const BEARINGS = DEFAULT_BEARINGS;
   const SEAL_TYPES = DEFAULT_SEAL_TYPES;
+  const END_COVERS = DEFAULT_END_COVERS;
+  const LOCK_NUTS = DEFAULT_LOCK_NUTS;
+  const LOCK_WASHERS = DEFAULT_LOCK_WASHERS;
   const PILLOW_BLOCKS = DEFAULT_PILLOW_BLOCKS;
   const boxCatalog = (data && data.boxCatalog && data.boxCatalog.length) ? data.boxCatalog : [
     { type: "Wooden Box", sizes: DEFAULT_WOODEN_BOX_SIZES },
@@ -2214,7 +2223,7 @@ function App() {
               </select>
               <input ref={paintItemRef} placeholder="Item / SKU (e.g. SN 605)" value={rowForm.item} onChange={e => setRowForm({...rowForm, item:e.target.value})} onKeyDown={e => { if (e.key === "Enter") addRowToChallan(); }} style={inputStyle} list="paint-item-options" />
               <datalist id="paint-item-options">
-                {Array.from(new Set([...knownLedgerItems, ...PLUMMER_SERIES, ...PILLOW_BLOCKS, ...ADAPTER_SLEEVES, ...LOCATING_RINGS, ...BEARINGS, ...SEAL_TYPES])).map(o => <option key={o} value={o} />)}
+                {Array.from(new Set([...knownLedgerItems, ...PLUMMER_SERIES, ...PILLOW_BLOCKS, ...ADAPTER_SLEEVES, ...LOCATING_RINGS, ...BEARINGS, ...SEAL_TYPES, ...END_COVERS, ...LOCK_NUTS, ...LOCK_WASHERS])).map(o => <option key={o} value={o} />)}
               </datalist>
               <input placeholder="Qty" type="number" value={rowForm.qty} onChange={e => setRowForm({...rowForm, qty:e.target.value})} onKeyDown={e => { if (e.key === "Enter") addRowToChallan(); }} style={inputStyle} />
               <select value={rowForm.paintType} onChange={e => setRowForm({...rowForm, paintType:e.target.value})} style={inputStyle}>
@@ -2300,6 +2309,9 @@ function App() {
                 <option>Bearing</option>
                 <option>Locating Ring</option>
                 <option>Seal</option>
+                <option>End Cover</option>
+                <option>Lock Nut</option>
+                <option>Lock Washer</option>
                 <option>Wooden Box</option>
                 <option>Corrugated Box</option>
               </select>
@@ -2309,6 +2321,9 @@ function App() {
                   : saleRowForm.category === "Pillow Block" ? PILLOW_BLOCKS
                   : saleRowForm.category === "Bearing" ? BEARINGS
                   : saleRowForm.category === "Locating Ring" ? LOCATING_RINGS
+                  : saleRowForm.category === "End Cover" ? END_COVERS
+                  : saleRowForm.category === "Lock Nut" ? LOCK_NUTS
+                  : saleRowForm.category === "Lock Washer" ? LOCK_WASHERS
                   : saleRowForm.category === "Wooden Box" ? (BOX_TYPES.find(b => b.type === "Wooden Box") || {sizes:DEFAULT_WOODEN_BOX_SIZES}).sizes
                   : saleRowForm.category === "Corrugated Box" ? (BOX_TYPES.find(b => b.type === "Corrugated Box") || {sizes:DEFAULT_CORRUGATED_BOX_SIZES}).sizes
                   : SEAL_TYPES)])).map(o => <option key={o} value={o} />)}
@@ -2416,7 +2431,7 @@ function App() {
             </select>
             <input placeholder="Item / SKU" value={sForm.item} onChange={e => setSForm({...sForm, item:e.target.value})} onKeyDown={e => { if (e.key === "Enter") addStock(); }} style={inputStyle} list="stock-item-options" />
             <datalist id="stock-item-options">
-              {Array.from(new Set([...knownLedgerItems, ...PLUMMER_SERIES, ...PILLOW_BLOCKS, ...ADAPTER_SLEEVES, ...LOCATING_RINGS, ...BEARINGS, ...SEAL_TYPES])).map(o => <option key={o} value={o} />)}
+              {Array.from(new Set([...knownLedgerItems, ...PLUMMER_SERIES, ...PILLOW_BLOCKS, ...ADAPTER_SLEEVES, ...LOCATING_RINGS, ...BEARINGS, ...SEAL_TYPES, ...END_COVERS, ...LOCK_NUTS, ...LOCK_WASHERS])).map(o => <option key={o} value={o} />)}
             </datalist>
             <input placeholder="Qty" type="number" value={sForm.qty} onChange={e => setSForm({...sForm, qty:e.target.value})} style={inputStyle} />
             <select value={sForm.unit} onChange={e => setSForm({...sForm, unit:e.target.value})} style={inputStyle}>
@@ -2996,7 +3011,7 @@ function App() {
           <div style={{display:"grid",gridTemplateColumns:"1.4fr 0.7fr 1.2fr 1.2fr 0.8fr auto",gap:"8px",marginBottom:"10px"}}>
             <input ref={dispatchItemRef} placeholder="Item / SKU" value={dispatchRowForm.item} onChange={e => setDispatchRowForm({...dispatchRowForm, item:e.target.value})} onKeyDown={e => { if (e.key === "Enter") addDispatchRow(); }} style={inputStyle} list="dispatch-item-options" />
             <datalist id="dispatch-item-options">
-              {Array.from(new Set([...knownLedgerItems, ...PLUMMER_SERIES, ...PILLOW_BLOCKS, ...ADAPTER_SLEEVES, ...LOCATING_RINGS, ...BEARINGS, ...SEAL_TYPES])).map(o => <option key={o} value={o} />)}
+              {Array.from(new Set([...knownLedgerItems, ...PLUMMER_SERIES, ...PILLOW_BLOCKS, ...ADAPTER_SLEEVES, ...LOCATING_RINGS, ...BEARINGS, ...SEAL_TYPES, ...END_COVERS, ...LOCK_NUTS, ...LOCK_WASHERS])).map(o => <option key={o} value={o} />)}
             </datalist>
             <input placeholder="Qty" type="number" value={dispatchRowForm.qty} onChange={e => setDispatchRowForm({...dispatchRowForm, qty:e.target.value})} onKeyDown={e => { if (e.key === "Enter") addDispatchRow(); }} style={inputStyle} />
             <select value={dispatchRowForm.packingStyle} onChange={e => { const bt = BOX_TYPES.find(b => b.type === e.target.value); setDispatchRowForm({...dispatchRowForm, packingStyle:e.target.value, boxSize: bt ? bt.sizes[0] : ""}); }} style={inputStyle}>
