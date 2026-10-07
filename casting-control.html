@@ -1694,7 +1694,7 @@ function avgWeightFor(itemName){
 }
 
 function blankPoLine(){ return {masterCode:'', itemName:'', itemType:DEFAULT_TYPES[0], quantity:''}; }
-function blankPo(){ return {poNumber:'', poDate: today(), foundryName:'', items:[blankPoLine()], notes:'', generatedBy: operatorName().trim()}; }
+function blankPo(){ return {poNumber:'', poDate: today(), foundryName:'', items:[blankPoLine()], notes:'', showPending:true, generatedBy: operatorName().trim()}; }
 
 function viewGeneratePO(){
   if(!state.poForm) state.poForm = blankPo();
@@ -1794,6 +1794,12 @@ function viewGeneratePO(){
 
         <label class="field" style="margin-top:20px">Notes / delivery instructions
           <textarea maxlength="600" name="notes" placeholder="Optional — delivery date, material grade, packing instructions">${esc(f.notes||'')}</textarea></label>
+
+        <label style="margin-top:20px;display:flex;gap:12px;align-items:flex-start;cursor:pointer;border:1px solid var(--card-border);border-radius:var(--r-md);padding:14px 18px">
+          <input type="checkbox" name="showPending" ${f.showPending !== false ? 'checked' : ''} style="margin-top:3px;width:16px;height:16px;flex:none">
+          <span><b style="font-size:13.5px">Show pending orders to the foundry</b>
+            <span style="display:block;font-size:12.5px;color:var(--ink-soft);line-height:1.6;margin-top:2px">When ticked, the P/O PDF includes the table of earlier orders still pending with this foundry. Untick it to send only this order.</span></span>
+        </label>
 
         <div style="margin-top:20px;border:1px solid var(--card-border);border-radius:var(--r-md);background:rgba(17,17,17,.018);padding:20px">
           <p class="eyebrow">Authorisation</p>
@@ -2418,6 +2424,7 @@ function currentFormPo(){
   return {
     id: state.editingPoId || 'draft',
     poNumber: f.poNumber, poDate: f.poDate, foundryName: f.foundryName, notes: f.notes||'',
+    showPending: f.showPending !== false,
     generatedBy: f.generatedBy.trim(), status: 'Open', items,
     totalQuantity: items.reduce((s,i)=>s+i.quantity,0),
     totalApproxWeight: items.reduce((s,i)=>s+i.approxWeight,0)
@@ -2586,7 +2593,7 @@ function buildPoPdf(p){
   }
 
   /* ---------- other orders still pending with this foundry ---------- */
-  const pending = state.purchaseOrders
+  const pending = p.showPending === false ? [] : state.purchaseOrders
     .filter(o => o.foundryName === p.foundryName && String(o.id) !== String(p.id))
     .map(o => ({o, pr: poProgress(o)}))
     .filter(x => x.pr.pending > 0)
@@ -2903,7 +2910,7 @@ document.addEventListener('click', async (e) => {
   if(d.editPo){
     const p = state.purchaseOrders.find(x=>String(x.id)===d.editPo); if(!p) return;
     state.editingPoId = p.id;
-    state.poForm = {poNumber:p.poNumber, poDate:p.poDate, foundryName:p.foundryName, notes:p.notes||'', generatedBy:p.generatedBy||'',
+    state.poForm = {poNumber:p.poNumber, poDate:p.poDate, foundryName:p.foundryName, notes:p.notes||'', generatedBy:p.generatedBy||'', showPending:p.showPending !== false,
       items:p.items.map((i,n)=>({masterCode:(state.castingMasters.find(m=>m.itemName===i.itemName)||{}).itemCode || ('legacy-'+n),
         itemName:i.itemName, itemType:i.itemType, quantity:String(i.quantity)}))};
     state.view='generate-po'; render(); window.scrollTo(0,0); return;
@@ -3065,6 +3072,7 @@ document.addEventListener('input', e => {
   if(el.name && ['challanNumber','challanDate','invoiceNumber','foundryName'].includes(el.name) && el.closest('#entry-form') && state.entryForm){
     state.entryForm[el.name] = el.value; return;   // no re-render: keeps focus
   }
+  if(el.name === 'showPending' && el.closest('#po-form') && state.poForm){ state.poForm.showPending = el.checked; return; }
   if(el.name && ['poNumber','poDate','foundryName','notes','generatedBy'].includes(el.name) && el.closest('#po-form') && state.poForm){
     state.poForm[el.name] = el.value; return;
   }
