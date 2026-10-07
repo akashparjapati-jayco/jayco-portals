@@ -97,6 +97,28 @@ h1,h2,h3,h4,h5,h6{font-family:'Space Grotesk','Inter',sans-serif;}
 .kpi .label{font-size:11.5px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.4px;font-weight:600;}
 .kpi .value{font-size:26px;font-weight:700;color:var(--navy-900);margin-top:6px;}
 .kpi .foot{font-size:11.5px;color:var(--text-dim);margin-top:4px;}
+/* ---- dashboard polish ---- */
+.kpi{position:relative;overflow:hidden;border-top:4px solid var(--accent,#c9d2de);transition:transform .15s,box-shadow .15s;}
+.kpi .ico{position:absolute;right:14px;top:14px;width:40px;height:40px;border-radius:12px;display:grid;place-items:center;font-size:19px;background:var(--accent-bg,#eef2f7);}
+.kpi .label{padding-right:46px;min-height:30px;}
+.kpi .value{font-size:34px;letter-spacing:-.5px;line-height:1.1;}
+.kpi.clickable:hover{transform:translateY(-2px);}
+.kpi.kpi-alert{background:linear-gradient(135deg,#fff 40%,#fde9e7);}
+.sec-title{display:flex;align-items:center;gap:9px;font-size:15px;font-weight:700;color:var(--navy-900);font-family:'Space Grotesk','Inter',sans-serif;}
+.sec-title i{width:9px;height:22px;border-radius:4px;background:linear-gradient(180deg,var(--blue-600),#7a0f0f);display:inline-block;}
+.dist-bar{display:flex;height:18px;border-radius:999px;overflow:hidden;background:#eef2f7;margin-bottom:6px;box-shadow:inset 0 1px 2px rgba(0,0,0,.08);}
+.dist-bar i{display:block;height:100%;min-width:2px;transition:filter .15s;cursor:pointer;}
+.dist-bar i:hover{filter:brightness(1.12);}
+.dist-legend{display:flex;justify-content:space-between;font-size:11px;color:var(--text-dim);margin-bottom:14px;}
+.age-box{transition:transform .15s,box-shadow .15s;border-radius:12px!important;}
+.age-box.has-data:hover{transform:translateY(-3px);filter:none;box-shadow:0 10px 22px -10px rgba(15,41,66,.35);}
+.share-bar{height:5px;border-radius:99px;background:rgba(0,0,0,.08);margin-top:8px;overflow:hidden;}
+.share-bar i{display:block;height:100%;border-radius:99px;}
+.rank{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;color:#fff;font-weight:800;font-size:12.5px;box-shadow:0 2px 6px rgba(0,0,0,.2);}
+.chip{display:inline-flex;gap:6px;align-items:center;background:#fff;border:1px solid var(--border);border-radius:999px;padding:3px 11px;font-size:12px;margin:2px 5px 2px 0;box-shadow:0 1px 1px rgba(0,0,0,.04);}
+.chip b{color:var(--navy-900);font-family:'Space Grotesk','Inter',sans-serif;}
+.plan-tbl td{padding:12px 10px;}
+.plan-tbl tr.clickable td{border-bottom:1px solid #fff;}
 .kpi.exclusive{border-left:3px solid var(--blue-600);}
 
 /* Forms */
@@ -256,37 +278,38 @@ tr.clickable:hover td{background:var(--blue-100)!important;}
 
     <div class="card card-pad" style="margin-bottom:18px;">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
-        <strong style="font-size:14px;">Pending by age (7-day steps)</strong>
+        <span class="sec-title"><i></i>Pending by age <span style="font-weight:500;color:var(--text-dim);font-size:12.5px;">(7-day steps)</span></span>
         <span class="hint">Click a bucket to see those lines</span>
       </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px;font-size:11.5px;color:var(--text-dim);">
         <span>Delay level:</span><span id="sevLegend"></span><span>(days since PO date; item and customer tags use their oldest pending line)</span>
       </div>
+      <div id="distBar"></div>
       <div id="agingWidget" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(125px,1fr));gap:10px;"></div>
     </div>
 
     <div class="card card-pad" style="margin-bottom:18px;">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
-        <strong style="font-size:14px;">7-Day dispatch planning — oldest first</strong>
+        <span class="sec-title"><i></i>7-Day dispatch planning <span style="font-weight:500;color:var(--text-dim);font-size:12.5px;">— oldest first</span></span>
         <span class="hint">Colour = how serious the delay is. Click a row to see the lines</span>
       </div>
-      <div class="table-wrap"><table id="planTable"></table></div>
+      <div class="table-wrap"><table id="planTable" class="plan-tbl"></table></div>
     </div>
 
     <div style="display:grid;grid-template-columns:1.3fr 1fr;gap:18px;margin-bottom:18px;">
       <div class="card card-pad">
-        <strong style="font-size:14px;">Items with the highest pending quantity</strong>
+        <span class="sec-title"><i></i>Items with the highest pending quantity</span>
         <div class="table-wrap" style="margin-top:10px;"><table id="topPendingTable"></table></div>
       </div>
       <div class="card card-pad">
-        <strong style="font-size:14px;">Top customers by pending quantity</strong>
+        <span class="sec-title"><i></i>Top customers by pending quantity</span>
         <div class="table-wrap" style="margin-top:10px;"><table id="topCustomersTable"></table></div>
       </div>
     </div>
 
     <div class="card card-pad">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
-        <strong style="font-size:14px;">Oldest open PO lines</strong>
+        <span class="sec-title"><i></i>Oldest open PO lines</span>
         <span class="hint">Ordered longest ago and still not fully despatched</span>
       </div>
       <div class="table-wrap"><table id="oldestOpenTable"></table></div>
@@ -1248,18 +1271,22 @@ function renderDashboard(){
   const completedCount = items.filter(i=>i.pendingQty<=0 && i.orderedQty>0).length;
   const exclVal = dashScope === 'exclusive' ? 'yes' : '';
 
+  const critical = openItems.filter(i=>lineAgeDays(i) >= 91);
+  const criticalQty = critical.reduce((s,i)=>s+i.pendingQty,0);
   const kpis = [
-    {label:'Open PO lines', value: openItems.length, foot: `${openPoCount} distinct PO numbers`,
+    {label:'Open PO lines', value: openItems.length, foot: `${openPoCount} distinct PO numbers`, ico:'📋', accent:'#2f6fed', accentBg:'#e8f0ff',
       onClick: ()=> goToRegisterFiltered('open', exclVal)},
-    {label:'Total pending quantity', value: totalPending.toLocaleString('en-IN'), foot:'across all open lines',
+    {label:'Total pending quantity', value: totalPending.toLocaleString('en-IN'), foot:'across all open lines', ico:'📦', accent:'#ea7a12', accentBg:'#ffe6cc',
       onClick: ()=> goToReportTab('itemwise', exclVal)},
-    {label:'Customers with open POs', value: customerCount, foot:'',
+    {label:'Critical — 90+ days', value: critical.length, foot: `${criticalQty.toLocaleString('en-IN')} pcs need follow-up now`, ico:'🚨', accent:'#7a0f0f', accentBg:'#f3c4c1', alert: critical.length>0,
+      onClick: ()=> critical.length && openLineListModal('Critical: 90+ days pending', `${critical.length} open line(s) · ${criticalQty} total pending`, critical)},
+    {label:'Customers with open POs', value: customerCount, foot:'', ico:'👥', accent:'#8b5cf6', accentBg:'#efe8ff',
       onClick: ()=> goToReportTab('customerwise', exclVal)},
-    {label:'Fully despatched lines', value: completedCount, foot:'',
+    {label:'Fully despatched lines', value: completedCount, foot:'', ico:'✅', accent:'#1f9d57', accentBg:'#e2f4e9',
       onClick: ()=> goToRegisterFiltered('Completed', exclVal)},
   ];
   document.getElementById('kpiGrid').innerHTML = kpis.map((k,idx)=>`
-    <div class="card kpi clickable" data-kpi-idx="${idx}"><div class="label">${k.label}</div><div class="value">${k.value}</div><div class="foot">${k.foot}</div></div>
+    <div class="card kpi clickable${k.alert?' kpi-alert':''}" data-kpi-idx="${idx}" style="--accent:${k.accent};--accent-bg:${k.accentBg};"><div class="ico">${k.ico}</div><div class="label">${k.label}</div><div class="value">${k.value}</div><div class="foot">${k.foot}</div></div>
   `).join('');
   document.querySelectorAll('#kpiGrid [data-kpi-idx]').forEach(el=>{
     el.onclick = ()=> kpis[+el.dataset.kpiIdx].onClick();
@@ -1369,13 +1396,23 @@ function bucketLines(items){
 function renderAgingWidget(openItems){
   const buckets = bucketLines(openItems);
   document.getElementById('sevLegend').innerHTML = SEVERITY.map((v,i,a)=>sevTag(v.min) + `<span style="margin:0 8px 0 3px;">${v.min}${i<a.length-1?'–'+(a[i+1].min-1):'+'}d</span>`).join('');
+  const totalP = buckets.reduce((a,b)=>a+b.pending,0) || 1;
+  const pctOf = b => Math.round(b.pending / totalP * 100);
+  document.getElementById('distBar').innerHTML =
+    `<div class="dist-bar">${buckets.filter(b=>b.pending>0).map(b=>`<i data-dist="${buckets.indexOf(b)}" style="width:${b.pending/totalP*100}%;background:${b.bar};" title="${b.label} (${b.range}): ${b.pending} pcs · ${pctOf(b)}%"></i>`).join('')}</div>
+     <div class="dist-legend"><span>Newest</span><span><b>${totalP===1&&!buckets.some(b=>b.pending)?0:totalP}</b> pcs pending in total — share of quantity by age</span><span>Oldest</span></div>`;
+  document.querySelectorAll('#distBar [data-dist]').forEach(el=>{
+    el.onclick = ()=>{ const b = buckets[+el.dataset.dist];
+      openLineListModal(`Aging: ${b.label} (${b.range})`, `${b.lines.length} open line(s) · ${b.pending} total pending`, b.lines); };
+  });
   document.getElementById('agingWidget').innerHTML = buckets.map((b,idx)=>`
     <div class="card age-box${b.lines.length?' has-data':''}" style="padding:12px 14px;background:${b.bg};border:none;border-top:4px solid ${b.bar};" data-age-idx="${idx}">
       <div style="font-size:11px;font-weight:700;color:${b.color};text-transform:uppercase;letter-spacing:.3px;">${b.label}</div>
       <div style="font-size:10.5px;color:${b.color};">${b.range}</div>
       <div style="margin-top:4px;">${sevTag(b.min)}</div>
-      <div style="font-size:22px;font-weight:700;color:var(--navy-900);margin-top:4px;">${b.pending}</div>
-      <div style="font-size:11.5px;color:var(--text-dim);margin-top:2px;">${b.lines.length} line(s)</div>
+      <div style="font-size:26px;font-weight:700;color:var(--navy-900);margin-top:4px;font-family:'Space Grotesk','Inter',sans-serif;">${b.pending}</div>
+      <div style="font-size:11.5px;color:var(--text-dim);margin-top:2px;">${b.lines.length} line(s) · ${pctOf(b)}%</div>
+      <div class="share-bar"><i style="width:${pctOf(b)}%;background:${b.bar};"></i></div>
     </div>`).join('');
   document.querySelectorAll('#agingWidget [data-age-idx]').forEach(el=>{
     el.onclick = ()=>{
@@ -1388,17 +1425,18 @@ function renderAgingWidget(openItems){
   /* 7-day dispatch plan: oldest band first, with the customers to chase in each */
   const plan = buckets.slice().reverse().filter(b=>b.lines.length);
   document.getElementById('planTable').innerHTML =
-    `<tr><th style="width:44px;">#</th><th>Age band</th><th class="text-right">Lines</th><th class="text-right">Pending qty</th><th>Customers to chase (pending qty)</th></tr>` +
+    `<tr><th style="width:56px;">Priority</th><th style="width:170px;">Age band</th><th class="text-right" style="width:70px;">Lines</th><th style="width:190px;">Pending qty</th><th>Customers to chase</th></tr>` +
     (plan.length ? plan.map((b,n)=>{
       const byC = {};
       b.lines.forEach(i=>{ byC[i.customerName] = (byC[i.customerName]||0) + i.pendingQty; });
       const top = Object.entries(byC).sort((x,y)=>y[1]-x[1]);
-      const shown = top.slice(0,4).map(([c,q])=>`${esc(c)} <b>${q}</b>`).join(' · ');
-      return `<tr class="clickable" data-plan-idx="${buckets.indexOf(b)}" style="background:${b.bg};">
-        <td style="border-left:5px solid ${b.bar};font-weight:700;color:${b.color};">${n+1}</td>
-        <td><strong style="color:${b.color};">${b.label}</strong><div class="hint">${b.range}</div></td>
-        <td class="text-right mono">${b.lines.length}</td><td class="text-right mono"><b>${b.pending}</b></td>
-        <td style="font-size:12.5px;">${shown}${top.length>4 ? ` <span class="hint">+${top.length-4} more</span>` : ''}</td></tr>`;
+      const chips = top.slice(0,5).map(([c,q])=>`<span class="chip">${esc(c)} <b>${q}</b></span>`).join('');
+      return `<tr class="clickable" data-plan-idx="${buckets.indexOf(b)}">
+        <td style="background:linear-gradient(90deg,${b.bg},#fff 160%);border-left:6px solid ${b.bar};"><span class="rank" style="background:${b.bar};">${n+1}</span></td>
+        <td style="background:linear-gradient(90deg,${b.bg},#fff 160%);"><strong style="color:${b.color};font-size:14px;">${b.label}</strong><div style="margin-top:3px;">${sevTag(b.min)}</div><div class="hint" style="margin-top:2px;">${b.range}</div></td>
+        <td class="text-right mono" style="background:#fff;font-size:15px;">${b.lines.length}</td>
+        <td style="background:#fff;"><div style="font-size:20px;font-weight:700;color:var(--navy-900);font-family:'Space Grotesk','Inter',sans-serif;">${b.pending} <span class="hint" style="font-weight:500;">pcs · ${pctOf(b)}%</span></div><div class="share-bar"><i style="width:${pctOf(b)}%;background:${b.bar};"></i></div></td>
+        <td style="background:#fff;">${chips}${top.length>5 ? `<span class="hint">+${top.length-5} more</span>` : ''}</td></tr>`;
     }).join('') : `<tr><td colspan="5"><div class="empty">No open PO lines.</div></td></tr>`);
   document.querySelectorAll('#planTable tr[data-plan-idx]').forEach(tr=>{
     tr.onclick = ()=>{
