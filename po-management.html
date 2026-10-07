@@ -82,7 +82,7 @@ h1,h2,h3,h4,h5,h6{font-family:'Space Grotesk','Inter',sans-serif;}
   display:inline-flex;align-items:center;gap:6px;
 }
 .btn-primary{background:var(--blue-600);color:#fff;}
-.btn-primary:hover{background:#2559c9;}
+.btn-primary:hover{background:#c9231e;}
 .btn-secondary{background:#fff;color:var(--navy-800);border:1px solid var(--border);}
 .btn-secondary:hover{background:#f0f4f9;}
 .btn-danger{background:var(--red-bg);color:var(--red);}
@@ -151,6 +151,31 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:var(--blue-500
 .combo-opt:hover,.combo-opt.active{background:var(--blue-100);color:var(--blue-600);}
 .combo-empty{padding:8px 10px;font-size:11.5px;color:var(--text-dim);}
 
+/* ---- New PO form (card sections) ---- */
+.po-form{max-width:1000px;display:flex;flex-direction:column;gap:16px;}
+.po-sec{background:#fff;border:1px solid var(--border);border-radius:14px;box-shadow:var(--shadow);overflow:hidden;}
+.po-sec-head{display:flex;align-items:center;gap:12px;padding:14px 20px;border-bottom:1px solid #eef2f7;background:linear-gradient(90deg,#fff,#fafbfd);}
+.po-step{width:30px;height:30px;border-radius:50%;background:linear-gradient(135deg,var(--blue-600),#a3140f);color:#fff;font-weight:800;font-size:13px;display:grid;place-items:center;flex:none;box-shadow:0 3px 8px -2px rgba(229,50,45,.5);}
+.po-sec-head h3{margin:0;font-size:15px;color:var(--navy-900);}
+.po-sec-head p{margin:1px 0 0;font-size:12px;color:var(--text-dim);}
+.po-sec-body{padding:18px 20px 8px;}
+.req{color:var(--blue-600);font-weight:800;margin-left:2px;}
+.field.invalid input,.field.invalid textarea{border-color:var(--red);background:#fff7f6;box-shadow:0 0 0 3px rgba(200,55,47,.12);}
+.field .err{display:none;font-size:11.5px;color:var(--red);font-weight:600;margin-top:4px;}
+.field.invalid .err{display:block;}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;}
+.chips button{border:1px solid var(--border);background:#f6f8fb;color:var(--navy-800);border-radius:999px;padding:4px 12px;font-size:11.5px;font-weight:600;cursor:pointer;font-family:inherit;transition:all .12s;}
+.chips button:hover{border-color:var(--blue-500);background:var(--blue-100);color:var(--blue-600);}
+.note-box{border:1px dashed #e3b04b;background:linear-gradient(135deg,#fffbeb,#fff);border-radius:12px;padding:14px 16px;margin-bottom:14px;}
+.note-box label{color:#8a5a00;}
+.note-box textarea{background:#fff;min-height:70px;resize:vertical;}
+.po-bar{position:sticky;bottom:0;display:flex;align-items:center;gap:14px;flex-wrap:wrap;background:rgba(255,255,255,.96);backdrop-filter:blur(6px);border:1px solid var(--border);border-radius:14px;padding:12px 18px;box-shadow:0 -6px 24px -12px rgba(15,41,66,.25);}
+.po-bar .sum{display:flex;gap:18px;font-size:12.5px;color:var(--text-dim);flex:1;flex-wrap:wrap;}
+.po-bar .sum b{color:var(--navy-900);font-size:16px;font-family:'Space Grotesk','Inter',sans-serif;margin-right:3px;}
+.note-flag{display:inline-block;margin-left:5px;cursor:help;}
+#itemRows{counter-reset:ln;}
+#itemRows .item-row{counter-increment:ln;position:relative;padding-left:44px;}
+#itemRows .item-row::before{content:counter(ln);position:absolute;left:12px;top:50%;transform:translateY(-50%);width:22px;height:22px;border-radius:50%;background:var(--navy-900);color:#fff;font-size:11px;font-weight:700;display:grid;place-items:center;}
 /* Item rows in PO form */
 #itemRows{display:flex;flex-direction:column;gap:8px;margin:10px 0;}
 .item-row{display:grid;grid-template-columns:1.4fr 1.6fr 1fr .9fr auto;gap:8px;align-items:end;
@@ -321,46 +346,84 @@ tr.clickable:hover td{background:var(--blue-100)!important;}
     <div class="page-head">
       <div><h1>New Purchase Order</h1><p>Enter the PO once — every line item's pending quantity is tracked automatically from here on.</p></div>
     </div>
-    <div class="card card-pad" style="max-width:900px;">
-      <div class="field-row g3">
-        <div class="field">
-          <label>Customer</label>
-          <input id="poCustomer" placeholder="Start typing or add new…" autocomplete="off"/>
-          <datalist id="customerList"></datalist>
-          <datalist id="itemMasterList"></datalist>
-          <div class="hint" id="exclusiveHint"></div>
-        </div>
-        <div class="field">
-          <label>PO Number</label>
-          <input id="poNumber" placeholder="e.g. VKS/2025-26/014"/>
-        </div>
-        <div class="field">
-          <label>PO Date</label>
-          <input type="date" id="poDate"/>
+    <div class="po-form">
+
+      <div class="po-sec">
+        <div class="po-sec-head"><span class="po-step">1</span><div><h3>Order details</h3><p>Who ordered, and the PO reference</p></div></div>
+        <div class="po-sec-body">
+          <div class="field-row g3">
+            <div class="field" id="fCustomer">
+              <label>Customer<span class="req">*</span></label>
+              <input id="poCustomer" placeholder="Start typing or add new…" autocomplete="off"/>
+              <datalist id="customerList"></datalist>
+              <datalist id="itemMasterList"></datalist>
+              <div class="hint" id="exclusiveHint"></div>
+              <div class="err">Select or type a customer.</div>
+            </div>
+            <div class="field" id="fPoNumber">
+              <label>PO Number<span class="req">*</span></label>
+              <input id="poNumber" placeholder="e.g. VKS/2025-26/014"/>
+              <div class="err">Enter the PO number.</div>
+            </div>
+            <div class="field" id="fPoDate">
+              <label>PO Date<span class="req">*</span></label>
+              <input type="date" id="poDate"/>
+              <div class="err">Pick the PO date.</div>
+            </div>
+          </div>
         </div>
       </div>
-      <div class="field-row g2">
-        <div class="field">
-          <label>Material (optional, applies to all lines by default)</label>
-          <input id="poMaterial" placeholder="e.g. CAST IRON"/>
-        </div>
-        <div class="field">
-          <label>Delivery remark (optional)</label>
-          <input id="poDeliveryRemark" placeholder="e.g. 8 weeks from PO date"/>
+
+      <div class="po-sec">
+        <div class="po-sec-head"><span class="po-step">2</span><div><h3>Delivery &amp; instructions</h3><p>The delivery remark is compulsory — it sets the expectation for every line</p></div></div>
+        <div class="po-sec-body">
+          <div class="field" id="fRemark">
+            <label>Delivery remark<span class="req">*</span></label>
+            <input id="poDeliveryRemark" placeholder="e.g. 8 weeks from PO date" maxlength="200"/>
+            <div class="chips" id="remarkChips">
+              <button type="button">2 weeks from PO date</button>
+              <button type="button">4 weeks from PO date</button>
+              <button type="button">6 weeks from PO date</button>
+              <button type="button">8 weeks from PO date</button>
+              <button type="button">Urgent — immediate</button>
+              <button type="button">As per PO schedule</button>
+            </div>
+            <div class="err">Delivery remark is required — tell us when this order is expected.</div>
+          </div>
+
+          <div class="note-box">
+            <label>📌 Special note <span class="hint" style="display:inline;">(optional — packing, quality, inspection or any customer instruction)</span></label>
+            <textarea id="poSpecialNote" maxlength="500" placeholder="e.g. Pack in wooden boxes · Test certificate required · Paint colour RAL 5010"></textarea>
+            <div class="hint"><span id="noteCount">0</span>/500 — shown as 📌 beside the PO in the register</div>
+          </div>
+
+          <div class="field">
+            <label>Material <span class="hint" style="display:inline;">(optional — applies to all lines by default)</span></label>
+            <input id="poMaterial" placeholder="e.g. CAST IRON"/>
+          </div>
         </div>
       </div>
 
-      <label style="margin-top:6px;">Item lines</label>
-      <div id="itemRows"></div>
-      <button class="btn btn-secondary" id="addItemRowBtn" type="button">+ Add item</button>
+      <div class="po-sec">
+        <div class="po-sec-head"><span class="po-step">3</span><div><h3>Item lines</h3><p>Every line's pending quantity is tracked automatically</p></div></div>
+        <div class="po-sec-body">
+          <div id="itemRows"></div>
+          <button class="btn btn-secondary" id="addItemRowBtn" type="button" style="margin-bottom:12px;">+ Add item</button>
+        </div>
+      </div>
 
-      <label style="margin-top:20px;">Attachments (optional) <span class="hint" style="display:inline;">— e.g. OneDrive links to Design, Drawing, PO Copy…</span></label>
-      <div id="poAttachRows"></div>
-      <button class="btn btn-secondary" id="addPoAttachRowBtn" type="button">+ Add attachment</button>
+      <div class="po-sec">
+        <div class="po-sec-head"><span class="po-step">4</span><div><h3>Attachments <span class="hint" style="display:inline;font-weight:400;">(optional)</span></h3><p>e.g. OneDrive links to Design, Drawing, PO Copy…</p></div></div>
+        <div class="po-sec-body">
+          <div id="poAttachRows"></div>
+          <button class="btn btn-secondary" id="addPoAttachRowBtn" type="button" style="margin-bottom:12px;">+ Add attachment</button>
+        </div>
+      </div>
 
-      <div style="margin-top:20px;display:flex;gap:10px;">
-        <button class="btn btn-primary" id="savePoBtn">Save purchase order</button>
+      <div class="po-bar">
+        <div class="sum"><span><b id="sumLines">0</b>line(s)</span><span><b id="sumQty">0</b>total qty</span></div>
         <span id="poSaveStatus" class="hint"></span>
+        <button class="btn btn-primary" id="savePoBtn" style="padding:10px 26px;font-size:14px;">Save purchase order</button>
       </div>
     </div>
   </section>
@@ -670,6 +733,7 @@ service cloud.firestore {
       <div class="field"><label>Material</label><input id="poItemModalMat"/></div>
       <div class="field"><label>Delivery remark</label><input id="poItemModalRemark"/></div>
     </div>
+    <div class="field"><label>📌 Special note</label><input id="poItemModalNote" maxlength="500"/></div>
     <div class="field">
       <label>Ordered qty</label>
       <input type="number" min="0" id="poItemModalQty"/>
@@ -1574,6 +1638,26 @@ function addItemRow(prefill){
   document.getElementById('itemRows').appendChild(wrap);
 }
 document.getElementById('addItemRowBtn').onclick = ()=> addItemRow();
+
+/* New PO form helpers: remark presets, live note counter, summary bar, clear-on-type */
+document.querySelectorAll('#remarkChips button').forEach(b=>{
+  b.onclick = ()=>{ const i = document.getElementById('poDeliveryRemark'); i.value = b.textContent; document.getElementById('fRemark').classList.remove('invalid'); i.focus(); };
+});
+document.getElementById('poSpecialNote').addEventListener('input', e=>{ document.getElementById('noteCount').textContent = e.target.value.length; });
+['fCustomer','fPoNumber','fPoDate','fRemark'].forEach(id=>{
+  const el = document.getElementById(id);
+  el.addEventListener('input', ()=> el.classList.remove('invalid'));
+  el.addEventListener('change', ()=> el.classList.remove('invalid'));
+});
+function updatePoSummary(){
+  const rows = Array.from(document.querySelectorAll('#itemRows .item-row'));
+  const valid = rows.filter(r=>r.querySelector('.ri-code').value.trim() && parseFloat(r.querySelector('.ri-qty').value) > 0);
+  document.getElementById('sumLines').textContent = valid.length;
+  document.getElementById('sumQty').textContent = valid.reduce((a,r)=>a + parseFloat(r.querySelector('.ri-qty').value), 0).toLocaleString('en-IN');
+}
+document.getElementById('itemRows').addEventListener('input', updatePoSummary);
+document.getElementById('itemRows').addEventListener('click', ()=> setTimeout(updatePoSummary, 0));
+document.getElementById('addItemRowBtn').addEventListener('click', ()=> setTimeout(updatePoSummary, 0));
 addItemRow(); // start with one row
 
 /* Attachments (OneDrive/file links) — shared row builder for PO + Despatch forms */
@@ -1604,10 +1688,16 @@ document.getElementById('savePoBtn').onclick = async ()=>{
   const poDateVal = document.getElementById('poDate').value;
   const material = document.getElementById('poMaterial').value.trim();
   const deliveryRemark = document.getElementById('poDeliveryRemark').value.trim();
+  const specialNote = document.getElementById('poSpecialNote').value.trim();
   const rows = Array.from(document.querySelectorAll('.item-row'));
 
-  if(!customerName || !poNo || !poDateVal){
-    toast('Customer, PO number and date are required.', 'error'); return;
+  const checks = [['fCustomer', customerName], ['fPoNumber', poNo], ['fPoDate', poDateVal], ['fRemark', deliveryRemark.length >= 3 ? deliveryRemark : '']];
+  let firstBad = null;
+  checks.forEach(([id, v])=>{ const el = document.getElementById(id); el.classList.toggle('invalid', !v); if(!v && !firstBad) firstBad = el; });
+  if(firstBad){
+    firstBad.scrollIntoView({behavior:'smooth', block:'center'});
+    const inp = firstBad.querySelector('input'); if(inp) inp.focus();
+    toast(firstBad.id === 'fRemark' ? 'Delivery remark is compulsory.' : 'Please fill the highlighted fields.', 'error'); return;
   }
   const items = rows.map(r=>({
     code: r.querySelector('.ri-code').value.trim(),
@@ -1628,7 +1718,7 @@ document.getElementById('savePoBtn').onclick = async ()=>{
     const poDate = firebase.firestore.Timestamp.fromDate(new Date(poDateVal));
     const poRef = await db.collection('purchaseOrders').add({
       poNo, poDate, customerId: customer.id, customerName: customer.name,
-      isExclusive: !!customer.isExclusive, deliveryRemark, attachments,
+      isExclusive: !!customer.isExclusive, deliveryRemark, specialNote, attachments,
       createdAt: firebase.firestore.FieldValue.serverTimestamp(),
     });
     const batch = db.batch();
@@ -1637,7 +1727,7 @@ document.getElementById('savePoBtn').onclick = async ()=>{
       batch.set(ref, {
         poId: poRef.id, poNo, poDate, customerId: customer.id, customerName: customer.name,
         isExclusive: !!customer.isExclusive, itemCode: it.code, itemDescription: it.desc,
-        material: it.mat, deliveryRemark, orderedQty: it.qty, despatchedQty: 0, pendingQty: it.qty,
+        material: it.mat, deliveryRemark, specialNote, orderedQty: it.qty, despatchedQty: 0, pendingQty: it.qty,
         status: 'Pending', createdAt: firebase.firestore.FieldValue.serverTimestamp(),
       });
     });
@@ -1648,9 +1738,13 @@ document.getElementById('savePoBtn').onclick = async ()=>{
     document.getElementById('poDate').value = '';
     document.getElementById('poMaterial').value = '';
     document.getElementById('poDeliveryRemark').value = '';
+    document.getElementById('poSpecialNote').value = '';
+    document.getElementById('noteCount').textContent = '0';
+    document.querySelectorAll('#page-newpo .invalid').forEach(e=>e.classList.remove('invalid'));
     document.getElementById('itemRows').innerHTML = '';
     itemRowCount = 0;
     addItemRow();
+    updatePoSummary();
     document.getElementById('poAttachRows').innerHTML = '';
   }catch(e){
     console.error(e);
@@ -1884,7 +1978,7 @@ function renderRegister(){
       <tr class="clickable" data-reg-row="${i.id}">
         <td>${fmtDate(i.poDate)}</td>
         <td>${esc(i.customerName)}${i.isExclusive?'<span class="badge badge-exclusive">EXCL</span>':''}</td>
-        <td>${esc(i.poNo)}</td><td>${esc(i.itemCode)}</td><td>${esc(i.itemDescription||'—')}</td><td>${esc(i.material||'—')}</td>
+        <td>${esc(i.poNo)}${i.specialNote?`<span class="note-flag" title="${esc(i.specialNote)}">📌</span>`:''}</td><td>${esc(i.itemCode)}</td><td>${esc(i.itemDescription||'—')}</td><td>${esc(i.material||'—')}</td>
         <td class="text-right mono">${i.orderedQty}</td>
         <td class="text-right mono">${i.despatchedQty}</td>
         <td class="text-right mono">${i.pendingQty}</td>
@@ -1932,6 +2026,7 @@ function openPoItemModal(id){
   document.getElementById('poItemModalDesc').value = item.itemDescription || '';
   document.getElementById('poItemModalMat').value = item.material || '';
   document.getElementById('poItemModalRemark').value = item.deliveryRemark || '';
+  document.getElementById('poItemModalNote').value = item.specialNote || '';
   document.getElementById('poItemModalQty').value = item.orderedQty;
   document.getElementById('poItemModalQtyHint').textContent = `Already despatched: ${item.despatchedQty}. Ordered qty can't go below that.`;
   document.getElementById('poItemModalBg').classList.add('show');
@@ -1954,6 +2049,7 @@ document.getElementById('poItemModalSave').onclick = async ()=>{
       itemCode, itemDescription: document.getElementById('poItemModalDesc').value.trim(),
       material: document.getElementById('poItemModalMat').value.trim(),
       deliveryRemark: document.getElementById('poItemModalRemark').value.trim(),
+      specialNote: document.getElementById('poItemModalNote').value.trim(),
       orderedQty, pendingQty: orderedQty - item.despatchedQty,
       status: (orderedQty - item.despatchedQty) <= 0 ? 'Completed' : (item.despatchedQty>0 ? 'Partial' : 'Pending'),
     });
