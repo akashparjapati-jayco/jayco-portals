@@ -259,13 +259,16 @@ tr.clickable:hover td{background:var(--blue-100)!important;}
         <strong style="font-size:14px;">Pending by age (7-day steps)</strong>
         <span class="hint">Click a bucket to see those lines</span>
       </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px;font-size:11.5px;color:var(--text-dim);">
+        <span>Delay level:</span><span id="sevLegend"></span><span>(days since PO date; item and customer tags use their oldest pending line)</span>
+      </div>
       <div id="agingWidget" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(125px,1fr));gap:10px;"></div>
     </div>
 
     <div class="card card-pad" style="margin-bottom:18px;">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
         <strong style="font-size:14px;">7-Day dispatch planning — oldest first</strong>
-        <span class="hint">Red = oldest, green = newest. Click a row to see the lines</span>
+        <span class="hint">Colour = how serious the delay is. Click a row to see the lines</span>
       </div>
       <div class="table-wrap"><table id="planTable"></table></div>
     </div>
@@ -1268,15 +1271,17 @@ function renderDashboard(){
   const byKey = {};
   openItems.forEach(i=>{
     const key = i.customerName+'||'+i.itemCode;
-    if(!byKey[key]) byKey[key] = {customer:i.customerName, item:i.itemCode, pending:0, isExclusive:i.isExclusive, lines:[]};
+    if(!byKey[key]) byKey[key] = {customer:i.customerName, item:i.itemCode, pending:0, isExclusive:i.isExclusive, lines:[], oldest:0};
     byKey[key].pending += i.pendingQty;
+    byKey[key].oldest = Math.max(byKey[key].oldest, lineAgeDays(i));
     byKey[key].lines.push(i);
   });
   const top = Object.values(byKey).sort((a,b)=>b.pending-a.pending).slice(0,10);
   document.getElementById('topPendingTable').innerHTML =
-    `<tr><th>Customer</th><th>Item</th><th class="text-right">Pending qty</th></tr>` +
-    (top.length ? top.map((t,idx)=>`<tr class="clickable" data-top-idx="${idx}"><td>${esc(t.customer)}${t.isExclusive?'<span class="badge badge-exclusive">EXCLUSIVE</span>':''}</td><td>${esc(t.item)}</td><td class="text-right mono">${t.pending}</td></tr>`).join('')
-    : `<tr><td colspan="3"><div class="empty">No open PO lines yet.</div></td></tr>`);
+    `<tr><th>Customer</th><th>Item</th><th class="text-right">Pending qty</th><th>Oldest pending</th></tr>` +
+    (top.length ? top.map((t,idx)=>{ const v = sevFor(t.oldest);
+      return `<tr class="clickable" data-top-idx="${idx}" style="background:${v.bg};"><td style="border-left:5px solid ${v.bar};">${esc(t.customer)}${t.isExclusive?'<span class="badge badge-exclusive">EXCLUSIVE</span>':''}</td><td><strong>${esc(t.item)}</strong></td><td class="text-right mono">${t.pending}</td><td style="white-space:nowrap;">${sevTag(t.oldest)} <span class="mono" style="font-size:11.5px;color:${v.solid||v.color};font-weight:700;">${t.oldest}d</span></td></tr>`; }).join('')
+    : `<tr><td colspan="4"><div class="empty">No open PO lines yet.</div></td></tr>`);
   document.querySelectorAll('#topPendingTable tr[data-top-idx]').forEach(tr=>{
     tr.onclick = ()=>{
       const t = top[+tr.dataset.topIdx];
@@ -1287,15 +1292,17 @@ function renderDashboard(){
   // Top customers by pending qty
   const byCust = {};
   openItems.forEach(i=>{
-    if(!byCust[i.customerName]) byCust[i.customerName] = {customer:i.customerName, pending:0, isExclusive:i.isExclusive, lines:[]};
+    if(!byCust[i.customerName]) byCust[i.customerName] = {customer:i.customerName, pending:0, isExclusive:i.isExclusive, lines:[], oldest:0};
     byCust[i.customerName].pending += i.pendingQty;
+    byCust[i.customerName].oldest = Math.max(byCust[i.customerName].oldest, lineAgeDays(i));
     byCust[i.customerName].lines.push(i);
   });
   const topCust = Object.values(byCust).sort((a,b)=>b.pending-a.pending).slice(0,10);
   document.getElementById('topCustomersTable').innerHTML =
-    `<tr><th>Customer</th><th class="text-right">Pending qty</th></tr>` +
-    (topCust.length ? topCust.map((c,idx)=>`<tr class="clickable" data-tc-idx="${idx}"><td>${esc(c.customer)}${c.isExclusive?'<span class="badge badge-exclusive">EXCL</span>':''}</td><td class="text-right mono">${c.pending}</td></tr>`).join('')
-    : `<tr><td colspan="2"><div class="empty">No open PO lines yet.</div></td></tr>`);
+    `<tr><th>Customer</th><th class="text-right">Pending qty</th><th>Oldest pending</th></tr>` +
+    (topCust.length ? topCust.map((c,idx)=>{ const v = sevFor(c.oldest);
+      return `<tr class="clickable" data-tc-idx="${idx}" style="background:${v.bg};"><td style="border-left:5px solid ${v.bar};">${esc(c.customer)}${c.isExclusive?'<span class="badge badge-exclusive">EXCL</span>':''}</td><td class="text-right mono">${c.pending}</td><td style="white-space:nowrap;">${sevTag(c.oldest)} <span class="mono" style="font-size:11.5px;color:${v.solid||v.color};font-weight:700;">${c.oldest}d</span></td></tr>`; }).join('')
+    : `<tr><td colspan="3"><div class="empty">No open PO lines yet.</div></td></tr>`);
   document.querySelectorAll('#topCustomersTable tr[data-tc-idx]').forEach(tr=>{
     tr.onclick = ()=>{
       const c = topCust[+tr.dataset.tcIdx];
@@ -1319,6 +1326,20 @@ function renderDashboard(){
 
 /* Age bands, newest to oldest, in 7-day planning steps. Colour runs green
    (fresh) to red (oldest) so the order that needs chasing first stands out. */
+/* Five severity levels, one fixed colour each, always paired with a text label
+   so meaning never rests on colour alone. Age = days since the PO date. */
+const SEVERITY = [
+  {min:0,  key:'ok',        tag:'ON TRACK',  color:'#14653b', bg:'#e2f4e9', bar:'#1f9d57'},
+  {min:15, key:'watch',     tag:'WATCH',     color:'#7a5a00', bg:'#fff4cc', bar:'#d9a400'},
+  {min:29, key:'attention', tag:'ATTENTION', color:'#9a4a06', bg:'#ffe6cc', bar:'#ea7a12'},
+  {min:61, key:'urgent',    tag:'URGENT',    color:'#a81e18', bg:'#fddcd9', bar:'#d9362e'},
+  {min:91, key:'critical',  tag:'CRITICAL',  color:'#7a0f0f', bg:'#f3c4c1', bar:'#7a0f0f', solid:'#7a0f0f'},
+];
+function sevFor(days){ let r = SEVERITY[0]; SEVERITY.forEach(x=>{ if(days >= x.min) r = x; }); return r; }
+const sevTag = days => { const v = sevFor(days);
+  return `<span style="display:inline-block;padding:2px 9px;border-radius:999px;font-size:10.5px;font-weight:800;letter-spacing:.4px;white-space:nowrap;`
+    + (v.solid ? `background:${v.solid};color:#fff;` : `background:${v.bg};color:${v.color};border:1px solid ${v.bar};`) + `">${v.tag}</span>`; };
+
 const AGE_BANDS = [
   {label:'Week 1',  range:'0–7 days',   min:0,  max:7},
   {label:'Week 2',  range:'8–14 days',  min:8,  max:14},
@@ -1327,20 +1348,14 @@ const AGE_BANDS = [
   {label:'Weeks 5–8', range:'29–60 days', min:29, max:60},
   {label:'61–90 days', range:'61–90 days', min:61, max:90},
   {label:'90+ days', range:'90+ days — follow up', min:91, max:Infinity},
-].map((b,i,arr)=>{
-  const hue = Math.round(130 - (130 * i / (arr.length-1)));      // 130 green → 0 red
-  return {...b, color:`hsl(${hue},62%,32%)`, bg:`hsl(${hue},68%,92%)`, bar:`hsl(${hue},62%,45%)`};
-});
+].map(b=>({...b, ...sevFor(b.min)}));
 
 function lineAgeDays(i){
   const d = i.poDate && i.poDate.toDate ? i.poDate.toDate() : new Date(i.poDate||0);
   return isNaN(d) ? 0 : Math.max(0, Math.floor((new Date() - d) / 86400000));
 }
-/* continuous green → red tint for a line of a given age (red at 90+ days) */
-function ageTint(days){
-  const hue = Math.round(130 - 130 * Math.min(days, 90) / 90);
-  return {bg:`hsl(${hue},68%,94%)`, fg:`hsl(${hue},62%,30%)`, bar:`hsl(${hue},62%,45%)`};
-}
+/* row tint for a line of a given age */
+function ageTint(days){ const v = sevFor(days); return {bg:v.bg, fg:v.solid || v.color, bar:v.bar}; }
 function bucketLines(items){
   const buckets = AGE_BANDS.map(b=>({...b, lines:[], pending:0}));
   items.forEach(i=>{
@@ -1353,10 +1368,12 @@ function bucketLines(items){
 
 function renderAgingWidget(openItems){
   const buckets = bucketLines(openItems);
+  document.getElementById('sevLegend').innerHTML = SEVERITY.map((v,i,a)=>sevTag(v.min) + `<span style="margin:0 8px 0 3px;">${v.min}${i<a.length-1?'–'+(a[i+1].min-1):'+'}d</span>`).join('');
   document.getElementById('agingWidget').innerHTML = buckets.map((b,idx)=>`
     <div class="card age-box${b.lines.length?' has-data':''}" style="padding:12px 14px;background:${b.bg};border:none;border-top:4px solid ${b.bar};" data-age-idx="${idx}">
       <div style="font-size:11px;font-weight:700;color:${b.color};text-transform:uppercase;letter-spacing:.3px;">${b.label}</div>
-      <div style="font-size:10.5px;color:${b.color};opacity:.85;">${b.range}</div>
+      <div style="font-size:10.5px;color:${b.color};">${b.range}</div>
+      <div style="margin-top:4px;">${sevTag(b.min)}</div>
       <div style="font-size:22px;font-weight:700;color:var(--navy-900);margin-top:4px;">${b.pending}</div>
       <div style="font-size:11.5px;color:var(--text-dim);margin-top:2px;">${b.lines.length} line(s)</div>
     </div>`).join('');
