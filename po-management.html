@@ -375,20 +375,28 @@ tr.clickable:hover td{background:var(--blue-100)!important;}
       </div>
 
       <div class="po-sec">
-        <div class="po-sec-head"><span class="po-step">2</span><div><h3>Delivery &amp; instructions</h3><p>The delivery remark is compulsory — it sets the expectation for every line</p></div></div>
+        <div class="po-sec-head"><span class="po-step">2</span><div><h3>Delivery &amp; instructions</h3><p>Delivery date and remark are compulsory — they set the expectation for every line</p></div></div>
         <div class="po-sec-body">
-          <div class="field" id="fRemark">
-            <label>Delivery remark<span class="req">*</span></label>
-            <input id="poDeliveryRemark" placeholder="e.g. 8 weeks from PO date" maxlength="200"/>
-            <div class="chips" id="remarkChips">
-              <button type="button">2 weeks from PO date</button>
-              <button type="button">4 weeks from PO date</button>
-              <button type="button">6 weeks from PO date</button>
-              <button type="button">8 weeks from PO date</button>
-              <button type="button">Urgent — immediate</button>
-              <button type="button">As per PO schedule</button>
+          <div class="field-row" style="grid-template-columns:230px 1fr;align-items:start;">
+            <div class="field" id="fDelDate">
+              <label>Delivery date<span class="req">*</span></label>
+              <input type="date" id="poDeliveryDate"/>
+              <div class="hint" id="delDateHint">Click the calendar to pick the date</div>
+              <div class="err">Pick the delivery date.</div>
             </div>
-            <div class="err">Delivery remark is required — tell us when this order is expected.</div>
+            <div class="field" id="fRemark">
+              <label>Delivery remark<span class="req">*</span></label>
+              <input id="poDeliveryRemark" placeholder="Fills automatically from the date — or type your own" maxlength="200"/>
+              <div class="err">Delivery remark is required — tell us when this order is expected.</div>
+            </div>
+          </div>
+          <div class="chips" id="remarkChips" style="margin:-4px 0 14px;">
+            <span class="hint" style="align-self:center;margin:0 4px 0 0;">Quick pick (from PO date):</span>
+            <button type="button" data-days="14">+2 weeks</button>
+            <button type="button" data-days="28">+4 weeks</button>
+            <button type="button" data-days="42">+6 weeks</button>
+            <button type="button" data-days="56">+8 weeks</button>
+            <button type="button" data-days="3">Urgent (+3 days)</button>
           </div>
 
           <div class="note-box">
@@ -1640,11 +1648,33 @@ function addItemRow(prefill){
 document.getElementById('addItemRowBtn').onclick = ()=> addItemRow();
 
 /* New PO form helpers: remark presets, live note counter, summary bar, clear-on-type */
+const delDate = document.getElementById('poDeliveryDate'), delRemark = document.getElementById('poDeliveryRemark');
+let remarkAuto = true;                       // remark was filled from the date, not typed by the user
+const fmtLong = d => d.toLocaleDateString('en-GB', {day:'2-digit', month:'short', year:'numeric'});
+function isoLocal(d){ return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0'); }
+function applyDeliveryDate(){
+  if(!delDate.value){ return; }
+  const d = new Date(delDate.value + 'T00:00:00');
+  const po = document.getElementById('poDate').value ? new Date(document.getElementById('poDate').value + 'T00:00:00') : null;
+  const days = po ? Math.round((d - po) / 86400000) : null;
+  document.getElementById('delDateHint').textContent = days === null ? fmtLong(d) : `${days} day(s) from PO date · ${d.toLocaleDateString('en-GB',{weekday:'long'})}`;
+  if(!delRemark.value.trim() || remarkAuto){ delRemark.value = 'Delivery by ' + fmtLong(d); remarkAuto = true; }
+  document.getElementById('fDelDate').classList.remove('invalid'); document.getElementById('fRemark').classList.remove('invalid');
+}
+delDate.addEventListener('change', applyDeliveryDate);
+delRemark.addEventListener('input', ()=>{ remarkAuto = false; });
+document.getElementById('poDate').addEventListener('change', ()=>{ delDate.min = document.getElementById('poDate').value || ''; });
 document.querySelectorAll('#remarkChips button').forEach(b=>{
-  b.onclick = ()=>{ const i = document.getElementById('poDeliveryRemark'); i.value = b.textContent; document.getElementById('fRemark').classList.remove('invalid'); i.focus(); };
+  b.onclick = ()=>{
+    const base = document.getElementById('poDate').value ? new Date(document.getElementById('poDate').value + 'T00:00:00') : new Date();
+    base.setDate(base.getDate() + Number(b.dataset.days));
+    delDate.value = isoLocal(base);
+    remarkAuto = true; delRemark.value = '';
+    applyDeliveryDate();
+  };
 });
 document.getElementById('poSpecialNote').addEventListener('input', e=>{ document.getElementById('noteCount').textContent = e.target.value.length; });
-['fCustomer','fPoNumber','fPoDate','fRemark'].forEach(id=>{
+['fCustomer','fPoNumber','fPoDate','fDelDate','fRemark'].forEach(id=>{
   const el = document.getElementById(id);
   el.addEventListener('input', ()=> el.classList.remove('invalid'));
   el.addEventListener('change', ()=> el.classList.remove('invalid'));
@@ -1688,16 +1718,17 @@ document.getElementById('savePoBtn').onclick = async ()=>{
   const poDateVal = document.getElementById('poDate').value;
   const material = document.getElementById('poMaterial').value.trim();
   const deliveryRemark = document.getElementById('poDeliveryRemark').value.trim();
+  const deliveryDateVal = document.getElementById('poDeliveryDate').value;
   const specialNote = document.getElementById('poSpecialNote').value.trim();
   const rows = Array.from(document.querySelectorAll('.item-row'));
 
-  const checks = [['fCustomer', customerName], ['fPoNumber', poNo], ['fPoDate', poDateVal], ['fRemark', deliveryRemark.length >= 3 ? deliveryRemark : '']];
+  const checks = [['fCustomer', customerName], ['fPoNumber', poNo], ['fPoDate', poDateVal], ['fDelDate', deliveryDateVal], ['fRemark', deliveryRemark.length >= 3 ? deliveryRemark : '']];
   let firstBad = null;
   checks.forEach(([id, v])=>{ const el = document.getElementById(id); el.classList.toggle('invalid', !v); if(!v && !firstBad) firstBad = el; });
   if(firstBad){
     firstBad.scrollIntoView({behavior:'smooth', block:'center'});
     const inp = firstBad.querySelector('input'); if(inp) inp.focus();
-    toast(firstBad.id === 'fRemark' ? 'Delivery remark is compulsory.' : 'Please fill the highlighted fields.', 'error'); return;
+    toast(firstBad.id === 'fRemark' ? 'Delivery remark is compulsory.' : firstBad.id === 'fDelDate' ? 'Pick the delivery date.' : 'Please fill the highlighted fields.', 'error'); return;
   }
   const items = rows.map(r=>({
     code: r.querySelector('.ri-code').value.trim(),
@@ -1716,9 +1747,10 @@ document.getElementById('savePoBtn').onclick = async ()=>{
   try{
     const customer = await getOrCreateCustomer(customerName);
     const poDate = firebase.firestore.Timestamp.fromDate(new Date(poDateVal));
+    const deliveryDate = firebase.firestore.Timestamp.fromDate(new Date(deliveryDateVal));
     const poRef = await db.collection('purchaseOrders').add({
       poNo, poDate, customerId: customer.id, customerName: customer.name,
-      isExclusive: !!customer.isExclusive, deliveryRemark, specialNote, attachments,
+      isExclusive: !!customer.isExclusive, deliveryRemark, deliveryDate, specialNote, attachments,
       createdAt: firebase.firestore.FieldValue.serverTimestamp(),
     });
     const batch = db.batch();
@@ -1727,7 +1759,7 @@ document.getElementById('savePoBtn').onclick = async ()=>{
       batch.set(ref, {
         poId: poRef.id, poNo, poDate, customerId: customer.id, customerName: customer.name,
         isExclusive: !!customer.isExclusive, itemCode: it.code, itemDescription: it.desc,
-        material: it.mat, deliveryRemark, specialNote, orderedQty: it.qty, despatchedQty: 0, pendingQty: it.qty,
+        material: it.mat, deliveryRemark, deliveryDate, specialNote, orderedQty: it.qty, despatchedQty: 0, pendingQty: it.qty,
         status: 'Pending', createdAt: firebase.firestore.FieldValue.serverTimestamp(),
       });
     });
@@ -1738,6 +1770,7 @@ document.getElementById('savePoBtn').onclick = async ()=>{
     document.getElementById('poDate').value = '';
     document.getElementById('poMaterial').value = '';
     document.getElementById('poDeliveryRemark').value = '';
+    delDate.value = ''; remarkAuto = true; document.getElementById('delDateHint').textContent = 'Click the calendar to pick the date';
     document.getElementById('poSpecialNote').value = '';
     document.getElementById('noteCount').textContent = '0';
     document.querySelectorAll('#page-newpo .invalid').forEach(e=>e.classList.remove('invalid'));
