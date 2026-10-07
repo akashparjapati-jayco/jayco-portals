@@ -150,7 +150,7 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:var(--royal);b
 
 /* Searchable dropdown (combobox) for Customer / Item fields */
 .combo-wrap{position:relative;}
-.combo-list{position:absolute;top:100%;left:0;right:0;margin-top:4px;background:#fff;
+.combo-list{position:absolute;top:100%;left:0;right:0;margin-top:4px;background:#fff;z-index:80;
   border:1px solid var(--border);border-radius:8px;max-height:220px;overflow-y:auto;
   box-shadow:var(--shadow);z-index:60;display:none;}
 .combo-list.show{display:block;}
@@ -160,8 +160,9 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:var(--royal);b
 
 /* ---- New PO form (card sections) ---- */
 .po-form{max-width:1000px;display:flex;flex-direction:column;gap:16px;}
-.po-sec{background:#fff;border:1px solid var(--border);border-radius:14px;box-shadow:var(--shadow);overflow:hidden;}
-.po-sec-head{display:flex;align-items:center;gap:12px;padding:14px 20px;border-bottom:1px solid #eef2f7;background:linear-gradient(90deg,#fff,#fafbfd);}
+.po-sec{background:#fff;border:1px solid var(--border);border-radius:14px;box-shadow:var(--shadow);position:relative;}
+.po-sec:focus-within{z-index:30;}   /* lets the Customer / Item dropdown float over the cards below */
+.po-sec-head{display:flex;align-items:center;gap:12px;padding:14px 20px;border-bottom:1px solid var(--line-soft);background:var(--panel2);border-radius:13px 13px 0 0;}
 .po-step{width:30px;height:30px;border-radius:50%;background:var(--blue-600);color:#fff;font-weight:800;font-size:13px;display:grid;place-items:center;flex:none;box-shadow:none;}
 .po-sec-head h3{margin:0;font-size:15px;color:var(--navy-900);}
 .po-sec-head p{margin:1px 0 0;font-size:12px;color:var(--text-dim);}
@@ -176,7 +177,7 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:var(--royal);b
 .note-box{border:1px dashed #e3b04b;background:linear-gradient(135deg,#fffbeb,#fff);border-radius:12px;padding:14px 16px;margin-bottom:14px;}
 .note-box label{color:#8a5a00;}
 .note-box textarea{background:#fff;min-height:70px;resize:vertical;}
-.po-bar{position:sticky;bottom:0;display:flex;align-items:center;gap:14px;flex-wrap:wrap;background:rgba(255,255,255,.96);backdrop-filter:blur(6px);border:1px solid var(--border);border-radius:14px;padding:12px 18px;box-shadow:0 -6px 24px -12px rgba(15,41,66,.25);}
+.po-bar{position:sticky;bottom:0;z-index:40;display:flex;align-items:center;gap:14px;flex-wrap:wrap;background:rgba(255,255,255,.96);backdrop-filter:blur(6px);border:1px solid var(--border);border-radius:14px;padding:12px 18px;box-shadow:0 -6px 24px -12px rgba(15,41,66,.25);}
 .po-bar .sum{display:flex;gap:18px;font-size:12.5px;color:var(--text-dim);flex:1;flex-wrap:wrap;}
 .po-bar .sum b{color:var(--navy-900);font-size:16px;font-family:'Barlow Condensed','IBM Plex Sans',sans-serif;margin-right:3px;}
 .note-flag{display:inline-block;margin-left:5px;cursor:help;}
