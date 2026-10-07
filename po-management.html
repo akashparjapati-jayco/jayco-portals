@@ -256,10 +256,18 @@ tr.clickable:hover td{background:var(--blue-100)!important;}
 
     <div class="card card-pad" style="margin-bottom:18px;">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
-        <strong style="font-size:14px;">Pending by age</strong>
+        <strong style="font-size:14px;">Pending by age (7-day steps)</strong>
         <span class="hint">Click a bucket to see those lines</span>
       </div>
-      <div id="agingWidget" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;"></div>
+      <div id="agingWidget" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(125px,1fr));gap:10px;"></div>
+    </div>
+
+    <div class="card card-pad" style="margin-bottom:18px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+        <strong style="font-size:14px;">7-Day dispatch planning — oldest first</strong>
+        <span class="hint">Red = oldest, green = newest. Click a row to see the lines</span>
+      </div>
+      <div class="table-wrap"><table id="planTable"></table></div>
     </div>
 
     <div style="display:grid;grid-template-columns:1.3fr 1fr;gap:18px;margin-bottom:18px;">
@@ -1301,31 +1309,54 @@ function renderDashboard(){
     return da - db_;
   }).slice(0,10);
   document.getElementById('oldestOpenTable').innerHTML =
-    `<tr><th>PO Date</th><th>Customer</th><th>PO No</th><th>Item</th><th class="text-right">Pending</th></tr>` +
-    (oldest.length ? oldest.map((i,idx)=>`<tr class="clickable" data-oldest-idx="${idx}"><td>${fmtDate(i.poDate)}</td><td>${esc(i.customerName)}</td><td>${esc(i.poNo)}</td><td>${esc(i.itemCode)}</td><td class="text-right mono">${i.pendingQty}</td></tr>`).join('')
-    : `<tr><td colspan="5"><div class="empty">No open PO lines yet.</div></td></tr>`);
+    `<tr><th>PO Date</th><th class="text-right">Age</th><th>Customer</th><th>PO No</th><th>Item</th><th class="text-right">Pending</th></tr>` +
+    (oldest.length ? oldest.map((i,idx)=>{ const days = lineAgeDays(i), t = ageTint(days); return `<tr class="clickable" data-oldest-idx="${idx}" style="background:${t.bg};"><td style="border-left:5px solid ${t.bar};">${fmtDate(i.poDate)}</td><td class="text-right mono" style="color:${t.fg};font-weight:700;">${days}d</td><td>${esc(i.customerName)}</td><td>${esc(i.poNo)}</td><td>${esc(i.itemCode)}</td><td class="text-right mono">${i.pendingQty}</td></tr>`; }).join('')
+    : `<tr><td colspan="6"><div class="empty">No open PO lines yet.</div></td></tr>`);
   document.querySelectorAll('#oldestOpenTable tr[data-oldest-idx]').forEach(tr=>{
     tr.onclick = ()=> openDespatchHistoryModal(oldest[+tr.dataset.oldestIdx]);
   });
 }
 
-function renderAgingWidget(openItems){
-  const now = new Date();
-  const buckets = [
-    {label:'0–30 days', min:0, max:30, color:'var(--green)', bg:'var(--green-bg)'},
-    {label:'31–60 days', min:31, max:60, color:'#2f6fed', bg:'#e8f0ff'},
-    {label:'61–90 days', min:61, max:90, color:'var(--amber)', bg:'var(--amber-bg)'},
-    {label:'90+ days — follow up', min:91, max:Infinity, color:'var(--red)', bg:'var(--red-bg)'},
-  ].map(b=>({...b, lines:[], pending:0}));
-  openItems.forEach(i=>{
-    const d = i.poDate && i.poDate.toDate ? i.poDate.toDate() : new Date(i.poDate||0);
-    const days = isNaN(d) ? 0 : Math.floor((now - d) / 86400000);
+/* Age bands, newest to oldest, in 7-day planning steps. Colour runs green
+   (fresh) to red (oldest) so the order that needs chasing first stands out. */
+const AGE_BANDS = [
+  {label:'Week 1',  range:'0–7 days',   min:0,  max:7},
+  {label:'Week 2',  range:'8–14 days',  min:8,  max:14},
+  {label:'Week 3',  range:'15–21 days', min:15, max:21},
+  {label:'Week 4',  range:'22–28 days', min:22, max:28},
+  {label:'Weeks 5–8', range:'29–60 days', min:29, max:60},
+  {label:'61–90 days', range:'61–90 days', min:61, max:90},
+  {label:'90+ days', range:'90+ days — follow up', min:91, max:Infinity},
+].map((b,i,arr)=>{
+  const hue = Math.round(130 - (130 * i / (arr.length-1)));      // 130 green → 0 red
+  return {...b, color:`hsl(${hue},62%,32%)`, bg:`hsl(${hue},68%,92%)`, bar:`hsl(${hue},62%,45%)`};
+});
+
+function lineAgeDays(i){
+  const d = i.poDate && i.poDate.toDate ? i.poDate.toDate() : new Date(i.poDate||0);
+  return isNaN(d) ? 0 : Math.max(0, Math.floor((new Date() - d) / 86400000));
+}
+/* continuous green → red tint for a line of a given age (red at 90+ days) */
+function ageTint(days){
+  const hue = Math.round(130 - 130 * Math.min(days, 90) / 90);
+  return {bg:`hsl(${hue},68%,94%)`, fg:`hsl(${hue},62%,30%)`, bar:`hsl(${hue},62%,45%)`};
+}
+function bucketLines(items){
+  const buckets = AGE_BANDS.map(b=>({...b, lines:[], pending:0}));
+  items.forEach(i=>{
+    const days = lineAgeDays(i);
     const b = buckets.find(b=> days>=b.min && days<=b.max) || buckets[buckets.length-1];
     b.lines.push(i); b.pending += i.pendingQty;
   });
+  return buckets;
+}
+
+function renderAgingWidget(openItems){
+  const buckets = bucketLines(openItems);
   document.getElementById('agingWidget').innerHTML = buckets.map((b,idx)=>`
-    <div class="card age-box${b.lines.length?' has-data':''}" style="padding:14px 16px;background:${b.bg};border:none;" data-age-idx="${idx}">
+    <div class="card age-box${b.lines.length?' has-data':''}" style="padding:12px 14px;background:${b.bg};border:none;border-top:4px solid ${b.bar};" data-age-idx="${idx}">
       <div style="font-size:11px;font-weight:700;color:${b.color};text-transform:uppercase;letter-spacing:.3px;">${b.label}</div>
+      <div style="font-size:10.5px;color:${b.color};opacity:.85;">${b.range}</div>
       <div style="font-size:22px;font-weight:700;color:var(--navy-900);margin-top:4px;">${b.pending}</div>
       <div style="font-size:11.5px;color:var(--text-dim);margin-top:2px;">${b.lines.length} line(s)</div>
     </div>`).join('');
@@ -1333,7 +1364,29 @@ function renderAgingWidget(openItems){
     el.onclick = ()=>{
       const b = buckets[+el.dataset.ageIdx];
       if(!b.lines.length) return;
-      openLineListModal(`Aging: ${b.label}`, `${b.lines.length} open line(s) · ${b.pending} total pending`, b.lines);
+      openLineListModal(`Aging: ${b.label} (${b.range})`, `${b.lines.length} open line(s) · ${b.pending} total pending`, b.lines);
+    };
+  });
+
+  /* 7-day dispatch plan: oldest band first, with the customers to chase in each */
+  const plan = buckets.slice().reverse().filter(b=>b.lines.length);
+  document.getElementById('planTable').innerHTML =
+    `<tr><th style="width:44px;">#</th><th>Age band</th><th class="text-right">Lines</th><th class="text-right">Pending qty</th><th>Customers to chase (pending qty)</th></tr>` +
+    (plan.length ? plan.map((b,n)=>{
+      const byC = {};
+      b.lines.forEach(i=>{ byC[i.customerName] = (byC[i.customerName]||0) + i.pendingQty; });
+      const top = Object.entries(byC).sort((x,y)=>y[1]-x[1]);
+      const shown = top.slice(0,4).map(([c,q])=>`${esc(c)} <b>${q}</b>`).join(' · ');
+      return `<tr class="clickable" data-plan-idx="${buckets.indexOf(b)}" style="background:${b.bg};">
+        <td style="border-left:5px solid ${b.bar};font-weight:700;color:${b.color};">${n+1}</td>
+        <td><strong style="color:${b.color};">${b.label}</strong><div class="hint">${b.range}</div></td>
+        <td class="text-right mono">${b.lines.length}</td><td class="text-right mono"><b>${b.pending}</b></td>
+        <td style="font-size:12.5px;">${shown}${top.length>4 ? ` <span class="hint">+${top.length-4} more</span>` : ''}</td></tr>`;
+    }).join('') : `<tr><td colspan="5"><div class="empty">No open PO lines.</div></td></tr>`);
+  document.querySelectorAll('#planTable tr[data-plan-idx]').forEach(tr=>{
+    tr.onclick = ()=>{
+      const b = buckets[+tr.dataset.planIdx];
+      openLineListModal(`Plan: ${b.label} (${b.range})`, `${b.lines.length} open line(s) · ${b.pending} total pending`, b.lines);
     };
   });
 }
@@ -1993,29 +2046,17 @@ function renderCustomerwiseReport(items, q){
 
 function renderAgingReport(items, q){
   const filtered = items.filter(i=> i.pendingQty>0 && (!q || matchText(i.customerName,q) || matchText(i.itemCode,q) || matchText(i.poNo,q)));
-  const now = new Date();
-  const buckets = [
-    {label:'0–30 days', min:0, max:30, lines:[], pending:0},
-    {label:'31–60 days', min:31, max:60, lines:[], pending:0},
-    {label:'61–90 days', min:61, max:90, lines:[], pending:0},
-    {label:'90+ days', min:91, max:Infinity, lines:[], pending:0},
-  ];
-  filtered.forEach(i=>{
-    const d = i.poDate && i.poDate.toDate ? i.poDate.toDate() : new Date(i.poDate||0);
-    const days = isNaN(d) ? 0 : Math.floor((now - d) / 86400000);
-    const b = buckets.find(b=> days>=b.min && days<=b.max) || buckets[buckets.length-1];
-    b.lines.push(i); b.pending += i.pendingQty;
-  });
+  const buckets = bucketLines(filtered);
   document.getElementById('reportRowCount').textContent = `${filtered.length} open line(s)`;
   lastReportData = {
     headers:['Age Bucket','Open Lines','Total Pending Qty'],
-    rows: buckets.map(b=>[b.label, b.lines.length, b.pending]),
+    rows: buckets.map(b=>[b.label + ' (' + b.range + ')', b.lines.length, b.pending]),
   };
   document.getElementById('reportTable').innerHTML =
     `<tr><th>Age (since PO date)</th><th class="text-right">Open Lines</th><th class="text-right">Pending Qty</th><th></th></tr>` +
     buckets.map((b,idx)=>`
-      <tr class="clickable" data-bucket-idx="${idx}">
-        <td><strong>${b.label}</strong>${idx===3 && b.lines.length ? ' <span class="badge badge-pending" style="margin-left:6px;">Follow up</span>' : ''}</td>
+      <tr class="clickable" data-bucket-idx="${idx}" style="background:${b.bg};">
+        <td style="border-left:5px solid ${b.bar};"><strong style="color:${b.color};">${b.label}</strong> <span class="hint">${b.range}</span>${idx===buckets.length-1 && b.lines.length ? ' <span class="badge badge-pending" style="margin-left:6px;">Follow up</span>' : ''}</td>
         <td class="text-right mono">${b.lines.length}</td>
         <td class="text-right mono">${b.pending}</td>
         <td class="hint">${b.lines.length ? 'Click to view lines →' : ''}</td>
