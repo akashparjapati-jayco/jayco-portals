@@ -295,6 +295,7 @@ th.num{text-align:right}
       <div class="nav-sep"></div>
       <button class="nav-btn" data-view="generate-po"><span><span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3h6a1 1 0 0 1 1 1v1H8V4a1 1 0 0 1 1-1Z"></path><rect x="5" y="5" width="14" height="16" rx="2"></rect><path d="M9 12h6M9 16h6M9 8h2"></path></svg></span><span class="nav-txt">Generate P/O</span></span><span class="count" id="c-pos">0</span></button>
       <button class="nav-btn" data-view="pending-items"><span><span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3.5 2"></path></svg></span><span class="nav-txt">Pending Items</span></span><span class="count" id="c-pending">0</span></button>
+      <button class="nav-btn" data-view="over-received"><span><span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 2.5 20h19L12 3Z"></path><path d="M12 10v4M12 17.5h.01"></path></svg></span><span class="nav-txt">Over Received</span></span><span class="count" id="c-over">0</span></button>
       <div class="nav-label">Masters</div>
       <button class="nav-btn" data-view="pattern-master"><span><span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="8" width="18" height="12" rx="2"></rect><path d="M7 8V6a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v2"></path><path d="M7 13h10"></path></svg></span><span class="nav-txt">Pattern Master</span></span><span class="count" id="c-patmas">0</span></button>
       <button class="nav-btn" data-view="foundry-master"><span><span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18"></path><path d="M5 21V7l7-4 7 4v14"></path><path d="M9 21v-5h6v5"></path><path d="M9 10h.01M15 10h.01"></path></svg></span><span class="nav-txt">Foundry Master</span></span><span class="count" id="c-foundries">0</span></button>
@@ -534,35 +535,74 @@ function foundryRecord(name){ return state.foundries.find(f => f.name === name) 
    A challan lists the JAYCO P/O numbers it was received against. Matching a
    challan line to a P/O line on P/O number + item + type gives the quantity
    received so far, and therefore what is still pending.                    */
-function receivedFor(poNumber, itemName, itemType){
-  let qty = 0, wt = 0;
+const normKey = t => String(t ?? '').trim().toLowerCase().replace(/\s+/g, ' ');
+
+/* Every challan line that counts toward one P/O. A line tagged with a P/O
+   number counts only for that P/O; an untagged line (older challans) counts
+   for every P/O the challan lists. */
+function poChallanLines(poNumber){
+  const out = [], want = String(poNumber).trim();
   for(const c of state.challans){
     const nums = getPOs(c).map(x => String(x.purchaseOrderNumber).trim());
-    if(!nums.includes(String(poNumber).trim())) continue;
+    if(!nums.includes(want)) continue;
     for(const i of c.items){
-      if(i.itemName === itemName && i.itemType === itemType){
-        qty += num(i.quantity); wt += num(i.actualTotalWeight);
-      }
+      const tag = String(i.poNumber || '').trim();
+      if(tag && tag !== want) continue;
+      out.push({c, i});
     }
   }
-  return {qty, wt};
+  return out;
 }
 
+function receivedFor(poNumber, itemName, itemType){
+  let qty = 0, wt = 0; const challans = [];
+  for(const {c, i} of poChallanLines(poNumber)){
+    if(normKey(i.itemName) === normKey(itemName) && normKey(i.itemType) === normKey(itemType)){
+      qty += num(i.quantity); wt += num(i.actualTotalWeight);
+      if(!challans.includes(c.challanNumber)) challans.push(c.challanNumber);
+    }
+  }
+  return {qty, wt, challans};
+}
+
+/* Ordered vs received for one P/O. Nothing is capped: received is the true
+   total, and anything above the ordered quantity is reported as `over`. */
 function poProgress(po){
   const lines = po.items.map(it => {
     const got = receivedFor(po.poNumber, it.itemName, it.itemType);
     const ordered = num(it.quantity);
-    const received = Math.min(got.qty, ordered * 5);   // guard against runaway data
-    return {...it, ordered, received, pending: Math.max(0, ordered - received), receivedWeight: got.wt};
+    const received = got.qty;
+    const over = Math.max(0, received - ordered);
+    const avgRecv = received > 0 ? got.wt / received : num(it.avgWeight);
+    return {...it, ordered, received, pending: Math.max(0, ordered - received), over,
+            overWeight: over * avgRecv, receivedWeight: got.wt, challans: got.challans};
   });
   const ordered  = lines.reduce((a,l) => a + l.ordered, 0);
+  const receivedAll = lines.reduce((a,l) => a + l.received, 0);
   const received = lines.reduce((a,l) => a + Math.min(l.received, l.ordered), 0);
   const pending  = Math.max(0, ordered - received);
   const pendingWeight = lines.reduce((a,l) => a + l.pending * num(l.avgWeight), 0);
+  const overQty = lines.reduce((a,l) => a + l.over, 0);
+  const overWeight = lines.reduce((a,l) => a + l.overWeight, 0);
+
+  /* items received against this P/O that are not on the order at all */
+  const extras = {};
+  for(const {c, i} of poChallanLines(po.poNumber)){
+    if(po.items.some(it => normKey(it.itemName) === normKey(i.itemName) && normKey(it.itemType) === normKey(i.itemType))) continue;
+    const k = normKey(i.itemName) + '|' + normKey(i.itemType);
+    const e = extras[k] || (extras[k] = {itemName:i.itemName, itemType:i.itemType, qty:0, wt:0, challans:[]});
+    e.qty += num(i.quantity); e.wt += num(i.actualTotalWeight);
+    if(!e.challans.includes(c.challanNumber)) e.challans.push(c.challanNumber);
+  }
+
   const stage = received === 0 ? 'Open' : (pending === 0 ? 'Completed' : 'Partially received');
   const pct = ordered > 0 ? Math.round(received / ordered * 100) : 0;
-  return {lines, ordered, received, pending, pendingWeight, stage, pct};
+  return {lines, ordered, received, receivedAll, pending, pendingWeight, overQty, overWeight,
+          extras: Object.values(extras), stage, pct};
 }
+
+/* "+N over" tag shown beside a received quantity */
+const overTag = n => n > 0 ? `<span class="badge bad" style="margin-left:6px">+${n} over</span>` : '';
 
 function stageBadge(stage){
   const cls = stage === 'Completed' ? 'ok' : (stage === 'Open' ? 'neutral' : 'warn');
@@ -684,6 +724,7 @@ const VIEWS = {
   'insert-casting':     {eyebrow:'Goods receipt entry', title:'Insert Casting Details', desc:'Enter one foundry challan with one or more casting items.'},
   'generate-po':        {eyebrow:'Outward order', title:'Generate P/O', desc:'Raise a purchase order on a foundry. Approximate weight is calculated from your own challan history.'},
   'pending-items':      {eyebrow:'Purchase orders', title:'Pending Items', desc:'Items still due from each foundry, grouped by foundry and order — ordered minus received.'},
+  'over-received':      {eyebrow:'Purchase orders', title:'Over Received', desc:'Items received above the ordered quantity, and items received that were never on the P/O.'},
   'pattern-master':     {eyebrow:'Master data', title:'Pattern Master', desc:'One record per pattern: item, type, construction, core boxes and drawings.'},
   'foundry-master':     {eyebrow:'Master data', title:'Foundry Master', desc:'Suppliers you raise purchase orders on — address, GSTIN and contact details.'},
   'pig-iron':           {eyebrow:'Raw material', title:'Pig Iron Bank', desc:'Pig iron received from clients, issued to foundries, and consumed as castings come back.'},
@@ -811,6 +852,7 @@ function render(){
   document.getElementById('c-foundries').textContent = state.foundries.length;
   document.getElementById('c-pig').textContent = state.pigIron.length;
   document.getElementById('c-pos').textContent     = state.purchaseOrders.length;
+  document.getElementById('c-over').textContent = state.purchaseOrders.filter(p => { const r = poProgress(p); return r.overQty > 0 || r.extras.length; }).length;
   document.getElementById('c-pending').textContent = state.purchaseOrders.filter(p => poProgress(p).pending > 0).length;
   document.getElementById('storage-mode').textContent = '◆ ' + DB.name;
   document.getElementById('foot-mode').textContent = 'Test build · ' + DB.name;
@@ -823,6 +865,7 @@ function render(){
     'insert-casting': viewInsertCasting,
     'generate-po': viewGeneratePO,
     'pending-items': viewPendingItems,
+    'over-received': viewOverReceived,
     'pattern-master': viewPatternMaster,
     'foundry-master': viewFoundryMaster,
     'pig-iron': viewPigIron,
@@ -874,6 +917,12 @@ function viewDashboard(){
     ${flowStep(4,'Castings received', fmtWt(receivedWt), state.challans.length + ' challans closed', 'dark')}
   </div>
 
+  ${ (() => { const ov = progs.filter(x => x.pr.overQty > 0), ex = progs.filter(x => x.pr.extras.length);
+      const n = ov.reduce((a,x)=>a+x.pr.overQty,0);
+      return (ov.length || ex.length) ? `<div style="margin-bottom:22px;border:1px solid rgba(229,50,45,.28);background:rgba(229,50,45,.06);border-radius:var(--r-md);padding:14px 18px;display:flex;gap:14px;align-items:center;justify-content:space-between;flex-wrap:wrap">
+        <span style="font-size:13.5px;color:var(--bad)"><b>⚠ Over-received:</b> ${n} pcs above order on ${ov.length} P/O${ov.length===1?'':'s'}${ex.length ? ` · items not on the P/O in ${ex.length} order${ex.length===1?'':'s'}` : ''}</span>
+        <button class="btn" data-go="over-received">Review</button></div>` : ''; })() }
+
   <!-- stage counts -->
   <div class="metrics" style="margin-bottom:26px">
     <div class="metric-card"><p class="lbl">Awaiting material</p><p class="val">${open.length}</p><p class="note">Nothing received yet</p></div>
@@ -894,7 +943,7 @@ function viewDashboard(){
           <td class="mono">${esc(po.poNumber)}<div style="font-size:11px;color:var(--ink-faint);font-family:var(--font)">${fmtDate(po.poDate)}</div></td>
           <td>${esc(po.foundryName)}</td>
           <td class="num">${pr.ordered}</td>
-          <td class="num">${pr.received}</td>
+          <td class="num">${pr.receivedAll}${overTag(pr.overQty)}</td>
           <td class="num"><b style="color:var(--bad)">${pr.pending}</b></td>
           <td><div class="progress"><i style="width:${pr.pct}%"></i></div>
               <div style="font-size:11px;color:var(--ink-faint);margin-top:4px">${pr.pct}%</div></td>
@@ -1743,7 +1792,7 @@ function viewGeneratePO(){
       <td>${esc(p.foundryName)}</td>
       <td class="num">${p.items.length}</td>
       <td class="num">${pr.ordered}</td>
-      <td class="num">${pr.received}</td>
+      <td class="num" style="white-space:nowrap">${pr.receivedAll}${overTag(pr.overQty)}</td>
       <td class="num"><b style="color:${pr.pending>0?'var(--warn)':'var(--ok)'}">${pr.pending}</b></td>
       <td style="min-width:110px"><div class="progress"><i style="width:${pr.pct}%"></i></div>
         <div style="font-size:10.5px;color:var(--ink-faint);margin-top:4px">${pr.pct}%</div></td>
@@ -1897,6 +1946,70 @@ function viewPendingItems(){
       <thead><tr><th>P/O No.</th><th>P/O Date</th><th>Pending Items</th><th class="num">Pending Qty</th>
       <th class="num">Pending Weight</th><th>Progress</th><th>Stage</th><th class="num">Actions</th></tr></thead>
       <tbody>${sections}</tbody>
+    </table></div>
+  </section>`;
+}
+
+/* ---- Over Received ----
+   Quantity received above what the P/O asked for, plus items that came in
+   against a P/O but were never on it. Always recalculated from the challans
+   by poProgress(), so it can never drift from the order register. */
+function viewOverReceived(){
+  const over = [], extra = [];
+  state.purchaseOrders.forEach(po => {
+    const pr = poProgress(po);
+    pr.lines.filter(l => l.over > 0).forEach(l => over.push({po, l}));
+    pr.extras.forEach(e => extra.push({po, e}));
+  });
+  const byDate = (a, b) => String(b.po.poDate||'').localeCompare(String(a.po.poDate||''));
+  over.sort(byDate); extra.sort(byDate);
+  const ov = over.filter(x => match(x.po.foundryName, x.po.poNumber, x.l.itemName));
+  const ex = extra.filter(x => match(x.po.foundryName, x.po.poNumber, x.e.itemName));
+  const totOver = over.reduce((a,x) => a + x.l.over, 0);
+  const totOverWt = over.reduce((a,x) => a + x.l.overWeight, 0);
+  const totExtra = extra.reduce((a,x) => a + x.e.qty, 0);
+  const chal = list => list.map(n => `<span class="badge neutral" style="margin:1px">${esc(n)}</span>`).join(' ') || '—';
+  const actions = po => `<button class="btn icon" data-edit-po="${esc(po.id)}" title="Open order">✎</button>`;
+
+  return `
+  <div class="metrics" style="margin-bottom:26px">
+    <div class="metric-card red"><p class="lbl">Over-received qty</p><p class="val">${totOver}</p><p class="note">Pieces above the ordered quantity</p></div>
+    <div class="metric-card"><p class="lbl">Order lines over</p><p class="val">${over.length}</p><p class="note">Across ${new Set(over.map(x=>x.po.poNumber)).size} P/O(s)</p></div>
+    <div class="metric-card dark"><p class="lbl">Excess weight (approx.)</p><p class="val" style="font-size:22px">${fmtWt(totOverWt)}</p><p class="note">Excess pcs x received avg weight</p></div>
+    <div class="metric-card"><p class="lbl">Not on the P/O</p><p class="val">${totExtra}</p><p class="note">${extra.length} item(s) received but never ordered</p></div>
+  </div>
+
+  <section class="data-panel">
+    <div class="panel-heading">
+      <div><p class="eyebrow">Received more than ordered</p><h2 class="panel-title">Over-received items</h2></div>
+    </div>
+    <div class="table-scroll"><table>
+      <thead><tr><th>P/O No.</th><th>P/O Date</th><th>Foundry</th><th>Item</th><th>Type</th>
+      <th class="num">Ordered</th><th class="num">Received</th><th class="num">Excess</th><th class="num">Excess Wt</th><th>Challan(s)</th><th class="num"></th></tr></thead>
+      <tbody>${ ov.map(({po,l}) => `<tr>
+        <td class="mono">${esc(po.poNumber)}</td><td>${fmtDate(po.poDate)}</td><td>${esc(po.foundryName)}</td>
+        <td><b>${esc(l.itemName)}</b></td><td>${esc(l.itemType)}</td>
+        <td class="num">${l.ordered}</td><td class="num">${l.received}</td>
+        <td class="num"><b style="color:var(--bad)">+${l.over}</b></td>
+        <td class="num">${fmtWt(l.overWeight)}</td><td>${chal(l.challans)}</td><td class="num">${actions(po)}</td>
+      </tr>`).join('') || emptyRow(11, over.length ? 'Nothing matches the search.' : 'No over-receipts — every item is within its ordered quantity.') }</tbody>
+    </table></div>
+  </section>
+
+  <section class="data-panel">
+    <div class="panel-heading">
+      <div><p class="eyebrow">Received against a P/O but not on it</p><h2 class="panel-title">Items not on the order</h2>
+      <p style="margin:8px 0 0;font-size:13px;color:var(--ink-soft);line-height:1.6">Usually a wrong P/O number or item type on the challan, or an extra item the foundry sent.</p></div>
+    </div>
+    <div class="table-scroll"><table>
+      <thead><tr><th>P/O No.</th><th>P/O Date</th><th>Foundry</th><th>Item</th><th>Type</th>
+      <th class="num">Received</th><th class="num">Weight</th><th>Challan(s)</th><th class="num"></th></tr></thead>
+      <tbody>${ ex.map(({po,e}) => `<tr>
+        <td class="mono">${esc(po.poNumber)}</td><td>${fmtDate(po.poDate)}</td><td>${esc(po.foundryName)}</td>
+        <td><b>${esc(e.itemName)}</b></td><td>${esc(e.itemType)}</td>
+        <td class="num"><b style="color:var(--bad)">${e.qty}</b></td><td class="num">${fmtWt(e.wt)}</td>
+        <td>${chal(e.challans)}</td><td class="num">${actions(po)}</td>
+      </tr>`).join('') || emptyRow(9, extra.length ? 'Nothing matches the search.' : 'Every received item is on its purchase order.') }</tbody>
     </table></div>
   </section>`;
 }
@@ -3228,8 +3341,35 @@ async function saveType(){
   }
 }
 
+/* Warn before closing a challan that pushes any P/O line past its ordered
+   quantity. Quantities already received exclude this challan when editing. */
+function challanOverReceipts(c){
+  const sums = {};
+  c.items.forEach(i => {
+    const po = String(i.poNumber || c.purchaseOrderNumber || '').trim();
+    const k = po + '|' + normKey(i.itemName) + '|' + normKey(i.itemType);
+    (sums[k] ||= {po, name:i.itemName, type:i.itemType, qty:0}).qty += num(i.quantity);
+  });
+  const out = [];
+  Object.values(sums).forEach(x => {
+    const po = state.purchaseOrders.find(p => String(p.poNumber).trim() === x.po); if(!po) return;
+    const line = po.items.find(it => normKey(it.itemName) === normKey(x.name) && normKey(it.itemType) === normKey(x.type));
+    if(!line){ out.push(`${x.name} (${x.type}) is not on P/O ${x.po} — ${x.qty} pcs`); return; }
+    let before = 0;
+    for(const {c:ch, i} of poChallanLines(x.po)){
+      if(state.editingChallanId && String(ch.id) === String(state.editingChallanId)) continue;
+      if(normKey(i.itemName) === normKey(x.name) && normKey(i.itemType) === normKey(x.type)) before += num(i.quantity);
+    }
+    const ordered = num(line.quantity), total = before + x.qty;
+    if(total > ordered) out.push(`${x.name} (${x.type}) on P/O ${x.po}: ordered ${ordered}, already received ${before}, this challan ${x.qty} → over by ${total - ordered}`);
+  });
+  return out;
+}
+
 async function saveChallan(){
   const c = currentFormChallan(); if(!c) return;
+  const warn = challanOverReceipts(c);
+  if(warn.length && !confirm('Over-receipt detected:\n\n' + warn.join('\n') + '\n\nThis will be recorded and shown under "Over Received". Close the challan anyway?')) return;
   const btn = document.getElementById('btn-close-challan');
   if(btn){ btn.disabled = true; btn.textContent = 'Saving…'; }
   try{
