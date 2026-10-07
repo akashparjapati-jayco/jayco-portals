@@ -471,7 +471,7 @@ const DB = FirebaseAdapter;
 const state = {
   view: 'dashboard',
   search: '',
-  challans: [], patternMasters: [], castingMasters: [], castingTypes: [], patternRecords: [], purchaseOrders: [], foundries: [], pigIron: [], pigParty: 'All',
+  challans: [], patternMasters: [], castingMasters: [], castingTypes: [], patternRecords: [], purchaseOrders: [], foundries: [], pigIron: [], pigParty: 'All', pigFocus: true,
   entryForm: null, editingChallanId: null,
   poForm: null, editingPoId: null,
   saving: false
@@ -1236,9 +1236,16 @@ document.addEventListener('click', e => {
                                      from closed challans, never keyed by hand.
    -------------------------------------------------------------------- */
 
-function pigLedger(){
+/* Pig iron status is tracked for these two foundries only; the "All foundries"
+   switch on the Pig Iron Bank turns the filter off. */
+const PIG_FOCUS = ['Narayan Metal Cast', 'Ambica Foundry'];
+const pigNorm = n => String(n || '').trim().toLowerCase().replace(/\s+/g, ' ');
+const pigInFocus = (name, focus) => !focus || PIG_FOCUS.some(f => pigNorm(f) === pigNorm(name));
+
+function pigLedger(focus){
   const rows = [];
   for(const r of state.pigIron){
+    if(r.kind !== 'Receipt' && !pigInFocus(r.foundryName, focus)) continue;
     rows.push({
       date: r.date, kind: r.kind,
       party: r.kind === 'Receipt' ? (r.clientName || '—') : (r.foundryName || '—'),
@@ -1249,6 +1256,7 @@ function pigLedger(){
   }
   /* castings coming back consume the pig iron sitting at that foundry */
   for(const c of state.challans){
+    if(!pigInFocus(c.foundryName, focus)) continue;
     rows.push({
       date: c.challanDate, kind: 'Casting received',
       party: c.foundryName || '—',
@@ -1269,23 +1277,24 @@ function pigLedger(){
   return rows;
 }
 
-function pigTotals(){
-  const received = state.pigIron.filter(r => r.kind === 'Receipt').reduce((a, r) => a + num(r.weight), 0);
-  const issued   = state.pigIron.filter(r => r.kind === 'Issue').reduce((a, r) => a + num(r.weight), 0);
-  const returned = state.challans.reduce((a, c) => a + num(c.actualTotalWeight), 0);
-  return {received, issued, returned, atJayco: received - issued, atFoundries: issued - returned};
+function pigTotals(focus){
+  const received  = state.pigIron.filter(r => r.kind === 'Receipt').reduce((a, r) => a + num(r.weight), 0);
+  const issuedAll = state.pigIron.filter(r => r.kind === 'Issue').reduce((a, r) => a + num(r.weight), 0);
+  const issued   = state.pigIron.filter(r => r.kind === 'Issue' && pigInFocus(r.foundryName, focus)).reduce((a, r) => a + num(r.weight), 0);
+  const returned = state.challans.filter(c => pigInFocus(c.foundryName, focus)).reduce((a, c) => a + num(c.actualTotalWeight), 0);
+  return {received, issued, returned, atJayco: received - issuedAll, atFoundries: issued - returned};
 }
 
 /* how much pig iron each foundry is still holding */
-function pigByFoundry(){
+function pigByFoundry(focus){
   const map = new Map();
   const bump = (name, field, v) => {
     if(!name) return;
     const e = map.get(name) || {name, issued:0, returned:0};
     e[field] += v; map.set(name, e);
   };
-  state.pigIron.filter(r => r.kind === 'Issue').forEach(r => bump(r.foundryName, 'issued', num(r.weight)));
-  state.challans.forEach(c => bump(c.foundryName, 'returned', num(c.actualTotalWeight)));
+  state.pigIron.filter(r => r.kind === 'Issue' && pigInFocus(r.foundryName, focus)).forEach(r => bump(r.foundryName, 'issued', num(r.weight)));
+  state.challans.filter(c => pigInFocus(c.foundryName, focus)).forEach(c => bump(c.foundryName, 'returned', num(c.actualTotalWeight)));
   return [...map.values()]
     .map(e => ({...e, balance: e.issued - e.returned}))
     .sort((a, b) => b.balance - a.balance);
@@ -1293,14 +1302,14 @@ function pigByFoundry(){
 
 /* Every party that appears anywhere in the pig iron record: clients who sent
    material in, and foundries it was issued to. */
-function pigParties(){
+function pigParties(focus){
   const clients = [...new Set(state.pigIron.filter(r => r.kind === 'Receipt')
                     .map(r => r.clientName).filter(Boolean))]
                   .map(name => ({name, type:'Client'}));
   const foundries = [...new Set([
       ...state.pigIron.filter(r => r.kind === 'Issue').map(r => r.foundryName),
       ...state.challans.map(c => c.foundryName)
-    ].filter(Boolean))].map(name => ({name, type:'Foundry'}));
+    ].filter(n => n && pigInFocus(n, focus)))].map(name => ({name, type:'Foundry'}));
   return [...clients, ...foundries];
 }
 
@@ -1331,30 +1340,33 @@ function pigPartyLedger(name, type){
 }
 
 function viewPigIron(){
-  const t = pigTotals();
-  const byF = pigByFoundry();
-  const ledger = pigLedger().filter(r => match(r.party, r.kind, r.ref, r.notes)).reverse();
+  const F = state.pigFocus;
+  const t = pigTotals(F);
+  const byF = pigByFoundry(F);
+  const ledger = pigLedger(F).filter(r => match(r.party, r.kind, r.ref, r.notes)).reverse();
   const kindBadge = k => k === 'Receipt' ? '<span class="badge ok">Receipt</span>'
                        : k === 'Issue'   ? '<span class="badge warn">Issued to foundry</span>'
                                          : '<span class="badge neutral">Casting received</span>';
   return `
   <div class="metrics">
     <div class="metric-card"><p class="lbl">Received from clients</p><p class="val">${fmtWt(t.received)}</p><p class="note">Total inward pig iron</p></div>
-    <div class="metric-card"><p class="lbl">Issued to foundries</p><p class="val">${fmtWt(t.issued)}</p><p class="note">Sent out for casting</p></div>
+    <div class="metric-card"><p class="lbl">${F ? 'Issued to these foundries' : 'Issued to foundries'}</p><p class="val">${fmtWt(t.issued)}</p><p class="note">Sent out for casting</p></div>
     <div class="metric-card dark"><p class="lbl">In stock at JAYCO</p><p class="val">${fmtWt(t.atJayco)}</p><p class="note">Received less issued</p></div>
-    <div class="metric-card red"><p class="lbl">Lying at foundries</p><p class="val">${fmtWt(t.atFoundries)}</p><p class="note">Issued less castings returned</p></div>
+    <div class="metric-card red"><p class="lbl">${F ? 'Lying at these foundries' : 'Lying at foundries'}</p><p class="val">${fmtWt(t.atFoundries)}</p><p class="note">Issued less castings returned</p></div>
   </div>
 
   <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:20px;align-items:center">
-    <span class="eyebrow" style="margin-right:4px">Ledger for</span>
-    ${ ['All', ...pigParties().map(p=>p.name)].map(n => `
+    <button class="btn ${F ? 'primary' : ''}" data-pig-focus="" style="padding:6px 14px;font-size:12.5px"
+      title="Show pig iron status for ${esc(PIG_FOCUS.join(' and '))} only">${F ? '✓ ' : ''}${esc(PIG_FOCUS.join(' + '))} only</button>
+    <span class="eyebrow" style="margin:0 4px 0 12px">Ledger for</span>
+    ${ ['All', ...pigParties(F).map(p=>p.name)].map(n => `
       <button class="btn ${ (state.pigParty||'All') === n ? 'primary' : '' }" data-pig-party="${esc(n)}"
         style="padding:6px 14px;font-size:12.5px">${esc(n)}</button>`).join('') }
   </div>
 
   <section class="data-panel">
     <div class="panel-heading">
-      <div><p class="eyebrow">Balance by foundry</p><h2 class="panel-title">Pig iron with each foundry</h2>
+      <div><p class="eyebrow">Balance by foundry</p><h2 class="panel-title">Pig iron with ${F ? esc(PIG_FOCUS.join(' and ')) : 'each foundry'}</h2>
       <p style="margin:8px 0 0;font-size:13px;color:var(--ink-soft);line-height:1.6">Castings received on a closed challan are deducted automatically — nothing to key in.</p></div>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
         <button class="btn" id="btn-pig-print">Print</button>
@@ -1375,7 +1387,7 @@ function viewPigIron(){
     </table></div>
   </section>
 
-  ${ pigParties()
+  ${ pigParties(F)
       .filter(pt => !state.pigParty || state.pigParty === 'All' || state.pigParty === pt.name)
       .map(pt => {
     const L = pigPartyLedger(pt.name, pt.type);
@@ -2821,7 +2833,7 @@ async function savePattern(){
    7. EVENTS
    ========================================================================== */
 document.addEventListener('click', async (e) => {
-  const t = e.target.closest('[data-view],[data-go],[data-new-challan],[data-view-challan],[data-edit-challan],[data-del-challan],[data-open-casting],[data-del-casting],[data-open-type],[data-del-type],[data-open-foundry],[data-del-foundry],[data-close],[data-rm-po],[data-rm-item],[data-quick-add],[data-quick-add-po],[data-open-pdf],[data-row-pdf],[data-pig-party],[data-pig-party-pdf],[data-open-pig-receipt],[data-open-pig-issue],[data-edit-pig],[data-del-pig],[data-pdf-challan],[data-wa-challan],[data-edit-po],[data-del-po],[data-pdf-po],[data-wa-po],[data-rm-po-item],[data-foundry-pdf]');
+  const t = e.target.closest('[data-view],[data-pig-focus],[data-go],[data-new-challan],[data-view-challan],[data-edit-challan],[data-del-challan],[data-open-casting],[data-del-casting],[data-open-type],[data-del-type],[data-open-foundry],[data-del-foundry],[data-close],[data-rm-po],[data-rm-item],[data-quick-add],[data-quick-add-po],[data-open-pdf],[data-row-pdf],[data-pig-party],[data-pig-party-pdf],[data-open-pig-receipt],[data-open-pig-issue],[data-edit-pig],[data-del-pig],[data-pdf-challan],[data-wa-challan],[data-edit-po],[data-del-po],[data-pdf-po],[data-wa-po],[data-rm-po-item],[data-foundry-pdf]');
   if(!t) return;
   const d = t.dataset;
 
@@ -2861,6 +2873,7 @@ document.addEventListener('click', async (e) => {
   if(d.openCasting !== undefined){ modalCasting(d.openCasting, null); return; }
   if(d.openType !== undefined){ modalType(d.openType); return; }
   if(d.openFoundry !== undefined){ modalFoundry(d.openFoundry); return; }
+  if(d.pigFocus !== undefined){ state.pigFocus = !state.pigFocus; state.pigParty = 'All'; render(); return; }
   if(d.pigParty){ state.pigParty = d.pigParty; render(); window.scrollTo(0,0); return; }
   if(d.pigPartyPdf){ downloadPartyLedgerPdf(d.pigPartyPdf); return; }
   if(d.foundryPdf){ downloadFoundryReportPdf(d.foundryPdf); return; }
@@ -3285,7 +3298,7 @@ function buildPigPdf(){
   doc.setFont('helvetica','normal'); doc.setFontSize(8); doc.setTextColor(...MUT);
   doc.text('As on ' + fmtDate(today()), rx, y, {align:'right'});
 
-  const t = pigTotals();
+  const t = pigTotals(state.pigFocus);
   y += 14;
   const bw = (CW - 30) / 4;
   [['RECEIVED', fmtWt(t.received)], ['ISSUED', fmtWt(t.issued)],
@@ -3305,7 +3318,7 @@ function buildPigPdf(){
   doc.autoTable({
     startY: y + 8, margin:{left:M,right:M},
     head: [['FOUNDRY','ISSUED','CASTINGS RETURNED','BALANCE']],
-    body: pigByFoundry().map(e => [e.name, fmtWt(e.issued), fmtWt(e.returned), fmtWt(e.balance)]),
+    body: pigByFoundry(state.pigFocus).map(e => [e.name, fmtWt(e.issued), fmtWt(e.returned), fmtWt(e.balance)]),
     styles:{fontSize:8.4, cellPadding:6.5, lineColor:LINE, lineWidth:0.5, textColor:INK},
     headStyles:{fillColor:SOFT, textColor:MUT, fontStyle:'bold', fontSize:6.4, halign:'center', cellPadding:7, lineColor:LINE, lineWidth:0.5},
     columnStyles:{1:{halign:'right'},2:{halign:'right'},3:{halign:'right',fontStyle:'bold'}}
@@ -3317,7 +3330,7 @@ function buildPigPdf(){
   doc.autoTable({
     startY: y + 8, margin:{left:M,right:M},
     head: [['DATE','MOVEMENT','PARTY','REFERENCE','WEIGHT']],
-    body: pigLedger().slice(-60).reverse().map(r => [
+    body: pigLedger(state.pigFocus).slice(-60).reverse().map(r => [
       fmtDate(r.date), r.kind, r.party, r.ref || '—',
       (r.kind==='Receipt'?'+':(r.kind==='Issue'?'-':'')) + fmtWt(r.weight)
     ]),
@@ -3539,7 +3552,7 @@ function downloadPigPdf(){
 }
 
 function sharePigWhatsApp(){
-  const t = pigTotals();
+  const t = pigTotals(state.pigFocus);
   const lines = [
     '*JAYCO ENGINEERING INDIA*','*Pig Iron Statement*', 'As on ' + fmtDate(today()), '',
     `Received from clients: ${fmtWt(t.received)}`,
@@ -3547,7 +3560,7 @@ function sharePigWhatsApp(){
     `In stock at JAYCO: ${fmtWt(t.atJayco)}`,
     `Lying at foundries: ${fmtWt(t.atFoundries)}`,
     '', '*Balance by foundry*',
-    ...pigByFoundry().map(e => `${e.name}: ${fmtWt(e.balance)} (issued ${fmtWt(e.issued)}, returned ${fmtWt(e.returned)})`),
+    ...pigByFoundry(state.pigFocus).map(e => `${e.name}: ${fmtWt(e.balance)} (issued ${fmtWt(e.issued)}, returned ${fmtWt(e.returned)})`),
     '', 'Castings returned are deducted automatically from closed challans.'
   ];
   window.open('https://wa.me/?text=' + encodeURIComponent(lines.join('\n')), '_blank', 'noopener');
