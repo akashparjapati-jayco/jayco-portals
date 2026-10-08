@@ -770,7 +770,7 @@ function onCustomerPick(){
   const set = (id, v) => { if(v !== undefined && v !== '' && $('#' + id)) $('#' + id).value = v; };
   set('qd_contact', c.contact); set('qd_phone', c.phone); set('qd_email', c.email); set('qd_gstin', c.gstin); set('qd_state', c.state); set('qd_addr', c.address); set('qd_pay', c.paymentTerms);
   QD.customerId = c.id; readHeader();
-  if(num(c.discountPct)){ QD.items.forEach(it => { if(!num(it.discPct)) it.discPct = num(c.discountPct); }); drawLines(); }
+  if(num(c.discountPct)){ QD.items.forEach(it => { if(!num(it.discPct)) it.discPct = num(c.discountPct); }); syncLines(); }
   drawTotals(); toast('Customer details filled' + (num(c.discountPct) ? ' · ' + c.discountPct + '% customer discount applied' : ''));
 }
 function drawLines(){
@@ -780,6 +780,12 @@ function drawLines(){
     <td><input data-f="listRate" type="number" min="0" step="0.01" value="${it.listRate}" style="text-align:right"></td><td><input data-f="discPct" type="number" min="0" max="100" step="0.1" value="${it.discPct}" style="text-align:right"></td>
     <td><input data-f="gstPct" type="number" min="0" step="0.1" value="${it.gstPct}" style="text-align:right"></td><td class="num" data-amt>—</td>
     <td><button class="btn sm gh dang" data-act="rmLine" data-i="${i}" title="Remove">✕</button></td></tr>`).join('');
+  refreshAmounts();
+}
+/* push QD values into the existing line inputs without rebuilding them (keeps focus and typing) */
+function syncLines(){
+  $$('#qLines tr').forEach((tr, i) => { const it = QD.items[i]; if(!it) return;
+    $$('[data-f]', tr).forEach(inp => { const v = it[inp.dataset.f]; if(v !== undefined && String(inp.value) !== String(v)) inp.value = v; }); });
   refreshAmounts();
 }
 function refreshAmounts(){ const c = calcQuote(QD); $$('#qLines tr').forEach((tr, i) => { const el = $('[data-amt]', tr); if(el) el.textContent = c.lines[i] ? inr(c.lines[i].amt) : '—'; }); }
@@ -810,7 +816,7 @@ function applyItemCode(tr, input){
     if(!num(it.discPct) && cust && num(cust.discountPct)) it.discPct = num(cust.discountPct); if(!num(r.rate)) toast(code + ' has no rate in the Price List — enter one', 'warn'); }
   else if(m){ it.description = m.description || it.description; toast(code + ' is not in the Price List yet — enter the rate', 'warn'); }
   else if(code) toast(code + ' is a new item — enter details and the rate', 'warn');
-  drawLines(); drawTotals();
+  syncLines(); drawTotals();
 }
 ACT.addLine = () => { readHeader(); QD.items.push(blankLine()); drawLines(); drawTotals(); };
 ACT.rmLine = el => { if(QD.items.length === 1) return; QD.items.splice(+el.dataset.i, 1); drawLines(); drawTotals(); };
@@ -1190,19 +1196,19 @@ ACT.saveCust = async el => {
 /* ============================================================
    PRICE LIST
    ============================================================ */
-let RQ = '';
+let RQ = '', RSER = '';
 function viewRates(){
   setTitle('Price List', 'List rate, HSN and GST per item — customer discounts apply on top');
   $('#topr').innerHTML = `<button class="btn" data-act="rateFromMaster">⇣ Add items from PO master</button><button class="btn" data-act="rateIncrease">% Revise all</button><button class="btn" data-act="rateExport">⭳ Excel</button>
     <label class="btn">⇪ Import Excel<input type="file" id="rateFile" accept=".xlsx,.xls,.csv" hidden></label><button class="btn pri" data-act="editRate" data-id="">＋ Add item</button>`;
   $('#view').innerHTML = `<div class="note">Excel columns: <b>Item Code, Description, HSN, Unit, Rate, GST %, Material</b>. Existing items are updated by item code.</div>
-    <div class="card"><div class="card-b" style="display:flex;gap:10px;align-items:center"><input id="rqs" placeholder="Search item code or description…" value="${esc(RQ)}" style="max-width:320px"><span class="hint">${RATES.length} items · ${RATES.filter(r => !num(r.rate)).length} without a rate</span></div><div class="tw" id="rBody"></div></div>`;
-  $('#rqs').oninput = e => { RQ = e.target.value; drawRates(); }; $('#rateFile').onchange = importRates; drawRates();
+    <div class="card"><div class="card-b" style="display:flex;gap:10px;align-items:center"><input id="rqs" placeholder="Search item code or description…" value="${esc(RQ)}" style="max-width:320px"><select id="rser" style="width:auto"><option value="">All series</option>${[...new Set(RATES.map(r => r.series).filter(Boolean))].sort().map(x => `<option ${x===RSER?'selected':''}>${esc(x)}</option>`).join('')}</select><span class="hint">${RATES.length} items · ${RATES.filter(r => !num(r.rate)).length} without a rate</span></div><div class="tw" id="rBody"></div></div>`;
+  $('#rqs').oninput = e => { RQ = e.target.value; drawRates(); }; $('#rser').onchange = e => { RSER = e.target.value; drawRates(); }; $('#rateFile').onchange = importRates; drawRates();
 }
 function drawRates(){
-  const q = RQ.toLowerCase(), list = RATES.filter(r => !q || [r.itemCode, r.description, r.hsn, r.material].join(' ').toLowerCase().includes(q)).sort((a,b) => String(a.itemCode).localeCompare(String(b.itemCode), 'en', {numeric: true}));
-  $('#rBody').innerHTML = `<table><thead><tr><th>Item code</th><th>Description</th><th>Material</th><th>HSN</th><th>Unit</th><th class="num">Rate (₹)</th><th class="num">GST %</th></tr></thead><tbody>
-  ${list.map(r => `<tr class="click" data-act="editRate" data-id="${r.id}"><td><b>${esc(r.itemCode)}</b></td><td>${esc(r.description || '')}</td><td>${esc(r.material || '')}</td><td class="mono">${esc(r.hsn || '')}</td><td>${esc(r.unit || '')}</td><td class="num">${num(r.rate) ? inr(r.rate) : '<span class="pill warn">set rate</span>'}</td><td class="num">${r.gstPct ?? ''}</td></tr>`).join('') || '<tr><td colspan="7" class="empty">No items — add items, import from Excel, or pull them from the PO master.</td></tr>'}</tbody></table>`;
+  const q = RQ.toLowerCase(), list = RATES.filter(r => (!RSER || r.series === RSER) && (!q || [r.itemCode, r.description, r.hsn, r.material, r.series].join(' ').toLowerCase().includes(q))).sort((a,b) => String(a.itemCode).localeCompare(String(b.itemCode), 'en', {numeric: true}));
+  $('#rBody').innerHTML = `<table><thead><tr><th>Item code</th><th>Description</th><th>Series</th><th>HSN</th><th>Unit</th><th class="num">Rate (₹)</th><th class="num">GST %</th></tr></thead><tbody>
+  ${list.slice(0, 400).map(r => `<tr class="click" data-act="editRate" data-id="${r.id}"><td><b>${esc(r.itemCode)}</b></td><td>${esc(r.description || '')}</td><td class="hint">${esc(r.series || r.material || '')}</td><td class="mono">${esc(r.hsn || '')}</td><td>${esc(r.unit || '')}</td><td class="num">${num(r.rate) ? inr(r.rate) : '<span class="pill warn">set rate</span>'}</td><td class="num">${r.gstPct ?? ''}</td></tr>`).join('') || '<tr><td colspan="7" class="empty">No items — add items, import from Excel, or pull them from the PO master.</td></tr>'}</tbody></table>${list.length > 400 ? `<div class="hint" style="padding:10px 14px">Showing the first 400 of ${list.length} — narrow the search or pick a series.</div>` : ''}`;
 }
 ACT.editRate = el => {
   const r = RATES.find(x => x.id === el.dataset.id) || {};
@@ -1233,17 +1239,34 @@ ACT.doIncrease = async () => {
 ACT.rateExport = () => { const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(RATES.map(r => ({'Item Code': r.itemCode, Description: r.description, Material: r.material, HSN: r.hsn, Unit: r.unit, Rate: r.rate, 'GST %': r.gstPct}))), 'Price List'); XLSX.writeFile(wb, 'Jayco_Price_List_' + todayISO() + '.xlsx'); };
 async function importRates(e){
   const f = e.target.files[0]; if(!f) return;
-  const wb = XLSX.read(await f.arrayBuffer(), {type:'array'}), rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], {defval:''});
-  const pick = (r, ...ks) => { for(const k of Object.keys(r)){ if(ks.includes(k.toLowerCase().replace(/[\s._%]+/g, ''))) return r[k]; } return ''; };
-  let add = 0, upd = 0;
+  const wb = XLSX.read(await f.arrayBuffer(), {type:'array'}), sheet = wb.Sheets['Price List'] || wb.Sheets[wb.SheetNames.find(n => !/about|check/i.test(n)) || wb.SheetNames[0]];
+  const rows = XLSX.utils.sheet_to_json(sheet, {defval:''});
+  const pick = (r, ...ks) => { for(const k of Object.keys(r)){ if(ks.includes(k.toLowerCase().replace(/[\s._%()\/]+/g, ''))) return r[k]; } return ''; };
+  const ops = [], seen = new Set(); let skipped = 0;
   for(const r of rows){
-    const code = String(pick(r, 'itemcode', 'code', 'item')).trim(); if(!code) continue;
-    const data = {itemCode: code, description: String(pick(r, 'description', 'desc', 'itemdescription')).trim(), hsn: String(pick(r, 'hsn', 'hsncode')).trim(), unit: String(pick(r, 'unit', 'uom')).trim() || 'Nos', rate: num(pick(r, 'rate', 'price', 'listrate')), gstPct: pick(r, 'gst', 'gstpct', 'gstrate') === '' ? num(SET.defaultGst) : num(pick(r, 'gst', 'gstpct', 'gstrate')), material: String(pick(r, 'material')).trim()};
-    const ex = lookupRate(code);
-    if(ex){ await DB.update('crm_rates', ex.id, data); Object.assign(ex, data); upd++; } else { data.id = await DB.add('crm_rates', data); RATES.push(data); add++; }
+    const code = String(pick(r, 'itemcode', 'code', 'item')).trim(); if(!code || seen.has(code.toLowerCase())){ if(code) skipped++; continue; } seen.add(code.toLowerCase());
+    const gstRaw = pick(r, 'gst', 'gstpct', 'gstrate');
+    const data = {itemCode: code, description: String(pick(r, 'description', 'desc', 'itemdescription')).trim(), hsn: String(pick(r, 'hsn', 'hsncode')).trim(), unit: String(pick(r, 'unit', 'uom')).trim() || 'Nos',
+      rate: num(pick(r, 'rate', 'price', 'listrate', 'mrp')), gstPct: gstRaw === '' ? num(SET.defaultGst) : num(gstRaw), material: String(pick(r, 'material')).trim()};
+    const series = String(pick(r, 'series')).trim(), dia = pick(r, 'shaftboremm', 'shaftdia', 'bore'), wt = pick(r, 'weightkg', 'weight');
+    if(series) data.series = series; if(dia !== '') data.dia = num(dia); if(wt !== '') data.weight = num(wt);
+    ops.push(data);
   }
-  toast(`Imported: ${add} added, ${upd} updated`); viewRates();
+  if(!ops.length){ toast('No item rows found in that file', 'err'); return; }
+  if(!confirm(`Import ${ops.length} items from "${f.name}"?\n\nExisting item codes are updated; new ones are added.`)) { e.target.value = ''; return; }
+  let add = 0, upd = 0, done = 0; const t0 = toastProgress('Importing price list… 0 / ' + ops.length);
+  for(let i = 0; i < ops.length; i += 25){
+    await Promise.all(ops.slice(i, i + 25).map(async data => {
+      const ex = lookupRate(data.itemCode);
+      if(ex){ await DB.update('crm_rates', ex.id, data); Object.assign(ex, data); upd++; }
+      else { const id = await DB.add('crm_rates', data); RATES.push({...data, id}); add++; }
+    }));
+    done = Math.min(i + 25, ops.length); t0.textContent = 'Importing price list… ' + done + ' / ' + ops.length;
+  }
+  t0.remove(); e.target.value = '';
+  toast(`Imported ${ops.length} items: ${add} added, ${upd} updated` + (skipped ? ` · ${skipped} duplicate code(s) skipped` : '') + (ops.some(o => !o.rate) ? ` · ${ops.filter(o => !o.rate).length} without a rate` : ''), 'ok'); viewRates();
 }
+function toastProgress(msg){ const t = document.createElement('div'); t.className = 'toast warn'; t.textContent = msg; $('#toasts').appendChild(t); return t; }
 
 /* ============================================================
    REPORTS
