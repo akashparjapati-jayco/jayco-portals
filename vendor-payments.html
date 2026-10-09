@@ -253,11 +253,8 @@ async function createVendor(vendor) {
     serverTimestamp
   } = fb();
   return addDoc(collection(db, "vendors"), {
+    ...vendor,
     name: vendor.name,
-    gstin: vendor.gstin || "",
-    contactPerson: vendor.contactPerson || "",
-    phone: vendor.phone || "",
-    email: vendor.email || "",
     creditDays: Number(vendor.creditDays) || 0,
     creditLimit: Number(vendor.creditLimit) || 0,
     openingBalance: round2(vendor.openingBalance || 0),
@@ -856,6 +853,9 @@ const NAV_GROUPS = [{
 }, {
   label: "TOOLS",
   items: [{
+    id: "settings",
+    label: "⚙️ Settings"
+  }, {
     id: "import",
     label: "📥 Excel Import"
   }]
@@ -1496,186 +1496,452 @@ function StatCardLinked({
     }
   }, linkText, " →"));
 }
-function Vendors({
-  vendors,
-  invoices,
-  onRefresh,
-  onOpenStatement
-}) {
+/* ===== Vendor master: validation, settings, Tally / ICICI / remittance helpers ===== */
+const h = React.createElement;
+const GST_STATES = {"01":"Jammu & Kashmir","02":"Himachal Pradesh","03":"Punjab","04":"Chandigarh","05":"Uttarakhand","06":"Haryana","07":"Delhi","08":"Rajasthan","09":"Uttar Pradesh","10":"Bihar","11":"Sikkim","12":"Arunachal Pradesh","13":"Nagaland","14":"Manipur","15":"Mizoram","16":"Tripura","17":"Meghalaya","18":"Assam","19":"West Bengal","20":"Jharkhand","21":"Odisha","22":"Chhattisgarh","23":"Madhya Pradesh","24":"Gujarat","26":"Dadra & Nagar Haveli and Daman & Diu","27":"Maharashtra","29":"Karnataka","30":"Goa","31":"Lakshadweep","32":"Kerala","33":"Tamil Nadu","34":"Puducherry","35":"Andaman & Nicobar Islands","36":"Telangana","37":"Andhra Pradesh","38":"Ladakh"};
+const STATE_LIST = Object.values(GST_STATES).sort();
+const IFSC_BANKS = {ICIC:"ICICI Bank",HDFC:"HDFC Bank",SBIN:"State Bank of India",UTIB:"Axis Bank",KKBK:"Kotak Mahindra Bank",PUNB:"Punjab National Bank",BARB:"Bank of Baroda",CNRB:"Canara Bank",IDIB:"Indian Bank",YESB:"Yes Bank",INDB:"IndusInd Bank",BKID:"Bank of India",UBIN:"Union Bank of India",IBKL:"IDBI Bank",MAHB:"Bank of Maharashtra",FDRL:"Federal Bank",IOBA:"Indian Overseas Bank",CBIN:"Central Bank of India",SIBL:"South Indian Bank",KARB:"Karnataka Bank",RATN:"RBL Bank",SRCB:"Saraswat Bank",GSCB:"Gujarat State Co-op Bank"};
+const GST_RE = /^\d{2}[A-Z]{5}\d{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/;
+const PAN_RE = /^[A-Z]{5}\d{4}[A-Z]$/;
+const IFSC_RE = /^[A-Z]{4}0[A-Z0-9]{6}$/;
+const UDYAM_RE = /^UDYAM-[A-Z]{2}-\d{2}-\d{7}$/;
+const EMAIL_RE = /^[^\s@,;]+@[^\s@,;]+\.[^\s@,;]+$/;
+const TDS_SECTIONS = {"194C":["Contractor / job work","1"],"194Q":["Purchase of goods (> 50 lakh)","0.1"],"194J":["Professional / technical fees","10"],"194H":["Commission / brokerage","5"],"194I":["Rent","10"],"194A":["Interest (non-bank)","10"]};
+const MSME_LABEL = {none:"Not MSME",micro:"Micro",small:"Small",medium:"Medium"};
+const upper = s => String(s || "").toUpperCase().replace(/\s+/g, "");
+function maskAcct(a) { a = String(a || ""); return a.length > 4 ? "••••" + a.slice(-4) : a; }
+function bankComplete(v) { return !!(v.accountHolder && /^\d{9,18}$/.test(v.accountNo || "") && IFSC_RE.test(v.ifsc || "") && v.bankName); }
+function vendorMissing(v) {
+  const m = [];
+  if (!v.gstType || (v.gstType === "registered" ? !GST_RE.test(v.gstin || "") : false)) m.push("GSTIN");
+  if (!PAN_RE.test(v.pan || "")) m.push("PAN");
+  if (!v.state || !v.address) m.push("Address");
+  if (!bankComplete(v)) m.push("Bank");
+  if (!v.msme) m.push("MSME");
+  return m;
+}
+function vendorErrors(f, vendors, editingId, bankChanged) {
+  const e = {};
+  const name = f.name.trim();
+  if (!name) e.name = "Required";
+  else if (vendors.some(v => v.id !== editingId && v.name.trim().toLowerCase() === name.toLowerCase())) e.name = "A vendor with this name already exists";
+  if (!f.gstType) e.gstType = "Choose Registered or Unregistered";
+  if (f.gstType === "registered") {
+    if (!GST_RE.test(upper(f.gstin))) e.gstin = "Enter a valid 15-character GSTIN";
+    else if (vendors.some(v => v.id !== editingId && upper(v.gstin) === upper(f.gstin))) e.gstin = "GSTIN already used by another vendor";
+  }
+  const pan = upper(f.pan);
+  if (!PAN_RE.test(pan)) e.pan = "Enter a valid 10-character PAN (e.g. ABCDE1234F)";
+  else if (f.gstType === "registered" && GST_RE.test(upper(f.gstin)) && upper(f.gstin).slice(2, 12) !== pan) e.pan = "PAN does not match the GSTIN";
+  if (!f.address.trim()) e.address = "Required";
+  if (!f.state) e.state = "Required";
+  else if (f.gstType === "registered" && GST_RE.test(upper(f.gstin)) && GST_STATES[upper(f.gstin).slice(0, 2)] !== f.state) e.state = "State does not match GSTIN (" + (GST_STATES[upper(f.gstin).slice(0, 2)] || "?") + ")";
+  if (f.pincode && !/^\d{6}$/.test(f.pincode)) e.pincode = "6 digits";
+  if (!f.accountHolder.trim()) e.accountHolder = "Required";
+  if (!/^\d{9,18}$/.test(f.accountNo)) e.accountNo = "9–18 digits, numbers only";
+  else if (bankChanged && f.accountNo !== f.accountNo2) e.accountNo2 = "Account numbers do not match";
+  if (!IFSC_RE.test(upper(f.ifsc))) e.ifsc = "Invalid IFSC (e.g. ICIC0001234)";
+  if (!f.bankName.trim()) e.bankName = "Required";
+  if (!f.msme) e.msme = "Required";
+  else if (f.msme !== "none" && !UDYAM_RE.test(upper(f.udyam))) e.udyam = "Udyam number like UDYAM-GJ-01-1234567";
+  if (f.email && !f.email.split(/[,;]/).every(x => EMAIL_RE.test(x.trim()))) e.email = "Invalid email";
+  if (f.emailCc && !f.emailCc.split(/[,;]/).every(x => EMAIL_RE.test(x.trim()))) e.emailCc = "Invalid email";
+  if (f.tdsApplicable && (!f.tdsSection || f.tdsRate === "" || isNaN(Number(f.tdsRate)))) e.tdsSection = "Pick section and rate";
+  return e;
+}
+function vendorPayload(f) {
+  return {
+    name: f.name.trim(), tallyName: (f.tallyName || f.name).trim(), gstType: f.gstType,
+    gstin: f.gstType === "registered" ? upper(f.gstin) : "", pan: upper(f.pan),
+    address: f.address.trim(), city: f.city.trim(), state: f.state, pincode: f.pincode.trim(),
+    contactPerson: f.contactPerson.trim(), phone: f.phone.trim(), email: f.email.trim(), emailCc: f.emailCc.trim(),
+    creditDays: Number(f.creditDays) || 0, creditLimit: Number(f.creditLimit) || 0,
+    msme: f.msme, udyam: f.msme === "none" ? "" : upper(f.udyam),
+    tdsApplicable: !!f.tdsApplicable, tdsSection: f.tdsApplicable ? f.tdsSection : "", tdsRate: f.tdsApplicable ? Number(f.tdsRate) : 0,
+    accountHolder: f.accountHolder.trim(), accountNo: f.accountNo.trim(), ifsc: upper(f.ifsc), bankName: f.bankName.trim(),
+    branch: f.branch.trim(), accountType: f.accountType || "Current",
+    notes: f.notes.trim()
+  };
+}
+/* ---- settings (Firestore settings/config, cached on window) ---- */
+const DEFAULT_SETTINGS = {companyName: "JAYCO Engineering India", scriptUrl: "", scriptKey: "", autoEmail: true, bccEmail: "", replyTo: "", tallyCompany: "", tallyBankLedger: "ICICI Bank", tallyCashLedger: "Cash", iciciDebitAcct: "", tallyAction: "Alter"};
+window.__VPSET = {...DEFAULT_SETTINGS};
+async function loadSettings() {
+  try {
+    const d = await fb().db.collection("settings").doc("config").get();
+    if (d.exists) window.__VPSET = {...DEFAULT_SETTINGS, ...d.data()};
+  } catch (err) { console.warn("settings load failed", err); }
+  return window.__VPSET;
+}
+async function saveSettings(s) {
+  await fb().db.collection("settings").doc("config").set(s, {merge: true});
+  window.__VPSET = {...DEFAULT_SETTINGS, ...s};
+}
+/* ---- downloads ---- */
+function downloadText(name, text, mime) {
+  const url = URL.createObjectURL(new Blob([text], {type: mime || "text/plain"}));
+  const a = document.createElement("a"); a.href = url; a.download = name; document.body.appendChild(a); a.click();
+  setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 500);
+}
+const xe = s => String(s == null ? "" : s).replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+const tallyDate = iso => String(iso || "").slice(0, 10).replace(/-/g, "");
+function tallyEnvelope(report, inner) {
+  const S = window.__VPSET;
+  return '<?xml version="1.0" encoding="UTF-8"?>\n<ENVELOPE>\n <HEADER><TALLYREQUEST>Import Data</TALLYREQUEST></HEADER>\n <BODY><IMPORTDATA>\n  <REQUESTDESC><REPORTNAME>' + report + '</REPORTNAME><STATICVARIABLES>' + (S.tallyCompany ? '<SVCURRENTCOMPANY>' + xe(S.tallyCompany) + '</SVCURRENTCOMPANY>' : '') + '</STATICVARIABLES></REQUESTDESC>\n  <REQUESTDATA>\n' + inner + '  </REQUESTDATA>\n </IMPORTDATA></BODY>\n</ENVELOPE>\n';
+}
+function tallyLedgersXml(vendors) {
+  const S = window.__VPSET;
+  const act = S.tallyAction === "Create" ? "Create" : "Alter";
+  const rows = vendors.map(v => {
+    const nm = xe(v.tallyName || v.name);
+    return '   <TALLYMESSAGE xmlns:UDF="TallyUDF"><LEDGER NAME="' + nm + '" ACTION="' + act + '">\n' +
+      '    <NAME.LIST><NAME>' + nm + '</NAME></NAME.LIST><PARENT>Sundry Creditors</PARENT><ISBILLWISEON>Yes</ISBILLWISEON>\n' +
+      '    <COUNTRYOFRESIDENCE>India</COUNTRYOFRESIDENCE><LEDSTATENAME>' + xe(v.state) + '</LEDSTATENAME><PINCODE>' + xe(v.pincode) + '</PINCODE>\n' +
+      '    <GSTREGISTRATIONTYPE>' + (v.gstType === "registered" ? "Regular" : "Unregistered/Consumer") + '</GSTREGISTRATIONTYPE>' + (v.gstin ? '<PARTYGSTIN>' + xe(v.gstin) + '</PARTYGSTIN>' : '') + '<INCOMETAXNUMBER>' + xe(v.pan) + '</INCOMETAXNUMBER>\n' +
+      '    <ADDRESS.LIST><ADDRESS>' + xe(v.address) + '</ADDRESS>' + (v.city ? '<ADDRESS>' + xe(v.city) + '</ADDRESS>' : '') + '</ADDRESS.LIST>\n' +
+      '    <LEDGERCONTACT>' + xe(v.contactPerson) + '</LEDGERCONTACT><LEDGERMOBILE>' + xe(v.phone) + '</LEDGERMOBILE><EMAIL>' + xe((v.email || "").split(/[,;]/)[0].trim()) + '</EMAIL>\n' +
+      '    <BANKDETAILS.LIST><ACCOUNTNUMBER>' + xe(v.accountNo) + '</ACCOUNTNUMBER><IFSCODE>' + xe(v.ifsc) + '</IFSCODE><BANKNAME>' + xe(v.bankName) + '</BANKNAME><ACCOUNTHOLDERNAME>' + xe(v.accountHolder) + '</ACCOUNTHOLDERNAME></BANKDETAILS.LIST>\n' +
+      '   </LEDGER></TALLYMESSAGE>\n';
+  }).join("");
+  return tallyEnvelope("All Masters", rows);
+}
+function paymentRealMoney(p) { return p.mode !== "advance_adjustment" && Number(p.amount) > 0; }
+function tallyPaymentsXml(payments, vendorMap) {
+  const S = window.__VPSET;
+  const vch = payments.map(p => {
+    const v = vendorMap[p.vendorId]; if (!v) return "";
+    const vn = xe(v.tallyName || v.name), amt = Number(p.amount).toFixed(2);
+    const bank = xe(p.mode === "Cash" ? S.tallyCashLedger : S.tallyBankLedger);
+    const bills = (p.allocations || []).map(a => '     <BILLALLOCATIONS.LIST><NAME>' + xe(a.invoiceNo) + '</NAME><BILLTYPE>Agst Ref</BILLTYPE><AMOUNT>-' + Number(a.amountApplied).toFixed(2) + '</AMOUNT></BILLALLOCATIONS.LIST>\n').join("") +
+      (p.unallocatedAmount > 0 ? '     <BILLALLOCATIONS.LIST><NAME>' + xe(p.reference || "ADV-" + p.id.slice(0, 6).toUpperCase()) + '</NAME><BILLTYPE>Advance</BILLTYPE><AMOUNT>-' + Number(p.unallocatedAmount).toFixed(2) + '</AMOUNT></BILLALLOCATIONS.LIST>\n' : "");
+    const bankAlloc = p.mode === "Cash" ? "" : '     <BANKALLOCATIONS.LIST><DATE>' + tallyDate(p.paymentDate) + '</DATE><INSTRUMENTDATE>' + tallyDate(p.paymentDate) + '</INSTRUMENTDATE><TRANSACTIONTYPE>' + (p.mode === "Cheque" ? "Cheque/DD" : "e-Fund Transfer") + '</TRANSACTIONTYPE>' + (p.reference ? '<UNIQUEREFERENCENUMBER>' + xe(p.reference) + '</UNIQUEREFERENCENUMBER>' : '') + '<PAYMENTMODE>Transfer</PAYMENTMODE><AMOUNT>' + amt + '</AMOUNT></BANKALLOCATIONS.LIST>\n';
+    return '   <TALLYMESSAGE xmlns:UDF="TallyUDF"><VOUCHER VCHTYPE="Payment" ACTION="Create" OBJVIEW="Accounting Voucher View">\n' +
+      '    <DATE>' + tallyDate(p.paymentDate) + '</DATE><VOUCHERTYPENAME>Payment</VOUCHERTYPENAME><VOUCHERNUMBER>JP-' + xe(p.id.slice(0, 6).toUpperCase()) + '</VOUCHERNUMBER><PARTYLEDGERNAME>' + vn + '</PARTYLEDGERNAME>\n' +
+      '    <NARRATION>' + xe(p.mode + (p.reference ? " " + p.reference : "") + " – via Jayco Vendor Portal") + '</NARRATION>\n' +
+      '    <ALLLEDGERENTRIES.LIST><LEDGERNAME>' + vn + '</LEDGERNAME><ISDEEMEDPOSITIVE>Yes</ISDEEMEDPOSITIVE><AMOUNT>-' + amt + '</AMOUNT>\n' + bills + '    </ALLLEDGERENTRIES.LIST>\n' +
+      '    <ALLLEDGERENTRIES.LIST><LEDGERNAME>' + bank + '</LEDGERNAME><ISDEEMEDPOSITIVE>No</ISDEEMEDPOSITIVE><AMOUNT>' + amt + '</AMOUNT>\n' + bankAlloc + '    </ALLLEDGERENTRIES.LIST>\n' +
+      '   </VOUCHER></TALLYMESSAGE>\n';
+  }).join("");
+  return tallyEnvelope("Vouchers", vch);
+}
+const csvCell = s => { s = String(s == null ? "" : s); return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
+const dmy = iso => { const t = String(iso).slice(0, 10).split("-"); return t[2] + "-" + t[1] + "-" + t[0]; };
+/* Generic ICICI CIB-style bulk payment sheet. Column order must be matched to the bank's own template. */
+function iciciCsv(payments, vendorMap) {
+  const S = window.__VPSET, ok = [], skipped = [];
+  payments.forEach(p => {
+    const v = vendorMap[p.vendorId];
+    if (!v) return;
+    if (!["NEFT", "RTGS"].includes(p.mode)) { skipped.push(v.name + " – mode " + p.mode + " not bulk-uploadable"); return; }
+    if (!bankComplete(v)) { skipped.push(v.name + " – bank details incomplete"); return; }
+    if (p.mode === "RTGS" && p.amount < 200000) { skipped.push(v.name + " – RTGS needs ₹2,00,000 or more"); return; }
+    ok.push([p.mode === "RTGS" ? "R" : "N", S.iciciDebitAcct, v.accountHolder || v.name, v.accountNo, v.ifsc, Number(p.amount).toFixed(2), dmy(p.paymentDate), "JAYCO PAYMENT " + (p.reference || p.id.slice(0, 6).toUpperCase()), (v.email || "").split(/[,;]/)[0].trim(), "JP-" + p.id.slice(0, 6).toUpperCase()]);
+  });
+  const head = ["Payment Mode (N/R)", "Debit Account No", "Beneficiary Name", "Beneficiary Account No", "Beneficiary IFSC", "Amount", "Payment Date (DD-MM-YYYY)", "Narration", "Beneficiary Email", "Customer Reference"];
+  return {csv: [head].concat(ok).map(r => r.map(csvCell).join(",")).join("\r\n"), count: ok.length, skipped, total: ok.reduce((s, r) => s + Number(r[5]), 0)};
+}
+/* ---- remittance advice email ---- */
+function remittanceHtml(p, v, invoiceMap) {
+  const S = window.__VPSET, f = n => Number(n).toLocaleString("en-IN", {minimumFractionDigits: 2, maximumFractionDigits: 2});
+  const rows = (p.allocations || []).map(a => { const inv = invoiceMap[a.invoiceId]; return '<tr><td style="padding:6px 10px;border:1px solid #ddd">' + xe(a.invoiceNo) + '</td><td style="padding:6px 10px;border:1px solid #ddd">' + xe(inv ? dmy(inv.invoiceDate) : "") + '</td><td style="padding:6px 10px;border:1px solid #ddd;text-align:right">' + f(a.amountApplied) + '</td></tr>'; }).join("") +
+    (p.unallocatedAmount > 0 ? '<tr><td colspan="2" style="padding:6px 10px;border:1px solid #ddd">Advance / on account</td><td style="padding:6px 10px;border:1px solid #ddd;text-align:right">' + f(p.unallocatedAmount) + '</td></tr>' : "");
+  return '<div style="font-family:Arial,sans-serif;font-size:14px;color:#222"><p>Dear ' + xe(v.contactPerson || v.name) + ',</p><p>We have processed the following payment to <b>' + xe(v.name) + '</b>:</p>' +
+    '<table style="border-collapse:collapse;margin:8px 0"><tr><td style="padding:4px 14px 4px 0;color:#666">Amount</td><td><b>₹ ' + f(p.amount) + '</b></td></tr><tr><td style="padding:4px 14px 4px 0;color:#666">Date</td><td>' + xe(dmy(p.paymentDate)) + '</td></tr><tr><td style="padding:4px 14px 4px 0;color:#666">Mode</td><td>' + xe(p.mode) + '</td></tr>' +
+    (p.reference ? '<tr><td style="padding:4px 14px 4px 0;color:#666">UTR / Ref</td><td>' + xe(p.reference) + '</td></tr>' : '') +
+    (v.accountNo ? '<tr><td style="padding:4px 14px 4px 0;color:#666">Credited to</td><td>' + xe(v.bankName) + ' A/c ' + xe(maskAcct(v.accountNo)) + '</td></tr>' : '') + '</table>' +
+    (rows ? '<p style="margin:12px 0 4px"><b>Settled against:</b></p><table style="border-collapse:collapse"><tr style="background:#f3f3f3"><th style="padding:6px 10px;border:1px solid #ddd;text-align:left">Bill No.</th><th style="padding:6px 10px;border:1px solid #ddd;text-align:left">Bill Date</th><th style="padding:6px 10px;border:1px solid #ddd;text-align:right">Amount (₹)</th></tr>' + rows + '</table>' : '') +
+    '<p style="margin-top:16px">Please reconcile at your end and write to us if you find any difference.</p><p>Regards,<br>Accounts Department<br><b>' + xe(S.companyName) + '</b></p></div>';
+}
+async function sendRemittance(payment, vendor, invoices) {
+  const S = window.__VPSET;
+  if (!S.scriptUrl || !S.scriptKey) throw new Error("Email backend not connected (Settings → Email)");
+  if (!vendor.email) throw new Error("Vendor has no email");
+  const invoiceMap = {}; (invoices || []).forEach(i => invoiceMap[i.id] = i);
+  const to = vendor.email.split(/[,;]/).map(x => x.trim()).filter(Boolean).join(",");
+  const subject = "Payment advice – " + S.companyName + " – ₹" + Number(payment.amount).toLocaleString("en-IN") + " – " + dmy(payment.paymentDate);
+  const r = await fetch(S.scriptUrl, {method: "POST", body: JSON.stringify({key: S.scriptKey, action: "send", data: {to, cc: vendor.emailCc || "", bcc: S.bccEmail || "", subject, text: "Payment of Rs " + payment.amount + " made to " + vendor.name + " on " + payment.paymentDate + " via " + payment.mode + (payment.reference ? " (Ref " + payment.reference + ")" : "") + ".", html: remittanceHtml(payment, vendor, invoiceMap), replyTo: S.replyTo || ""}})});
+  const j = await r.json();
+  if (!j.ok) throw new Error(j.error || "Email failed");
+  try { await fb().db.collection("payments").doc(payment.id).update({emailSentAt: new Date().toISOString(), emailTo: to, emailError: ""}); } catch (e) {}
+  return to;
+}
+/* MSME Sec 43B(h): unpaid bills to micro/small vendors older than 45 days */
+function msmeOverdue(vendors, invoices) {
+  const today = new Date(), out = {};
+  const vm = {}; vendors.forEach(v => vm[v.id] = v);
+  invoices.forEach(i => {
+    const v = vm[i.vendorId]; if (!v || !v.msme || v.msme === "none" || i.status === "paid") return;
+    const age = Math.floor((today - new Date(i.invoiceDate)) / 86400000);
+    if (age > 45) { const o = out[v.id] || (out[v.id] = {count: 0, amount: 0, worst: 0}); o.count++; o.amount += i.amount - (i.amountPaid || 0); o.worst = Math.max(o.worst, age); }
+  });
+  return out;
+}
+/* ===== Vendor master UI ===== */
+function FieldE({label, error, children, span}) {
+  return h("label", {style: {display: "block", marginBottom: "12px", gridColumn: span ? "span " + span : undefined}},
+    h("div", {style: {fontSize: "12px", fontWeight: 700, color: "var(--text-dim)", marginBottom: "5px"}}, label),
+    children,
+    error && h("div", {style: {color: "var(--accent-red)", fontSize: "12px", marginTop: "3px"}}, error));
+}
+function Section({title, hint, children}) {
+  return h("div", {style: {border: "1px solid var(--border)", borderRadius: "10px", padding: "14px 16px 4px", marginBottom: "14px"}},
+    h("div", {style: {fontWeight: 800, fontSize: "13px", marginBottom: hint ? "2px" : "10px", letterSpacing: ".03em"}}, title),
+    hint && h("div", {style: {fontSize: "12px", color: "var(--text-faint)", marginBottom: "10px"}}, hint),
+    h("div", {style: {display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(210px,1fr))", columnGap: "14px"}}, children));
+}
+function VendorModal({vendor, vendors, onClose, onSaved}) {
+  const v0 = vendor || {};
+  const [f, setF] = useState({
+    name: v0.name || "", tallyName: v0.tallyName || "", gstType: v0.gstType || (vendor && !v0.gstin ? "" : v0.gstin ? "registered" : ""),
+    gstin: v0.gstin || "", pan: v0.pan || "", address: v0.address || "", city: v0.city || "", state: v0.state || "", pincode: v0.pincode || "",
+    contactPerson: v0.contactPerson || "", phone: v0.phone || "", email: v0.email || "", emailCc: v0.emailCc || "",
+    creditDays: v0.creditDays ?? "", creditLimit: v0.creditLimit ?? "", openingBalance: v0.openingBalance ?? 0,
+    msme: v0.msme || "", udyam: v0.udyam || "", tdsApplicable: !!v0.tdsApplicable, tdsSection: v0.tdsSection || "", tdsRate: v0.tdsRate ?? "",
+    accountHolder: v0.accountHolder || "", accountNo: v0.accountNo || "", accountNo2: v0.accountNo || "", ifsc: v0.ifsc || "", bankName: v0.bankName || "",
+    branch: v0.branch || "", accountType: v0.accountType || "Current", notes: v0.notes || ""
+  });
+  const hadBank = !!(vendor && v0.accountNo);
+  const [bankLocked, setBankLocked] = useState(hadBank);
+  const [tried, setTried] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState("");
+  const bankChanged = !vendor || f.accountNo !== v0.accountNo || upper(f.ifsc) !== (v0.ifsc || "");
+  const errors = vendorErrors(f, vendors || [], vendor && vendor.id, bankChanged);
+  const set = (k, val) => setF(p => ({...p, [k]: val}));
+  const inp = (k, extra) => h("input", {style: {...inputStyle, ...(tried && errors[k] ? {borderColor: "var(--accent-red)"} : {})}, value: f[k], onChange: e => set(k, e.target.value), ...extra});
+  const E = k => tried ? errors[k] : null;
+  function onGstin(val) {
+    val = upper(val).slice(0, 15);
+    setF(p => {
+      const n = {...p, gstin: val};
+      if (val.length >= 12 && GST_RE.test(val)) { n.pan = val.slice(2, 12); if (GST_STATES[val.slice(0, 2)]) n.state = GST_STATES[val.slice(0, 2)]; }
+      return n;
+    });
+  }
+  function onIfsc(val) {
+    val = upper(val).slice(0, 11);
+    setF(p => ({...p, ifsc: val, bankName: p.bankName && !Object.values(IFSC_BANKS).includes(p.bankName) ? p.bankName : (IFSC_BANKS[val.slice(0, 4)] || p.bankName)}));
+  }
+  function unlock() {
+    const pin = window.prompt("Bank details are locked. Enter the admin PIN to change them:");
+    if (pin === null) return;
+    if (pin === String(window.APP_PIN || "")) setBankLocked(false); else window.alert("Wrong PIN.");
+  }
+  async function handleSave(e) {
+    e.preventDefault();
+    setTried(true);
+    if (Object.keys(errors).length) { setErr("Please fix the " + Object.keys(errors).length + " highlighted field(s)."); return; }
+    setSaving(true); setErr("");
+    try {
+      const payload = vendorPayload(f);
+      if (vendor) {
+        if (bankChanged && hadBank) {
+          payload.bankUpdatedAt = new Date().toISOString();
+          payload.bankHistory = [...(v0.bankHistory || []), {at: payload.bankUpdatedAt, oldAccount: maskAcct(v0.accountNo), oldIfsc: v0.ifsc || "", newAccount: maskAcct(payload.accountNo), newIfsc: payload.ifsc}].slice(-20);
+        }
+        await updateVendor(vendor.id, payload);
+      } else {
+        payload.openingBalance = Number(f.openingBalance) || 0;
+        await createVendor(payload);
+      }
+      onSaved();
+    } catch (x) { setErr(x.message || "Save failed"); } finally { setSaving(false); }
+  }
+  const sel = (k, opts, ph) => h("select", {style: {...inputStyle, ...(tried && errors[k] ? {borderColor: "var(--accent-red)"} : {})}, value: f[k], onChange: e => set(k, e.target.value)}, h("option", {value: ""}, ph || "Select…"), opts.map(o => h("option", {key: o[0], value: o[0]}, o[1])));
+  const lockOpts = bankLocked ? {readOnly: true, style: {...inputStyle, opacity: .7}} : {};
+  return h(Modal, {title: vendor ? "Edit Vendor" : "Add Vendor", onClose, width: "860px"},
+    h("form", {onSubmit: handleSave, noValidate: true},
+      h(Section, {title: "1 · BASIC & TAX", hint: "Fields marked * are mandatory"},
+        h(FieldE, {label: "Vendor name *", error: E("name")}, inp("name")),
+        h(FieldE, {label: "Name in Tally (if different)"}, h("input", {style: inputStyle, value: f.tallyName, placeholder: f.name || "same as vendor name", onChange: e => set("tallyName", e.target.value)})),
+        h(FieldE, {label: "GST status *", error: E("gstType")}, sel("gstType", [["registered", "Registered (has GSTIN)"], ["unregistered", "Unregistered"]])),
+        f.gstType === "registered" && h(FieldE, {label: "GSTIN *", error: E("gstin")}, h("input", {style: {...inputStyle, ...(tried && errors.gstin ? {borderColor: "var(--accent-red)"} : {}), fontFamily: "var(--font-mono)"}, value: f.gstin, onChange: e => onGstin(e.target.value), maxLength: 15})),
+        h(FieldE, {label: "PAN *", error: E("pan")}, h("input", {style: {...inputStyle, ...(tried && errors.pan ? {borderColor: "var(--accent-red)"} : {}), fontFamily: "var(--font-mono)"}, value: f.pan, maxLength: 10, onChange: e => set("pan", upper(e.target.value))})),
+        h(FieldE, {label: "MSME status *", error: E("msme")}, sel("msme", [["none", "Not MSME"], ["micro", "Micro"], ["small", "Small"], ["medium", "Medium"]])),
+        f.msme && f.msme !== "none" && h(FieldE, {label: "Udyam registration no. *", error: E("udyam")}, h("input", {style: {...inputStyle, ...(tried && errors.udyam ? {borderColor: "var(--accent-red)"} : {}), fontFamily: "var(--font-mono)"}, value: f.udyam, placeholder: "UDYAM-GJ-01-1234567", onChange: e => set("udyam", upper(e.target.value))}))),
+      h(Section, {title: "2 · ADDRESS"},
+        h(FieldE, {label: "Address *", error: E("address"), span: 2}, inp("address")),
+        h(FieldE, {label: "City"}, inp("city")),
+        h(FieldE, {label: "State *", error: E("state")}, sel("state", STATE_LIST.map(s => [s, s]))),
+        h(FieldE, {label: "PIN code", error: E("pincode")}, inp("pincode", {maxLength: 6}))),
+      h(Section, {title: "3 · CONTACT & REMITTANCE EMAIL", hint: "Payment advice emails go to this address (separate several with commas)"},
+        h(FieldE, {label: "Contact person"}, inp("contactPerson")),
+        h(FieldE, {label: "Phone"}, inp("phone")),
+        h(FieldE, {label: "Email (remittance advice)", error: E("email")}, inp("email")),
+        h(FieldE, {label: "CC email", error: E("emailCc")}, inp("emailCc"))),
+      h(Section, {title: "4 · BANK DETAILS *", hint: bankLocked ? "🔒 Locked to prevent accidental changes to payment details." : "Double-check — wrong account details cause misdirected payments."},
+        bankLocked && h("div", {style: {gridColumn: "1/-1", marginBottom: "10px"}}, h(Button, {variant: "secondary", onClick: unlock}, "🔓 Unlock bank details (PIN)")),
+        h(FieldE, {label: "Account holder name *", error: E("accountHolder")}, h("input", {...lockOpts, style: {...inputStyle, ...(lockOpts.style || {}), ...(tried && errors.accountHolder ? {borderColor: "var(--accent-red)"} : {})}, value: f.accountHolder, onChange: e => set("accountHolder", e.target.value)})),
+        h(FieldE, {label: "Account number *", error: E("accountNo")}, h("input", {...lockOpts, style: {...inputStyle, ...(lockOpts.style || {}), fontFamily: "var(--font-mono)", ...(tried && errors.accountNo ? {borderColor: "var(--accent-red)"} : {})}, value: bankLocked ? maskAcct(f.accountNo) : f.accountNo, onChange: e => set("accountNo", e.target.value.replace(/\D/g, ""))})),
+        !bankLocked && h(FieldE, {label: "Confirm account number *", error: E("accountNo2")}, h("input", {style: {...inputStyle, fontFamily: "var(--font-mono)", ...(tried && errors.accountNo2 ? {borderColor: "var(--accent-red)"} : {})}, value: f.accountNo2, onPaste: e => e.preventDefault(), onChange: e => set("accountNo2", e.target.value.replace(/\D/g, ""))})),
+        h(FieldE, {label: "IFSC *", error: E("ifsc")}, h("input", {...lockOpts, style: {...inputStyle, ...(lockOpts.style || {}), fontFamily: "var(--font-mono)", ...(tried && errors.ifsc ? {borderColor: "var(--accent-red)"} : {})}, value: f.ifsc, onChange: e => onIfsc(e.target.value)})),
+        h(FieldE, {label: "Bank name *", error: E("bankName")}, h("input", {...lockOpts, style: {...inputStyle, ...(lockOpts.style || {}), ...(tried && errors.bankName ? {borderColor: "var(--accent-red)"} : {})}, value: f.bankName, onChange: e => set("bankName", e.target.value)})),
+        h(FieldE, {label: "Branch"}, h("input", {...lockOpts, style: {...inputStyle, ...(lockOpts.style || {})}, value: f.branch, onChange: e => set("branch", e.target.value)})),
+        h(FieldE, {label: "Account type"}, h("select", {style: inputStyle, disabled: bankLocked, value: f.accountType, onChange: e => set("accountType", e.target.value)}, ["Current", "Savings", "Cash Credit", "OD"].map(x => h("option", {key: x}, x))))),
+      h(Section, {title: "5 · CREDIT & TDS"},
+        h(FieldE, {label: "Credit days"}, inp("creditDays", {type: "number", placeholder: "e.g. 45"})),
+        h(FieldE, {label: "Credit limit (₹)"}, inp("creditLimit", {type: "number"})),
+        !vendor && h(FieldE, {label: "Opening balance (₹)"}, inp("openingBalance", {type: "number", step: "0.01"})),
+        h(FieldE, {label: "TDS applicable?"}, h("select", {style: inputStyle, value: f.tdsApplicable ? "y" : "n", onChange: e => set("tdsApplicable", e.target.value === "y")}, h("option", {value: "n"}, "No"), h("option", {value: "y"}, "Yes"))),
+        f.tdsApplicable && h(FieldE, {label: "TDS section *", error: E("tdsSection")}, h("select", {style: inputStyle, value: f.tdsSection, onChange: e => { const s = e.target.value; setF(p => ({...p, tdsSection: s, tdsRate: s && TDS_SECTIONS[s] ? TDS_SECTIONS[s][1] : p.tdsRate})); }}, h("option", {value: ""}, "Select…"), Object.keys(TDS_SECTIONS).map(k => h("option", {key: k, value: k}, k + " – " + TDS_SECTIONS[k][0])))),
+        f.tdsApplicable && h(FieldE, {label: "TDS rate %"}, inp("tdsRate", {type: "number", step: "0.01"}))),
+      h(FieldE, {label: "Notes"}, h("textarea", {style: {...inputStyle, minHeight: "54px"}, value: f.notes, onChange: e => set("notes", e.target.value)})),
+      err && h("p", {style: {color: "var(--accent-red)", fontSize: "13px", fontWeight: 700}}, err),
+      h(Button, {type: "submit", full: true, disabled: saving}, saving ? "Saving..." : vendor ? "Save Changes" : "Add Vendor")));
+}
+function Vendors({vendors, invoices, onRefresh, onOpenStatement}) {
   const [showModal, setShowModal] = useState(false);
   const [editingVendor, setEditingVendor] = useState(null);
   const [deletingVendor, setDeletingVendor] = useState(null);
   const [filterText, setFilterText] = useState("");
-  function outstandingFor(vendorId) {
-    return round2(invoices.filter(i => i.vendorId === vendorId && i.status !== "paid").reduce((s, i) => s + (i.amount - (i.amountPaid || 0)), 0));
-  }
+  const [onlyIncomplete, setOnlyIncomplete] = useState(false);
+  const [tallyOpen, setTallyOpen] = useState(false);
+  const outstandingFor = id => round2(invoices.filter(i => i.vendorId === id && i.status !== "paid").reduce((s, i) => s + (i.amount - (i.amountPaid || 0)), 0));
+  const msme = useMemo(() => msmeOverdue(vendors, invoices), [vendors, invoices]);
+  const incompleteCount = useMemo(() => vendors.filter(v => vendorMissing(v).length).length, [vendors]);
   const filtered = useMemo(() => {
     const q = filterText.trim().toLowerCase();
-    return vendors.filter(v => !q || v.name.toLowerCase().includes(q) || (v.gstin || "").toLowerCase().includes(q)).sort((a, b) => a.name.localeCompare(b.name));
-  }, [vendors, filterText]);
-  return React.createElement("div", null, React.createElement("div", {
-    style: {
-      marginBottom: "20px"
+    return vendors.filter(v => (!q || v.name.toLowerCase().includes(q) || (v.gstin || "").toLowerCase().includes(q) || (v.pan || "").toLowerCase().includes(q)) && (!onlyIncomplete || vendorMissing(v).length)).sort((a, b) => a.name.localeCompare(b.name));
+  }, [vendors, filterText, onlyIncomplete]);
+  const msmeTotal = Object.values(msme).reduce((s, o) => s + o.amount, 0);
+  const td = (x, st) => ({style: {padding: "11px 14px", fontSize: "13px", ...st}});
+  function exportExcel() {
+    const rows = vendors.slice().sort((a, b) => a.name.localeCompare(b.name)).map(v => ({"Vendor Name": v.name, "Tally Name": v.tallyName || "", "GST Status": v.gstType || "", GSTIN: v.gstin || "", PAN: v.pan || "", Address: v.address || "", City: v.city || "", State: v.state || "", "PIN": v.pincode || "", "Contact Person": v.contactPerson || "", Phone: v.phone || "", Email: v.email || "", "CC Email": v.emailCc || "", "Credit Days": v.creditDays || "", "Credit Limit": v.creditLimit || "", MSME: v.msme || "", Udyam: v.udyam || "", "TDS Section": v.tdsSection || "", "TDS Rate": v.tdsRate || "", "Account Holder": v.accountHolder || "", "Account No": v.accountNo || "", IFSC: v.ifsc || "", "Bank Name": v.bankName || "", Branch: v.branch || "", "Account Type": v.accountType || ""}));
+    const ws = XLSX.utils.json_to_sheet(rows.length ? rows : [{"Vendor Name": ""}]);
+    const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, "Vendors");
+    XLSX.writeFile(wb, "vendor-master-" + new Date().toISOString().slice(0, 10) + ".xlsx");
+  }
+  async function importExcel(file) {
+    if (!file) return;
+    const wb = XLSX.read(await file.arrayBuffer(), {type: "array"});
+    const rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], {defval: ""});
+    const byName = {}; vendors.forEach(v => byName[v.name.trim().toLowerCase()] = v);
+    let upd = 0, miss = [], bad = [];
+    for (const r of rows) {
+      const v = byName[String(r["Vendor Name"]).trim().toLowerCase()];
+      if (!v) { if (r["Vendor Name"]) miss.push(r["Vendor Name"]); continue; }
+      const g = k => String(r[k] == null ? "" : r[k]).trim();
+      const patch = {};
+      const map = {"Tally Name": "tallyName", "GST Status": "gstType", GSTIN: "gstin", PAN: "pan", Address: "address", City: "city", State: "state", PIN: "pincode", "Contact Person": "contactPerson", Phone: "phone", Email: "email", "CC Email": "emailCc", MSME: "msme", Udyam: "udyam", "TDS Section": "tdsSection", "Account Holder": "accountHolder", "Account No": "accountNo", IFSC: "ifsc", "Bank Name": "bankName", Branch: "branch", "Account Type": "accountType"};
+      Object.keys(map).forEach(k => { if (g(k) !== "") patch[map[k]] = g(k); });
+      if (patch.gstType) patch.gstType = patch.gstType.toLowerCase().startsWith("reg") ? "registered" : "unregistered";
+      if (patch.msme) patch.msme = patch.msme.toLowerCase();
+      ["gstin", "pan", "ifsc", "udyam"].forEach(k => { if (patch[k]) patch[k] = upper(patch[k]); });
+      if (g("Credit Days") !== "") patch.creditDays = Number(g("Credit Days")) || 0;
+      if (g("Credit Limit") !== "") patch.creditLimit = Number(g("Credit Limit")) || 0;
+      if (g("TDS Rate") !== "") { patch.tdsRate = Number(g("TDS Rate")) || 0; patch.tdsApplicable = !!patch.tdsSection || patch.tdsRate > 0; }
+      if (patch.accountNo) patch.accountNo = patch.accountNo.replace(/\D/g, "");
+      if (patch.accountNo && patch.accountNo !== v.accountNo && v.accountNo) { bad.push(v.name + ": bank account change skipped – edit in the vendor form (PIN)"); delete patch.accountNo; delete patch.ifsc; delete patch.bankName; delete patch.accountHolder; }
+      if (patch.ifsc && !IFSC_RE.test(patch.ifsc)) { bad.push(v.name + ": invalid IFSC " + patch.ifsc); delete patch.ifsc; }
+      if (patch.gstin && !GST_RE.test(patch.gstin)) { bad.push(v.name + ": invalid GSTIN " + patch.gstin); delete patch.gstin; }
+      if (patch.pan && !PAN_RE.test(patch.pan)) { bad.push(v.name + ": invalid PAN " + patch.pan); delete patch.pan; }
+      if (Object.keys(patch).length) { await updateVendor(v.id, patch); upd++; }
     }
-  }, React.createElement("h1", {
-    style: {
-      margin: 0
-    }
-  }, "Vendors"), React.createElement("p", {
-    style: {
-      color: "var(--text-dim)",
-      margin: "2px 0 0"
-    }
-  }, "Manage vendor master records")), React.createElement(Card, {
-    style: {
-      padding: 0,
-      overflow: "hidden"
-    }
-  }, React.createElement("div", {
-    style: {
-      display: "flex",
-      justifyContent: "space-between",
-      alignItems: "center",
-      padding: "18px 20px",
-      flexWrap: "wrap",
-      gap: "12px"
-    }
-  }, React.createElement("div", null, React.createElement("h3", {
-    style: {
-      margin: 0
-    }
-  }, "Vendor Master"), React.createElement("p", {
-    style: {
-      color: "var(--text-faint)",
-      fontSize: "12px",
-      margin: "2px 0 0"
-    }
-  }, vendors.length, " vendor", vendors.length === 1 ? "" : "s")), React.createElement("div", {
-    style: {
-      display: "flex",
-      gap: "10px",
-      alignItems: "center"
-    }
-  }, React.createElement("input", {
-    type: "text",
-    placeholder: "Filter...",
-    value: filterText,
-    onChange: e => setFilterText(e.target.value),
-    style: {
-      ...inputStyle,
-      width: "200px"
-    }
-  }), React.createElement(Button, {
-    onClick: () => {
-      setEditingVendor(null);
-      setShowModal(true);
-    }
-  }, "+ Add Vendor"))), React.createElement("div", {
-    style: {
-      overflowX: "auto"
-    }
-  }, React.createElement("table", null, React.createElement("thead", null, React.createElement("tr", {
-    style: {
-      background: "var(--bg-panel-2)"
-    }
-  }, ["NAME", "GSTIN", "PHONE", "CREDIT DAYS", "CREDIT LIMIT", "OUTSTANDING", "ACTIONS"].map(h => React.createElement("th", {
-    key: h,
-    style: {
-      padding: "10px 16px",
-      fontSize: "11px",
-      color: "var(--text-dim)",
-      whiteSpace: "nowrap"
-    }
-  }, h)))), React.createElement("tbody", null, filtered.map(v => {
-    const outstanding = outstandingFor(v.id);
-    return React.createElement("tr", {
-      key: v.id,
-      style: {
-        borderTop: "1px solid var(--border)"
-      }
-    }, React.createElement("td", {
-      style: {
-        padding: "12px 16px",
-        fontWeight: 700,
-        fontSize: "13px"
-      }
-    }, v.name), React.createElement("td", {
-      style: {
-        padding: "12px 16px",
-        fontSize: "13px",
-        color: "var(--text-dim)"
-      }
-    }, v.gstin || "—"), React.createElement("td", {
-      style: {
-        padding: "12px 16px",
-        fontSize: "13px",
-        color: "var(--text-dim)"
-      }
-    }, v.phone || "—"), React.createElement("td", {
-      style: {
-        padding: "12px 16px",
-        fontSize: "13px"
-      }
-    }, v.creditDays ? v.creditDays + " days" : "—"), React.createElement("td", {
-      style: {
-        padding: "12px 16px",
-        fontSize: "13px"
-      }
-    }, v.creditLimit ? fmtINR(v.creditLimit) : "—"), React.createElement("td", {
-      style: {
-        padding: "12px 16px",
-        fontFamily: "var(--font-mono)",
-        fontWeight: 700,
-        fontSize: "13px",
-        color: outstanding > 0 ? "var(--accent-red)" : "var(--accent-green)"
-      }
-    }, fmtINR(outstanding)), React.createElement("td", {
-      style: {
-        padding: "12px 16px",
-        whiteSpace: "nowrap"
-      }
-    }, React.createElement("div", {
-      style: {
-        display: "flex",
-        gap: "6px"
-      }
-    }, React.createElement(RowActionButton, {
-      label: "Statement",
-      onClick: () => onOpenStatement(v.id)
-    }), React.createElement(RowActionButton, {
-      label: "Edit",
-      onClick: () => {
-        setEditingVendor(v);
-        setShowModal(true);
-      }
-    }), React.createElement(RowActionButton, {
-      label: "Del",
-      variant: "danger",
-      onClick: () => setDeletingVendor(v)
-    }))));
-  }), filtered.length === 0 && React.createElement("tr", null, React.createElement("td", {
-    colSpan: "7",
-    style: {
-      padding: "24px 20px",
-      textAlign: "center",
-      color: "var(--text-dim)"
-    }
-  }, vendors.length === 0 ? "No vendors yet. Add your first one." : "No vendors match that filter.")))))), showModal && React.createElement(VendorModal, {
-    vendor: editingVendor,
-    onClose: () => setShowModal(false),
-    onSaved: () => {
-      setShowModal(false);
-      onRefresh();
-    }
-  }), deletingVendor && React.createElement(DeleteVendorConfirm, {
-    vendor: deletingVendor,
-    hasActivity: invoices.some(i => i.vendorId === deletingVendor.id),
-    onClose: () => setDeletingVendor(null),
-    onDeleted: () => {
-      setDeletingVendor(null);
-      onRefresh();
-    }
-  }));
+    window.alert("Updated " + upd + " vendor(s)." + (miss.length ? "\n\nNot found in portal (" + miss.length + "): " + miss.slice(0, 8).join(", ") + (miss.length > 8 ? "…" : "") : "") + (bad.length ? "\n\nSkipped fields:\n" + bad.slice(0, 10).join("\n") : ""));
+    onRefresh();
+  }
+  const ready = vendors.filter(v => !vendorMissing(v).length);
+  return h("div", null,
+    h("div", {style: {marginBottom: "20px"}}, h("h1", {style: {margin: 0}}, "Vendors"), h("p", {style: {color: "var(--text-dim)", margin: "2px 0 0"}}, "Complete vendor master — tax, bank, email, Tally & ICICI ready")),
+    msmeTotal > 0 && h(Card, {style: {marginBottom: "14px", borderColor: "var(--accent-red)", background: "#fff5f5"}}, h("b", {style: {color: "var(--accent-red)"}}, "⚠ MSME payment alert (Sec 43B(h)): "), Object.keys(msme).length + " micro/small vendor(s) have bills older than 45 days — " + fmtINR(msmeTotal) + " unpaid. Pay these to keep the expense deductible for the year."),
+    h(Card, {style: {padding: 0, overflow: "hidden"}},
+      h("div", {style: {display: "flex", justifyContent: "space-between", alignItems: "center", padding: "18px 20px", flexWrap: "wrap", gap: "12px"}},
+        h("div", null, h("h3", {style: {margin: 0}}, "Vendor Master"), h("p", {style: {color: "var(--text-faint)", fontSize: "12px", margin: "2px 0 0"}}, vendors.length + " vendors · " + ready.length + " complete · ", h("a", {href: "#", onClick: e => { e.preventDefault(); setOnlyIncomplete(!onlyIncomplete); }, style: {color: incompleteCount ? "var(--accent-red)" : "inherit", fontWeight: 700}}, incompleteCount + " incomplete" + (onlyIncomplete ? " (showing – click to show all)" : "")))),
+        h("div", {style: {display: "flex", gap: "8px", alignItems: "center", flexWrap: "wrap"}},
+          h("input", {type: "text", placeholder: "Filter name / GSTIN / PAN…", value: filterText, onChange: e => setFilterText(e.target.value), style: {...inputStyle, width: "200px"}}),
+          h(Button, {variant: "secondary", onClick: exportExcel}, "⬇ Excel"),
+          h("label", {style: {cursor: "pointer"}}, h("span", {style: {display: "inline-block", padding: "10px 14px", borderRadius: "8px", border: "1px solid var(--border)", background: "var(--bg-panel-2)", fontWeight: 700, fontSize: "14px"}}, "⬆ Update from Excel"), h("input", {type: "file", accept: ".xlsx,.xls", style: {display: "none"}, onChange: e => { importExcel(e.target.files[0]).catch(x => window.alert("Import failed: " + x.message)); e.target.value = ""; }})),
+          h(Button, {variant: "secondary", onClick: () => setTallyOpen(true)}, "Tally ledgers"),
+          h(Button, {onClick: () => { setEditingVendor(null); setShowModal(true); }}, "+ Add Vendor"))),
+      h("div", {style: {overflowX: "auto"}}, h("table", null,
+        h("thead", null, h("tr", {style: {background: "var(--bg-panel-2)"}}, ["NAME", "GSTIN / PAN", "STATE", "MSME", "BANK", "EMAIL", "CREDIT", "OUTSTANDING", "ACTIONS"].map(x => h("th", {key: x, style: {padding: "10px 14px", fontSize: "11px", color: "var(--text-dim)", whiteSpace: "nowrap", textAlign: "left"}}, x)))),
+        h("tbody", null, filtered.map(v => {
+          const out = outstandingFor(v.id), miss = vendorMissing(v), m = msme[v.id];
+          return h("tr", {key: v.id, style: {borderTop: "1px solid var(--border)"}},
+            h("td", td(null, {fontWeight: 700}), v.name, miss.length > 0 && h("div", {style: {marginTop: "3px"}}, h(Badge, {color: "var(--accent-red)"}, "Missing: " + miss.join(", ")))),
+            h("td", td(null, {color: "var(--text-dim)", fontFamily: "var(--font-mono)", fontSize: "12px"}), v.gstin || (v.gstType === "unregistered" ? "Unregistered" : "—"), h("div", null, v.pan || "")),
+            h("td", td(null, {color: "var(--text-dim)"}), v.state || "—"),
+            h("td", td(), v.msme && v.msme !== "none" ? h(Badge, {color: m ? "var(--accent-red)" : "var(--accent-green)"}, MSME_LABEL[v.msme] + (m ? " · " + m.count + " > 45d" : "")) : v.msme ? "—" : h("span", {style: {color: "var(--text-faint)"}}, "?")),
+            h("td", td(null, {fontSize: "12px"}), bankComplete(v) ? h("div", null, v.bankName, h("div", {style: {color: "var(--text-faint)", fontFamily: "var(--font-mono)"}}, maskAcct(v.accountNo) + " · " + v.ifsc)) : h(Badge, {color: "var(--accent-yellow)"}, "No bank")),
+            h("td", td(null, {fontSize: "12px", color: "var(--text-dim)"}), v.email || h(Badge, {color: "var(--accent-yellow)"}, "No email")),
+            h("td", td(), v.creditDays ? v.creditDays + " d" : "—", v.creditLimit ? h("div", {style: {fontSize: "11px", color: "var(--text-faint)"}}, fmtINR(v.creditLimit)) : null),
+            h("td", td(null, {fontFamily: "var(--font-mono)", fontWeight: 700, color: out > 0 ? "var(--accent-red)" : "var(--accent-green)"}), fmtINR(out)),
+            h("td", {style: {padding: "11px 14px", whiteSpace: "nowrap"}}, h("div", {style: {display: "flex", gap: "6px"}},
+              h(RowActionButton, {label: "Statement", onClick: () => onOpenStatement(v.id)}),
+              h(RowActionButton, {label: "Edit", onClick: () => { setEditingVendor(v); setShowModal(true); }}),
+              h(RowActionButton, {label: "Del", variant: "danger", onClick: () => setDeletingVendor(v)}))));
+        }), filtered.length === 0 && h("tr", null, h("td", {colSpan: 9, style: {padding: "24px 20px", textAlign: "center", color: "var(--text-dim)"}}, vendors.length === 0 ? "No vendors yet. Add your first one." : "No vendors match that filter.")))))),
+    showModal && h(VendorModal, {vendor: editingVendor, vendors, onClose: () => setShowModal(false), onSaved: () => { setShowModal(false); onRefresh(); }}),
+    tallyOpen && h(TallyLedgerModal, {vendors, onClose: () => setTallyOpen(false)}),
+    deletingVendor && h(DeleteVendorConfirm, {vendor: deletingVendor, hasActivity: invoices.some(i => i.vendorId === deletingVendor.id), onClose: () => setDeletingVendor(null), onDeleted: () => { setDeletingVendor(null); onRefresh(); }}));
+}
+function TallyLedgerModal({vendors, onClose}) {
+  const [names, setNames] = useState("");
+  const [result, setResult] = useState(null);
+  const S = window.__VPSET;
+  const complete = vendors.filter(v => !vendorMissing(v).length);
+  function check() {
+    const t = new Set(names.split(/\r?\n/).map(x => x.trim().toLowerCase()).filter(Boolean));
+    setResult({found: vendors.filter(v => t.has((v.tallyName || v.name).trim().toLowerCase())).length, notInTally: vendors.filter(v => !t.has((v.tallyName || v.name).trim().toLowerCase())).map(v => v.tallyName || v.name)});
+  }
+  return h(Modal, {title: "Tally Prime – vendor ledgers", onClose, width: "640px"},
+    h("p", {style: {fontSize: "13px", color: "var(--text-dim)", marginTop: 0}}, "Exports GST, PAN, address, contact and bank details for ", h("b", null, complete.length), " complete vendors as a Tally XML (", S.tallyAction === "Create" ? "create new ledgers" : "alter existing ledgers – opening balances untouched", "). In Tally: ", h("b", null, "Import → Masters"), " (take a backup first)."),
+    h(Button, {full: true, disabled: !complete.length, onClick: () => downloadText("tally-vendor-ledgers.xml", tallyLedgersXml(complete), "application/xml")}, "⬇ Download Tally ledger XML"),
+    h("div", {style: {marginTop: "18px", fontWeight: 700, fontSize: "13px"}}, "Check names against Tally"),
+    h("p", {style: {fontSize: "12px", color: "var(--text-faint)", margin: "2px 0 6px"}}, "In Tally: Display → List of Accounts → Sundry Creditors, copy the names and paste here (one per line). Names must match exactly or Tally will treat them as new."),
+    h("textarea", {style: {...inputStyle, minHeight: "90px", fontFamily: "var(--font-mono)", fontSize: "12px"}, value: names, onChange: e => setNames(e.target.value)}),
+    h(Button, {variant: "secondary", style: {marginTop: "8px"}, disabled: !names.trim(), onClick: check}, "Check names"),
+    result && h("div", {style: {marginTop: "10px", fontSize: "13px"}}, h("b", {style: {color: "var(--accent-green)"}}, result.found + " match"), " · ", h("b", {style: {color: result.notInTally.length ? "var(--accent-red)" : "inherit"}}, result.notInTally.length + " not found in Tally"), result.notInTally.length > 0 && h("div", {style: {marginTop: "6px", maxHeight: "130px", overflowY: "auto", fontSize: "12px", color: "var(--text-dim)"}}, result.notInTally.join(" · "), h("div", {style: {marginTop: "4px", color: "var(--text-faint)"}}, "Fix by setting the 'Tally name' on those vendors (Edit)."))));
+}
+function TallyIciciModal({payments, vendorMap, onClose, onExported}) {
+  const real = payments.filter(paymentRealMoney);
+  const [onlyNew, setOnlyNew] = useState(true);
+  const [from, setFrom] = useState(new Date(Date.now() - 7 * 86400000).toISOString().slice(0, 10));
+  const [to, setTo] = useState(new Date().toISOString().slice(0, 10));
+  const sel = real.filter(p => p.paymentDate >= from && p.paymentDate <= to);
+  const tallyList = sel.filter(p => !onlyNew || !p.tallyExportedAt);
+  const bankList = sel.filter(p => !onlyNew || !p.bankExportedAt);
+  const S = window.__VPSET;
+  async function mark(list, field) { const now = new Date().toISOString(); for (const p of list) { try { await fb().db.collection("payments").doc(p.id).update({[field]: now}); } catch (e) {} } onExported(); }
+  const ic = iciciCsv(bankList, vendorMap);
+  return h(Modal, {title: "Export payments – Tally & ICICI", onClose, width: "620px"},
+    h("div", {style: {display: "flex", gap: "10px", flexWrap: "wrap", marginBottom: "10px"}},
+      h(FieldE, {label: "From"}, h("input", {type: "date", style: inputStyle, value: from, onChange: e => setFrom(e.target.value)})),
+      h(FieldE, {label: "To"}, h("input", {type: "date", style: inputStyle, value: to, onChange: e => setTo(e.target.value)}))),
+    h("label", {style: {fontSize: "13px", display: "flex", gap: "8px", marginBottom: "14px"}}, h("input", {type: "checkbox", checked: onlyNew, onChange: e => setOnlyNew(e.target.checked)}), "Only payments not exported before (prevents duplicate Tally vouchers)"),
+    h(Card, {style: {marginBottom: "12px", background: "var(--bg-panel-2)"}}, h("b", null, "Tally Prime vouchers"), h("div", {style: {fontSize: "12px", color: "var(--text-dim)", margin: "4px 0 8px"}}, tallyList.length + " payment(s) · Payment voucher: vendor Dr / “" + S.tallyBankLedger + "” Cr · bill-wise refs included"),
+      h(Button, {disabled: !tallyList.length, onClick: async () => { downloadText("tally-payments-" + from + "_to_" + to + ".xml", tallyPaymentsXml(tallyList, vendorMap), "application/xml"); await mark(tallyList, "tallyExportedAt"); }}, "⬇ Tally XML")),
+    h(Card, {style: {background: "var(--bg-panel-2)"}}, h("b", null, "ICICI bulk payment file"), h("div", {style: {fontSize: "12px", color: "var(--text-dim)", margin: "4px 0 6px"}}, ic.count + " NEFT/RTGS payment(s) · total " + fmtINR(ic.total) + (S.iciciDebitAcct ? "" : " · ⚠ set ICICI debit account in Settings")),
+      ic.skipped.length > 0 && h("div", {style: {fontSize: "12px", color: "var(--accent-red)", marginBottom: "6px"}}, "Skipped: " + ic.skipped.join("; ")),
+      h(Button, {disabled: !ic.count, onClick: async () => { downloadText("icici-bulk-payments-" + to + ".csv", ic.csv, "text/csv"); await mark(bankList, "bankExportedAt"); }}, "⬇ ICICI CSV"),
+      h("div", {style: {fontSize: "11px", color: "var(--text-faint)", marginTop: "8px"}}, "Column layout is a standard bulk template — compare with the sample file from ICICI CIB (Bulk Upload) before the first live upload.")));
+}
+function SettingsPage({onSaved}) {
+  const [s, setS] = useState({...window.__VPSET});
+  const [msg, setMsg] = useState("");
+  const set = (k, v) => setS(p => ({...p, [k]: v}));
+  const row = (label, k, ph, type) => h(FieldE, {label}, h("input", {type: type || "text", style: inputStyle, value: s[k] || "", placeholder: ph || "", onChange: e => set(k, e.target.value)}));
+  async function save() { try { await saveSettings(s); setMsg("Saved ✓"); onSaved && onSaved(); } catch (e) { setMsg("Save failed: " + e.message); } }
+  async function test() {
+    setMsg("Sending test…");
+    try {
+      const to = s.replyTo || window.prompt("Send test email to:"); if (!to) return setMsg("");
+      window.__VPSET = {...window.__VPSET, ...s};
+      const r = await fetch(s.scriptUrl, {method: "POST", body: JSON.stringify({key: s.scriptKey, action: "send", data: {to, subject: "Test – Jayco vendor payment advice", text: "Email backend is connected."}})});
+      const j = await r.json(); setMsg(j.ok ? "Test email sent to " + to : "Failed: " + (j.error || "unknown"));
+    } catch (e) { setMsg("Failed: " + e.message); }
+  }
+  return h("div", null, h("h1", {style: {margin: 0}}, "Settings"), h("p", {style: {color: "var(--text-dim)", margin: "2px 0 16px"}}, "Email, Tally and ICICI connections"),
+    h(Card, {style: {maxWidth: "760px"}},
+      h("h3", {style: {marginTop: 0}}, "Remittance email"),
+      h("p", {style: {fontSize: "12px", color: "var(--text-faint)", marginTop: 0}}, "Use the same Apps Script web-app URL and key as the Sales CRM (lead-intake.gs). Mail goes out from that Gmail account."),
+      row("Apps Script web-app URL (…/exec)", "scriptUrl", "https://script.google.com/macros/s/…/exec"), row("Access key", "scriptKey", "", "password"),
+      row("Company name in email", "companyName"), row("Reply-to address (accounts email)", "replyTo", "accounts@jaycohousing.com"), row("BCC copy to (optional)", "bccEmail"),
+      h("label", {style: {display: "flex", gap: "8px", fontSize: "13px", marginBottom: "16px"}}, h("input", {type: "checkbox", checked: !!s.autoEmail, onChange: e => set("autoEmail", e.target.checked)}), "Send remittance email automatically when a payment is recorded"),
+      h("h3", null, "Tally Prime"), row("Company name in Tally (exactly as loaded; blank = currently open company)", "tallyCompany"), row("Bank ledger name in Tally", "tallyBankLedger", "ICICI Bank"), row("Cash ledger name", "tallyCashLedger", "Cash"),
+      h(FieldE, {label: "Ledger import mode"}, h("select", {style: inputStyle, value: s.tallyAction, onChange: e => set("tallyAction", e.target.value)}, h("option", {value: "Alter"}, "Alter existing ledgers (vendors already in Tally)"), h("option", {value: "Create"}, "Create new ledgers"))),
+      h("h3", null, "ICICI Bank"), row("ICICI debit account number (JAYCO current account)", "iciciDebitAcct"),
+      h("div", {style: {display: "flex", gap: "10px", alignItems: "center", flexWrap: "wrap"}}, h(Button, {onClick: save}, "Save settings"), h(Button, {variant: "secondary", disabled: !s.scriptUrl || !s.scriptKey, onClick: test}, "Send test email"), msg && h("span", {style: {fontSize: "13px", fontWeight: 700}}, msg))));
 }
 function DeleteVendorConfirm({
   vendor,
@@ -1739,142 +2005,6 @@ function DeleteVendorConfirm({
     full: true,
     disabled: deleting
   }, deleting ? "Deleting..." : "Delete"))));
-}
-function VendorModal({
-  vendor,
-  onClose,
-  onSaved
-}) {
-  const [form, setForm] = useState({
-    name: vendor?.name || "",
-    gstin: vendor?.gstin || "",
-    contactPerson: vendor?.contactPerson || "",
-    phone: vendor?.phone || "",
-    email: vendor?.email || "",
-    creditDays: vendor?.creditDays ?? "",
-    creditLimit: vendor?.creditLimit ?? "",
-    openingBalance: vendor?.openingBalance ?? 0
-  });
-  const [saving, setSaving] = useState(false);
-  async function handleSave(e) {
-    e.preventDefault();
-    if (!form.name.trim()) return;
-    setSaving(true);
-    try {
-      const payload = {
-        ...form,
-        creditDays: Number(form.creditDays) || 0,
-        creditLimit: Number(form.creditLimit) || 0,
-        openingBalance: Number(form.openingBalance)
-      };
-      if (vendor) await updateVendor(vendor.id, payload);else await createVendor(payload);
-      onSaved();
-    } finally {
-      setSaving(false);
-    }
-  }
-  return React.createElement(Modal, {
-    title: vendor ? "Edit Vendor" : "Add Vendor",
-    onClose: onClose
-  }, React.createElement("form", {
-    onSubmit: handleSave
-  }, React.createElement(Field, {
-    label: "Vendor Name *"
-  }, React.createElement("input", {
-    style: inputStyle,
-    value: form.name,
-    onChange: e => setForm({
-      ...form,
-      name: e.target.value
-    }),
-    required: true
-  })), React.createElement(Field, {
-    label: "GSTIN"
-  }, React.createElement("input", {
-    style: inputStyle,
-    value: form.gstin,
-    onChange: e => setForm({
-      ...form,
-      gstin: e.target.value
-    })
-  })), React.createElement(Field, {
-    label: "Contact Person"
-  }, React.createElement("input", {
-    style: inputStyle,
-    value: form.contactPerson,
-    onChange: e => setForm({
-      ...form,
-      contactPerson: e.target.value
-    })
-  })), React.createElement("div", {
-    style: {
-      display: "grid",
-      gridTemplateColumns: "1fr 1fr",
-      gap: "12px"
-    }
-  }, React.createElement(Field, {
-    label: "Phone"
-  }, React.createElement("input", {
-    style: inputStyle,
-    value: form.phone,
-    onChange: e => setForm({
-      ...form,
-      phone: e.target.value
-    })
-  })), React.createElement(Field, {
-    label: "Email"
-  }, React.createElement("input", {
-    style: inputStyle,
-    value: form.email,
-    onChange: e => setForm({
-      ...form,
-      email: e.target.value
-    })
-  }))), React.createElement("div", {
-    style: {
-      display: "grid",
-      gridTemplateColumns: "1fr 1fr",
-      gap: "12px"
-    }
-  }, React.createElement(Field, {
-    label: "Credit Days"
-  }, React.createElement("input", {
-    type: "number",
-    placeholder: "e.g. 45",
-    style: inputStyle,
-    value: form.creditDays,
-    onChange: e => setForm({
-      ...form,
-      creditDays: e.target.value
-    })
-  })), React.createElement(Field, {
-    label: "Credit Limit (₹)"
-  }, React.createElement("input", {
-    type: "number",
-    step: "0.01",
-    placeholder: "e.g. 500000",
-    style: inputStyle,
-    value: form.creditLimit,
-    onChange: e => setForm({
-      ...form,
-      creditLimit: e.target.value
-    })
-  }))), !vendor && React.createElement(Field, {
-    label: "Opening Balance (₹) — existing dues before using this system"
-  }, React.createElement("input", {
-    type: "number",
-    step: "0.01",
-    style: inputStyle,
-    value: form.openingBalance,
-    onChange: e => setForm({
-      ...form,
-      openingBalance: e.target.value
-    })
-  })), React.createElement(Button, {
-    type: "submit",
-    full: true,
-    disabled: saving
-  }, saving ? "Saving..." : vendor ? "Save Changes" : "Add Vendor")));
 }
 function Invoices({
   vendors,
@@ -2442,7 +2572,23 @@ function Payments({
 }) {
   const [showModal, setShowModal] = useState(false);
   const [deletingPayment, setDeletingPayment] = useState(null);
+  const [showExport, setShowExport] = useState(false);
+  const [emailBusy, setEmailBusy] = useState("");
   const [filterText, setFilterText] = useState("");
+  async function emailPayment(p) {
+    const v = vendorMap[p.vendorId];
+    if (!window.confirm((p.emailSentAt ? "Already emailed. Send again to " : "Send remittance advice to ") + (v?.email || "(no email)") + "?")) return;
+    setEmailBusy(p.id);
+    try {
+      const to = await sendRemittance(p, v, invoices);
+      window.alert("Remittance advice sent to " + to);
+      onRefresh();
+    } catch (err) {
+      window.alert("Email not sent: " + err.message);
+    } finally {
+      setEmailBusy("");
+    }
+  }
   const vendorMap = useMemo(() => {
     const m = {};
     vendors.forEach(v => m[v.id] = v);
@@ -2509,6 +2655,9 @@ function Payments({
       width: "200px"
     }
   }), React.createElement(Button, {
+    variant: "secondary",
+    onClick: () => setShowExport(true)
+  }, "Export Tally / ICICI"), React.createElement(Button, {
     onClick: () => setShowModal(true),
     disabled: vendors.length === 0
   }, "+ Record Payment"))), React.createElement("div", {
@@ -2623,7 +2772,14 @@ function Payments({
       padding: "12px 16px",
       whiteSpace: "nowrap"
     }
+  }, paymentRealMoney(p) && React.createElement("span", {
+    style: {
+      marginRight: "6px"
+    }
   }, React.createElement(RowActionButton, {
+    label: emailBusy === p.id ? "Sending…" : p.emailSentAt ? "✉ Resend" : "✉ Email",
+    onClick: () => emailPayment(p)
+  })), React.createElement(RowActionButton, {
     label: "Del",
     variant: "danger",
     onClick: () => setDeletingPayment(p)
@@ -2642,6 +2798,11 @@ function Payments({
       setShowModal(false);
       onRefresh();
     }
+  }), showExport && React.createElement(TallyIciciModal, {
+    payments: payments,
+    vendorMap: vendorMap,
+    onClose: () => setShowExport(false),
+    onExported: onRefresh
   }), deletingPayment && React.createElement(DeletePaymentConfirm, {
     payment: deletingPayment,
     vendorName: vendorMap[deletingPayment.vendorId]?.name || "—",
@@ -2720,8 +2881,10 @@ function PaymentModal({
   const [mode, setMode] = useState("NEFT");
   const [reference, setReference] = useState("");
   const [isAdvance, setIsAdvance] = useState(false);
+  const [sendMail, setSendMail] = useState(!!window.__VPSET.autoEmail);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const selVendor = vendors.find(v => v.id === vendorId);
   const openInvoicesForVendor = useMemo(() => invoices.filter(i => i.vendorId === vendorId && i.status !== "paid"), [invoices, vendorId]);
   const preview = useMemo(() => {
     if (!amount || Number(amount) <= 0 || isAdvance) return null;
@@ -2733,7 +2896,7 @@ function PaymentModal({
     setSaving(true);
     setError("");
     try {
-      await recordPayment({
+      const res = await recordPayment({
         vendorId,
         amount: Number(amount),
         paymentDate,
@@ -2741,6 +2904,21 @@ function PaymentModal({
         reference,
         isAdvance
       });
+      if (sendMail && selVendor?.email) {
+        try {
+          await sendRemittance({
+            id: res.paymentId,
+            amount: Number(amount),
+            paymentDate,
+            mode: isAdvance ? "Advance" : mode,
+            reference,
+            allocations: res.allocations,
+            unallocatedAmount: res.unallocatedAmount
+          }, selVendor, invoices);
+        } catch (mailErr) {
+          window.alert("Payment recorded, but the remittance email was not sent: " + mailErr.message + "\nYou can resend it from the Payments list.");
+        }
+      }
       onSaved();
     } catch (err) {
       setError(err.message || "Failed to record payment");
@@ -2870,7 +3048,26 @@ function PaymentModal({
       color: "var(--accent-red)",
       fontSize: "13px"
     }
-  }, error), React.createElement(Button, {
+  }, error), React.createElement("label", {
+    style: {
+      display: "flex",
+      alignItems: "center",
+      gap: "8px",
+      marginBottom: "14px",
+      fontSize: "13px"
+    }
+  }, React.createElement("input", {
+    type: "checkbox",
+    checked: sendMail && !!selVendor?.email,
+    disabled: !selVendor?.email,
+    onChange: e => setSendMail(e.target.checked)
+  }), selVendor?.email ? "Email remittance advice to " + selVendor.email : "No email on this vendor — remittance advice will not be sent"), selVendor && !bankComplete(selVendor) && React.createElement("p", {
+    style: {
+      color: "var(--accent-yellow)",
+      fontSize: "12px",
+      margin: "0 0 12px"
+    }
+  }, "⚠ Bank details incomplete for this vendor — it will be left out of the ICICI file."), React.createElement(Button, {
     type: "submit",
     full: true,
     variant: "success",
@@ -4184,7 +4381,7 @@ function App() {
   const refresh = useCallback(async () => {
     setLoadError("");
     try {
-      const [v, i, p] = await Promise.all([listVendors(), listAllInvoices(), listAllPayments()]);
+      const [v, i, p] = await Promise.all([listVendors(), listAllInvoices(), listAllPayments(), loadSettings()]);
       setVendors(v);
       setInvoices(i);
       setPayments(p);
@@ -4244,7 +4441,7 @@ function App() {
     onRefresh: refresh,
     prefillVendorId: prefillVendorForInvoice,
     onClearPrefill: () => setPrefillVendorForInvoice(null)
-  }), page === "payments" && React.createElement(Payments, {
+  }), page === "settings" && React.createElement(SettingsPage, null), page === "payments" && React.createElement(Payments, {
     vendors: vendors,
     invoices: invoices,
     payments: payments,
