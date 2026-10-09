@@ -65,6 +65,15 @@
   ::-webkit-scrollbar-thumb { background:var(--line); border-radius:4px; }
   .tab-btn:hover { background:var(--panel2) !important; }
   .row-btn:hover { filter:brightness(0.96); }
+  .act { display:inline-flex; align-items:center; gap:7px; padding:6px 12px; background:var(--panel); border:1px solid var(--line); color:var(--text); font-size:12.5px; font-weight:600; white-space:nowrap; transition:background .12s,border-color .12s,color .12s; }
+  .act svg { flex:none; }
+  .act:hover { background:var(--panel2); border-color:var(--text-dim); filter:none; }
+  .act.view svg { color:#2563eb; } .act.edit svg { color:#b45309; } .act.pdf svg { color:#16a34a; } .act.del svg { color:var(--red); }
+  .act.pdf:hover { border-color:#16a34a; } .act.edit:hover { border-color:#b45309; } .act.view:hover { border-color:#2563eb; }
+  .act.del:hover { border-color:var(--red); color:var(--red); }
+  .act.icon-only { padding:6px 8px; }
+  .row-form { display:grid; grid-template-columns:repeat(auto-fit,minmax(135px,1fr)); gap:8px; align-items:end; margin-bottom:10px; }
+  .row-form .grow { grid-column:span 2; }
   .stat-card { box-shadow:var(--shadow); }
   .stat-card:hover { transform:translateY(-2px); box-shadow:0 4px 14px rgba(17,17,17,0.1); }
   .stock-row:hover { background:var(--panel2) !important; }
@@ -163,6 +172,26 @@ const fmtDate = (d) => new Date(d).toLocaleDateString("en-IN",{ day:"2-digit", m
 // Sorts SKUs "series wise" — e.g. "S 605", "S 608", "S 610", "S 1000" — by
 // comparing runs of digits numerically instead of as plain text, so S 610
 // doesn't sort before S 608 the way a plain string compare would.
+const ICONS = {
+  eye: <><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></>,
+  eyeOff: <><path d="M3 3l18 18"/><path d="M10.6 5.1A10.6 10.6 0 0 1 12 5c6.4 0 10 7 10 7a17 17 0 0 1-3.2 4.1M6.3 6.4A16.6 16.6 0 0 0 2 12s3.6 7 10 7a10 10 0 0 0 4.2-.9"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/></>,
+  pencil: <><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></>,
+  filePdf: <><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8Z"/><path d="M14 3v5h5"/><path d="M12 11v6"/><path d="m9.5 14.5 2.5 2.5 2.5-2.5"/></>,
+  trash: <><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M6 6l1 14h10l1-14"/><path d="M10 11v6M14 11v6"/></>,
+  x: <path d="M18 6 6 18M6 6l12 12"/>,
+  plus: <path d="M12 5v14M5 12h14"/>
+};
+const Icon = ({ name, size = 15 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{ICONS[name]}</svg>
+);
+const ActBtn = ({ kind, icon, label, onClick, title }) => (
+  <button className={`row-btn act ${kind || ""}${label ? "" : " icon-only"}`} onClick={onClick} title={title || label}><Icon name={icon} />{label}</button>
+);
+const FL = ({ children }) => <div className="mono" style={{fontSize:"10px",color:"var(--text-dim)",marginBottom:"4px"}}>{children}</div>;
+// Newest first: by date, then by the invoice / slip number (natural order, so 10 sorts after 9).
+const newestFirst = (list, noKey) => [...(list || [])].sort((a, b) =>
+  String(b.date || "").localeCompare(String(a.date || "")) || naturalCompare(b[noKey] || "", a[noKey] || ""));
+
 const naturalCompare = (a, b) => {
   const chunks = (s) => String(s || "").match(/\d+|\D+/g) || [];
   const ax = chunks(a), bx = chunks(b);
@@ -449,7 +478,7 @@ function App() {
 
   const [entryMode, setEntryMode] = useState("paint");
   const [challanDraft, setChallanDraft] = useState({ date:today(), painterName:"", items:[] });
-  const [rowForm, setRowForm] = useState({ category:"Plummer Block", item:"", qty:"", paintType:"New Paint", notes:"" });
+  const [rowForm, setRowForm] = useState({ category:"Plummer Block", item:"", material:"", qty:"", paintType:"New Paint", notes:"" });
   const [editingChallanId, setEditingChallanId] = useState(null);
   const [expandedChallans, setExpandedChallans] = useState({});
   const [sForm, setSForm] = useState({ category:"Plummer Block", item:"", qty:"", unit:"Nos", location:"", reorder:"" });
@@ -867,8 +896,8 @@ function App() {
 
   const addRowToChallan = () => {
     if (!rowForm.item || !rowForm.qty) return;
-    setChallanDraft({ ...challanDraft, items: [...challanDraft.items, { id:uid(), category:rowForm.category, item:rowForm.item, qty:Number(rowForm.qty), paintType:rowForm.paintType, notes:rowForm.notes }] });
-    setRowForm({ category:rowForm.category, item:"", qty:"", paintType:rowForm.paintType, notes:"" });
+    setChallanDraft({ ...challanDraft, items: [...challanDraft.items, { id:uid(), category:rowForm.category, item:rowForm.item, material:(rowForm.material || "").trim(), qty:Number(rowForm.qty), paintType:rowForm.paintType, notes:rowForm.notes }] });
+    setRowForm({ category:rowForm.category, item:"", material:rowForm.material, qty:"", paintType:rowForm.paintType, notes:"" });
     if (paintItemRef.current) paintItemRef.current.focus();
   };
 
@@ -922,7 +951,7 @@ function App() {
       });
     }
     setChallanDraft({ date:today(), painterName:"", items:[] });
-    setRowForm({ item:"", qty:"", paintType:"New Paint", notes:"" });
+    setRowForm({ category:"Plummer Block", item:"", material:"", qty:"", paintType:"New Paint", notes:"" });
   };
 
   const startEditChallan = (challan) => {
@@ -934,7 +963,7 @@ function App() {
   const cancelEditChallan = () => {
     setEditingChallanId(null);
     setChallanDraft({ date:today(), painterName:"", items:[] });
-    setRowForm({ item:"", qty:"", paintType:"New Paint", notes:"" });
+    setRowForm({ category:"Plummer Block", item:"", material:"", qty:"", paintType:"New Paint", notes:"" });
   };
 
   const delChallan = (id) => {
@@ -1156,7 +1185,7 @@ function App() {
   const exportToExcel = () => {
     const wb = XLSX.utils.book_new();
     const stockRows = stock.map(s => ({ Category:s.category, Item:s.item, Qty:s.qty, Unit:s.unit, Location:s.location, "Reorder @":s.reorder }));
-    const paintRows = paintLog.flatMap(p => p.items.map(row => ({ "Slip No":p.slipNo, Date:p.date, "Painter Name":p.painterName, Item:row.item, Qty:row.qty, Type:row.paintType, Notes:row.notes })));
+    const paintRows = paintLog.flatMap(p => p.items.map(row => ({ "Slip No":p.slipNo, Date:p.date, "Painter Name":p.painterName, Product:row.category || "Plummer Block", Size:row.item, Material:row.material || "", Description:row.notes, Type:row.paintType, Qty:row.qty })));
     const dispatchRows = dispatchSlips.flatMap(d => d.items.map(row => ({
       "Invoice No":d.invoiceNo, Date:d.date, "Transport Name":d.transportName, "LR No":d.lrNo, "Driver Name":d.driverName, Destination:d.dest,
       Item:row.item, Qty:row.qty, "Packing Style":row.packingStyle, "Box Size":row.boxSize || "—", "Box Qty":row.boxQty || "—",
@@ -1728,7 +1757,7 @@ function App() {
     y += rowH * 2 + 8;
 
     const cols = [
-      { label: "Item", w: 0.32 }, { label: "Qty", w: 0.14 }, { label: "Type", w: 0.24 }, { label: "Notes", w: 0.30 },
+      { label: "Product", w: 0.15 }, { label: "Size", w: 0.19 }, { label: "Material", w: 0.15 }, { label: "Description", w: 0.23 }, { label: "Type", w: 0.15 }, { label: "Qty", w: 0.13 },
     ];
     const colWidths = cols.map(c => c.w * contentW);
     const colX = [marginX];
@@ -1760,8 +1789,8 @@ function App() {
       }
       if (idx % 2 === 1) { doc.setFillColor(246, 246, 246); doc.rect(marginX, y, contentW, bodyRowH, "F"); }
       doc.setTextColor(...darkText);
-      const values = [String(row.item), String(row.qty), String(row.paintType), String(row.notes || "—")];
-      values.forEach((v, i) => doc.text(v, colX[i] + 2, y + 4.8));
+      const values = [String(row.category || "Plummer Block"), String(row.item), String(row.material || "—"), String(row.notes || "—"), String(row.paintType), String(row.qty)];
+      values.forEach((v, i) => doc.text(doc.splitTextToSize(v, colWidths[i] - 3)[0] || "", colX[i] + 2, y + 4.8));
       y += bodyRowH;
     });
 
@@ -2201,7 +2230,7 @@ function App() {
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"12px"}}>
               <div style={{fontWeight:600,fontSize:"13px"}}>{editingChallanId ? "Edit Paint / Repaint Challan" : "New Paint / Repaint Challan"}</div>
               {editingChallanId
-                ? <button className="row-btn" onClick={cancelEditChallan} style={{...iconBtn,fontSize:"12px",fontWeight:600}}>✕ Cancel Edit</button>
+                ? <ActBtn kind="" icon="x" label="Cancel Edit" onClick={cancelEditChallan} />
                 : <div className="mono" style={{fontSize:"12px",color:"var(--text-dim)"}}>Next Slip: {nextSlipNo()}</div>}
             </div>
 
@@ -2217,30 +2246,40 @@ function App() {
               </div>
             </div>
 
-            <div style={{display:"grid",gridTemplateColumns:"1.1fr 1.2fr 0.7fr 1fr 1.3fr auto",gap:"8px",marginBottom:"10px"}}>
-              <select value={rowForm.category} onChange={e => setRowForm({...rowForm, category:e.target.value})} style={inputStyle}>
-                {STOCK_CATEGORIES.map(c => <option key={c}>{c}</option>)}
-              </select>
-              <input ref={paintItemRef} placeholder="Item / SKU (e.g. SN 605)" value={rowForm.item} onChange={e => setRowForm({...rowForm, item:e.target.value})} onKeyDown={e => { if (e.key === "Enter") addRowToChallan(); }} style={inputStyle} list="paint-item-options" />
-              <datalist id="paint-item-options">
-                {Array.from(new Set([...knownLedgerItems, ...PLUMMER_SERIES, ...PILLOW_BLOCKS, ...ADAPTER_SLEEVES, ...LOCATING_RINGS, ...BEARINGS, ...SEAL_TYPES, ...END_COVERS, ...LOCK_NUTS, ...LOCK_WASHERS])).map(o => <option key={o} value={o} />)}
-              </datalist>
-              <input placeholder="Qty" type="number" value={rowForm.qty} onChange={e => setRowForm({...rowForm, qty:e.target.value})} onKeyDown={e => { if (e.key === "Enter") addRowToChallan(); }} style={inputStyle} />
-              <select value={rowForm.paintType} onChange={e => setRowForm({...rowForm, paintType:e.target.value})} style={inputStyle}>
-                <option>New Paint</option>
-                <option>Repaint</option>
-              </select>
-              <input placeholder="Notes" value={rowForm.notes} onChange={e => setRowForm({...rowForm, notes:e.target.value})} onKeyDown={e => { if (e.key === "Enter") addRowToChallan(); }} style={inputStyle} />
-              <button onClick={addRowToChallan} style={btnPrimary}>+ Row</button>
+            <div className="row-form">
+              <div><FL>Product</FL>
+                <select value={rowForm.category} onChange={e => setRowForm({...rowForm, category:e.target.value})} style={inputStyle}>
+                  {STOCK_CATEGORIES.map(c => <option key={c}>{c}</option>)}
+                </select></div>
+              <div><FL>Size</FL>
+                <input ref={paintItemRef} placeholder="e.g. SN 605" value={rowForm.item} onChange={e => setRowForm({...rowForm, item:e.target.value})} onKeyDown={e => { if (e.key === "Enter") addRowToChallan(); }} style={inputStyle} list="paint-item-options" />
+                <datalist id="paint-item-options">
+                  {Array.from(new Set([...knownLedgerItems, ...PLUMMER_SERIES, ...PILLOW_BLOCKS, ...ADAPTER_SLEEVES, ...LOCATING_RINGS, ...BEARINGS, ...SEAL_TYPES, ...END_COVERS, ...LOCK_NUTS, ...LOCK_WASHERS])).map(o => <option key={o} value={o} />)}
+                </datalist></div>
+              <div><FL>Material</FL>
+                <input placeholder="Add material" value={rowForm.material} onChange={e => setRowForm({...rowForm, material:e.target.value})} onKeyDown={e => { if (e.key === "Enter") addRowToChallan(); }} style={inputStyle} list="paint-material-options" />
+                <datalist id="paint-material-options">
+                  {Array.from(new Set(["Cast Iron", "S.G. Iron (Ductile)", "Cast Steel", ...paintLog.flatMap(p => p.items.map(r => r.material).filter(Boolean))])).map(o => <option key={o} value={o} />)}
+                </datalist></div>
+              <div className="grow"><FL>Description</FL>
+                <input placeholder="Description (optional)" value={rowForm.notes} onChange={e => setRowForm({...rowForm, notes:e.target.value})} onKeyDown={e => { if (e.key === "Enter") addRowToChallan(); }} style={inputStyle} /></div>
+              <div><FL>New Paint / Repaint</FL>
+                <select value={rowForm.paintType} onChange={e => setRowForm({...rowForm, paintType:e.target.value})} style={inputStyle}>
+                  <option>New Paint</option>
+                  <option>Repaint</option>
+                </select></div>
+              <div><FL>Qty</FL>
+                <input placeholder="Qty" type="number" value={rowForm.qty} onChange={e => setRowForm({...rowForm, qty:e.target.value})} onKeyDown={e => { if (e.key === "Enter") addRowToChallan(); }} style={inputStyle} /></div>
+              <button onClick={addRowToChallan} style={{...btnPrimary, gap:"6px"}}><Icon name="plus" size={14} /> Row</button>
             </div>
 
             {challanDraft.items.length > 0 && <div style={{marginBottom:"12px"}}>
-              <TableBlock headers={["Category","Item","Qty","Type","Notes",""]} emptyText=""
+              <TableBlock headers={["Product","Size","Material","Description","Type","Qty",""]} emptyText=""
                 rows={challanDraft.items.map(row => [
-                  row.category || "Plummer Block", row.item, row.qty,
+                  row.category || "Plummer Block", row.item, row.material || "—", row.notes || "—",
                   <span style={{color: row.paintType==="Repaint" ? "var(--yellow)" : "var(--green)"}}>{row.paintType}</span>,
-                  row.notes || "—",
-                  <button className="row-btn" onClick={() => removeDraftRow(row.id)} style={iconBtn}>✕</button>,
+                  row.qty,
+                  <ActBtn kind="del" icon="trash" title="Remove row" onClick={() => removeDraftRow(row.id)} />,
                 ])} />
             </div>}
 
@@ -2254,7 +2293,7 @@ function App() {
             </div>
           </div>
 
-          {paintLog.map(p => (
+          {newestFirst(paintLog, "slipNo").map(p => (
             <div key={p.id} style={{background:"var(--panel)",border:`1px solid ${editingChallanId === p.id ? "var(--red)" : "var(--line)"}`,padding:"16px",marginBottom:"14px"}}>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"10px"}}>
                 <div>
@@ -2263,18 +2302,18 @@ function App() {
                   <span style={{fontSize:"13px",color:"var(--text-dim)",marginLeft:"12px"}}>{p.painterName || "—"}</span>
                   {p.createdBy && <span style={{fontSize:"11px",color:"var(--text-dim)",marginLeft:"12px"}}>· created by {p.createdBy}</span>}
                 </div>
-                <div style={{display:"flex",gap:"8px"}}>
-                  <button className="row-btn" onClick={() => setExpandedChallans({...expandedChallans, [p.id]: !expandedChallans[p.id]})} style={iconBtn}>{expandedChallans[p.id] ? "▲ Hide Details" : "▼ View Details"}</button>
-                  <button className="row-btn" onClick={() => startEditChallan(p)} style={{...iconBtn,fontWeight:600}}>✎ Edit</button>
-                  <button className="row-btn" onClick={() => generateChallanPdf(p)} style={{...iconBtn,fontWeight:600}}>⭳ PDF for WhatsApp</button>
-                  <button className="row-btn" onClick={() => delChallan(p.id)} style={iconBtn}>✕ Delete Challan</button>
+                <div style={{display:"flex",gap:"8px",flexWrap:"wrap"}}>
+                  <ActBtn kind="view" icon={expandedChallans[p.id] ? "eyeOff" : "eye"} label={expandedChallans[p.id] ? "Hide Details" : "View Details"} onClick={() => setExpandedChallans({...expandedChallans, [p.id]: !expandedChallans[p.id]})} />
+                  <ActBtn kind="edit" icon="pencil" label="Edit" onClick={() => startEditChallan(p)} />
+                  <ActBtn kind="pdf" icon="filePdf" label="PDF for WhatsApp" onClick={() => generateChallanPdf(p)} />
+                  <ActBtn kind="del" icon="trash" label="Delete Challan" onClick={() => delChallan(p.id)} />
                 </div>
               </div>
-              {expandedChallans[p.id] && <TableBlock headers={["Category","Item","Qty","Type","Notes"]} emptyText="No items."
+              {expandedChallans[p.id] && <TableBlock headers={["Product","Size","Material","Description","Type","Qty"]} emptyText="No items."
                 rows={p.items.map(row => [
-                  row.category || "Plummer Block", row.item, row.qty,
+                  row.category || "Plummer Block", row.item, row.material || "—", row.notes || "—",
                   <span style={{color: row.paintType==="Repaint" ? "var(--yellow)" : "var(--green)"}}>{row.paintType}</span>,
-                  row.notes || "—",
+                  row.qty,
                 ])} />}
             </div>
           ))}
@@ -2284,7 +2323,7 @@ function App() {
           <div style={{background:"var(--panel)",border:`1px solid ${editingSaleId ? "var(--red)" : "var(--line)"}`,padding:"16px",marginBottom:"20px"}}>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"12px"}}>
               <div style={{fontWeight:600,fontSize:"13px"}}>{editingSaleId ? "Edit Vendor Bill Entry" : "Ready to Sale — Vendor Bill Entry"}</div>
-              {editingSaleId && <button className="row-btn" onClick={cancelEditSale} style={{...iconBtn,fontSize:"12px",fontWeight:600}}>✕ Cancel Edit</button>}
+              {editingSaleId && <ActBtn kind="" icon="x" label="Cancel Edit" onClick={cancelEditSale} />}
             </div>
 
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1.5fr",gap:"8px",marginBottom:"14px"}}>
@@ -2340,7 +2379,7 @@ function App() {
               <TableBlock headers={["Category","Item","Qty","Unit","Notes",""]} emptyText=""
                 rows={saleDraft.items.map(row => [
                   row.category, row.item, row.qty, row.unit, row.notes || "—",
-                  <button className="row-btn" onClick={() => removeSaleRow(row.id)} style={iconBtn}>✕</button>,
+                  <ActBtn kind="del" icon="trash" title="Remove row" onClick={() => removeSaleRow(row.id)} />,
                 ])} />
             </div>}
 
@@ -2354,7 +2393,7 @@ function App() {
             </div>
           </div>
 
-          {readyToSaleLog.map(slip => (
+          {newestFirst(readyToSaleLog, "billNo").map(slip => (
             <div key={slip.id} style={{background:"var(--panel)",border:`1px solid ${editingSaleId === slip.id ? "var(--red)" : "var(--line)"}`,padding:"16px",marginBottom:"14px"}}>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"10px"}}>
                 <div>
@@ -2363,9 +2402,9 @@ function App() {
                   <span style={{fontSize:"13px",color:"var(--text-dim)",marginLeft:"12px"}}>{slip.vendorName || "—"}</span>
                   {slip.createdBy && <span style={{fontSize:"11px",color:"var(--text-dim)",marginLeft:"12px"}}>· created by {slip.createdBy}</span>}
                 </div>
-                <div style={{display:"flex",gap:"8px"}}>
-                  <button className="row-btn" onClick={() => startEditSale(slip)} style={{...iconBtn,fontWeight:600}}>✎ Edit</button>
-                  <button className="row-btn" onClick={() => delReadyToSaleSlip(slip.id)} style={iconBtn}>✕ Delete Slip</button>
+                <div style={{display:"flex",gap:"8px",flexWrap:"wrap"}}>
+                  <ActBtn kind="edit" icon="pencil" label="Edit" onClick={() => startEditSale(slip)} />
+                  <ActBtn kind="del" icon="trash" label="Delete Slip" onClick={() => delReadyToSaleSlip(slip.id)} />
                 </div>
               </div>
               <TableBlock headers={["Category","Item","Qty","Unit","Notes"]} emptyText="No items."
@@ -2978,7 +3017,7 @@ function App() {
         <div style={{background:"var(--panel)",border:`1px solid ${editingSlipId ? "var(--red)" : "var(--line)"}`,padding:"16px",marginBottom:"20px"}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"12px"}}>
             <div style={{fontWeight:600,fontSize:"13px"}}>{editingSlipId ? "Edit Packing / Dispatch Slip" : "Build Packing / Dispatch Slip"}</div>
-            {editingSlipId && <button className="row-btn" onClick={cancelEditSlip} style={{...iconBtn,fontSize:"12px",fontWeight:600}}>✕ Cancel Edit</button>}
+            {editingSlipId && <ActBtn kind="" icon="x" label="Cancel Edit" onClick={cancelEditSlip} />}
           </div>
 
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr 1.3fr",gap:"8px",marginBottom:"14px"}}>
@@ -3034,7 +3073,7 @@ function App() {
             <TableBlock headers={["Item","Qty","Packing","Box Size","Box/Bag Qty",""]} emptyText=""
               rows={dispatchDraft.items.map(row => [
                 row.item, row.qty, row.packingStyle, row.boxSize || "—", row.boxQty || row.gunnyQty || "—",
-                <button className="row-btn" onClick={() => removeDispatchRow(row.id)} style={iconBtn}>✕</button>,
+                <ActBtn kind="del" icon="trash" title="Remove row" onClick={() => removeDispatchRow(row.id)} />,
               ])} />
           </div>}
 
@@ -3046,7 +3085,7 @@ function App() {
           </div>
         </div>
 
-        {dispatchSlips.map(d => (
+        {newestFirst(dispatchSlips, "invoiceNo").map(d => (
           <div key={d.id} style={{background:"var(--panel)",border:`1px solid ${editingSlipId === d.id ? "var(--red)" : "var(--line)"}`,padding:"16px",marginBottom:"14px"}}>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:"10px",flexWrap:"wrap",gap:"8px"}}>
               <div>
@@ -3056,11 +3095,11 @@ function App() {
                 </div>
                 {d.createdBy && <div style={{fontSize:"11px",color:"var(--text-dim)",marginTop:"2px"}}>Created by {d.createdBy}</div>}
               </div>
-              <div style={{display:"flex",gap:"8px"}}>
-                <button className="row-btn" onClick={() => setExpandedSlips({...expandedSlips, [d.id]: !expandedSlips[d.id]})} style={iconBtn}>{expandedSlips[d.id] ? "▲ Hide Details" : "▼ View Details"}</button>
-                <button className="row-btn" onClick={() => generateDispatchPdf(d)} style={{...iconBtn,fontWeight:600}}>⭳ PDF for WhatsApp</button>
-                <button className="row-btn" onClick={() => startEditSlip(d)} style={{...iconBtn,fontWeight:600}}>✎ Edit</button>
-                <button className="row-btn" onClick={() => delDispatchSlip(d.id)} style={iconBtn}>✕ Delete Slip</button>
+              <div style={{display:"flex",gap:"8px",flexWrap:"wrap"}}>
+                <ActBtn kind="view" icon={expandedSlips[d.id] ? "eyeOff" : "eye"} label={expandedSlips[d.id] ? "Hide Details" : "View Details"} onClick={() => setExpandedSlips({...expandedSlips, [d.id]: !expandedSlips[d.id]})} />
+                <ActBtn kind="pdf" icon="filePdf" label="PDF for WhatsApp" onClick={() => generateDispatchPdf(d)} />
+                <ActBtn kind="edit" icon="pencil" label="Edit" onClick={() => startEditSlip(d)} />
+                <ActBtn kind="del" icon="trash" label="Delete Slip" onClick={() => delDispatchSlip(d.id)} />
               </div>
             </div>
             {expandedSlips[d.id] && <>
