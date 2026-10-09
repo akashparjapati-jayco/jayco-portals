@@ -179,7 +179,14 @@ const ICONS = {
   filePdf: <><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8Z"/><path d="M14 3v5h5"/><path d="M12 11v6"/><path d="m9.5 14.5 2.5 2.5 2.5-2.5"/></>,
   trash: <><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M6 6l1 14h10l1-14"/><path d="M10 11v6M14 11v6"/></>,
   x: <path d="M18 6 6 18M6 6l12 12"/>,
-  plus: <path d="M12 5v14M5 12h14"/>
+  plus: <path d="M12 5v14M5 12h14"/>,
+  barChart: <><path d="M4 20V10"/><path d="M10 20V4"/><path d="M16 20v-7"/><path d="M22 20H2"/></>,
+  book: <><path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2Z"/><path d="M4 19V5"/><path d="M9 7h6"/></>,
+  refresh: <><path d="M21 12a9 9 0 0 0-15.5-6.2L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 15.5 6.2L21 16"/><path d="M21 21v-5h-5"/></>,
+  printer: <><path d="M7 9V3h10v6"/><rect x="4" y="9" width="16" height="8" rx="2"/><path d="M7 14h10v7H7Z"/></>,
+  download: <><path d="M12 4v11"/><path d="m7.5 11 4.5 4.5 4.5-4.5"/><path d="M4 20h16"/></>,
+  upload: <><path d="M12 16V5"/><path d="m7.5 9 4.5-4.5L16.5 9"/><path d="M4 20h16"/></>,
+  layers: <><path d="m12 3 9 5-9 5-9-5Z"/><path d="m3 13 9 5 9-5"/></>
 };
 const Icon = ({ name, size = 15 }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{ICONS[name]}</svg>
@@ -481,7 +488,7 @@ function App() {
   const [rowForm, setRowForm] = useState({ category:"Plummer Block", item:"", material:"", qty:"", paintType:"New Paint", notes:"" });
   const [editingChallanId, setEditingChallanId] = useState(null);
   const [expandedChallans, setExpandedChallans] = useState({});
-  const [sForm, setSForm] = useState({ category:"Plummer Block", item:"", qty:"", unit:"Nos", location:"", reorder:"" });
+  const [sForm, setSForm] = useState({ category:"Plummer Block", item:"", material:"", description:"", qty:"", unit:"Nos", location:"", reorder:"" });
   const [stockFilter, setStockFilter] = useState(null);
   const [groupByCategory, setGroupByCategory] = useState(false);
   const [reportItem, setReportItem] = useState(null);
@@ -1069,16 +1076,18 @@ function App() {
           qty: s.qty + addedQty,
           category: sForm.category || s.category,
           unit: sForm.unit || s.unit,
+          material: (sForm.material || "").trim() || s.material || "",
+          description: (sForm.description || "").trim() || s.description || "",
           location: sForm.location || s.location,
           reorder: sForm.reorder !== "" ? Number(sForm.reorder) : s.reorder,
           createdBy: userName,
         } : s);
       } else {
-        nextStock = [{ id:uid(), ...sForm, qty:addedQty, reorder:Number(sForm.reorder || 0), createdBy:userName }, ...current.stock];
+        nextStock = [{ id:uid(), ...sForm, material:(sForm.material || "").trim(), description:(sForm.description || "").trim(), qty:addedQty, reorder:Number(sForm.reorder || 0), createdBy:userName }, ...current.stock];
       }
       return { ...current, stock: nextStock };
     });
-    setSForm({ category:"Plummer Block", item:"", qty:"", unit:"Nos", location:"", reorder:"" });
+    setSForm({ category:"Plummer Block", item:"", material:"", description:"", qty:"", unit:"Nos", location:"", reorder:"" });
   };
   const delStock = (id) => {
     persist((current) => ({ ...current, stock: current.stock.filter(s => s.id !== id) }));
@@ -1184,7 +1193,7 @@ function App() {
 
   const exportToExcel = () => {
     const wb = XLSX.utils.book_new();
-    const stockRows = stock.map(s => ({ Category:s.category, Item:s.item, Qty:s.qty, Unit:s.unit, Location:s.location, "Reorder @":s.reorder }));
+    const stockRows = stock.map(s => ({ Category:s.category, Item:s.item, Material:s.material || "", Description:s.description || "", Qty:s.qty, Unit:s.unit, Location:s.location, "Reorder @":s.reorder }));
     const paintRows = paintLog.flatMap(p => p.items.map(row => ({ "Slip No":p.slipNo, Date:p.date, "Painter Name":p.painterName, Product:row.category || "Plummer Block", Size:row.item, Material:row.material || "", Description:row.notes, Type:row.paintType, Qty:row.qty })));
     const dispatchRows = dispatchSlips.flatMap(d => d.items.map(row => ({
       "Invoice No":d.invoiceNo, Date:d.date, "Transport Name":d.transportName, "LR No":d.lrNo, "Driver Name":d.driverName, Destination:d.dest,
@@ -1435,6 +1444,8 @@ function App() {
           id: uid(),
           category: String(r["Category"] ?? "").trim() || "Plummer Block",
           item: String(r["Item"] ?? "").trim(),
+          material: String(r["Material"] ?? "").trim(),
+          description: String(r["Description"] ?? "").trim(),
           qty: Number(r["Qty"] ?? 0),
           unit: String(r["Unit"] ?? "Nos").trim() || "Nos",
           location: String(r["Location"] ?? "").trim(),
@@ -1453,7 +1464,7 @@ function App() {
           newStock.forEach(row => {
             const idx = mergedStock.findIndex(s => itemKey(s.item) === itemKey(row.item));
             if (idx >= 0) {
-              mergedStock = mergedStock.map((s, i) => i === idx ? { ...s, category: row.category, qty: row.qty, unit: row.unit, location: row.location, reorder: row.reorder } : s);
+              mergedStock = mergedStock.map((s, i) => i === idx ? { ...s, category: row.category, material: row.material || s.material || "", description: row.description || s.description || "", qty: row.qty, unit: row.unit, location: row.location, reorder: row.reorder } : s);
             } else {
               mergedStock = [row, ...mergedStock];
             }
@@ -1914,21 +1925,22 @@ function App() {
           <span style={{display:"inline-block",padding:"3px 9px",borderRadius:"100px",fontSize:"11px",fontWeight:600,background:`${color}1A`,color:color,border:`1px solid ${color}33`,whiteSpace:"nowrap"}}>{s.category}</span>
         </td>
         <td style={{padding:"9px 14px",fontWeight:600}}>{s.item}</td>
+        <td style={{padding:"9px 14px",color:"var(--text-dim)"}}>{s.material || "—"}</td>
+        <td style={{padding:"9px 14px",color:"var(--text-dim)",maxWidth:"220px"}}>{s.description || "—"}</td>
         <td className="mono" style={{padding:"9px 14px",textAlign:"right",fontWeight:700,color: below ? "var(--red)" : "var(--text)"}}>
-          {s.qty}
+          {s.qty}{s.unit && s.unit !== "Nos" && <span style={{marginLeft:"4px",fontWeight:400,fontSize:"11px",color:"var(--text-dim)"}}>{s.unit}</span>}
           {below && <span style={{marginLeft:"6px",fontSize:"9.5px",fontWeight:700,color:"var(--red)",letterSpacing:"0.3px"}}>● LOW</span>}
         </td>
-        <td style={{padding:"9px 14px",color:"var(--text-dim)"}}>{s.unit}</td>
         <td style={{padding:"9px 14px",color:"var(--text-dim)"}}>{s.location || "—"}</td>
         <td className="mono" style={{padding:"9px 14px",textAlign:"right",color:"var(--text-dim)"}}>{s.reorder}</td>
         <td style={{padding:"9px 14px",fontSize:"11px",color:"var(--text-dim)"}}>{s.createdBy || "—"}</td>
         <td style={{padding:"9px 14px"}}>
-          <button className="row-btn" onClick={() => setReportItem(s.item)} style={{...iconBtnSmall,fontWeight:600}} title="Series stock, month-wise paint & item track for this item">📊 Report</button>
+          <ActBtn kind="view" icon="barChart" label="Report" title="Series stock, month-wise paint & item track for this item" onClick={() => setReportItem(s.item)} />
         </td>
         <td style={{padding:"9px 14px"}}>
           <div style={{display:"flex",gap:"4px",justifyContent:"flex-end"}}>
-            <button className="row-btn" onClick={() => { setTab("ledger"); setLedgerFilter(s.item); }} style={iconBtnSmall} title="View Ledger">📒</button>
-            <button className="row-btn" onClick={() => delStock(s.id)} style={iconBtnSmall} title="Delete">✕</button>
+            <ActBtn kind="edit" icon="book" title="View Ledger" onClick={() => { setTab("ledger"); setLedgerFilter(s.item); }} />
+            <ActBtn kind="del" icon="trash" title="Delete" onClick={() => delStock(s.id)} />
           </div>
         </td>
       </tr>
@@ -2449,36 +2461,45 @@ function App() {
             <div style={{display:"flex",gap:"8px",alignItems:"center"}}>
               <button
                 onClick={() => setGroupByCategory(g => !g)}
-                style={{...iconBtn,fontSize:"12px",fontWeight:600,padding:"7px 12px",...(groupByCategory ? {background:"var(--red)",color:"#fff",borderColor:"var(--red)"} : {})}}
+                className="row-btn act" style={{...(groupByCategory ? {background:"var(--red)",color:"#fff",borderColor:"var(--red)"} : {})}}
                 title="Group Finish Stock rows by category, with a subtotal for each group. Items are always listed series-wise within each group."
               >
-                {groupByCategory ? "☑" : "☐"} Group by Category
+                <Icon name="layers" size={14} /> Group by Category
               </button>
-              <button onClick={reconcileStock} style={{...iconBtn,fontSize:"12px",fontWeight:600,padding:"7px 12px"}} title="Recompute each item's qty from Opening Stock + Item Ledger, fixing any drift from old entries that didn't update stock correctly">↻ Refresh Stock</button>
-              <button onClick={generateReadyStockPdf} style={{...iconBtn,fontSize:"12px",fontWeight:600,padding:"7px 12px"}} title="Print/share a PDF of itemwise ready stock — respects the current category filter and Group by Category setting">🖨 Print Ready Stock</button>
-              <button onClick={exportToExcel} style={{...iconBtn,fontSize:"12px",fontWeight:600,padding:"7px 12px"}}>⭳ Export to Excel</button>
-              <label style={{...iconBtn,fontSize:"12px",fontWeight:600,padding:"7px 12px",cursor:"pointer",margin:0}}>
-                ⭱ Import Stock (.xlsx)
+              <ActBtn kind="" icon="refresh" label="Refresh Stock" title="Recompute each item's qty from Opening Stock + Item Ledger, fixing any drift from old entries that didn't update stock correctly" onClick={reconcileStock} />
+              <ActBtn kind="" icon="printer" label="Print Ready Stock" title="Print/share a PDF of itemwise ready stock — respects the current category filter and Group by Category setting" onClick={generateReadyStockPdf} />
+              <ActBtn kind="" icon="download" label="Export to Excel" onClick={exportToExcel} />
+              <label className="row-btn act" style={{cursor:"pointer",margin:0}}>
+                <Icon name="upload" /> Import Stock (.xlsx)
                 <input type="file" accept=".xlsx,.xls" style={{display:"none"}} onChange={e => importStockExcel(e.target.files[0])} />
               </label>
             </div>
           </div>
           {importMsg && <div style={{fontSize:"12px",color: /^(Imported|Recalculated)/.test(importMsg) ? "var(--green)" : "var(--red)",marginBottom:"10px"}}>{importMsg}</div>}
-          <div style={{display:"grid",gridTemplateColumns:"1.2fr 1.2fr 0.7fr 0.7fr 1fr 0.7fr auto",gap:"8px"}}>
-            <select value={sForm.category} onChange={e => setSForm({...sForm, category:e.target.value})} style={inputStyle}>
-              {STOCK_CATEGORIES.map(c => <option key={c}>{c}</option>)}
-            </select>
-            <input placeholder="Item / SKU" value={sForm.item} onChange={e => setSForm({...sForm, item:e.target.value})} onKeyDown={e => { if (e.key === "Enter") addStock(); }} style={inputStyle} list="stock-item-options" />
-            <datalist id="stock-item-options">
-              {Array.from(new Set([...knownLedgerItems, ...PLUMMER_SERIES, ...PILLOW_BLOCKS, ...ADAPTER_SLEEVES, ...LOCATING_RINGS, ...BEARINGS, ...SEAL_TYPES, ...END_COVERS, ...LOCK_NUTS, ...LOCK_WASHERS])).map(o => <option key={o} value={o} />)}
-            </datalist>
-            <input placeholder="Qty" type="number" value={sForm.qty} onChange={e => setSForm({...sForm, qty:e.target.value})} style={inputStyle} />
-            <select value={sForm.unit} onChange={e => setSForm({...sForm, unit:e.target.value})} style={inputStyle}>
-              {["Nos","Sets","Pairs","Kg"].map(u => <option key={u}>{u}</option>)}
-            </select>
-            <input placeholder="Rack / Bin" value={sForm.location} onChange={e => setSForm({...sForm, location:e.target.value})} style={inputStyle} />
-            <input placeholder="Reorder @" type="number" value={sForm.reorder} onChange={e => setSForm({...sForm, reorder:e.target.value})} style={inputStyle} />
-            <button onClick={addStock} style={btnPrimary}>+</button>
+          <div className="row-form" style={{marginBottom:0, gridTemplateColumns:"1.2fr 1.2fr 1fr 1.7fr 0.7fr 1fr 0.8fr auto"}}>
+            <div><FL>Product</FL>
+              <select value={sForm.category} onChange={e => setSForm({...sForm, category:e.target.value})} style={inputStyle}>
+                {STOCK_CATEGORIES.map(c => <option key={c}>{c}</option>)}
+              </select></div>
+            <div><FL>Item / SKU</FL>
+              <input placeholder="e.g. SN 605" value={sForm.item} onChange={e => setSForm({...sForm, item:e.target.value})} onKeyDown={e => { if (e.key === "Enter") addStock(); }} style={inputStyle} list="stock-item-options" />
+              <datalist id="stock-item-options">
+                {Array.from(new Set([...knownLedgerItems, ...PLUMMER_SERIES, ...PILLOW_BLOCKS, ...ADAPTER_SLEEVES, ...LOCATING_RINGS, ...BEARINGS, ...SEAL_TYPES, ...END_COVERS, ...LOCK_NUTS, ...LOCK_WASHERS])).map(o => <option key={o} value={o} />)}
+              </datalist></div>
+            <div><FL>Material</FL>
+              <input placeholder="Add material" value={sForm.material} onChange={e => setSForm({...sForm, material:e.target.value})} onKeyDown={e => { if (e.key === "Enter") addStock(); }} style={inputStyle} list="stock-material-options" />
+              <datalist id="stock-material-options">
+                {Array.from(new Set(["Cast Iron", "S.G. Iron (Ductile)", "Cast Steel", ...stock.map(r => r.material).filter(Boolean)])).map(o => <option key={o} value={o} />)}
+              </datalist></div>
+            <div><FL>Description</FL>
+              <input placeholder="Description (optional)" value={sForm.description} onChange={e => setSForm({...sForm, description:e.target.value})} onKeyDown={e => { if (e.key === "Enter") addStock(); }} style={inputStyle} /></div>
+            <div><FL>Qty</FL>
+              <input placeholder="Qty" type="number" value={sForm.qty} onChange={e => setSForm({...sForm, qty:e.target.value})} onKeyDown={e => { if (e.key === "Enter") addStock(); }} style={inputStyle} /></div>
+            <div><FL>Rack / Bin</FL>
+              <input placeholder="Rack / Bin" value={sForm.location} onChange={e => setSForm({...sForm, location:e.target.value})} style={inputStyle} /></div>
+            <div><FL>Reorder @</FL>
+              <input placeholder="Reorder @" type="number" value={sForm.reorder} onChange={e => setSForm({...sForm, reorder:e.target.value})} style={inputStyle} /></div>
+            <button onClick={addStock} style={{...btnPrimary, gap:"6px"}} title="Add stock line"><Icon name="plus" size={14} /> Add</button>
           </div>
         </div>
         <div style={{background:"var(--panel)",border:"1px solid var(--line)",borderRadius:"8px",overflow:"hidden"}}>
@@ -2486,11 +2507,12 @@ function App() {
             <table style={{width:"100%",borderCollapse:"collapse",fontSize:"13px"}}>
               <thead>
                 <tr style={{borderBottom:"1px solid var(--line)",background:"var(--panel2)"}}>
-                  <th className="mono" style={{textAlign:"left",padding:"10px 14px",color:"var(--text-dim)",fontSize:"11px",letterSpacing:"0.4px"}}>Category</th>
-                  <th className="mono" style={{textAlign:"left",padding:"10px 14px",color:"var(--text-dim)",fontSize:"11px",letterSpacing:"0.4px"}}>Item</th>
+                  <th className="mono" style={{textAlign:"left",padding:"10px 14px",color:"var(--text-dim)",fontSize:"11px",letterSpacing:"0.4px"}}>Product</th>
+                  <th className="mono" style={{textAlign:"left",padding:"10px 14px",color:"var(--text-dim)",fontSize:"11px",letterSpacing:"0.4px"}}>Item / SKU</th>
+                  <th className="mono" style={{textAlign:"left",padding:"10px 14px",color:"var(--text-dim)",fontSize:"11px",letterSpacing:"0.4px"}}>Material</th>
+                  <th className="mono" style={{textAlign:"left",padding:"10px 14px",color:"var(--text-dim)",fontSize:"11px",letterSpacing:"0.4px"}}>Description</th>
                   <th className="mono" style={{textAlign:"right",padding:"10px 14px",color:"var(--text-dim)",fontSize:"11px",letterSpacing:"0.4px"}}>Qty</th>
-                  <th className="mono" style={{textAlign:"left",padding:"10px 14px",color:"var(--text-dim)",fontSize:"11px",letterSpacing:"0.4px"}}>Unit</th>
-                  <th className="mono" style={{textAlign:"left",padding:"10px 14px",color:"var(--text-dim)",fontSize:"11px",letterSpacing:"0.4px"}}>Location</th>
+                  <th className="mono" style={{textAlign:"left",padding:"10px 14px",color:"var(--text-dim)",fontSize:"11px",letterSpacing:"0.4px"}}>Rack / Bin</th>
                   <th className="mono" style={{textAlign:"right",padding:"10px 14px",color:"var(--text-dim)",fontSize:"11px",letterSpacing:"0.4px"}}>Reorder @</th>
                   <th className="mono" style={{textAlign:"left",padding:"10px 14px",color:"var(--text-dim)",fontSize:"11px",letterSpacing:"0.4px"}}>By</th>
                   <th className="mono" style={{textAlign:"left",padding:"10px 14px",color:"var(--text-dim)",fontSize:"11px",letterSpacing:"0.4px"}}>Report</th>
@@ -2499,7 +2521,7 @@ function App() {
               </thead>
               <tbody>
                 {visibleStock.length === 0 && (
-                  <tr><td colSpan={9} style={{padding:"24px",textAlign:"center",color:"var(--text-dim)"}}>
+                  <tr><td colSpan={10} style={{padding:"24px",textAlign:"center",color:"var(--text-dim)"}}>
                     {stockFilter ? `No ${stockFilter} items in Finish Stock.` : "No stock recorded."}
                   </td></tr>
                 )}
@@ -2507,7 +2529,7 @@ function App() {
                 {groupByCategory && groupedStock.map(group => (
                   <React.Fragment key={group.category}>
                     <tr>
-                      <td colSpan={9} style={{padding:"7px 14px",background:"#101828",color:"#fff"}}>
+                      <td colSpan={10} style={{padding:"7px 14px",background:"#101828",color:"#fff"}}>
                         <span style={{display:"inline-block",width:"8px",height:"8px",borderRadius:"50%",background:categoryColor(group.category),marginRight:"8px",verticalAlign:"middle"}}></span>
                         <span style={{fontWeight:700,fontSize:"12px",letterSpacing:"0.3px"}}>{group.category}</span>
                         <span style={{marginLeft:"10px",fontSize:"11px",color:"#9aa4b2"}}>
