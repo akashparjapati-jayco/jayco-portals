@@ -106,7 +106,16 @@ const HEADER_MAP = {
   'customername'  : 'name',
   'gstin'         : 'gstin',
   'phone'         : 'phone',
-  'email'         : 'email',
+  'mobile'        : 'mobile',
+  'mobileno'      : 'mobile',
+  'pan'           : 'pan',
+  'panno'         : 'pan',
+  'pancard'       : 'pan',
+  'msme'          : 'msme',
+  'msmeno'        : 'msme',
+  'msmenumber'    : 'msme',
+  'udyam'         : 'msme',
+  'email'        : 'email',
   'address'       : 'address',
   'creditdays'    : 'creditDays',
   'creditlimit'   : 'creditLimit',
@@ -156,7 +165,7 @@ function _calcDueDate(billDate) {
 // ── SETUP (run once) ──────────────────────────────────────────
 function setupSheets() {
   const configs = [
-    { name: SHEETS.CUSTOMERS,    headers: ['custId','name','gstin','phone','email','address','creditDays','creditLimit','active','createdAt'] },
+    { name: SHEETS.CUSTOMERS,    headers: ['custId','name','gstin','phone','mobile','pan','msme','email','address','creditDays','creditLimit','active','createdAt'] },
     { name: SHEETS.BILLS,        headers: ['billId','custId','billNo','billDate','dueDate','totalAmount','narration','status','holdStatus','expectedPaymentDate','createdAt','attachments'] },
     { name: SHEETS.PAYMENTS,     headers: ['payId','custId','payDate','amount','mode','refNo','narration','createdAt'] },
     { name: SHEETS.ALLOCATIONS,  headers: ['allocId','payId','billId','custId','allocAmount','createdAt'] },
@@ -181,8 +190,16 @@ function getCustomers() { return sheetToObjects(getSheet(SHEETS.CUSTOMERS)); }
 
 function saveCustomer(d) {
   const sh = getSheet(SHEETS.CUSTOMERS);
+  // Auto-add new customer columns (mobile, pan, msme) to existing sheets
+  ['mobile', 'pan', 'msme'].forEach(col => {
+    const hdr = sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0].map(_canonicalHeader);
+    if (hdr.indexOf(col) === -1) {
+      sh.getRange(1, sh.getLastColumn() + 1).setValue(col)
+        .setFontWeight('bold').setBackground('#1e293b').setFontColor('#ffffff');
+    }
+  });
   const rows = sh.getDataRange().getValues();
-  const headers = rows[0];
+  const headers = rows[0].map(_canonicalHeader);
   const idx = headers.indexOf('custId');
   if (d.custId) {
     for (let i = 1; i < rows.length; i++) {
@@ -196,8 +213,12 @@ function saveCustomer(d) {
     throw new Error('Customer not found (custId ' + d.custId + ') — nothing was saved.');
   }
   const custId = genId('CUST');
-  sh.appendRow([custId, d.name, d.gstin||'', d.phone||'', d.email||'', d.address||'',
-                d.creditDays||0, d.creditLimit||0, true, new Date().toISOString()]);
+  const newRow = { custId, name: d.name, gstin: d.gstin||'', phone: d.phone||'', mobile: d.mobile||'',
+    pan: d.pan||'', msme: d.msme||'', email: d.email||'', address: d.address||'',
+    creditDays: d.creditDays||0, creditLimit: d.creditLimit||0, active: true,
+    createdAt: new Date().toISOString() };
+  sh.appendRow(headers.concat(['mobile','pan','msme'].filter(k => headers.indexOf(k) === -1))
+    .map(h => newRow[h] !== undefined ? newRow[h] : ''));
   return { custId };
 }
 
