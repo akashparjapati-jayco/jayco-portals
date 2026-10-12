@@ -544,7 +544,10 @@ tr:hover td { background: #f8fafc; }
         <div class="field form-full"><label>Customer Name *</label><input id="cust-name" placeholder="Full legal name" /></div>
         <div class="field"><label>GSTIN</label><input id="cust-gstin" placeholder="22AAAAA0000A1Z5" maxlength="15" /></div>
         <div class="field"><label>Phone</label><input id="cust-phone" placeholder="+91 98765 43210" /></div>
+        <div class="field"><label>Mobile No</label><input id="cust-mobile" type="tel" placeholder="98765 43210" maxlength="15" /></div>
         <div class="field"><label>Email</label><input id="cust-email" type="email" placeholder="accounts@company.com" /></div>
+        <div class="field"><label>PAN Card No</label><input id="cust-pan" placeholder="ABCDE1234F" maxlength="10" style="text-transform:uppercase" /></div>
+        <div class="field"><label>MSME (Udyam) Number</label><input id="cust-msme" placeholder="UDYAM-GJ-00-0000000" maxlength="25" style="text-transform:uppercase" /></div>
         <div class="field"><label>Credit Days</label><input id="cust-creditdays" type="number" value="30" /></div>
         <div class="field"><label>Credit Limit (₹)</label><input id="cust-creditlimit" type="number" value="0" /></div>
         <div class="field form-full"><label>Address</label><textarea id="cust-address" rows="2" placeholder="City, State"></textarea></div>
@@ -1122,15 +1125,17 @@ function renderCustomers(filter='') {
   </div>
   <div class="tbl-wrap">
     <table>
-      <thead><tr><th>Name</th><th>GSTIN</th><th>Phone</th><th>Credit Days</th><th>Credit Limit</th><th class="text-right">Outstanding</th><th>Actions</th></tr></thead>
+      <thead><tr><th>Name</th><th>GSTIN</th><th>Phone / Mobile</th><th>PAN</th><th>MSME</th><th>Credit Days</th><th>Credit Limit</th><th class="text-right">Outstanding</th><th>Actions</th></tr></thead>
       <tbody>
-        ${list.length===0?`<tr><td colspan="7" class="tbl-empty"><span class="empty-icon">👥</span>No customers yet. Add your first customer.</td></tr>`
+        ${list.length===0?`<tr><td colspan="9" class="tbl-empty"><span class="empty-icon">👥</span>No customers yet. Add your first customer.</td></tr>`
           :list.map(c=>{
             const out=custOutstanding(c.custId);
             return `<tr>
               <td><div style="font-weight:600">${c.name}</div><div style="font-size:11px;color:var(--muted)">${c.email||''}</div></td>
               <td><code style="font-size:12px">${c.gstin||'—'}</code></td>
-              <td>${c.phone||'—'}</td>
+              <td>${c.phone||'—'}${c.mobile?`<div style="font-size:11px;color:var(--muted)">${c.mobile}</div>`:''}</td>
+              <td><code style="font-size:12px">${c.pan||'—'}</code></td>
+              <td><code style="font-size:12px">${c.msme||'—'}</code></td>
               <td>${c.creditDays||0} days</td>
               <td>${parseFloat(c.creditLimit||0)>0?fmt(c.creditLimit):'—'}</td>
               <td class="text-right">${out>0?`<strong style="color:var(--danger)">${fmt(out)}</strong>`:`<span style="color:var(--success)">✓ Nil</span>`}</td>
@@ -1156,6 +1161,9 @@ function openCustomerModal(custId=null) {
   document.getElementById('cust-name').value        = c?.name||'';
   document.getElementById('cust-gstin').value       = c?.gstin||'';
   document.getElementById('cust-phone').value       = c?.phone||'';
+  document.getElementById('cust-mobile').value      = c?.mobile||'';
+  document.getElementById('cust-pan').value         = c?.pan||'';
+  document.getElementById('cust-msme').value        = c?.msme||'';
   document.getElementById('cust-email').value       = c?.email||'';
   document.getElementById('cust-creditdays').value  = c?.creditDays||30;
   document.getElementById('cust-creditlimit').value = c?.creditLimit||0;
@@ -1166,9 +1174,14 @@ function openCustomerModal(custId=null) {
 async function saveCustomer() {
   const name = document.getElementById('cust-name').value.trim();
   if (!name) return toast('Customer name is required', 'error');
+  const pan = document.getElementById('cust-pan').value.trim().toUpperCase();
+  if (pan && !/^[A-Z]{5}[0-9]{4}[A-Z]$/.test(pan)) return toast('Invalid PAN format (e.g. ABCDE1234F)', 'error');
   const data = {
     custId       : S.editCustomerId,
     name,
+    mobile       : document.getElementById('cust-mobile').value.trim(),
+    pan,
+    msme         : document.getElementById('cust-msme').value.trim().toUpperCase(),
     gstin        : document.getElementById('cust-gstin').value.trim().toUpperCase(),
     phone        : document.getElementById('cust-phone').value.trim(),
     email        : document.getElementById('cust-email').value.trim(),
