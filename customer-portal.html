@@ -1289,11 +1289,15 @@ async function saveCustomer() {
   try {
     const res = await api('saveCustomer', data);
     if (!res || res.fieldsVersion !== 3) {
-      toast('Saved only basic details — the Apps Script is the OLD version. Paste the new customer-portal-backend.gs and deploy a New version.', 'error');
-      return;
+      alert('Saved only basic details — the Apps Script URL this portal calls is the OLD version.\n\nOpen Settings in this portal and make sure the Apps Script URL is the one from Deploy → Manage deployments of the updated script (after New version → Deploy).');
+      hideLoader(); return;
     }
     closeModal('modal-customer');
     await loadAll();
+    // Verify the details really reached the sheet (read back and compare)
+    const saved = S.customers.find(x => String(x.custId) === String(res.custId));
+    const lost = saved ? ['pan','state','address','gstin','accountNo','ifsc','email','phone','mobile'].filter(k => data[k] && String(saved[k]||'') !== String(data[k])) : ['(customer not found after save)'];
+    if (lost.length) { alert('WARNING: these details were NOT stored in the Google Sheet: ' + lost.join(', ') + '\n\nThe Apps Script web app being called is not the latest deployment, or the Customers sheet columns are protected. Open the Customers sheet and check the column headers (pan, state, accountNo…).'); return navTo('customers'); }
     toast(S.editCustomerId ? 'Customer updated' : 'Customer added', 'success');
     navTo('customers');
   } catch(e) { toast(e.message,'error'); } finally { hideLoader(); }
