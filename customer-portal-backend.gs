@@ -50,7 +50,7 @@ function doPost(e) {
   }
 }
 
-function doGet(e) { return resp({ ok: true, message: 'CMS API v2 is live' }); }
+function doGet(e) { return resp({ ok: true, message: 'CMS API v2 is live', customerFields: 'v3' }); }
 function resp(obj) {
   return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(ContentService.MimeType.JSON);
 }
@@ -220,7 +220,7 @@ function saveCustomer(d) {
     for (let i = 1; i < rows.length; i++) {
       if (String(rows[i][idx]) === String(d.custId)) {
         headers.forEach((h, c) => { if (d[h] !== undefined) sh.getRange(i+1, c+1).setValue(d[h]); });
-        return { custId: d.custId };
+        return { custId: d.custId, fieldsVersion: 3 };
       }
     }
     // Same class of bug as saveBill: fail loudly instead of silently
@@ -231,7 +231,7 @@ function saveCustomer(d) {
   const newRow = Object.assign({}, d, { custId, name: d.name, creditDays: d.creditDays||0, creditLimit: d.creditLimit||0,
     active: true, createdAt: new Date().toISOString() });
   sh.appendRow(headers.map(h => newRow[h] !== undefined ? newRow[h] : ''));
-  return { custId };
+  return { custId, fieldsVersion: 3 };
 }
 
 function deleteCustomer(d) {
