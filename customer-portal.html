@@ -1120,7 +1120,7 @@ ${hasNoAllocs ? `<div style="background:#fef3c7;border:1px solid #fde68a;border-
       <tbody>
         ${debtors.length===0?`<tr><td colspan="9" class="tbl-empty"><span class="empty-icon">🎉</span>No outstanding balances</td></tr>`:
           debtors.map((d,i)=>{
-            const bills=S.bills.filter(b=>b.custId===d.custId&&b.status!=='closed');
+            const bills=S.bills.filter(b=>String(b.custId)===String(d.custId)&&b.status!=='closed');
             const ag={up:0,b0:0,b31:0,b61:0,b90:0};
             bills.forEach(b=>{ const bal=billBalance(b.billId); const dpd=daysPastDue(b.dueDate);
               if(dpd===null||dpd<0)ag.up+=bal; else if(dpd<=30)ag.b0+=bal; else if(dpd<=60)ag.b31+=bal; else if(dpd<=90)ag.b61+=bal; else ag.b90+=bal; });
@@ -1236,7 +1236,7 @@ function custIfscInput(el){
 
 function openCustomerModal(custId=null) {
   S.editCustomerId = custId;
-  const c = (custId ? S.customers.find(x=>x.custId===custId) : null) || {};
+  const c = (custId ? S.customers.find(x=>String(x.custId)===String(custId)) : null) || {};
   $c('modal-customer-title').textContent = custId ? 'Edit Customer' : 'Add Customer';
   const st = $c('cust-state');
   if (st.options.length < 2) Object.values(CUST_GST_STATES).sort().forEach(n => st.add(new Option(n, n)));
