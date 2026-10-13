@@ -1287,7 +1287,11 @@ async function saveCustomer() {
   };
   showLoader('Saving…');
   try {
-    await api('saveCustomer', data);
+    const res = await api('saveCustomer', data);
+    if (!res || res.fieldsVersion !== 3) {
+      toast('Saved only basic details — the Apps Script is the OLD version. Paste the new customer-portal-backend.gs and deploy a New version.', 'error');
+      return;
+    }
     closeModal('modal-customer');
     await loadAll();
     toast(S.editCustomerId ? 'Customer updated' : 'Customer added', 'success');
