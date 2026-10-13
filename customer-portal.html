@@ -213,6 +213,7 @@ tr:hover td { background: #f8fafc; }
 .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
 .form-grid.cols3 { grid-template-columns: 1fr 1fr 1fr; }
 .form-full { grid-column: 1 / -1; }
+.cust-sec { font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); border-bottom: 1px solid var(--line); padding-bottom: 4px; margin-top: 6px; }
 .field { display: flex; flex-direction: column; gap: 5px; }
 .field label { font-size: 12px; font-weight: 600; color: var(--ink-soft); }
 .field input, .field select, .field textarea {
@@ -541,16 +542,47 @@ tr:hover td { background: #f8fafc; }
     </div>
     <div class="modal-body">
       <div class="form-grid">
+        <div class="form-full cust-sec">1 · Basic &amp; Tax</div>
         <div class="field form-full"><label>Customer Name *</label><input id="cust-name" placeholder="Full legal name" /></div>
-        <div class="field"><label>GSTIN</label><input id="cust-gstin" placeholder="22AAAAA0000A1Z5" maxlength="15" /></div>
+        <div class="field"><label>GST Status</label>
+          <select id="cust-gsttype" onchange="custGstToggle()"><option value="registered">Registered (has GSTIN)</option><option value="unregistered">Unregistered</option></select></div>
+        <div class="field" id="cust-gstin-wrap"><label>GSTIN</label><input id="cust-gstin" placeholder="22AAAAA0000A1Z5" maxlength="15" oninput="custGstinInput(this)" /></div>
+        <div class="field"><label>PAN Card No</label><input id="cust-pan" placeholder="ABCDE1234F" maxlength="10" style="text-transform:uppercase" /></div>
+        <div class="field"><label>MSME Status</label>
+          <select id="cust-msme" onchange="custMsmeToggle()"><option value="none">Not MSME</option><option value="micro">Micro</option><option value="small">Small</option><option value="medium">Medium</option></select></div>
+        <div class="field" id="cust-udyam-wrap" style="display:none"><label>Udyam Registration No</label><input id="cust-udyam" placeholder="UDYAM-GJ-01-1234567" maxlength="25" style="text-transform:uppercase" /></div>
+
+        <div class="form-full cust-sec">2 · Address</div>
+        <div class="field form-full"><label>Address</label><textarea id="cust-address" rows="2" placeholder="Street / area"></textarea></div>
+        <div class="field"><label>City</label><input id="cust-city" /></div>
+        <div class="field"><label>State</label><select id="cust-state"><option value="">Select…</option></select></div>
+        <div class="field"><label>PIN Code</label><input id="cust-pincode" maxlength="6" inputmode="numeric" /></div>
+
+        <div class="form-full cust-sec">3 · Contact</div>
+        <div class="field"><label>Contact Person</label><input id="cust-contact" /></div>
         <div class="field"><label>Phone</label><input id="cust-phone" placeholder="+91 98765 43210" /></div>
         <div class="field"><label>Mobile No</label><input id="cust-mobile" type="tel" placeholder="98765 43210" maxlength="15" /></div>
         <div class="field"><label>Email</label><input id="cust-email" type="email" placeholder="accounts@company.com" /></div>
-        <div class="field"><label>PAN Card No</label><input id="cust-pan" placeholder="ABCDE1234F" maxlength="10" style="text-transform:uppercase" /></div>
-        <div class="field"><label>MSME (Udyam) Number</label><input id="cust-msme" placeholder="UDYAM-GJ-00-0000000" maxlength="25" style="text-transform:uppercase" /></div>
+        <div class="field form-full"><label>CC Email</label><input id="cust-emailcc" type="email" /></div>
+
+        <div class="form-full cust-sec">4 · Credit</div>
         <div class="field"><label>Credit Days</label><input id="cust-creditdays" type="number" value="30" /></div>
         <div class="field"><label>Credit Limit (₹)</label><input id="cust-creditlimit" type="number" value="0" /></div>
-        <div class="field form-full"><label>Address</label><textarea id="cust-address" rows="2" placeholder="City, State"></textarea></div>
+
+        <div class="form-full cust-sec">5 · Bank Details</div>
+        <label class="form-full" style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;cursor:pointer">
+          <input type="checkbox" id="cust-addbank" onchange="custBankToggle()" style="width:16px;height:16px" /> Add bank details of this client</label>
+        <div id="cust-bank-wrap" class="form-full" style="display:none">
+          <div class="form-grid">
+            <div class="field"><label>Account Holder Name</label><input id="cust-bk-holder" /></div>
+            <div class="field"><label>Account Number</label><input id="cust-bk-acc" inputmode="numeric" /></div>
+            <div class="field"><label>IFSC</label><input id="cust-bk-ifsc" maxlength="11" placeholder="ICIC0001234" style="text-transform:uppercase" oninput="custIfscInput(this)" /></div>
+            <div class="field"><label>Bank Name</label><input id="cust-bk-name" /></div>
+            <div class="field"><label>Branch</label><input id="cust-bk-branch" /></div>
+            <div class="field"><label>Account Type</label>
+              <select id="cust-bk-type"><option>Current</option><option>Savings</option><option>Cash Credit</option><option>OD</option></select></div>
+          </div>
+        </div>
       </div>
     </div>
     <div class="modal-footer">
@@ -1135,7 +1167,7 @@ function renderCustomers(filter='') {
               <td><code style="font-size:12px">${c.gstin||'—'}</code></td>
               <td>${c.phone||'—'}${c.mobile?`<div style="font-size:11px;color:var(--muted)">${c.mobile}</div>`:''}</td>
               <td><code style="font-size:12px">${c.pan||'—'}</code></td>
-              <td><code style="font-size:12px">${c.msme||'—'}</code></td>
+              <td>${['micro','small','medium'].includes(c.msme)?`<div style="text-transform:capitalize">${c.msme}</div><code style="font-size:11px">${c.udyam||''}</code>`:'—'}</td>
               <td>${c.creditDays||0} days</td>
               <td>${parseFloat(c.creditLimit||0)>0?fmt(c.creditLimit):'—'}</td>
               <td class="text-right">${out>0?`<strong style="color:var(--danger)">${fmt(out)}</strong>`:`<span style="color:var(--success)">✓ Nil</span>`}</td>
@@ -1154,44 +1186,82 @@ function renderCustomers(filter='') {
 </div>`;
 }
 
+const CUST_GST_STATES = {"01":"Jammu & Kashmir","02":"Himachal Pradesh","03":"Punjab","04":"Chandigarh","05":"Uttarakhand","06":"Haryana","07":"Delhi","08":"Rajasthan","09":"Uttar Pradesh","10":"Bihar","11":"Sikkim","12":"Arunachal Pradesh","13":"Nagaland","14":"Manipur","15":"Mizoram","16":"Tripura","17":"Meghalaya","18":"Assam","19":"West Bengal","20":"Jharkhand","21":"Odisha","22":"Chhattisgarh","23":"Madhya Pradesh","24":"Gujarat","26":"Dadra & Nagar Haveli and Daman & Diu","27":"Maharashtra","29":"Karnataka","30":"Goa","31":"Lakshadweep","32":"Kerala","33":"Tamil Nadu","34":"Puducherry","35":"Andaman & Nicobar Islands","36":"Telangana","37":"Andhra Pradesh","38":"Ladakh"};
+const CUST_IFSC_BANKS = {ICIC:"ICICI Bank",HDFC:"HDFC Bank",SBIN:"State Bank of India",UTIB:"Axis Bank",KKBK:"Kotak Mahindra Bank",PUNB:"Punjab National Bank",BARB:"Bank of Baroda",CNRB:"Canara Bank",IDIB:"Indian Bank",YESB:"Yes Bank",INDB:"IndusInd Bank",BKID:"Bank of India",UBIN:"Union Bank of India",IBKL:"IDBI Bank",MAHB:"Bank of Maharashtra",FDRL:"Federal Bank",IOBA:"Indian Overseas Bank",CBIN:"Central Bank of India",SIBL:"South Indian Bank",KARB:"Karnataka Bank",RATN:"RBL Bank",SRCB:"Saraswat Bank",GSCB:"Gujarat State Co-op Bank"};
+const CUST_PAN_RE = /^[A-Z]{5}[0-9]{4}[A-Z]$/, CUST_GST_RE = /^\d{2}[A-Z]{5}\d{4}[A-Z][A-Z0-9]Z[A-Z0-9]$/,
+      CUST_IFSC_RE = /^[A-Z]{4}0[A-Z0-9]{6}$/, CUST_UDYAM_RE = /^UDYAM-[A-Z]{2}-\d{2}-\d{7}$/;
+const $c = id => document.getElementById(id);
+
+function custGstToggle(){ $c('cust-gstin-wrap').style.display = $c('cust-gsttype').value==='registered' ? '' : 'none'; }
+function custMsmeToggle(){ $c('cust-udyam-wrap').style.display = $c('cust-msme').value!=='none' ? '' : 'none'; }
+function custBankToggle(){ $c('cust-bank-wrap').style.display = $c('cust-addbank').checked ? '' : 'none'; }
+function custGstinInput(el){
+  const v = el.value.toUpperCase(); el.value = v;
+  if (v.length >= 12 && CUST_GST_RE.test(v)) {
+    $c('cust-pan').value = v.slice(2,12);
+    if (CUST_GST_STATES[v.slice(0,2)]) $c('cust-state').value = CUST_GST_STATES[v.slice(0,2)];
+  }
+}
+function custIfscInput(el){
+  const v = el.value.toUpperCase(); el.value = v;
+  const bn = CUST_IFSC_BANKS[v.slice(0,4)];
+  if (bn && (!$c('cust-bk-name').value || Object.values(CUST_IFSC_BANKS).includes($c('cust-bk-name').value))) $c('cust-bk-name').value = bn;
+}
+
 function openCustomerModal(custId=null) {
   S.editCustomerId = custId;
-  const c = custId ? S.customers.find(x=>x.custId===custId) : null;
-  document.getElementById('modal-customer-title').textContent = custId ? 'Edit Customer' : 'Add Customer';
-  document.getElementById('cust-name').value        = c?.name||'';
-  document.getElementById('cust-gstin').value       = c?.gstin||'';
-  document.getElementById('cust-phone').value       = c?.phone||'';
-  document.getElementById('cust-mobile').value      = c?.mobile||'';
-  document.getElementById('cust-pan').value         = c?.pan||'';
-  document.getElementById('cust-msme').value        = c?.msme||'';
-  document.getElementById('cust-email').value       = c?.email||'';
-  document.getElementById('cust-creditdays').value  = c?.creditDays||30;
-  document.getElementById('cust-creditlimit').value = c?.creditLimit||0;
-  document.getElementById('cust-address').value     = c?.address||'';
+  const c = (custId ? S.customers.find(x=>x.custId===custId) : null) || {};
+  $c('modal-customer-title').textContent = custId ? 'Edit Customer' : 'Add Customer';
+  const st = $c('cust-state');
+  if (st.options.length < 2) Object.values(CUST_GST_STATES).sort().forEach(n => st.add(new Option(n, n)));
+  const set = (id, v) => { $c(id).value = v ?? ''; };
+  set('cust-name', c.name); set('cust-gsttype', c.gstType || (c.gstin || !custId ? 'registered' : 'unregistered'));
+  set('cust-gstin', c.gstin); set('cust-pan', c.pan);
+  set('cust-msme', ['micro','small','medium'].includes(c.msme) ? c.msme : 'none'); set('cust-udyam', c.udyam);
+  set('cust-address', c.address); set('cust-city', c.city); set('cust-state', c.state); set('cust-pincode', c.pincode);
+  set('cust-contact', c.contactPerson); set('cust-phone', c.phone); set('cust-mobile', c.mobile);
+  set('cust-email', c.email); set('cust-emailcc', c.emailCc);
+  set('cust-creditdays', c.creditDays || 30); set('cust-creditlimit', c.creditLimit || 0);
+  const hasBank = !!(c.accountNo || c.ifsc || c.bankName);
+  $c('cust-addbank').checked = hasBank;
+  set('cust-bk-holder', c.accountHolder); set('cust-bk-acc', c.accountNo); set('cust-bk-ifsc', c.ifsc);
+  set('cust-bk-name', c.bankName); set('cust-bk-branch', c.branch); set('cust-bk-type', c.accountType || 'Current');
+  custGstToggle(); custMsmeToggle(); custBankToggle();
   openModal('modal-customer');
 }
 
 async function saveCustomer() {
-  const name = document.getElementById('cust-name').value.trim();
+  const v = id => $c(id).value.trim(), V = id => v(id).toUpperCase();
+  const name = v('cust-name');
   if (!name) return toast('Customer name is required', 'error');
-  const pan = document.getElementById('cust-pan').value.trim().toUpperCase();
-  if (pan && !/^[A-Z]{5}[0-9]{4}[A-Z]$/.test(pan)) return toast('Invalid PAN format (e.g. ABCDE1234F)', 'error');
+  const registered = $c('cust-gsttype').value === 'registered';
+  if (registered && V('cust-gstin') && !CUST_GST_RE.test(V('cust-gstin'))) return toast('Invalid GSTIN', 'error');
+  if (V('cust-pan') && !CUST_PAN_RE.test(V('cust-pan'))) return toast('Invalid PAN format (e.g. ABCDE1234F)', 'error');
+  const msme = $c('cust-msme').value;
+  if (msme !== 'none' && V('cust-udyam') && !CUST_UDYAM_RE.test(V('cust-udyam'))) return toast('Udyam number like UDYAM-GJ-01-1234567', 'error');
+  if (v('cust-pincode') && !/^\d{6}$/.test(v('cust-pincode'))) return toast('PIN code must be 6 digits', 'error');
+  const addBank = $c('cust-addbank').checked;
+  if (addBank) {
+    if (!v('cust-bk-holder')) return toast('Account holder name is required', 'error');
+    if (!/^\d{9,18}$/.test(v('cust-bk-acc'))) return toast('Account number must be 9–18 digits', 'error');
+    if (!CUST_IFSC_RE.test(V('cust-bk-ifsc'))) return toast('Invalid IFSC (e.g. ICIC0001234)', 'error');
+    if (!v('cust-bk-name')) return toast('Bank name is required', 'error');
+  }
   const data = {
-    custId       : S.editCustomerId,
-    name,
-    mobile       : document.getElementById('cust-mobile').value.trim(),
-    pan,
-    msme         : document.getElementById('cust-msme').value.trim().toUpperCase(),
-    gstin        : document.getElementById('cust-gstin').value.trim().toUpperCase(),
-    phone        : document.getElementById('cust-phone').value.trim(),
-    email        : document.getElementById('cust-email').value.trim(),
-    creditDays   : +document.getElementById('cust-creditdays').value||30,
-    creditLimit  : +document.getElementById('cust-creditlimit').value||0,
-    address      : document.getElementById('cust-address').value.trim(),
+    custId: S.editCustomerId, name,
+    gstType: registered ? 'registered' : 'unregistered', gstin: registered ? V('cust-gstin') : '',
+    pan: V('cust-pan'), msme, udyam: msme === 'none' ? '' : V('cust-udyam'),
+    address: v('cust-address'), city: v('cust-city'), state: $c('cust-state').value, pincode: v('cust-pincode'),
+    contactPerson: v('cust-contact'), phone: v('cust-phone'), mobile: v('cust-mobile'),
+    email: v('cust-email'), emailCc: v('cust-emailcc'),
+    creditDays: +v('cust-creditdays')||30, creditLimit: +v('cust-creditlimit')||0,
+    accountHolder: addBank ? v('cust-bk-holder') : '', accountNo: addBank ? v('cust-bk-acc') : '',
+    ifsc: addBank ? V('cust-bk-ifsc') : '', bankName: addBank ? v('cust-bk-name') : '',
+    branch: addBank ? v('cust-bk-branch') : '', accountType: addBank ? $c('cust-bk-type').value : '',
   };
   showLoader('Saving…');
   try {
-    const res = await api('saveCustomer', data);
+    await api('saveCustomer', data);
     closeModal('modal-customer');
     await loadAll();
     toast(S.editCustomerId ? 'Customer updated' : 'Customer added', 'success');

@@ -107,6 +107,19 @@ const HEADER_MAP = {
   'gstin'         : 'gstin',
   'phone'         : 'phone',
   'mobile'        : 'mobile',
+  'gsttype'       : 'gstType',
+  'udyam'         : 'udyam',
+  'city'          : 'city',
+  'state'         : 'state',
+  'pincode'       : 'pincode',
+  'contactperson' : 'contactPerson',
+  'emailcc'       : 'emailCc',
+  'accountholder' : 'accountHolder',
+  'accountno'     : 'accountNo',
+  'ifsc'          : 'ifsc',
+  'bankname'      : 'bankName',
+  'branch'        : 'branch',
+  'accounttype'   : 'accountType',
   'mobileno'      : 'mobile',
   'pan'           : 'pan',
   'panno'         : 'pan',
@@ -114,7 +127,6 @@ const HEADER_MAP = {
   'msme'          : 'msme',
   'msmeno'        : 'msme',
   'msmenumber'    : 'msme',
-  'udyam'         : 'msme',
   'email'        : 'email',
   'address'       : 'address',
   'creditdays'    : 'creditDays',
@@ -188,10 +200,13 @@ function setupSheets() {
 // ══════════════════════════════════════════════════════════════
 function getCustomers() { return sheetToObjects(getSheet(SHEETS.CUSTOMERS)); }
 
+const CUSTOMER_EXTRA_COLS = ['mobile','pan','msme','udyam','gstType','city','state','pincode','contactPerson','emailCc',
+  'accountHolder','accountNo','ifsc','bankName','branch','accountType','bankUpdatedAt'];
+
 function saveCustomer(d) {
   const sh = getSheet(SHEETS.CUSTOMERS);
   // Auto-add new customer columns (mobile, pan, msme) to existing sheets
-  ['mobile', 'pan', 'msme'].forEach(col => {
+  CUSTOMER_EXTRA_COLS.forEach(col => {
     const hdr = sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0].map(_canonicalHeader);
     if (hdr.indexOf(col) === -1) {
       sh.getRange(1, sh.getLastColumn() + 1).setValue(col)
@@ -213,12 +228,9 @@ function saveCustomer(d) {
     throw new Error('Customer not found (custId ' + d.custId + ') — nothing was saved.');
   }
   const custId = genId('CUST');
-  const newRow = { custId, name: d.name, gstin: d.gstin||'', phone: d.phone||'', mobile: d.mobile||'',
-    pan: d.pan||'', msme: d.msme||'', email: d.email||'', address: d.address||'',
-    creditDays: d.creditDays||0, creditLimit: d.creditLimit||0, active: true,
-    createdAt: new Date().toISOString() };
-  sh.appendRow(headers.concat(['mobile','pan','msme'].filter(k => headers.indexOf(k) === -1))
-    .map(h => newRow[h] !== undefined ? newRow[h] : ''));
+  const newRow = Object.assign({}, d, { custId, name: d.name, creditDays: d.creditDays||0, creditLimit: d.creditLimit||0,
+    active: true, createdAt: new Date().toISOString() });
+  sh.appendRow(headers.map(h => newRow[h] !== undefined ? newRow[h] : ''));
   return { custId };
 }
 
