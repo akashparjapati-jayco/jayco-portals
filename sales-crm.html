@@ -230,7 +230,7 @@ const DEFAULT_SETTINGS = {
     addr3:'Kapadvanj – 387620, Dist. Kheda, Gujarat, India', gstin:'24AAJFJ3998D1Z5', pan:'AAJFJ3998D', phone:'+91 95122 44473 | +91 78628 72182',
     email:'', web:'www.jaycohousing.com', state:'Gujarat', bank:''},
   approvalLimit: 0, validityDays: 30, defaultGst: 18, paymentTerms:'100% advance / as agreed', deliveryTerms:'4–6 weeks from order confirmation',
-  freightGst: 18, followUpDays: 7, terms: DEFAULT_TERMS, digestTo:'', scriptUrl:'', scriptKey:'', webformKey:'', admins: []
+  freightGst: 18, followUpDays: 7, terms: DEFAULT_TERMS, digestTo:'', scriptUrl:'', scriptKey:'', webformKey:'', cmsUrl:'', cmsToken:'', admins: []
 };
 
 /* ---------------- helpers ---------------- */
@@ -294,6 +294,30 @@ async function loadAll(){
   LEADS = l; QUOTES = q; RATES = r; CUSTOMERS = c; ITEMS = i;
   const m = s.find(x => x.id === 'main') || {};
   SET = {...DEFAULT_SETTINGS, ...m, company: {...DEFAULT_SETTINGS.company, ...(m.company||{})}, terms: (m.terms && m.terms.length) ? m.terms : DEFAULT_TERMS, admins: m.admins || []};
+  await mergeCmsCustomers();
+}
+/* Customer Portal (Customer Master) → customer dropdown in quotations. Read-only, merged in memory;
+   a customer is copied into Firestore only when a quotation/PO is saved for it. */
+let CMS_STATUS = '';
+async function mergeCmsCustomers(){
+  CMS_STATUS = '';
+  if(!SET.cmsUrl || !SET.cmsToken) return;
+  try{
+    const r = await fetch(SET.cmsUrl, {method:'POST', body: JSON.stringify({token: SET.cmsToken, action:'getCustomers', data:{}})});
+    const j = await r.json(); if(!j.ok) throw new Error(j.error || 'Customer Portal error');
+    let added = 0;
+    (j.data || []).filter(x => x.name && x.active !== false && String(x.active).toLowerCase() !== 'false').forEach(x => {
+      const info = {
+        contact: x.contactPerson || '', phone: x.phone || x.mobile || '', email: x.email || '', gstin: x.gstin || '', pan: x.pan || '',
+        state: x.state || '', city: x.city || '', pincode: x.pincode || '',
+        address: [x.address, x.city, x.pincode].filter(Boolean).join(', '),
+        creditDays: x.creditDays || '', cmsId: x.custId};
+      const ex = CUSTOMERS.find(c => c.cmsId === x.custId || c.name.toLowerCase() === String(x.name).trim().toLowerCase());
+      if(ex){ Object.keys(info).forEach(k => { if(info[k] && !ex[k]) ex[k] = info[k]; }); ex.inCms = true; }
+      else { CUSTOMERS.push({id: 'cms:' + x.custId, name: String(x.name).trim(), isExclusive: false, fromCms: true, inCms: true, ...info}); added++; }
+    });
+    CMS_STATUS = 'ok';
+  }catch(e){ CMS_STATUS = 'Customer Portal not reachable: ' + e.message; console.warn(CMS_STATUS); }
 }
 const isAdmin = () => !SET.admins.length || SET.admins.map(x => x.toLowerCase()).includes((USER && USER.email || '').toLowerCase());
 const me = () => (USER && USER.email) || 'staff';
@@ -738,8 +762,8 @@ function viewQEdit(arg){
   const codes = [...new Set([...RATES.map(r => r.itemCode), ...ITEMS.map(i => i.itemCode)])].sort();
   $('#view').innerHTML = `
   ${QD.approval && QD.approval.comment && QD.status === 'Draft' ? `<div class="note c"><b>Changes requested by ${esc((QD.approval.by || '').split('@')[0])}:</b> ${esc(QD.approval.comment)}</div>` : ''}
-  <div class="card"><div class="card-h"><h3>Customer</h3><span class="hint">pick an existing customer or type a new one</span></div><div class="card-b"><div class="form">
-    ${fld('Customer name', `<input id="qd_cust" list="dlCust" value="${esc(QD.customerName)}" autocomplete="off"><datalist id="dlCust">${CUSTOMERS.map(c => `<option value="${esc(c.name)}">`).join('')}</datalist>`, {req:true, id:'fQCust', err:'Customer is required', cls:'w2'})}
+  <div class="card"><div class="card-h"><h3>Customer</h3><span class="hint">pick from the Customer Master (Customer Portal) or type a new one${CMS_STATUS && CMS_STATUS !== 'ok' ? ' · <b style="color:var(--bad,#c00)">' + esc(CMS_STATUS) + '</b>' : ''}</span></div><div class="card-b"><div class="form">
+    ${fld('Customer name', `<input id="qd_cust" list="dlCust" value="${esc(QD.customerName)}" autocomplete="off"><datalist id="dlCust">${[...CUSTOMERS].sort((a,b) => a.name.localeCompare(b.name)).map(c => `<option value="${esc(c.name)}" label="${esc([c.gstin, c.city || c.state].filter(Boolean).join(' · '))}">`).join('')}</datalist>`, {req:true, id:'fQCust', err:'Customer is required', cls:'w2'})}
     ${fld('Contact person', `<input id="qd_contact" value="${esc(QD.contactName)}">`)}${fld('Phone', `<input id="qd_phone" value="${esc(QD.phone)}">`)}
     ${fld('Email', `<input id="qd_email" type="email" value="${esc(QD.email)}">`)}${fld('GSTIN', `<input id="qd_gstin" value="${esc(QD.gstin)}" maxlength="15">`)}
     ${fld('State (place of supply)', `<select id="qd_state">${optionList(STATES, QD.state)}</select>`)}${fld('Billing address', `<input id="qd_addr" value="${esc(QD.address)}">`, {cls:'w2'})}
@@ -768,7 +792,7 @@ function readHeader(){
 function onCustomerPick(){
   const c = customerByName($('#qd_cust').value); if(!c) return;
   const set = (id, v) => { if(v !== undefined && v !== '' && $('#' + id)) $('#' + id).value = v; };
-  set('qd_contact', c.contact); set('qd_phone', c.phone); set('qd_email', c.email); set('qd_gstin', c.gstin); set('qd_state', c.state); set('qd_addr', c.address); set('qd_pay', c.paymentTerms);
+  set('qd_contact', c.contact); set('qd_phone', c.phone); set('qd_email', c.email); set('qd_gstin', c.gstin); set('qd_state', c.state); set('qd_addr', c.address); set('qd_pay', c.paymentTerms || (num(c.creditDays) ? num(c.creditDays) + ' days credit' : ''));
   QD.customerId = c.id; readHeader();
   if(num(c.discountPct)){ QD.items.forEach(it => { if(!num(it.discPct)) it.discPct = num(c.discountPct); }); syncLines(); }
   drawTotals(); toast('Customer details filled' + (num(c.discountPct) ? ' · ' + c.discountPct + '% customer discount applied' : ''));
@@ -824,7 +848,11 @@ ACT.rmLine = el => { if(QD.items.length === 1) return; QD.items.splice(+el.datas
 async function ensureCustomer(q){
   let c = customerByName(q.customerName);
   const info = {contact: q.contactName, email: q.email, phone: q.phone, gstin: q.gstin, state: q.state, address: q.address};
-  if(!c){ c = {name: q.customerName.trim(), isExclusive: false, ...info, createdAt: nowISO()}; c.id = await DB.add('customers', c); CUSTOMERS.push(c); }
+  if(c && c.fromCms){
+    const {id, fromCms, inCms, ...doc} = c; Object.keys(info).forEach(k => { if(info[k]) doc[k] = info[k]; });
+    c.id = await DB.add('customers', {...doc, createdAt: nowISO()}); delete c.fromCms; Object.assign(c, doc);
+  }
+  else if(!c){ c = {name: q.customerName.trim(), isExclusive: false, ...info, createdAt: nowISO()}; c.id = await DB.add('customers', c); CUSTOMERS.push(c); }
   else { const patch = {}; Object.keys(info).forEach(k => { if(info[k] && !c[k]) patch[k] = info[k]; }); if(Object.keys(patch).length){ await DB.update('customers', c.id, patch); Object.assign(c, patch); } }
   return c;
 }
@@ -1166,7 +1194,7 @@ ACT.confirmPO = async el => {
    ============================================================ */
 let CQ = '';
 function viewCustomers(){
-  setTitle('Customers', 'Shared with PO Management — one customer list for both portals');
+  setTitle('Customers', 'Shared with PO Management — one customer list for PO Management and the Customer Portal');
   $('#topr').innerHTML = `<button class="btn pri" data-act="editCust" data-id="">＋ Add customer</button>`;
   $('#view').innerHTML = `<div class="card"><div class="card-b"><input id="cq" placeholder="Search customers…" value="${esc(CQ)}" style="max-width:320px"></div><div class="tw" id="cBody"></div></div>`;
   $('#cq').oninput = e => { CQ = e.target.value; drawCust(); }; drawCust();
@@ -1174,10 +1202,11 @@ function viewCustomers(){
 function drawCust(){
   const q = CQ.toLowerCase(), list = CUSTOMERS.filter(c => !q || [c.name, c.contact, c.email, c.phone, c.gstin, c.state].join(' ').toLowerCase().includes(q)).sort((a,b) => a.name.localeCompare(b.name));
   $('#cBody').innerHTML = `<table><thead><tr><th>Customer</th><th>Contact</th><th>Phone / email</th><th>GSTIN</th><th>State</th><th class="num">Discount</th><th>Quotes</th></tr></thead><tbody>
-  ${list.map(c => `<tr class="click" data-act="editCust" data-id="${c.id}"><td><b>${esc(c.name)}</b>${c.isExclusive ? ' <span class="pill brand">Exclusive</span>' : ''}</td><td>${esc(c.contact || '—')}</td><td>${esc(c.phone || '')}<div class="hint">${esc(c.email || '')}</div></td><td class="mono">${esc(c.gstin || '—')}</td><td>${esc(c.state || '—')}</td><td class="num">${num(c.discountPct) ? c.discountPct + '%' : '—'}</td><td>${QUOTES.filter(q => q.customerId === c.id || q.customerName === c.name).length}</td></tr>`).join('') || '<tr><td colspan="7" class="empty">No customers.</td></tr>'}</tbody></table>`;
+  ${list.map(c => `<tr class="click" data-act="editCust" data-id="${c.id}"><td><b>${esc(c.name)}</b>${c.isExclusive ? ' <span class="pill brand">Exclusive</span>' : ''}${c.inCms ? ' <span class="pill">Customer Portal</span>' : ''}</td><td>${esc(c.contact || '—')}</td><td>${esc(c.phone || '')}<div class="hint">${esc(c.email || '')}</div></td><td class="mono">${esc(c.gstin || '—')}</td><td>${esc(c.state || '—')}</td><td class="num">${num(c.discountPct) ? c.discountPct + '%' : '—'}</td><td>${QUOTES.filter(q => q.customerId === c.id || q.customerName === c.name).length}</td></tr>`).join('') || '<tr><td colspan="7" class="empty">No customers.</td></tr>'}</tbody></table>`;
 }
 ACT.editCust = el => {
   const c = CUSTOMERS.find(x => x.id === el.dataset.id) || {};
+  if(c.fromCms){ toast('This customer comes from the Customer Portal — edit it there', 'warn'); return; }
   openModal(`${modalHead(c.id ? 'Edit customer' : 'Add customer')}<div class="modal-b"><div class="form">
     ${fld('Customer name', `<input id="cu_name" value="${esc(c.name || '')}" ${c.id ? 'readonly title="Name is shared with PO Management and cannot be changed here"' : ''}>`, {req:true, cls:'w2', id:'fCuName', err:'Name is required'})}${fld('Contact person', `<input id="cu_contact" value="${esc(c.contact || '')}">`)}
     ${fld('Phone', `<input id="cu_phone" value="${esc(c.phone || '')}">`)}${fld('Email', `<input id="cu_email" value="${esc(c.email || '')}">`)}${fld('GSTIN', `<input id="cu_gstin" maxlength="15" value="${esc(c.gstin || '')}">`)}
@@ -1332,6 +1361,10 @@ function viewSettings(){
   <div class="card"><div class="card-h"><h3>Email & lead backend</h3><div class="sp"><button class="btn sm" data-act="testBackend">Test connection</button></div></div><div class="card-b"><div class="form">
     ${fld('Web app URL (Apps Script /exec)', `<input id="s_url" value="${esc(SET.scriptUrl)}" placeholder="https://script.google.com/macros/s/…/exec">`, {cls:'full'})}
     ${fld('Backend key', `<input id="s_key" type="password" value="${esc(SET.scriptKey)}" autocomplete="off">`)}${fld('Website form key', `<input id="s_wkey" value="${esc(SET.webformKey)}">`)}</div></div></div>
+  <div class="card"><div class="card-h"><h3>Customer Portal link (Customer Master)</h3></div><div class="card-b"><div class="form">
+    ${fld('Customer Portal Apps Script URL', `<input id="s_cmsurl" value="${esc(SET.cmsUrl)}" placeholder="https://script.google.com/macros/s/…/exec">`, {cls:'full'})}
+    ${fld('Customer Portal auth token', `<input id="s_cmstoken" type="password" value="${esc(SET.cmsToken)}" autocomplete="off">`)}</div>
+    <div class="note" style="margin-top:12px">Same URL and token you use in the Customer Portal. Customers added there then appear in the quotation customer dropdown. ${CMS_STATUS === 'ok' ? '<b>Connected ✔</b>' : esc(CMS_STATUS)}</div></div></div>
   <div class="card"><div class="card-h"><h3>Setup guide — connect Gmail, IndiaMART and your website (10 minutes, once)</h3></div><div class="card-b" style="line-height:1.7">
     <ol style="margin:0;padding-left:20px">
       <li>Open <b>script.new</b> signed in as the sales Gmail, name the project <i>Jayco Lead Intake</i>, and paste the whole of <code>lead-intake.gs</code> from this repository.</li>
@@ -1349,10 +1382,10 @@ ACT.saveSettings = async () => {
   const g = id => $('#' + id).value.trim(), list = id => g(id).split(/\n+/).map(x => x.trim()).filter(Boolean);
   const data = {company: {name: g('s_name'), tagline: g('s_tag'), addr1: g('s_a1'), addr2: g('s_a2'), addr3: g('s_a3'), gstin: g('s_gstin'), pan: g('s_pan'), state: g('s_state'), phone: g('s_phone'), email: g('s_email'), web: g('s_web'), bank: ''},
     validityDays: num(g('s_valid')) || 30, defaultGst: num(g('s_gst')), freightGst: num(g('s_fgst')), followUpDays: num(g('s_fu')) || 7, paymentTerms: g('s_pay'), deliveryTerms: g('s_del'), terms: list('s_terms'),
-    admins: list('s_admins').map(x => x.toLowerCase()), approvalLimit: num(g('s_limit')), digestTo: g('s_digest'), scriptUrl: g('s_url'), scriptKey: g('s_key'), webformKey: g('s_wkey')};
+    admins: list('s_admins').map(x => x.toLowerCase()), approvalLimit: num(g('s_limit')), digestTo: g('s_digest'), scriptUrl: g('s_url'), scriptKey: g('s_key'), webformKey: g('s_wkey'), cmsUrl: g('s_cmsurl'), cmsToken: g('s_cmstoken')};
   if(data.admins.length && !data.admins.includes((me() || '').toLowerCase()) && !confirm('You are not in the admin list — you will lose admin access after saving. Continue?')) return;
   await DB.set('crm_settings', 'main', data); SET = {...DEFAULT_SETTINGS, ...data, company: {...DEFAULT_SETTINGS.company, ...data.company}, terms: data.terms.length ? data.terms : DEFAULT_TERMS};
-  toast('Settings saved'); const r = $('#roleTag'); r.textContent = isAdmin() ? 'admin' : 'sales'; r.className = 'role ' + (isAdmin() ? 'admin' : ''); viewSettings();
+  await loadAll(); toast('Settings saved'); const r = $('#roleTag'); r.textContent = isAdmin() ? 'admin' : 'sales'; r.className = 'role ' + (isAdmin() ? 'admin' : ''); viewSettings();
 };
 ACT.testBackend = async () => {
   const url = $('#s_url').value.trim(); if(!url){ toast('Enter the Web app URL first', 'warn'); return; }
