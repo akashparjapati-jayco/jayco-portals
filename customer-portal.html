@@ -820,7 +820,7 @@ function renderPage(page) {
   const c = document.getElementById('content');
   switch(page) {
     case 'dashboard':   c.innerHTML = renderDashboard(); attachDashboard(); break;
-    case 'customers':   c.innerHTML = renderCustomers(); break;
+    case 'customers':   c.innerHTML = renderCustomers(''); break;
     case 'bills':       c.innerHTML = renderBills(); break;
     case 'payments':    c.innerHTML = renderPayments(); break;
     case 'outstanding': c.innerHTML = renderOutstanding(); break;
@@ -1144,38 +1144,64 @@ ${hasNoAllocs ? `<div style="background:#fef3c7;border:1px solid #fde68a;border-
 function attachDashboard(){}
 
 // ── CUSTOMERS ────────────────────────────────────────────────
-function renderCustomers(filter='') {
-  const list = filter ? S.customers.filter(c=>c.name.toLowerCase().includes(filter.toLowerCase())||((c.gstin||'').toLowerCase().includes(filter.toLowerCase()))) : S.customers;
+const MSME_LABEL = {none:'Not MSME', micro:'Micro', small:'Small', medium:'Medium'};
+function custBankComplete(c){ return !!(c.accountHolder && /^\d{9,18}$/.test(String(c.accountNo||'')) && /^[A-Z]{4}0[A-Z0-9]{6}$/.test(c.ifsc||'') && c.bankName); }
+function custMissing(c){
+  const m = [];
+  const gstOk = /^\d{2}[A-Z]{5}\d{4}[A-Z][A-Z0-9]Z[A-Z0-9]$/.test(c.gstin||'');
+  if (c.gstType === 'unregistered' ? false : !gstOk) m.push('GSTIN');
+  if (!/^[A-Z]{5}[0-9]{4}[A-Z]$/.test(c.pan||'')) m.push('PAN');
+  if (!c.state || !c.address) m.push('Address');
+  if (!(c.phone || c.mobile)) m.push('Phone');
+  if (!c.email) m.push('Email');
+  if (!custBankComplete(c)) m.push('Bank');
+  if (!['none','micro','small','medium'].includes(c.msme)) m.push('MSME');
+  return m;
+}
+let CUST_ONLY_INCOMPLETE = false, CUST_FILTER = '';
+function renderCustomers(filter) {
+  if (filter !== undefined) CUST_FILTER = filter;
+  const f = CUST_FILTER.toLowerCase();
+  const incompleteCount = S.customers.filter(c=>custMissing(c).length).length;
+  const list = S.customers.filter(c =>
+    (!f || c.name.toLowerCase().includes(f) || (c.gstin||'').toLowerCase().includes(f) || (c.pan||'').toLowerCase().includes(f)) &&
+    (!CUST_ONLY_INCOMPLETE || custMissing(c).length));
+  const red = 'color:var(--danger);font-weight:600', amber = 'color:#b45309;font-weight:600';
   return `
 <div class="card">
   <div class="card-header">
-    <div><div class="ch-title">Customer Master</div><div class="ch-sub">${S.customers.length} customers</div></div>
+    <div><div class="ch-title">Customer Master</div>
+      <div class="ch-sub">${S.customers.length} customers · ${S.customers.length-incompleteCount} complete ·
+        <a href="#" style="${red};text-decoration:underline" onclick="CUST_ONLY_INCOMPLETE=!CUST_ONLY_INCOMPLETE;document.getElementById('content').innerHTML=renderCustomers();return false">${incompleteCount} incomplete${CUST_ONLY_INCOMPLETE?' (show all)':''}</a></div></div>
     <div class="ch-right">
-      <input type="text" placeholder="Filter…" style="border:1px solid var(--line);border-radius:6px;padding:6px 12px;font-size:13px;outline:none" oninput="document.getElementById('content').innerHTML=renderCustomers(this.value)" />
+      <input type="text" placeholder="Filter name / GSTIN / PAN…" value="${CUST_FILTER.replace(/"/g,'&quot;')}" style="border:1px solid var(--line);border-radius:6px;padding:6px 12px;font-size:13px;outline:none" oninput="document.getElementById('content').innerHTML=renderCustomers(this.value);const i=document.querySelector('#content .ch-right input');i.focus();i.setSelectionRange(i.value.length,i.value.length)" />
       <button class="btn btn-primary" onclick="openCustomerModal()">+ Add Customer</button>
     </div>
   </div>
   <div class="tbl-wrap">
     <table>
-      <thead><tr><th>Name</th><th>GSTIN</th><th>Phone / Mobile</th><th>PAN</th><th>MSME</th><th>Credit Days</th><th>Credit Limit</th><th class="text-right">Outstanding</th><th>Actions</th></tr></thead>
+      <thead><tr><th>Name</th><th>GSTIN / PAN</th><th>State</th><th>Phone</th><th>MSME</th><th>Bank</th><th>Email</th><th>Credit</th><th class="text-right">Outstanding</th><th>Actions</th></tr></thead>
       <tbody>
-        ${list.length===0?`<tr><td colspan="9" class="tbl-empty"><span class="empty-icon">👥</span>No customers yet. Add your first customer.</td></tr>`
+        ${list.length===0?`<tr><td colspan="10" class="tbl-empty"><span class="empty-icon">👥</span>${CUST_ONLY_INCOMPLETE?'No incomplete customers.':'No customers yet. Add your first customer.'}</td></tr>`
           :list.map(c=>{
-            const out=custOutstanding(c.custId);
+            const out=custOutstanding(c.custId), miss=custMissing(c);
+            const esc=x=>String(x).replace(/'/g,"\\'");
             return `<tr>
-              <td><div style="font-weight:600">${c.name}</div><div style="font-size:11px;color:var(--muted)">${c.email||''}</div></td>
-              <td><code style="font-size:12px">${c.gstin||'—'}</code></td>
-              <td>${c.phone||'—'}${c.mobile?`<div style="font-size:11px;color:var(--muted)">${c.mobile}</div>`:''}</td>
-              <td><code style="font-size:12px">${c.pan||'—'}</code></td>
-              <td>${['micro','small','medium'].includes(c.msme)?`<div style="text-transform:capitalize">${c.msme}</div><code style="font-size:11px">${c.udyam||''}</code>`:'—'}</td>
-              <td>${c.creditDays||0} days</td>
-              <td>${parseFloat(c.creditLimit||0)>0?fmt(c.creditLimit):'—'}</td>
+              <td><div style="font-weight:600">${c.name}</div>${miss.length?`<div style="${red};font-size:11px;margin-top:3px">Missing: ${miss.join(', ')}</div>`:''}</td>
+              <td>${c.gstType==='unregistered'?`<span style="color:var(--muted);font-size:12px">Unregistered</span>`:c.gstin?`<code style="font-size:12px">${c.gstin}</code>`:`<span style="${red};font-size:12px">No GSTIN</span>`}
+                <div>${c.pan?`<code style="font-size:12px">${c.pan}</code>`:`<span style="${red};font-size:12px">No PAN</span>`}</div></td>
+              <td>${c.state||`<span style="${red};font-size:12px">—</span>`}</td>
+              <td>${(c.phone||c.mobile)?`${c.phone||''}${c.phone&&c.mobile?'<br>':''}${c.mobile||''}`:`<span style="${red};font-size:12px">No phone</span>`}</td>
+              <td>${['micro','small','medium'].includes(c.msme)?`<div>${MSME_LABEL[c.msme]}</div><code style="font-size:11px">${c.udyam||''}</code>`:c.msme==='none'?`<span style="color:var(--muted)">Not MSME</span>`:`<span style="${red}">?</span>`}</td>
+              <td>${custBankComplete(c)?`<div style="font-size:12px;font-weight:600">${c.bankName}</div><code style="font-size:11px">••••${String(c.accountNo).slice(-4)} · ${c.ifsc}</code>`:`<span style="${amber};font-size:12px">No bank</span>`}</td>
+              <td>${c.email?`<span style="font-size:12px">${c.email}</span>`:`<span style="${amber};font-size:12px">No email</span>`}</td>
+              <td>${c.creditDays||0} d${parseFloat(c.creditLimit||0)>0?`<div style="font-size:11px;color:var(--muted)">${fmt(c.creditLimit)}</div>`:''}</td>
               <td class="text-right">${out>0?`<strong style="color:var(--danger)">${fmt(out)}</strong>`:`<span style="color:var(--success)">✓ Nil</span>`}</td>
               <td>
                 <div style="display:flex;gap:6px">
                   <button class="btn btn-secondary btn-xs" onclick="showStatement('${c.custId}')">Statement</button>
                   <button class="btn btn-secondary btn-xs" onclick="openCustomerModal('${c.custId}')">Edit</button>
-                  <button class="btn btn-danger btn-xs" onclick="confirmDelete('customer','${c.custId}','${c.name}')">Del</button>
+                  <button class="btn btn-danger btn-xs" onclick="confirmDelete('customer','${c.custId}','${esc(c.name)}')">Del</button>
                 </div>
               </td>
             </tr>`;
