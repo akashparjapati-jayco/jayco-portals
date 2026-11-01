@@ -1131,6 +1131,7 @@ function attachDashboard(){}
 
 // ── CUSTOMERS ────────────────────────────────────────────────
 const MSME_LABEL = {none:'Not MSME', micro:'Micro', small:'Small', medium:'Medium'};
+const custMsmeVal = c => { const m = String(c.msme||'').trim().toLowerCase(); return m==='not msme'||m==='no' ? 'none' : m; };
 function custMissing(c){
   const m = [];
   const gstOk = /^\d{2}[A-Z]{5}\d{4}[A-Z][A-Z0-9]Z[A-Z0-9]$/.test(c.gstin||'');
@@ -1139,7 +1140,7 @@ function custMissing(c){
   if (!c.state || !c.address) m.push('Address');
   if (!(c.phone || c.mobile)) m.push('Phone');
   if (!c.email) m.push('Email');
-  if (!['none','micro','small','medium'].includes(c.msme)) m.push('MSME');
+  if (!['none','micro','small','medium'].includes(custMsmeVal(c))) m.push('MSME');
   return m;
 }
 let CUST_ONLY_INCOMPLETE = false, CUST_FILTER = '';
@@ -1176,7 +1177,7 @@ function renderCustomers(filter) {
                 <div>${c.pan?`<code style="font-size:12px">${c.pan}</code>`:`<span style="${red};font-size:12px">No PAN</span>`}</div></td>
               <td>${c.state||`<span style="${red};font-size:12px">—</span>`}</td>
               <td>${(c.phone||c.mobile)?`${c.phone||''}${c.phone&&c.mobile?'<br>':''}${c.mobile||''}`:`<span style="${red};font-size:12px">No phone</span>`}</td>
-              <td>${['micro','small','medium'].includes(c.msme)?`<div>${MSME_LABEL[c.msme]}</div><code style="font-size:11px">${c.udyam||''}</code>`:c.msme==='none'?`<span style="color:var(--muted)">Not MSME</span>`:`<span style="${red}">?</span>`}</td>
+              <td>${['micro','small','medium'].includes(custMsmeVal(c))?`<div>${MSME_LABEL[custMsmeVal(c)]}</div><code style="font-size:11px">${c.udyam||''}</code>`:custMsmeVal(c)==='none'?`<span style="color:var(--muted)">Not MSME</span>`:`<span style="${red}">?</span>`}</td>
               <td>${c.email?`<span style="font-size:12px">${c.email}</span>`:`<span style="${amber};font-size:12px">No email</span>`}</td>
               <td>${c.creditDays||0} d${parseFloat(c.creditLimit||0)>0?`<div style="font-size:11px;color:var(--muted)">${fmt(c.creditLimit)}</div>`:''}</td>
               <td class="text-right">${out>0?`<strong style="color:var(--danger)">${fmt(out)}</strong>`:`<span style="color:var(--success)">✓ Nil</span>`}</td>
@@ -1217,10 +1218,14 @@ function openCustomerModal(custId=null) {
   const st = $c('cust-state');
   if (st.options.length < 2) Object.values(CUST_GST_STATES).sort().forEach(n => st.add(new Option(n, n)));
   const set = (id, v) => { $c(id).value = v ?? ''; };
-  set('cust-name', c.name); set('cust-gsttype', c.gstType || (c.gstin || !custId ? 'registered' : 'unregistered'));
+  set('cust-name', c.name); set('cust-gsttype', c.gstType === 'unregistered' ? 'unregistered' : 'registered');
   set('cust-gstin', c.gstin); set('cust-pan', c.pan);
-  set('cust-msme', ['micro','small','medium'].includes(c.msme) ? c.msme : 'none'); set('cust-udyam', c.udyam);
-  set('cust-address', c.address); set('cust-city', c.city); set('cust-state', c.state); set('cust-pincode', c.pincode);
+  set('cust-msme', ['micro','small','medium'].includes(custMsmeVal(c)) ? custMsmeVal(c) : 'none'); set('cust-udyam', c.udyam);
+  set('cust-address', c.address); set('cust-city', c.city); set('cust-pincode', c.pincode);
+  const savedState = String(c.state||'').trim();
+  const stOpt = [...st.options].find(o => o.value && o.value.toLowerCase() === savedState.toLowerCase());
+  if (savedState && !stOpt) st.add(new Option(savedState, savedState));
+  st.value = stOpt ? stOpt.value : savedState;
   set('cust-contact', c.contactPerson); set('cust-phone', c.phone); set('cust-mobile', c.mobile);
   set('cust-email', c.email); set('cust-emailcc', c.emailCc);
   set('cust-creditdays', c.creditDays || 30); set('cust-creditlimit', c.creditLimit || 0);
@@ -1258,8 +1263,8 @@ async function saveCustomer() {
     await loadAll();
     // Verify the details really reached the sheet (read back and compare)
     const saved = S.customers.find(x => String(x.custId) === String(res.custId));
-    const lost = saved ? ['pan','state','address','gstin','email','phone','mobile'].filter(k => data[k] && String(saved[k]||'') !== String(data[k])) : ['(customer not found after save)'];
-    if (lost.length) { alert('WARNING: these details were NOT stored in the Google Sheet: ' + lost.join(', ') + '\n\nThe Apps Script web app being called is not the latest deployment, or the Customers sheet columns are protected. Open the Customers sheet and check the column headers (pan, state, accountNo…).'); return navTo('customers'); }
+    const lost = saved ? ['pan','state','address','gstin','email','phone','mobile'].filter(k => data[k] && String(saved[k]??'').trim().toUpperCase() !== String(data[k]).trim().toUpperCase()) : ['(customer not found after save)'];
+    if (lost.length) { alert('WARNING: these details were NOT stored in the Google Sheet: ' + lost.join(', ') + '\n\nThe Apps Script web app being called is not the latest deployment, or the Customers sheet columns are protected. Open the Customers sheet and check the column headers (pan, state, mobile, email…).'); return navTo('customers'); }
     toast(S.editCustomerId ? 'Customer updated' : 'Customer added', 'success');
     navTo('customers');
   } catch(e) { toast(e.message,'error'); } finally { hideLoader(); }
