@@ -203,6 +203,10 @@ function getCustomers() { return sheetToObjects(getSheet(SHEETS.CUSTOMERS)); }
 const CUSTOMER_EXTRA_COLS = ['mobile','pan','msme','udyam','gstType','city','state','pincode','contactPerson','emailCc',
   'accountHolder','accountNo','ifsc','bankName','branch','accountType','bankUpdatedAt'];
 
+// Columns that must be stored exactly as typed (never turned into numbers/formulas).
+const CUSTOMER_TEXT_COLS = ['name','gstin','pan','phone','mobile','udyam','address','city','state','pincode',
+  'contactPerson','email','emailCc'];
+
 function saveCustomer(d) {
   const sh = getSheet(SHEETS.CUSTOMERS);
   // Auto-add new customer columns (mobile, pan, msme) to existing sheets
@@ -216,10 +220,19 @@ function saveCustomer(d) {
   const rows = sh.getDataRange().getValues();
   const headers = rows[0].map(_canonicalHeader);
   const idx = headers.indexOf('custId');
+  // Text fields are written as plain text. Otherwise Google Sheets "parses" them:
+  // "+91 98765 43210" becomes a formula (#ERROR!), "09876543210" loses its leading 0,
+  // and the portal then reports the save as failed.
+  const fmts = [headers.map(h => CUSTOMER_TEXT_COLS.indexOf(h) !== -1 ? '@' : 'General')];
+  const clean = v => (typeof v === 'string' ? v.trim() : v);
   if (d.custId) {
     for (let i = 1; i < rows.length; i++) {
       if (String(rows[i][idx]) === String(d.custId)) {
-        headers.forEach((h, c) => { if (d[h] !== undefined) sh.getRange(i+1, c+1).setValue(d[h]); });
+        // Merge into the existing row and write it back in one call, so a save is all-or-nothing.
+        const row = headers.map((h, c) => d[h] !== undefined ? clean(d[h]) : rows[i][c]);
+        const rng = sh.getRange(i + 1, 1, 1, headers.length);
+        rng.setNumberFormats(fmts);
+        rng.setValues([row]);
         return { custId: d.custId, fieldsVersion: 3 };
       }
     }
@@ -230,7 +243,9 @@ function saveCustomer(d) {
   const custId = genId('CUST');
   const newRow = Object.assign({}, d, { custId, name: d.name, creditDays: d.creditDays||0, creditLimit: d.creditLimit||0,
     active: true, createdAt: new Date().toISOString() });
-  sh.appendRow(headers.map(h => newRow[h] !== undefined ? newRow[h] : ''));
+  const rng = sh.getRange(sh.getLastRow() + 1, 1, 1, headers.length);
+  rng.setNumberFormats(fmts);
+  rng.setValues([headers.map(h => newRow[h] !== undefined ? clean(newRow[h]) : '')]);
   return { custId, fieldsVersion: 3 };
 }
 
