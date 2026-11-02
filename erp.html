@@ -128,6 +128,11 @@ tr.click{cursor:pointer}tr.click:hover td{background:#FAFBFD}
 .wrow .wq b{font-size:18px;font-family:'Space Grotesk'}
 .wrow .wa{text-align:right}
 @media(max-width:1100px){.wrow{grid-template-columns:1fr 1fr;}.wrow .wst{grid-column:1/-1}.wrow .wa{text-align:left}}
+.stk{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:8px}
+.stb{display:flex;gap:8px;align-items:center;border:1px solid var(--line);border-left:4px solid var(--c);border-radius:10px;padding:9px 10px;cursor:pointer;font-size:13px;font-weight:600}
+.stb input{width:18px;height:18px;margin:0;padding:0;flex:none;accent-color:var(--c)}
+.stb:has(input:checked){background:color-mix(in srgb, var(--c) 12%, white);border-color:var(--c)}
+.stb.dim{opacity:.4;pointer-events:none}
 @media(max-width:900px){.app{grid-template-columns:1fr}aside{position:static;height:auto}.form{grid-template-columns:1fr}main{padding:0 14px 30px}.top{position:static}}
 </style>
 </head>
@@ -662,6 +667,8 @@ function vOrder(id){
 }
 
 /* ---------- move pieces between stages ---------- */
+/* Move pieces: tick every stage the pieces have just finished (several at once is fine).
+   The pieces end up in the last ticked stage; history records each ticked stage as its own step. */
 function openMove(itemId){
   const it = ITEMS_PO.find(i => i.id === itemId), st = itemState(it);
   const froms = [...(st.notStarted ? [{k:'__ns', n:'Not started', q:st.notStarted}] : []), ...STAGES.filter(s => st.q[s.k] > 0).map(s => ({k:s.k, n:s.n, q:st.q[s.k]}))];
@@ -669,33 +676,49 @@ function openMove(itemId){
   modal(`<div class="modal-h"><h3>Move pieces — ${esc(it.itemCode)}</h3><button class="btn sm" onclick="closeModal()">✕</button></div>
   <div class="modal-b"><div class="form">
     <div class="fld"><label>From</label><select id="mvFrom">${froms.map(f => `<option value="${f.k}" data-q="${f.q}">${esc(f.n)} (${f.q} pcs)</option>`).join('')}</select></div>
-    <div class="fld"><label>To</label><select id="mvTo">${STAGES.map(s => `<option value="${s.k}">${esc(s.n)}</option>`).join('')}<option value="__scrap">✖ Rejected / scrapped</option></select></div>
     <div class="fld"><label>Pieces</label><input id="mvQty" type="number" min="1" value="${froms[0].q}"></div>
-    <div class="fld"><label>Done by / note</label><input id="mvNote" placeholder="operator, challan no, reason for rejection…"></div>
+    <div class="fld full"><label>Stages done now — tick one or more</label><div id="mvStages" class="stk"></div>
+      <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap"><button class="btn sm" type="button" onclick="mvTick('next')">Next stage only</button><button class="btn sm" type="button" onclick="mvTick('all')">All up to Ready</button><button class="btn sm" type="button" onclick="mvTick('none')">Clear</button></div></div>
+    <label class="fld full" style="display:flex;gap:8px;align-items:center;cursor:pointer"><input type="checkbox" id="mvScrap" style="width:auto"> <span>✖ These pieces were <b>rejected / scrapped</b> instead</span></label>
+    <div class="fld full"><label>Done by / note</label><input id="mvNote" placeholder="operator, challan no, reason for rejection…"></div>
+    <div class="full sumbox" id="mvSum" style="font-weight:600"></div>
   </div></div>
   <div class="modal-f"><button class="btn" onclick="closeModal()">Cancel</button><button class="btn pri" id="mvSave" onclick="saveMove('${itemId}')">Save move</button></div>`);
-  const sync = () => { const o = $('#mvFrom').selectedOptions[0]; $('#mvQty').max = o.dataset.q; $('#mvQty').value = o.dataset.q;
-    const idx = STAGES.findIndex(s => s.k === $('#mvFrom').value); $('#mvTo').value = STAGES[Math.min(STAGES.length - 1, idx + 1)].k; };
-  $('#mvFrom').onchange = sync; sync();
+  const drawStages = () => {
+    const fi = STAGES.findIndex(s => s.k === $('#mvFrom').value);   // -1 for "not started"
+    $('#mvStages').innerHTML = STAGES.map((s, i) => i <= fi ? '' : `<label class="stb" style="--c:${s.c}"><input type="checkbox" value="${s.k}" ${i === fi + 1 ? 'checked' : ''}><span>${esc(s.n)}</span></label>`).join('') || '<span class="hint">Already in the last stage — use Rejected, or dispatch it in PO Management.</span>';
+    $$('#mvStages input').forEach(c => c.onchange = mvSummary);
+    const o = $('#mvFrom').selectedOptions[0]; $('#mvQty').max = o.dataset.q; $('#mvQty').value = o.dataset.q; mvSummary();
+  };
+  $('#mvFrom').onchange = drawStages; $('#mvQty').oninput = mvSummary; $('#mvScrap').onchange = mvSummary; drawStages();
+}
+function mvTick(mode){ const cs = $$('#mvStages input'); cs.forEach((c, i) => c.checked = mode === 'all' ? true : mode === 'next' ? i === 0 : false); mvSummary(); }
+function mvPicked(){ return $$('#mvStages input').filter(c => c.checked).map(c => c.value); }
+function mvSummary(){
+  const q = Math.floor(num($('#mvQty').value)), scrap = $('#mvScrap').checked, picked = mvPicked();
+  $$('#mvStages .stb').forEach(l => l.classList.toggle('dim', scrap));
+  $('#mvSum').textContent = scrap ? `${q} pcs will be marked rejected / scrapped.` : picked.length ? `${q} pcs → ${picked.map(k => STAGES.find(s => s.k === k).n).join(' → ')}. They will now be in “${STAGES.find(s => s.k === picked[picked.length - 1]).n}”.` : 'Tick at least one stage.';
 }
 async function saveMove(itemId){
-  const it = ITEMS_PO.find(i => i.id === itemId), from = $('#mvFrom').value, to = $('#mvTo').value, qty = Math.floor(num($('#mvQty').value)), note = $('#mvNote').value.trim();
-  const avail = num($('#mvFrom').selectedOptions[0].dataset.q);
+  const it = ITEMS_PO.find(i => i.id === itemId), from = $('#mvFrom').value, qty = Math.floor(num($('#mvQty').value)), note = $('#mvNote').value.trim();
+  const scrap = $('#mvScrap').checked, picked = mvPicked(), avail = num($('#mvFrom').selectedOptions[0].dataset.q);
   if(qty < 1 || qty > avail){ toast('Pieces must be between 1 and ' + avail); return; }
-  if(from === to){ toast('Choose a different stage'); return; }
+  if(!scrap && !picked.length){ toast('Tick at least one stage'); return; }
   $('#mvSave').disabled = true;
   const ref = db.collection('erp_itemStages').doc(itemId), name = k => k === '__ns' ? 'Not started' : k === '__scrap' ? 'Scrapped' : STAGES.find(s => s.k === k).n;
+  const steps = scrap ? ['__scrap'] : picked, to = steps[steps.length - 1];
   try{
     await db.runTransaction(async tx => {
       const cur = await tx.get(ref), d = cur.exists ? cur.data() : {stageQty:{}, history:[], scrapQty:0};
       const sq = {...(d.stageQty || {})}, now = new Date().toISOString();
       if(from !== '__ns') sq[from] = Math.max(0, num(sq[from]) - qty);
-      let scrap = num(d.scrapQty);
-      if(to === '__scrap') scrap += qty; else sq[to] = num(sq[to]) + qty;
-      const hist = [...(d.history || []), {at: now, by: me(), from: name(from), to: name(to), qty, note}].slice(-200);
-      tx.set(ref, {poItemId: itemId, poNo: it.poNo, itemCode: it.itemCode, stageQty: sq, scrapQty: scrap, history: hist, updatedAt: now}, {merge: true});
+      let scrapQ = num(d.scrapQty);
+      if(to === '__scrap') scrapQ += qty; else sq[to] = num(sq[to]) + qty;
+      const add = []; let prev = from; steps.forEach(k => { add.push({at: now, by: me(), from: name(prev), to: name(k), qty, note}); prev = k; });
+      const hist = [...(d.history || []), ...add].slice(-200);
+      tx.set(ref, {poItemId: itemId, poNo: it.poNo, itemCode: it.itemCode, stageQty: sq, scrapQty: scrapQ, history: hist, updatedAt: now}, {merge: true});
     });
-    closeModal(); toast(`${qty} pcs → ${name(to)}`);
+    closeModal(); toast(`${qty} pcs → ${name(to)}${steps.length > 1 ? ' (' + steps.length + ' stages)' : ''}`);
   }catch(e){ toast('Could not save: ' + e.message); $('#mvSave').disabled = false; }
 }
 function openHistory(itemId){
