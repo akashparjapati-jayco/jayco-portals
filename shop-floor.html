@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Jayco Shop-floor Board</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
+<link rel="stylesheet" href="erp.css?v=202611021743">
+<style>
+  .app.entry-only{display:block;grid-template-columns:none;min-height:0;align-content:start}
+  #app.entry-only:not([style*="none"]){display:block !important}
+  .ebar{display:flex;align-items:center;gap:12px;padding:12px 28px;background:var(--side);color:#fff;position:sticky;top:0;z-index:10}
+  .ebar .logo{display:flex;align-items:center;gap:10px;font-family:'Space Grotesk';font-weight:700;font-size:18px;letter-spacing:.02em}
+  .ebar .logo i{width:30px;height:30px;border-radius:9px;background:linear-gradient(135deg,#ff5a52,#a30000);display:inline-flex;align-items:center;justify-content:center;font-style:normal;font-size:15px}
+  .ebar .logo b{color:#ff6b64}
+  .ebar .hint{color:#aab}
+  .ebar .btn{color:var(--ink);text-decoration:none}
+  .entry-only main{max-width:1280px;margin:0 auto}
+  .entry-only .top{display:flex;position:static;padding:0 0 14px}
+  html.embed .ebar{display:none}
+  html.embed .top h1, html.embed #sub2{display:none}
+  html.embed .entry-only .top{padding:0 0 8px;min-height:0}
+  html.embed .entry-only main{padding:0;max-width:none}
+  html.embed body{background:transparent}
+  .entry-only main{padding-top:20px}
+</style>
+<script>window.ERP_MODE = 'board'; if(/[?&]embed=1/.test(location.search)) document.documentElement.classList.add('embed');</script>
+</head>
+<body>
+<div id="login"><div class="box">
+  <h2>Shop-floor Board</h2><div class="hint">Where every order line's pieces are right now</div>
+  <label>Email</label><input id="lgEmail" autocomplete="username">
+  <label>Password</label><input id="lgPwd" type="password" autocomplete="current-password">
+  <div id="lgErr" style="color:var(--crit);font-size:12px;margin-top:8px"></div>
+  <button class="btn pri" id="lgBtn" style="width:100%;margin-top:14px">Sign in</button>
+  <div class="hint" style="margin-top:10px">Same staff login as PO Management / Sales.</div>
+</div></div>
+
+<div class="app entry-only" id="app" style="display:none">
+  <header class="ebar">
+    <div class="logo"><i>◫</i><span>JAYCO <b>SHOP-FLOOR BOARD</b></span></div>
+    <span class="hint" id="eUser" style="margin-left:auto"></span>
+    <a id="lgOut" class="btn sm" style="cursor:pointer">Log out</a>
+  </header>
+  <main><div class="top"><div><h1 id="ttl"></h1><div class="sub2" id="sub2"></div></div><div class="sp" id="topr"></div></div><div id="view"></div></main>
+</div>
+<div id="toast"></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="erp-app.js?v=202611021743"></script>
+</body>
+</html>

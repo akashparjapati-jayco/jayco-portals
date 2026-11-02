@@ -546,6 +546,13 @@ tr.clickable:hover td{background:var(--blue-100)!important;}
   </section>
 
   <!-- ============ REPORTS ============ -->
+  <!-- ============ SHOP-FLOOR BOARD (same board as the ERP; stage moves are saved for both) ============ -->
+  <section class="page" id="page-shopfloor">
+    <div class="page-head"><div><h1>Shop-floor Board</h1><p>Every open PO line and where its pieces are — tap a stage to filter, Move to update. Same board as the ERP.</p></div>
+      <a href="shop-floor.html" target="_blank" rel="noopener" style="font-size:13px;font-weight:600">Open full screen ↗</a></div>
+    <iframe id="shopfloorFrame" title="Shop-floor Board" style="width:100%;height:calc(100vh - 150px);min-height:600px;border:1px solid var(--line,#e3e5ea);border-radius:12px;background:#fff"></iframe>
+  </section>
+
   <section class="page" id="page-reports">
     <div class="page-head">
       <div><h1>Reports</h1><p>Search across customer, item, PO and invoice at once. Click any row to drill in.</p></div>
@@ -917,6 +924,7 @@ const NAV = [
   {id:'newpo', icon:'＋', label:'New PO'},
   {id:'despatch', icon:'▶', label:'Record Despatch'},
   {id:'register', icon:'☰', label:'PO Register'},
+  {id:'shopfloor', icon:'◫', label:'Shop-floor Board'},
   {id:'reports', icon:'▤', label:'Reports'},
   {id:'customers', icon:'◐', label:'Party Master'},
   {id:'items', icon:'▧', label:'Items'},
@@ -942,6 +950,7 @@ function showPage(id){
   if(id==='customers') renderCustomers();
   if(id==='items') renderItemMaster();
   if(id==='dashboard') renderDashboard();
+  if(id==='shopfloor'){ const f = document.getElementById('shopfloorFrame'); if(!f.src) f.src = 'shop-floor.html?embed=1#wip'; }
 }
 
 /* ---------------- Toast ---------------- */
