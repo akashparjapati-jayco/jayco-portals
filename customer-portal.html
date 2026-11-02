@@ -1170,7 +1170,7 @@ function renderCustomers(filter) {
         ${list.length===0?`<tr><td colspan="9" class="tbl-empty"><span class="empty-icon">👥</span>${CUST_ONLY_INCOMPLETE?'No incomplete customers.':'No customers yet. Add your first customer.'}</td></tr>`
           :list.map(c=>{
             const out=custOutstanding(c.custId), miss=custMissing(c);
-            const esc=x=>String(x).replace(/'/g,"\\'");
+            const esc=x=>String(x).replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/"/g,'&quot;').replace(/</g,'&lt;');
             return `<tr>
               <td><div style="font-weight:600">${c.name}</div>${miss.length?`<div style="${red};font-size:11px;margin-top:3px">Missing: ${miss.join(', ')}</div>`:''}</td>
               <td>${c.gstType==='unregistered'?`<span style="color:var(--muted);font-size:12px">Unregistered</span>`:c.gstin?`<code style="font-size:12px">${c.gstin}</code>`:`<span style="${red};font-size:12px">No GSTIN</span>`}
