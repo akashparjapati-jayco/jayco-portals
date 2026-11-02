@@ -845,6 +845,44 @@ function applyItemCode(tr, input){
 ACT.addLine = () => { readHeader(); QD.items.push(blankLine()); drawLines(); drawTotals(); };
 ACT.rmLine = el => { if(QD.items.length === 1) return; QD.items.splice(+el.dataset.i, 1); drawLines(); drawTotals(); };
 
+
+/* ---- One customer master: a new customer created here is also linked to (or created in) the Customer Portal sheet ----
+   Matches by normalised name first, so "M/S Acme Pvt. Ltd." links to "ACME PRIVATE LIMITED" instead of creating a duplicate.
+   Never blocks saving: if the Customer Portal can't be reached the customer stays unlinked and shows up in ERP → Customer Master. */
+const _STOP = new Set(['pvt','private','ltd','limited','llp','co','company','corp','corporation','the','and','of']);
+function _nameKey(n){
+  const t = String(n || '').toLowerCase().replace(/^\s*(m\/s\.?|messrs\.?|ms\.?)\s+/, '').replace(/&/g, ' and ').replace(/[^a-z0-9 ]+/g, ' ').split(/\s+/)
+    .filter(x => x && !_STOP.has(x)).map(x => x.length > 4 && x.endsWith('s') ? x.slice(0, -1) : x);
+  const out = []; let run = false; t.forEach(x => { if(x.length === 1){ if(run) out[out.length - 1] += x; else { out.push(x); run = true; } } else { out.push(x); run = false; } });
+  return out.sort().join(' ');
+}
+let _cms = null;
+async function _cmsList(cfg){
+  if(_cms && _cms.url === cfg.url && Date.now() - _cms.at < 90000) return _cms.list;
+  const r = await fetch(cfg.url, {method: 'POST', body: JSON.stringify({token: cfg.token, action: 'getCustomers', data: {}})}), j = await r.json();
+  if(!j.ok) throw new Error(j.error || 'Customer Portal error');
+  _cms = {url: cfg.url, at: Date.now(), list: (j.data || []).filter(c => c.name && String(c.active).toLowerCase() !== 'false')}; return _cms.list;
+}
+async function cmsEnsure(c){
+  try{
+    const cfg = await _cmsCfg(); if(!cfg) return null;
+    const key = _nameKey(c.name); if(!key) return null;
+    const list = await _cmsList(cfg), same = list.filter(x => _nameKey(x.name) === key);
+    let custId;
+    if(same.length === 1) custId = same[0].custId;                       // already in the Customer Portal → just link
+    else if(same.length > 1) return null;                                // ambiguous → leave for ERP → Customer Master
+    else {
+      const r = await fetch(cfg.url, {method: 'POST', body: JSON.stringify({token: cfg.token, action: 'saveCustomer', data: {name: String(c.name).trim(), gstType: c.gstin ? 'registered' : '', gstin: c.gstin || '', state: c.state || '', address: c.address || '', contactPerson: c.contact || '', phone: c.phone || '', email: c.email || '', creditDays: 45, creditLimit: 0}})}), j = await r.json();
+      if(!j.ok) throw new Error(j.error || 'Customer Portal error'); custId = j.data.custId; _cms = null;
+    }
+    await _setCmsId(c, String(custId)); c.cmsId = String(custId); return custId;
+  }catch(e){ console.warn('Customer Portal link skipped:', e.message); _cmsWarn(e.message); return null; }
+}
+
+async function _cmsCfg(){ return SET.cmsUrl && SET.cmsToken ? {url: SET.cmsUrl, token: SET.cmsToken} : null; }
+async function _setCmsId(c, id){ await DB.update('customers', c.id, {cmsId: id}); }
+function _cmsWarn(msg){ toast('Customer saved. Not added to the Customer Portal yet (' + msg + ') — fix later in ERP → Customer Master.', 'warn'); }
+
 async function ensureCustomer(q){
   let c = customerByName(q.customerName);
   const info = {contact: q.contactName, email: q.email, phone: q.phone, gstin: q.gstin, state: q.state, address: q.address};
@@ -852,7 +890,7 @@ async function ensureCustomer(q){
     const {id, fromCms, inCms, ...doc} = c; Object.keys(info).forEach(k => { if(info[k]) doc[k] = info[k]; });
     c.id = await DB.add('customers', {...doc, createdAt: nowISO()}); delete c.fromCms; Object.assign(c, doc);
   }
-  else if(!c){ c = {name: q.customerName.trim(), isExclusive: false, ...info, createdAt: nowISO()}; c.id = await DB.add('customers', c); CUSTOMERS.push(c); }
+  else if(!c){ c = {name: q.customerName.trim(), isExclusive: false, ...info, createdAt: nowISO()}; c.id = await DB.add('customers', c); CUSTOMERS.push(c); await cmsEnsure(c); }
   else { const patch = {}; Object.keys(info).forEach(k => { if(info[k] && !c[k]) patch[k] = info[k]; }); if(Object.keys(patch).length){ await DB.update('customers', c.id, patch); Object.assign(c, patch); } }
   return c;
 }
@@ -1218,7 +1256,7 @@ ACT.saveCust = async el => {
   const g = id => $('#' + id).value.trim(), name = g('cu_name'); $('#fCuName').classList.toggle('bad', !name); if(!name) return;
   const data = {contact: g('cu_contact'), phone: g('cu_phone'), email: g('cu_email'), gstin: g('cu_gstin').toUpperCase(), state: g('cu_state'), discountPct: num(g('cu_disc')), paymentTerms: g('cu_pay'), address: g('cu_addr')};
   if(el.dataset.id){ await DB.update('customers', el.dataset.id, data); Object.assign(CUSTOMERS.find(c => c.id === el.dataset.id), data); }
-  else { if(customerByName(name)){ toast('That customer already exists', 'err'); return; } const c = {name, isExclusive: false, ...data, createdAt: nowISO()}; c.id = await DB.add('customers', c); CUSTOMERS.push(c); }
+  else { if(customerByName(name)){ toast('That customer already exists', 'err'); return; } const c = {name, isExclusive: false, ...data, createdAt: nowISO()}; c.id = await DB.add('customers', c); CUSTOMERS.push(c); await cmsEnsure(c); }
   closeModal(); toast('Customer saved'); viewCustomers();
 };
 
