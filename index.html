@@ -61,6 +61,13 @@
   .nav-right .dot{width:6px;height:6px;border-radius:50%;background:#1DAA5C;--ring-color:rgba(29,170,92,.55);animation:pulseRing 2s ease-out infinite;}
   @media(max-width:560px){.nav-right span.txt{display:none;}}
 
+  /* ---------- workflow sections ---------- */
+  .sec-title{display:flex;gap:12px;align-items:center;margin:22px 2px 10px;}
+  .sec-title h2{margin:0;font-size:17px;font-weight:700;letter-spacing:-.3px;}
+  .sec-title p{margin:2px 0 0;font-size:12.5px;color:var(--ink-faint);}
+  .sec-n{flex:none;width:30px;height:30px;border-radius:50%;background:var(--ink);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;}
+  .grid.grid-one{grid-template-columns:minmax(0,1fr);}
+  .erp-card .card-main{padding-right:20px;}
   /* ---------- hero ---------- */
   .hero{text-align:center;margin-bottom:16px;animation:rise .6s ease .05s both;}
   .kicker{display:inline-flex;align-items:center;gap:7px;font-size:10.5px;letter-spacing:2.2px;font-weight:700;color:var(--ink-soft);
@@ -211,8 +218,8 @@
 
   <div class="hero">
     <span class="kicker"><span class="pulse"></span> Staff Portals · Internal Systems</span>
-    <h1>Everything you run, <span>in one place</span></h1>
-    <p>Production, purchase orders, vendor payments, and customer accounts — each portal runs on its own, signed in separately with your staff password.</p>
+    <h1>Inquiry to dispatch, <span>in one flow</span></h1>
+    <p>Follow the order from inquiry and quotation, through customer PO, casting, machining and packing, to dispatch and accounts. Open the ERP Command Centre to track every order and item.</p>
   </div>
 
   <div class="factbar">
@@ -221,92 +228,25 @@
     <span class="fact"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21V8l9-5 9 5v13"></path><path d="M9 21V12h6v9"></path></svg>Plummer Block &amp; Bearing Housing Manufacturer</span>
   </div>
 
+  <div class="sec-title"><span class="sec-n">★</span><div><h2>Track &amp; cost every order</h2><p>One view of each order, each item and its stage — plus product costing.</p></div></div>
+  <div class="grid grid-one">
+    <a class="card glow orange erp-card" href="erp.html">
+      <div class="card-main">
+        <div class="icon-box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"></path><path d="M7 15l4-4 3 3 5-6"></path></svg></div>
+        <div class="card-text">
+          <h3>ERP Command Centre — Order Tracker &amp; Costing</h3>
+          <p>Follow every order and every item from inquiry to dispatch, see its working stage (casting, machining, painting, packing), and know the cost and margin of each plummer block.</p>
+        </div>
+      </div>
+      <div class="card-bottom">
+        <span class="tag">New</span>
+        <span class="open-btn">Open ERP <i>→</i></span>
+      </div>
+    </a>
+  </div>
+
+  <div class="sec-title"><span class="sec-n">1–2</span><div><h2>Inquiry, Quotation &amp; Customer Order</h2><p>Enquiry from email / IndiaMART / website → quotation → customer PO and delivery dates.</p></div></div>
   <div class="grid">
-
-    <a class="card glow navy" href="production.html">
-      <div class="card-main">
-        <div class="icon-box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 20h20"></path><path d="M4 20V10l4 3v-3l4 3v-3l4 3v-3l4 3v7"></path></svg></div>
-        <div class="card-text">
-          <h3>Production Management</h3>
-          <p>Production floor tracking, vendor management, operation flow, and employee register with daily attendance, shifts, overtime and salary slips.</p>
-        </div>
-      </div>
-      <div class="card-bottom">
-        <span class="tag">Internal</span>
-        <span class="open-btn">Open Portal <i>→</i></span>
-      </div>
-    </a>
-
-    <a class="card neutral" href="po-management.html">
-      <div class="card-main">
-        <div class="icon-box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3h6a1 1 0 0 1 1 1v1H8V4a1 1 0 0 1 1-1Z"></path><rect x="5" y="5" width="14" height="16" rx="2"></rect><path d="M9 12h6M9 16h6M9 8h2"></path></svg></div>
-        <div class="card-text">
-          <h3>PO Management</h3>
-          <p>Track customer purchase orders, despatches, pending quantities, and reports — customer and item master included.</p>
-        </div>
-      </div>
-      <div class="card-bottom">
-        <span class="tag">Internal</span>
-        <span class="open-btn">Open Portal <i>→</i></span>
-      </div>
-    </a>
-
-    <a class="card neutral" href="customer-portal.html">
-      <div class="card-main">
-        <div class="icon-box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v2"></path><circle cx="10" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg></div>
-        <div class="card-text">
-          <h3>Customer Portal</h3>
-          <p>Customer invoicing, receivables, payments, and due-date tracking in one place.</p>
-        </div>
-      </div>
-      <div class="card-bottom">
-        <span class="tag">Internal</span>
-        <span class="open-btn">Open Portal <i>→</i></span>
-      </div>
-    </a>
-
-    <a class="card glow navy" href="vendor-payments.html">
-      <div class="card-main">
-        <div class="icon-box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16v16H4z"></path><path d="M8 9h8M8 13h5"></path><circle cx="16.5" cy="16.5" r="2.5"></circle></svg></div>
-        <div class="card-text">
-          <h3>Vendor Payments</h3>
-          <p>Vendor bills, payments, advances, and ageing — with FIFO payment allocation and Excel import.</p>
-        </div>
-      </div>
-      <div class="card-bottom">
-        <span class="tag">Internal</span>
-        <span class="open-btn">Open Portal <i>→</i></span>
-      </div>
-    </a>
-
-    <a class="card neutral" href="store-control.html">
-      <div class="card-main">
-        <div class="icon-box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8l-9-5-9 5 9 5 9-5Z"></path><path d="M3 8v8l9 5 9-5V8"></path><path d="M12 13v8"></path></svg></div>
-        <div class="card-text">
-          <h3>Store Control</h3>
-          <p>Tool &amp; component stock — GRN receipts, issues, returns, and finished-goods tracking.</p>
-        </div>
-      </div>
-      <div class="card-bottom">
-        <span class="tag">Internal</span>
-        <span class="open-btn">Open Portal <i>→</i></span>
-      </div>
-    </a>
-
-    <a class="card glow orange" href="dispatch-board.html">
-      <div class="card-main">
-        <div class="icon-box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9h18M3 9v10a1 1 0 0 0 1 1h16a1 1 0 0 0 1-1V9M3 9l3-6h12l3 6"></path><path d="M9 13h6"></path></svg></div>
-        <div class="card-text">
-          <h3>Dispatch Board</h3>
-          <p>Paint &amp; purchase entries, stock, ready-to-sale, and packing/dispatch slips with PDF export.</p>
-        </div>
-      </div>
-      <div class="card-bottom">
-        <span class="tag">Internal</span>
-        <span class="open-btn">Open Portal <i>→</i></span>
-      </div>
-    </a>
-
     <a class="card glow orange" href="sales-crm.html">
       <div class="card-main">
         <div class="icon-box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4h18l-7 8v6l-4 2v-8L3 4Z"></path></svg></div>
@@ -320,7 +260,23 @@
         <span class="open-btn">Open Portal <i>→</i></span>
       </div>
     </a>
+    <a class="card neutral" href="po-management.html">
+      <div class="card-main">
+        <div class="icon-box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3h6a1 1 0 0 1 1 1v1H8V4a1 1 0 0 1 1-1Z"></path><rect x="5" y="5" width="14" height="16" rx="2"></rect><path d="M9 12h6M9 16h6M9 8h2"></path></svg></div>
+        <div class="card-text">
+          <h3>PO Management</h3>
+          <p>Track customer purchase orders, despatches, pending quantities, and reports — customer and item master included.</p>
+        </div>
+      </div>
+      <div class="card-bottom">
+        <span class="tag">Internal</span>
+        <span class="open-btn">Open Portal <i>→</i></span>
+      </div>
+    </a>
+  </div>
 
+  <div class="sec-title"><span class="sec-n">3</span><div><h2>Make — Casting, Machining &amp; Store</h2><p>Foundry and pattern control, shop-floor production, tools and component stock.</p></div></div>
+  <div class="grid">
     <a class="card neutral" href="casting-control.html">
       <div class="card-main">
         <div class="icon-box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 20h18"></path><path d="M6 20V9l6-4 6 4v11"></path><path d="M10 20v-5h4v5"></path><path d="M9 12h.01M15 12h.01"></path></svg></div>
@@ -334,9 +290,75 @@
         <span class="open-btn">Open Portal <i>→</i></span>
       </div>
     </a>
+    <a class="card glow navy" href="production.html">
+      <div class="card-main">
+        <div class="icon-box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 20h20"></path><path d="M4 20V10l4 3v-3l4 3v-3l4 3v-3l4 3v7"></path></svg></div>
+        <div class="card-text">
+          <h3>Production Management</h3>
+          <p>Production floor tracking, vendor management, operation flow, and employee register with daily attendance, shifts, overtime and salary slips.</p>
+        </div>
+      </div>
+      <div class="card-bottom">
+        <span class="tag">Internal</span>
+        <span class="open-btn">Open Portal <i>→</i></span>
+      </div>
+    </a>
+    <a class="card neutral" href="store-control.html">
+      <div class="card-main">
+        <div class="icon-box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8l-9-5-9 5 9 5 9-5Z"></path><path d="M3 8v8l9 5 9-5V8"></path><path d="M12 13v8"></path></svg></div>
+        <div class="card-text">
+          <h3>Store Control</h3>
+          <p>Tool &amp; component stock — GRN receipts, issues, returns, and finished-goods tracking.</p>
+        </div>
+      </div>
+      <div class="card-bottom">
+        <span class="tag">Internal</span>
+        <span class="open-btn">Open Portal <i>→</i></span>
+      </div>
+    </a>
+  </div>
 
-
-
+  <div class="sec-title"><span class="sec-n">4–5</span><div><h2>Packing, Dispatch &amp; Accounts</h2><p>Packing and dispatch slips, then customer receivables and vendor payments.</p></div></div>
+  <div class="grid">
+    <a class="card glow orange" href="dispatch-board.html">
+      <div class="card-main">
+        <div class="icon-box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9h18M3 9v10a1 1 0 0 0 1 1h16a1 1 0 0 0 1-1V9M3 9l3-6h12l3 6"></path><path d="M9 13h6"></path></svg></div>
+        <div class="card-text">
+          <h3>Dispatch Board</h3>
+          <p>Paint &amp; purchase entries, stock, ready-to-sale, and packing/dispatch slips with PDF export.</p>
+        </div>
+      </div>
+      <div class="card-bottom">
+        <span class="tag">Internal</span>
+        <span class="open-btn">Open Portal <i>→</i></span>
+      </div>
+    </a>
+    <a class="card neutral" href="customer-portal.html">
+      <div class="card-main">
+        <div class="icon-box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v2"></path><circle cx="10" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg></div>
+        <div class="card-text">
+          <h3>Customer Portal</h3>
+          <p>Customer invoicing, receivables, payments, and due-date tracking in one place.</p>
+        </div>
+      </div>
+      <div class="card-bottom">
+        <span class="tag">Internal</span>
+        <span class="open-btn">Open Portal <i>→</i></span>
+      </div>
+    </a>
+    <a class="card glow navy" href="vendor-payments.html">
+      <div class="card-main">
+        <div class="icon-box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16v16H4z"></path><path d="M8 9h8M8 13h5"></path><circle cx="16.5" cy="16.5" r="2.5"></circle></svg></div>
+        <div class="card-text">
+          <h3>Vendor Payments</h3>
+          <p>Vendor bills, payments, advances, and ageing — with FIFO payment allocation and Excel import.</p>
+        </div>
+      </div>
+      <div class="card-bottom">
+        <span class="tag">Internal</span>
+        <span class="open-btn">Open Portal <i>→</i></span>
+      </div>
+    </a>
   </div>
 
   <footer>
