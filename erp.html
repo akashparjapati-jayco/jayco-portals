@@ -149,6 +149,8 @@ tr.click{cursor:pointer}tr.click:hover td{background:#FAFBFD}
 <div class="app" id="app" style="display:none">
   <aside>
     <div class="logo"><i>◆</i><span>JAYCO <b>ERP</b></span></div><div class="sub">PLUMMER BLOCK WORKS</div>
+    <div class="grp">Entry</div>
+    <a data-nav="entry">✎ Entry Desk <span class="n" id="nDocs"></span></a>
     <div class="grp">Track</div>
     <a data-nav="dashboard">▦ Dashboard</a>
     <a data-nav="orders">▤ Order Tracker <span class="n" id="nOrders"></span></a>
@@ -209,7 +211,7 @@ const matRate = n => { const m = matList().find(x => x.n === n); return m ? num(
 function normMat(t){ t = String(t || '').toLowerCase(); if(/fg\s?260/.test(t)) return 'FG 260'; if(/s\.?\s?g|ductile|spheroidal/.test(t)) return 'SG Iron'; if(/steel/.test(t)) return 'Cast Steel'; return 'Cast Iron'; }
 const materialOf = code => { const r = RATES.find(x => String(x.itemCode).toLowerCase() === String(code).toLowerCase()), i = ITEMS_PO.find(x => String(x.itemCode).toLowerCase() === String(code).toLowerCase()); return normMat((r && r.material) || (i && i.material)); };
 
-let started = false, PARTS = {}, CUSTS = [];
+let started = false, PARTS = {}, CUSTS = [], DOCS = [];
 let db, USER=null, PO=[], ITEMS_PO=[], STG={}, DESP=[], RATES=[], LEADS=[], QUOTES=[], COST={}, SET={...DEFAULT_SET}, ROUTE='dashboard';
 const $ = (s, r=document) => r.querySelector(s), $$ = (s, r=document) => [...r.querySelectorAll(s)];
 const jsq = v => JSON.stringify(String(v)).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '\\u003c');   // safe inside onclick="…"
@@ -248,6 +250,7 @@ async function start(){
   snap('erp_itemStages', r => { STG = {}; r.forEach(x => STG[x.id] = x); });
   snap('erp_costing', r => { COST = {}; r.forEach(x => COST[x.id] = x); });
   snap('customers', r => CUSTS = r);
+  snap('erp_documents', r => DOCS = r);
   snap('erp_parts', r => { PARTS = {}; r.forEach(x => PARTS[x.id] = x); });
   snap('crm_rates', r => RATES = r);
   snap('crm_leads', r => LEADS = r);
@@ -321,7 +324,7 @@ function renderNow(){
   $('#nOut').textContent = OUT.state === 'ok' ? (OUT.list.filter(x => overdueOf(x) > 0.5).length || '') : '';
   $('#nPay').textContent = VEN.state === 'ok' ? (venRows().filter(r => r.overdue > 0.5).length || '') : '';
   $('#nParts').textContent = Object.keys(PARTS).length || '';
-  ({dashboard:vDash, orders:vOrders, order:vOrder, wip:vWip, moves:vMoves, outstanding:vOutstanding, payables:vPayables, customers:vCustomers, costing:vCosting, parts:vParts, settings:vSettings}[r] || vDash)(decodeURIComponent(arg || ''));
+  ({dashboard:vDash, orders:vOrders, order:vOrder, wip:vWip, moves:vMoves, entry:vEntry, outstanding:vOutstanding, payables:vPayables, customers:vCustomers, costing:vCosting, parts:vParts, settings:vSettings}[r] || vDash)(decodeURIComponent(arg || ''));
 }
 $$('aside a[data-nav]').forEach(a => a.onclick = () => go(a.dataset.nav));
 
@@ -450,6 +453,297 @@ function dueCell(p){
   const r = dueFor(p.customerId, p.customerName); if(!r) return '<span class="hint">—</span>';
   const od = overdueOf(r);
   return od > 0.5 ? `<span class="pill ${over60(r) > 0.5 ? 'crit' : 'warn'}" title="Total outstanding ${inr0(r.total)}">${inrC(od)} overdue</span>` : num(r.total) > 0.5 ? `<span class="pill">${inrC(r.total)} due</span>` : '<span class="pill ok">Clear</span>';
+}
+
+/* ---------- Entry Desk: type a document once, it is posted to every portal that needs it ----------
+   Sales invoice  → PO Management dispatch (pending qty), Customer Portal bill (receivable), Dispatch Board slip + stock
+   Purchase bill  → Vendor Payments bill (payable)
+   Casting challan/invoice → ERP stage "Casting" for open orders (earliest due first), Vendor Payments bill for the foundry
+   Every document is also kept in erp_documents with the result of each posting, so nothing is entered twice. */
+const DISPATCH_FB = {apiKey: "AIzaSyAs7J_8awM76M6H6-4fuwYJ9BrpwS5iYPU", authDomain: "jayco-dispatch-board.firebaseapp.com", projectId: "jayco-dispatch-board",
+  storageBucket: "jayco-dispatch-board.firebasestorage.app", messagingSenderId: "3086329458", appId: "1:3086329458:web:7862b6eab33fccae9844eb"};
+let _ddb = null;
+function ddb(){ if(!_ddb){ const app = firebase.apps.find(a => a.name === 'dispatch') || firebase.initializeApp(DISPATCH_FB, 'dispatch'); _ddb = app.firestore(); } return _ddb; }
+let ED_TAB = 'sales', ED_RES = null, ED_CAST = [];
+const todayISO = () => { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
+const addDaysISO = (iso, n) => { const d = new Date(iso); d.setDate(d.getDate() + num(n)); return d.toISOString().slice(0, 10); };
+const r2 = v => Math.round(num(v) * 100) / 100;
+const sameNo = (a, b) => String(a || '').trim().toLowerCase() === String(b || '').trim().toLowerCase();
+const DOC_TYPES = {sales: 'Sales invoice', purchase: 'Purchase bill', casting: 'Casting challan / invoice'};
+
+function vEntry(){
+  $('#ttl').textContent = 'Entry Desk';
+  ensureVen();
+  const tab = (k, n, d) => `<button class="wtab ${ED_TAB === k ? 'on' : ''}" style="--c:${k === 'sales' ? '#2563EB' : k === 'purchase' ? '#B45309' : '#7c5cff'}" onclick="edTab('${k}')"><span class="wn">${n}</span><span class="wl" style="white-space:normal">${d}</span></button>`;
+  $('#view').innerHTML = `
+  <div class="card"><div class="card-b"><div class="wtabs" style="grid-template-columns:repeat(auto-fit,minmax(220px,1fr))">
+    ${tab('sales', 'Sales invoice', 'PO dispatch · Customer Portal bill · Dispatch Board')}
+    ${tab('purchase', 'Purchase bill', 'Vendor Payments')}
+    ${tab('casting', 'Casting challan / invoice', 'Casting stage · Vendor Payments')}
+  </div><div class="hint" style="margin-top:10px">Type the document once. The ERP posts it to each portal and shows below what was saved where.</div></div></div>
+  <div class="card"><div class="card-h"><h3>${DOC_TYPES[ED_TAB]}</h3></div><div class="card-b" id="edForm"></div></div>
+  <div id="edRes">${ED_RES || ''}</div>
+  <div class="card"><div class="card-h"><h3>Documents entered</h3><span class="hint">latest first</span></div><div class="tw" id="edReg"></div></div>`;
+  ({sales: edSales, purchase: edPurchase, casting: edCasting})[ED_TAB]();
+  drawRegister();
+}
+function edTab(k){ ED_TAB = k; ED_RES = null; vEntry(); }
+const tgt = (id, label, on = true, note = '') => `<label style="display:flex;gap:8px;align-items:center;margin:4px 0"><input type="checkbox" id="${id}" ${on ? 'checked' : ''} style="width:auto"> ${label}${note ? ` <span class="hint">${note}</span>` : ''}</label>`;
+const vendorOptions = () => VEN.state === 'ok' ? VEN.vendors.slice().sort((a, b) => String(a.name).localeCompare(b.name)).map(v => `<option value="${esc(v.id)}">${esc(v.name)}</option>`).join('') : '';
+
+/* ----- sales invoice ----- */
+function edSales(){
+  const names = [...new Set([...CUSTS.map(c => c.name), ...ITEMS_PO.map(i => i.customerName)].filter(Boolean))].sort();
+  $('#edForm').innerHTML = `<div class="form" style="grid-template-columns:repeat(auto-fit,minmax(200px,1fr))">
+    <div class="fld" style="grid-column:span 2"><label>Customer *</label><input id="es_cust" list="dlEsCust" autocomplete="off" placeholder="start typing…"><datalist id="dlEsCust">${names.map(n => `<option value="${esc(n)}">`).join('')}</datalist></div>
+    <div class="fld"><label>Invoice no. *</label><input id="es_no"></div>
+    <div class="fld"><label>Invoice date *</label><input id="es_date" type="date" value="${todayISO()}"></div>
+    <div class="fld"><label>Invoice total ₹ (incl. GST) *</label><input id="es_amt" type="number" step="0.01"></div>
+    <div class="fld"><label>Credit days</label><input id="es_cd" type="number" value="45"></div>
+    <div class="fld"><label>E-way bill no.</label><input id="es_eway" placeholder="12 digits"></div>
+    <div class="fld"><label>E-way bill date</label><input id="es_ewd" type="date" value="${todayISO()}"></div>
+    <div class="fld"><label>Vehicle no.</label><input id="es_veh"></div>
+    <div class="fld"><label>Transporter</label><input id="es_tr"></div>
+    <div class="fld"><label>LR no.</label><input id="es_lr"></div>
+    <div class="fld"><label>Destination</label><input id="es_dest"></div>
+  </div>
+  <div class="sec" style="margin-top:18px">Items dispatched — from this customer's open POs</div><div id="es_lines" class="hint">Choose the customer to see their open PO lines.</div>
+  <div class="sec" style="margin-top:18px">Post to</div>
+  ${tgt('es_t_po', '<b>PO Management</b> — dispatch entry (pending qty goes down; ERP order shows Dispatched)')}
+  ${tgt('es_t_cms', '<b>Customer Portal</b> — bill for the receivable (e-way no. in the narration)')}
+  ${tgt('es_t_db', '<b>Dispatch Board</b> — dispatch slip and finished-stock deduction')}
+  <div style="margin-top:14px"><button class="btn pri" id="es_go" onclick="postSales()">Post sales invoice</button></div>`;
+  $('#es_cust').onchange = $('#es_cust').oninput = drawSalesLines;
+}
+function salesOpenLines(name){
+  const k = nameKey(name), c = CUSTS.find(x => nameKey(x.name) === k);
+  return ITEMS_PO.filter(i => (c && i.customerId === c.id) || nameKey(i.customerName) === k).map(i => ({i, pend: num(i.orderedQty) - num(i.despatchedQty)})).filter(x => x.pend > 0)
+    .sort((a, b) => (toDate(a.i.poDate) || 0) - (toDate(b.i.poDate) || 0));
+}
+function drawSalesLines(){
+  const name = $('#es_cust').value.trim(), L = name ? salesOpenLines(name) : [];
+  const c = CUSTS.find(x => nameKey(x.name) === nameKey(name)), due = c ? dueFor(c.id, c.name) : null;
+  if(due && num(due.creditDays)) $('#es_cd').value = num(due.creditDays);
+  if(due && $('#es_dest') && !$('#es_dest').value) $('#es_dest').value = '';
+  $('#es_lines').innerHTML = !name ? 'Choose the customer to see their open PO lines.' : L.length ? `<div class="tw"><table><thead><tr><th style="width:34px"></th><th>PO</th><th>Item</th><th class="num">Pending</th><th class="num" style="width:110px">Dispatch qty</th></tr></thead><tbody>
+    ${L.map(x => `<tr><td><input type="checkbox" class="es_ck" data-id="${esc(x.i.id)}" style="width:auto"></td><td><b>${esc(x.i.poNo)}</b><div class="hint">${fmtD(x.i.poDate)}</div></td><td class="mono"><b>${esc(x.i.itemCode)}</b><div class="hint">${esc(x.i.itemDescription || '')}</div></td><td class="num">${x.pend}</td><td><input type="number" min="0" class="es_q" data-id="${esc(x.i.id)}" value="${x.pend}" style="text-align:right"></td></tr>`).join('')}</tbody></table></div><div class="hint" style="margin-top:6px">Tick the lines on this invoice and correct the quantity if it is a part dispatch.</div>`
+    : '<span style="color:var(--warn)">No open PO lines for this customer. The invoice can still be posted to the Customer Portal; untick PO Management and Dispatch Board.</span>';
+}
+async function cmsCustId(name){   // the Customer Portal id for a customer: linked id first, else by normalised name
+  const c = CUSTS.find(x => nameKey(x.name) === nameKey(name));
+  if(c && c.cmsId) return {id: String(c.cmsId)};
+  if(!(await cmsConfig())) throw new Error('Customer Portal not connected (Sales → Settings & Setup)');
+  const list = await cmsApi('getCustomers'), m = (list || []).filter(x => nameKey(x.name) === nameKey(name));
+  if(m.length === 1) return {id: String(m[0].custId), creditDays: m[0].creditDays};
+  throw new Error(m.length ? 'two Customer Portal customers share this name — link it in ERP → Customer Master' : 'customer not found in the Customer Portal — add or link it in ERP → Customer Master');
+}
+async function postSales(){
+  const g = id => ($('#' + id).value || '').trim();
+  const cust = g('es_cust'), no = g('es_no'), date = g('es_date'), amt = r2(g('es_amt')), eway = g('es_eway');
+  if(!cust || !no || !date){ toast('Customer, invoice no. and date are required'); return; }
+  if(DOCS.some(d => d.type === 'sales' && sameNo(d.no, no))){ toast('Invoice ' + no + ' is already entered — see Documents entered below'); return; }
+  const lines = $$('.es_ck').filter(c => c.checked).map(c => { const i = ITEMS_PO.find(x => x.id === c.dataset.id); return {i, qty: num($$('.es_q').find(q => q.dataset.id === c.dataset.id).value)}; }).filter(l => l.i && l.qty > 0);
+  const tPO = $('#es_t_po').checked, tCMS = $('#es_t_cms').checked, tDB = $('#es_t_db').checked;
+  if((tPO || tDB) && !lines.length){ toast('Tick the PO lines on this invoice, or untick PO Management and Dispatch Board'); return; }
+  if(tCMS && !(amt > 0)){ toast('Enter the invoice total for the Customer Portal bill'); return; }
+  if(!confirm(`Post invoice ${no} for ${cust}${lines.length ? ' (' + lines.reduce((a, l) => a + l.qty, 0) + ' pcs)' : ''}?`)) return;
+  $('#es_go').disabled = true; $('#es_go').textContent = 'Posting…';
+  const res = {}, extra = {ewayNo: eway, ewayDate: g('es_ewd'), vehicleNo: g('es_veh'), transporter: g('es_tr'), lrNo: g('es_lr'), dest: g('es_dest')};
+  if(tPO){ try{
+      const TS = firebase.firestore.Timestamp, dDate = TS.fromDate(new Date(date));
+      for(const l of lines){
+        await db.runTransaction(async tx => {
+          const ref = db.collection('poItems').doc(l.i.id), snap = await tx.get(ref); if(!snap.exists) throw new Error('PO line ' + l.i.itemCode + ' not found');
+          const d = snap.data(), desp = num(d.despatchedQty) + l.qty, pend = num(d.orderedQty) - desp;
+          tx.set(db.collection('despatches').doc(), {poItemId: l.i.id, poId: d.poId, poNo: d.poNo, customerId: d.customerId, customerName: d.customerName, isExclusive: !!d.isExclusive,
+            itemCode: d.itemCode, qtyDespatched: l.qty, despatchDate: dDate, invoiceNumber: no, attachments: [], ...extra, source: 'ERP Entry Desk', createdAt: firebase.firestore.FieldValue.serverTimestamp()});
+          tx.update(ref, {despatchedQty: desp, pendingQty: pend, status: pend <= 0 ? 'Completed' : 'Partial'});
+        });
+      }
+      res.po = 'ok:' + lines.length + ' line(s) dispatched';
+    }catch(e){ res.po = 'err:' + e.message; } }
+  if(tCMS){ try{
+      const cid = await cmsCustId(cust), existing = await cmsApi('getBills', {custId: cid.id});
+      if((existing || []).some(b => sameNo(b.billNo, no))) res.cms = 'ok:bill already in the Customer Portal (not added twice)';
+      else {
+        const cd = num(g('es_cd')) || num(cid.creditDays) || 45;
+        const narr = [eway ? 'E-way ' + eway : '', lines.length ? 'PO ' + [...new Set(lines.map(l => l.i.poNo))].join(', ') : '', extra.vehicleNo ? 'Vehicle ' + extra.vehicleNo : '', extra.lrNo ? 'LR ' + extra.lrNo : ''].filter(Boolean).join(' · ');
+        const r = await cmsApi('saveBill', {custId: cid.id, billNo: no, billDate: date, dueDate: addDaysISO(date, cd), totalAmount: amt, narration: narr});
+        res.cms = 'ok:bill ' + (r && r.billId ? 'saved' : 'sent') + ', due ' + addDaysISO(date, cd);
+      }
+    }catch(e){ res.cms = 'err:' + e.message; } }
+  if(tDB){ try{
+      const ref = ddb().collection('dispatch').doc('board');
+      await ddb().runTransaction(async tx => {
+        const snap = await tx.get(ref); if(!snap.exists) throw new Error('Dispatch Board has no data yet — open it once first');
+        const cur = snap.data(), slips = cur.dispatchSlips || cur.tickets || [];
+        if(slips.some(sl => sameNo(sl.invoiceNo, no))) throw new Error('a slip for invoice ' + no + ' already exists on the Dispatch Board');
+        const items = lines.map(l => ({id: Math.random().toString(36).slice(2, 10), item: l.i.itemCode, qty: l.qty, packingStyle: '', boxSize: '', boxQty: ''}));
+        let stock = (cur.stock || []).slice(); const k = x => String(x || '').trim().toLowerCase().replace(/\s+/g, ' ');
+        items.forEach(r => { const ix = stock.findIndex(st => k(st.item) === k(r.item)); if(ix >= 0) stock[ix] = {...stock[ix], qty: num(stock[ix].qty) - r.qty}; });
+        const slip = {id: Math.random().toString(36).slice(2, 10), date, invoiceNo: no, transportName: extra.transporter, lrNo: extra.lrNo, driverName: '', vehicleNo: extra.vehicleNo, dest: extra.dest || cust, ewayNo: eway, items,
+          totalQty: items.reduce((a, r) => a + r.qty, 0), totalBoxes: 0, totalGunny: 0, createdBy: 'ERP Entry Desk'};
+        tx.set(ref, {...cur, dispatchSlips: [slip, ...slips], stock});
+      });
+      res.db = 'ok:dispatch slip added, stock reduced';
+    }catch(e){ res.db = 'err:' + e.message; } }
+  await saveDoc({type: 'sales', no, date, party: cust, amount: amt, ...extra, lines: lines.map(l => ({poNo: l.i.poNo, itemCode: l.i.itemCode, qty: l.qty})), results: res});
+  showResults(`Sales invoice ${no}`, res, {po: 'PO Management', cms: 'Customer Portal', db: 'Dispatch Board'});
+}
+
+/* ----- purchase bill ----- */
+function edPurchase(){
+  if(VEN.state !== 'ok'){ $('#edForm').innerHTML = venMessage() || '<div class="empty">Loading vendors…</div>'; return; }
+  $('#edForm').innerHTML = `<div class="form" style="grid-template-columns:repeat(auto-fit,minmax(200px,1fr))">
+    <div class="fld" style="grid-column:span 2"><label>Vendor *</label><select id="ep_v"><option value="">Select vendor…</option>${vendorOptions()}</select></div>
+    <div class="fld"><label>Bill no. *</label><input id="ep_no"></div>
+    <div class="fld"><label>Bill date *</label><input id="ep_date" type="date" value="${todayISO()}"></div>
+    <div class="fld"><label>Bill total ₹ (incl. GST) *</label><input id="ep_amt" type="number" step="0.01"></div>
+    <div class="fld"><label>Due date</label><input id="ep_due" type="date"></div>
+    <div class="fld"><label>E-way bill no.</label><input id="ep_eway"></div>
+    <div class="fld"><label>Vehicle no.</label><input id="ep_veh"></div>
+    <div class="fld" style="grid-column:1/-1"><label>What was bought / notes</label><input id="ep_notes" placeholder="e.g. 200 nos taconite seals, 50 kg paint"></div>
+    <div class="fld" style="grid-column:1/-1"><label>Bill copy link (optional)</label><input id="ep_link" placeholder="Drive / OneDrive link"></div>
+  </div>
+  <div class="sec" style="margin-top:18px">Post to</div>
+  ${tgt('ep_t_v', '<b>Vendor Payments</b> — bill for the payable (any advance paid to the vendor is adjusted automatically)')}
+  <div class="hint">Store Control stock receipt (GRN) is not posted yet — Store Control still keeps its data on one computer.</div>
+  <div style="margin-top:14px"><button class="btn pri" id="ep_go" onclick="postPurchase()">Post purchase bill</button></div>`;
+  const setDue = () => { const v = VEN.vendors.find(x => x.id === $('#ep_v').value); if(v && $('#ep_date').value) $('#ep_due').value = addDaysISO($('#ep_date').value, num(v.creditDays) || 0); };
+  $('#ep_v').onchange = setDue; $('#ep_date').onchange = setDue;
+}
+async function vendorBill(vendorId, no, date, due, amount, notes, link){   // same steps as Vendor Payments' own "new invoice"
+  if(VEN.invoices.some(i => i.vendorId === vendorId && sameNo(i.invoiceNo, no))) return 'ok:bill already in Vendor Payments (not added twice)';
+  const vdbx = vdb(), FV = firebase.firestore.FieldValue;
+  await vdbx.runTransaction(async tx => {
+    const vref = vdbx.collection('vendors').doc(vendorId), vs = await tx.get(vref); if(!vs.exists) throw new Error('vendor not found');
+    const adv = r2(vs.data().advanceBalance || 0), applied = r2(Math.min(adv, amount)), iref = vdbx.collection('invoices').doc();
+    tx.set(iref, {vendorId, invoiceNo: no, invoiceDate: date, dueDate: due || date, amount: r2(amount), amountPaid: applied, status: applied >= amount ? 'paid' : applied > 0 ? 'partial' : 'open', attachmentLink: link || '', notes: notes || '', createdAt: FV.serverTimestamp()});
+    if(applied > 0){
+      tx.update(vref, {advanceBalance: r2(adv - applied)});
+      tx.set(vdbx.collection('payments').doc(), {vendorId, paymentDate: date, amount: applied, mode: 'advance_adjustment', reference: `Auto-applied from advance to ${no}`, isAdvance: false,
+        allocations: [{invoiceId: iref.id, invoiceNo: no, amountApplied: applied}], unallocatedAmount: 0, createdAt: FV.serverTimestamp()});
+    }
+  });
+  loadVen(true);
+  return 'ok:bill saved' + (amount ? ' for ' + inr0(amount) : '');
+}
+async function postPurchase(){
+  const g = id => ($('#' + id).value || '').trim(), vid = g('ep_v'), no = g('ep_no'), date = g('ep_date'), amt = r2(g('ep_amt'));
+  if(!vid || !no || !date || !(amt > 0)){ toast('Vendor, bill no., date and total are required'); return; }
+  const vname = (VEN.vendors.find(v => v.id === vid) || {}).name || '';
+  if(DOCS.some(d => d.type === 'purchase' && d.vendorId === vid && sameNo(d.no, no))){ toast('Bill ' + no + ' from ' + vname + ' is already entered'); return; }
+  $('#ep_go').disabled = true; $('#ep_go').textContent = 'Posting…';
+  const res = {}, notes = [g('ep_notes'), g('ep_eway') ? 'E-way ' + g('ep_eway') : '', g('ep_veh') ? 'Vehicle ' + g('ep_veh') : ''].filter(Boolean).join(' · ');
+  if($('#ep_t_v').checked){ try{ res.ven = await vendorBill(vid, no, date, g('ep_due'), amt, notes, g('ep_link')); }catch(e){ res.ven = 'err:' + e.message; } }
+  await saveDoc({type: 'purchase', no, date, party: vname, vendorId: vid, amount: amt, ewayNo: g('ep_eway'), vehicleNo: g('ep_veh'), notes: g('ep_notes'), results: res});
+  showResults(`Purchase bill ${no}`, res, {ven: 'Vendor Payments'});
+}
+
+/* ----- casting challan / invoice ----- */
+function edCasting(){
+  if(VEN.state !== 'ok'){ $('#edForm').innerHTML = venMessage() || '<div class="empty">Loading vendors…</div>'; return; }
+  if(!ED_CAST.length) ED_CAST = [{code: '', pcs: '', kg: '', rate: ''}];
+  const codes = [...new Set([...ITEMS_PO.map(i => i.itemCode), ...Object.values(COST).map(c => c.itemCode)].filter(Boolean))].sort();
+  $('#edForm').innerHTML = `<div class="form" style="grid-template-columns:repeat(auto-fit,minmax(200px,1fr))">
+    <div class="fld" style="grid-column:span 2"><label>Foundry (vendor) *</label><select id="ec_v"><option value="">Select foundry…</option>${vendorOptions()}</select></div>
+    <div class="fld"><label>Challan no. *</label><input id="ec_no"></div>
+    <div class="fld"><label>Challan date *</label><input id="ec_date" type="date" value="${todayISO()}"></div>
+    <div class="fld"><label>Foundry invoice no.</label><input id="ec_inv" placeholder="if the bill came with it"></div>
+    <div class="fld"><label>GST %</label><input id="ec_gst" type="number" value="18"></div>
+    <div class="fld"><label>E-way bill no.</label><input id="ec_eway"></div>
+    <div class="fld"><label>Vehicle no.</label><input id="ec_veh"></div>
+  </div>
+  <div class="sec" style="margin-top:18px">Castings received</div>
+  <datalist id="dlEcCodes">${codes.map(c => `<option value="${esc(c)}">`).join('')}</datalist>
+  <div class="tw"><table><thead><tr><th>Item</th><th class="num" style="width:100px">Pieces</th><th class="num" style="width:110px">Weight (kg)</th><th class="num" style="width:110px">Rate ₹/kg</th><th class="num" style="width:120px">Amount</th><th style="width:40px"></th></tr></thead><tbody id="ec_rows"></tbody></table></div>
+  <div style="display:flex;gap:10px;align-items:center;margin-top:8px"><button class="btn sm" type="button" onclick="ecAdd()">＋ Add item</button><div id="ec_tot" style="margin-left:auto;font-weight:700"></div></div>
+  <div class="sec" style="margin-top:18px">Post to</div>
+  ${tgt('ec_t_stage', '<b>ERP stages</b> — move these pieces into <i>Casting</i> on open orders of the same item (earliest due first)')}
+  ${tgt('ec_t_v', '<b>Vendor Payments</b> — foundry bill for the amount above', true, '(needs the foundry invoice no.)')}
+  <div class="hint">Casting Control (challan & weight register) is not posted yet — it still keeps its data on one computer.</div>
+  <div style="margin-top:14px"><button class="btn pri" id="ec_go" onclick="postCasting()">Post casting challan</button></div>`;
+  drawCastRows();
+  $('#ec_gst').oninput = castTotals;
+}
+function drawCastRows(){
+  $('#ec_rows').innerHTML = ED_CAST.map((r, i) => `<tr><td><input list="dlEcCodes" data-i="${i}" data-f="code" value="${esc(r.code)}" placeholder="item code"></td>
+    <td><input type="number" data-i="${i}" data-f="pcs" value="${esc(r.pcs)}" style="text-align:right"></td><td><input type="number" step="0.01" data-i="${i}" data-f="kg" value="${esc(r.kg)}" style="text-align:right"></td>
+    <td><input type="number" step="0.01" data-i="${i}" data-f="rate" value="${esc(r.rate)}" style="text-align:right"></td><td class="num" id="ec_amt${i}"></td><td><button class="btn sm" type="button" onclick="ecDel(${i})">✕</button></td></tr>`).join('');
+  $$('#ec_rows input').forEach(e => e.oninput = () => { const r = ED_CAST[+e.dataset.i]; r[e.dataset.f] = e.value;
+    if(e.dataset.f === 'code' && !r.rate){ const c = COST[costKey(e.value)], m = c ? c.material : materialOf(e.value); r.rate = (c && num(c.castRate)) || matRate(m) || ''; const ri = $(`#ec_rows input[data-i="${e.dataset.i}"][data-f="rate"]`); if(ri) ri.value = r.rate; }
+    castTotals(); });
+  castTotals();
+}
+function ecAdd(){ ED_CAST.push({code: '', pcs: '', kg: '', rate: ''}); drawCastRows(); }
+function ecDel(i){ ED_CAST.splice(i, 1); if(!ED_CAST.length) ED_CAST.push({code: '', pcs: '', kg: '', rate: ''}); drawCastRows(); }
+function castTotals(){
+  let base = 0, kg = 0, pcs = 0; ED_CAST.forEach((r, i) => { const a = num(r.kg) * num(r.rate); base += a; kg += num(r.kg); pcs += num(r.pcs); const c = $('#ec_amt' + i); if(c) c.textContent = a ? inr0(a) : ''; });
+  const gst = base * num($('#ec_gst') && $('#ec_gst').value) / 100;
+  $('#ec_tot').textContent = `${pcs} pcs · ${r2(kg)} kg · ${inr0(base)} + GST ${inr0(gst)} = ${inr0(base + gst)}`;
+  return {base: r2(base), gst: r2(gst), total: r2(base + gst), kg: r2(kg), pcs};
+}
+async function castIntoStage(code, pcs, note){   // FIFO over open order lines of this item, earliest due first
+  const k = String(code).trim().toLowerCase();
+  const cands = ITEMS_PO.filter(i => String(i.itemCode).trim().toLowerCase() === k).map(i => ({i, s: itemState(i)})).filter(x => x.s.notStarted > 0)
+    .sort((a, b) => (toDate(a.i.deliveryDate) || new Date(8.64e15)) - (toDate(b.i.deliveryDate) || new Date(8.64e15)));
+  let left = pcs, used = [];
+  for(const x of cands){
+    if(left <= 0) break;
+    const n = Math.min(left, x.s.notStarted), ref = db.collection('erp_itemStages').doc(x.i.id);
+    await db.runTransaction(async tx => {
+      const cur = await tx.get(ref), d = cur.exists ? cur.data() : {stageQty: {}, history: []}, sq = {...(d.stageQty || {})}, now = new Date().toISOString();
+      sq.casting = num(sq.casting) + n;
+      tx.set(ref, {poItemId: x.i.id, poNo: x.i.poNo, itemCode: x.i.itemCode, stageQty: sq, history: [...(d.history || []), {at: now, by: me(), from: 'Not started', to: 'Casting', qty: n, note}].slice(-200), updatedAt: now}, {merge: true});
+    });
+    left -= n; used.push(n + ' on ' + x.i.poNo);
+  }
+  return {used, left};
+}
+async function postCasting(){
+  const g = id => ($('#' + id).value || '').trim(), vid = g('ec_v'), no = g('ec_no'), date = g('ec_date'), inv = g('ec_inv');
+  const rows = ED_CAST.filter(r => String(r.code).trim() && num(r.pcs) > 0), T = castTotals();
+  if(!vid || !no || !date){ toast('Foundry, challan no. and date are required'); return; }
+  if(!rows.length){ toast('Add at least one item with pieces'); return; }
+  const vname = (VEN.vendors.find(v => v.id === vid) || {}).name || '';
+  if(DOCS.some(d => d.type === 'casting' && d.vendorId === vid && sameNo(d.no, no))){ toast('Challan ' + no + ' from ' + vname + ' is already entered'); return; }
+  if($('#ec_t_v').checked && !inv){ toast('Enter the foundry invoice no., or untick Vendor Payments'); return; }
+  $('#ec_go').disabled = true; $('#ec_go').textContent = 'Posting…';
+  const res = {}, note = 'Casting challan ' + no + (vname ? ' · ' + vname : '');
+  if($('#ec_t_stage').checked){ try{
+      const msgs = [];
+      for(const r of rows){ const o = await castIntoStage(r.code, Math.floor(num(r.pcs)), note); msgs.push(`${r.code}: ${o.used.length ? o.used.join(', ') : 'no open order'}${o.left > 0 ? ` (${o.left} pcs extra — not on any open order)` : ''}`); }
+      res.stage = 'ok:' + msgs.join(' | ');
+    }catch(e){ res.stage = 'err:' + e.message; } }
+  if($('#ec_t_v').checked){ try{
+      const v = VEN.vendors.find(x => x.id === vid) || {};
+      res.ven = await vendorBill(vid, inv, date, addDaysISO(date, num(v.creditDays) || 0), T.total, `Castings — challan ${no}: ${rows.map(r => `${r.code} ${r.pcs} pcs / ${r.kg || 0} kg @ ₹${r.rate}`).join('; ')}${g('ec_eway') ? ' · E-way ' + g('ec_eway') : ''}`, '');
+    }catch(e){ res.ven = 'err:' + e.message; } }
+  await saveDoc({type: 'casting', no, date, party: vname, vendorId: vid, invoiceNo: inv, amount: T.total, ewayNo: g('ec_eway'), vehicleNo: g('ec_veh'), kg: T.kg, lines: rows.map(r => ({itemCode: r.code, pcs: num(r.pcs), kg: num(r.kg), rate: num(r.rate)})), results: res});
+  ED_CAST = [];
+  showResults(`Casting challan ${no}`, res, {stage: 'ERP stages', ven: 'Vendor Payments'});
+}
+
+/* ----- shared: register + results ----- */
+async function saveDoc(d){
+  try{ await db.collection('erp_documents').add({...d, createdAt: new Date().toISOString(), by: me()}); }
+  catch(e){ toast('Posted, but the document register could not be saved: ' + e.message); }
+}
+function resChip(v){ const ok = String(v).startsWith('ok:'); return `<span class="pill ${ok ? 'ok' : 'crit'}" title="${esc(String(v).slice(3))}">${ok ? '✓' : '✗'}</span>`; }
+function showResults(title, res, names){
+  const anyErr = Object.values(res).some(v => String(v).startsWith('err:'));
+  ED_RES = `<div class="card" style="border-color:${anyErr ? '#F6C4C2' : '#BBE5C8'}"><div class="card-h"><h3>${anyErr ? '⚠' : '✓'} ${esc(title)} posted</h3><button class="btn sm" style="margin-left:auto" onclick="ED_RES=null;vEntry()">Close</button></div><div class="card-b">
+    ${Object.keys(names).filter(k => res[k]).map(k => `<div style="display:flex;gap:10px;align-items:flex-start;padding:6px 0">${resChip(res[k])}<div><b>${names[k]}</b><div class="${String(res[k]).startsWith('ok:') ? 'hint' : ''}" style="${String(res[k]).startsWith('err:') ? 'color:var(--crit)' : ''}">${esc(String(res[k]).slice(String(res[k]).indexOf(':') + 1))}</div></div></div>`).join('') || '<div class="hint">Nothing was selected to post.</div>'}
+    ${anyErr ? '<div class="hint" style="margin-top:8px">Fix the problem shown, then make that one entry directly in its portal — the parts marked ✓ are already saved.</div>' : ''}</div></div>`;
+  vEntry(); window.scrollTo({top: 0, behavior: 'smooth'});
+}
+function drawRegister(){
+  const L = DOCS.slice().sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || ''))).slice(0, 60);
+  $('#nDocs').textContent = '';
+  $('#edReg').innerHTML = L.length ? `<table><thead><tr><th>Type</th><th>No.</th><th>Date</th><th>Party</th><th class="num">Amount</th><th>E-way</th><th>Posted to</th><th>By</th></tr></thead><tbody>
+  ${L.map(d => `<tr><td><span class="pill ${d.type === 'sales' ? 'blue' : d.type === 'purchase' ? 'warn' : ''}">${esc(DOC_TYPES[d.type] || d.type)}</span></td><td class="mono"><b>${esc(d.no)}</b>${d.invoiceNo ? `<div class="hint">inv ${esc(d.invoiceNo)}</div>` : ''}</td><td>${esc(d.date)}</td><td>${esc(d.party)}</td>
+    <td class="num">${num(d.amount) ? inr0(d.amount) : '—'}</td><td class="mono">${esc(d.ewayNo || '—')}</td>
+    <td>${Object.entries(d.results || {}).map(([k, v]) => `<span style="white-space:nowrap;margin-right:6px">${resChip(v)} <span class="hint">${{po: 'PO', cms: 'Cust. Portal', db: 'Dispatch', ven: 'Vendor', stage: 'Stages'}[k] || k}</span></span>`).join('')}</td><td class="hint">${esc(String(d.by || '').split('@')[0])}</td></tr>`).join('')}</tbody></table>` : '<div class="empty">No documents entered yet.</div>';
 }
 
 /* ---------- vendor payables (read from the Vendor Payments portal's own Firebase project) ---------- */
