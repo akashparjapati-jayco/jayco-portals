@@ -138,6 +138,7 @@ tr.click{cursor:pointer}tr.click:hover td{background:#FAFBFD}
     <a data-nav="moves">☰ Moves Log</a>
     <div class="grp">Money</div>
     <a data-nav="outstanding">₹ Outstanding Payments <span class="n" id="nOut"></span></a>
+    <a data-nav="payables">⇣ Vendor Payables <span class="n" id="nPay"></span></a>
     <div class="grp">Master data</div>
     <a data-nav="customers">◉ Customer Master <span class="n" id="nCust"></span></a>
     <div class="grp">Cost</div>
@@ -300,14 +301,15 @@ function renderNow(){
   $('#topr').innerHTML = '';
   $('#sub2').textContent = new Date().toLocaleDateString('en-IN', {weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'});
   $('#nOut').textContent = OUT.state === 'ok' ? (OUT.list.filter(x => overdueOf(x) > 0.5).length || '') : '';
+  $('#nPay').textContent = VEN.state === 'ok' ? (venRows().filter(r => r.overdue > 0.5).length || '') : '';
   $('#nParts').textContent = Object.keys(PARTS).length || '';
-  ({dashboard:vDash, orders:vOrders, order:vOrder, wip:vWip, moves:vMoves, outstanding:vOutstanding, customers:vCustomers, costing:vCosting, parts:vParts, settings:vSettings}[r] || vDash)(decodeURIComponent(arg || ''));
+  ({dashboard:vDash, orders:vOrders, order:vOrder, wip:vWip, moves:vMoves, outstanding:vOutstanding, payables:vPayables, customers:vCustomers, costing:vCosting, parts:vParts, settings:vSettings}[r] || vDash)(decodeURIComponent(arg || ''));
 }
 $$('aside a[data-nav]').forEach(a => a.onclick = () => go(a.dataset.nav));
 
 /* ---------- outstanding payments (receivables, read from the Customer Portal) ---------- */
 let OUT = {state: '', list: [], at: 0}, OUT_BY_CUST = {}, OUT_BY_KEY = {};
-const inrC = v => { v = num(v); const a = Math.abs(v); return a >= 1e7 ? '₹' + (v / 1e7).toFixed(2) + ' Cr' : a >= 1e5 ? '₹' + (v / 1e5).toFixed(2) + ' L' : '₹' + Math.round(v).toLocaleString('en-IN'); };
+const inrC = v => { v = num(v); const sg = v < 0 ? '−' : '', a = Math.abs(v); return sg + (a >= 1e7 ? '₹' + (a / 1e7).toFixed(2) + ' Cr' : a >= 1e5 ? '₹' + (a / 1e5).toFixed(2) + ' L' : '₹' + Math.round(a).toLocaleString('en-IN')); };
 const inr0 = v => '₹' + Math.round(num(v)).toLocaleString('en-IN');
 const overdueOf = r => num(r.b0_30) + num(r.b31_60) + num(r.b61_90) + num(r.b90plus);
 const over60 = r => num(r.b61_90) + num(r.b90plus);
@@ -432,6 +434,116 @@ function dueCell(p){
   return od > 0.5 ? `<span class="pill ${over60(r) > 0.5 ? 'crit' : 'warn'}" title="Total outstanding ${inr0(r.total)}">${inrC(od)} overdue</span>` : num(r.total) > 0.5 ? `<span class="pill">${inrC(r.total)} due</span>` : '<span class="pill ok">Clear</span>';
 }
 
+/* ---------- vendor payables (read from the Vendor Payments portal's own Firebase project) ---------- */
+const VENDOR_FB = {apiKey: "AIzaSyBtKqp1SAPmYwgP6TVigauIdgrwsyQE1Vw", authDomain: "jayco-vendor-payments.firebaseapp.com", projectId: "jayco-vendor-payments",
+  storageBucket: "jayco-vendor-payments.firebasestorage.app", messagingSenderId: "759807683867", appId: "1:759807683867:web:e41463756cff4de593b7be"};
+let VEN = {state: '', vendors: [], invoices: [], payments: [], at: 0}, _vdb = null;
+function vdb(){ if(!_vdb){ const app = firebase.apps.find(a => a.name === 'vendor') || firebase.initializeApp(VENDOR_FB, 'vendor'); _vdb = app.firestore(); } return _vdb; }
+async function loadVen(force){
+  if(VEN.state === 'loading') return; if(!force && VEN.state === 'ok' && Date.now() - VEN.at < 300000) return;
+  VEN.state = 'loading'; render();
+  try{
+    const all = async c => (await vdb().collection(c).get()).docs.map(d => ({id: d.id, ...d.data()}));
+    const [v, i, p] = await Promise.all([all('vendors'), all('invoices'), all('payments')]);
+    VEN = {state: 'ok', vendors: v, invoices: i, payments: p, at: Date.now()};
+  }catch(e){ VEN.state = 'error:' + e.message; }
+  render();
+}
+const ensureVen = () => { if(VEN.state === '' || (VEN.state === 'ok' && Date.now() - VEN.at > 300000)) loadVen(); };
+const dayDiff = d => { const x = new Date(d); return isNaN(x) ? null : Math.floor((new Date().setHours(0, 0, 0, 0) - x.setHours(0, 0, 0, 0)) / 864e5); };
+// one row per vendor with open bills: ageing by due date, plus the MSME 45-day rule (Income-tax Sec 43B(h): micro & small suppliers)
+function venRows(){
+  const vm = {}; VEN.vendors.forEach(v => vm[v.id] = v);
+  const rows = {};
+  VEN.invoices.forEach(i => {
+    if(i.status === 'paid') return;
+    const bal = num(i.amount) - num(i.amountPaid); if(bal < 0.5) return;
+    const v = vm[i.vendorId] || {name: 'Unknown vendor'}, r = rows[i.vendorId] || (rows[i.vendorId] = {id: i.vendorId, name: v.name, gstin: v.gstin || '', msme: v.msme || '', creditDays: v.creditDays, advance: num(v.advanceBalance), up: 0, b0: 0, b31: 0, b61: 0, b90: 0, total: 0, overdue: 0, msme45: 0, bills: []});
+    const dpd = dayDiff(i.dueDate || i.invoiceDate), age = dayDiff(i.invoiceDate);
+    r.total += bal; r.bills.push({...i, balance: bal, dpd, age});
+    if(dpd == null || dpd <= 0) r.up += bal; else { r.overdue += bal; if(dpd <= 30) r.b0 += bal; else if(dpd <= 60) r.b31 += bal; else if(dpd <= 90) r.b61 += bal; else r.b90 += bal; }
+    if(['micro', 'small'].includes(r.msme) && age != null && age > 45) r.msme45 += bal;
+  });
+  return Object.values(rows);
+}
+function venTotals(){
+  const R = venRows(), sum = f => R.reduce((a, r) => a + f(r), 0), month = new Date().toISOString().slice(0, 7);
+  return {R, total: sum(r => r.total), overdue: sum(r => r.overdue), msme45: sum(r => r.msme45), nMsme: R.filter(r => r.msme45 > 0.5).length, n: R.length, nOver: R.filter(r => r.overdue > 0.5).length,
+    paidMonth: VEN.payments.filter(p => String(p.paymentDate || '').slice(0, 7) === month).reduce((a, p) => a + num(p.amount), 0),
+    b: {up: sum(r => r.up), b0: sum(r => r.b0), b31: sum(r => r.b31), b61: sum(r => r.b61), b90: sum(r => r.b90)}};
+}
+function venMessage(){
+  if(VEN.state === '' || VEN.state === 'loading') return '<div class="empty">Loading vendor bills from the Vendor Payments portal…</div>';
+  if(VEN.state.startsWith('error:')) return `<div class="card-b" style="color:var(--crit)"><b>Could not read vendor payments.</b><p>${esc(VEN.state.slice(6))}</p><button class="btn sm" onclick="loadVen(true)">Try again</button></div>`;
+  return '';
+}
+function payCard(){
+  ensureVen();
+  const head = `<div class="card-h"><h3>Money to pay</h3><span class="hint">from Vendor Payments${VEN.state === 'ok' ? ' · updated ' + new Date(VEN.at).toLocaleTimeString('en-IN', {hour: '2-digit', minute: '2-digit'}) : ''}</span><a class="btn sm" href="#payables" style="margin-left:auto;text-decoration:none">All payables →</a></div>`;
+  if(VEN.state !== 'ok') return `<div class="card">${head}${venMessage()}</div>`;
+  const T = venTotals(), top = T.R.slice().sort((a, b) => b.total - a.total).slice(0, 5), net = OUT.state === 'ok' ? outTotals().net - T.total : null;
+  const big = (label, v, color, note) => `<div><div class="hint">${label}</div><div style="font-size:30px;font-weight:700;font-family:'Space Grotesk'${color ? ';color:' + color : ''}">${v}</div><div class="hint">${note || ''}</div></div>`;
+  return `<div class="card">${head}<div class="card-b">
+    ${T.msme45 > 0.5 ? `<div class="banner crit" style="margin-bottom:16px"><span style="font-size:18px">⚠</span><div style="flex:1"><b>${inr0(T.msme45)}</b> owed to <b>${T.nMsme}</b> MSME (micro/small) supplier${T.nMsme > 1 ? 's' : ''} for more than 45 days — under Sec 43B(h) this expense is disallowed until paid.</div><a class="btn sm" href="#payables" style="text-decoration:none">View</a></div>` : ''}
+    <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:28px">
+    <div><div style="display:flex;gap:28px;flex-wrap:wrap;margin-bottom:16px">
+      ${big('To pay', inrC(T.total), '', T.n + ' vendors')}${big('Overdue', inrC(T.overdue), 'var(--crit)', T.nOver + ' vendors')}${big('Paid this month', inrC(T.paidMonth), 'var(--ok)', '')}
+      ${net != null ? big('Net (collect − pay)', inrC(net), net < 0 ? 'var(--crit)' : 'var(--ok)', 'receivables minus payables') : ''}</div>
+      ${ageBar(T.b)}</div>
+    <div><div class="hint" style="margin-bottom:4px">Top 5 vendors by amount due</div>${top.map(r => `<div class="debt" onclick="venDue(${jsq(r.id)})"><span class="nm">${esc(r.name)}${['micro', 'small'].includes(r.msme) ? ' <span class="pill warn">MSME</span>' : ''}</span><span class="amt">${inrC(r.total)}</span><span class="hint">${r.overdue > 0.5 ? '<b style="color:var(--crit)">' + inrC(r.overdue) + ' overdue</b>' : 'not yet due'}</span><span class="hint" style="text-align:right">${r.msme45 > 0.5 ? '<b style="color:var(--crit)">' + inrC(r.msme45) + ' past 45 d</b>' : ''}</span></div>`).join('') || '<div class="empty">Nothing to pay 🎉</div>'}</div>
+  </div></div></div>`;
+}
+let VQ = '', VFLT = 'all', VSORT = 'total';
+function vPayables(){
+  $('#ttl').textContent = 'Vendor Payables';
+  $('#topr').innerHTML = `<button class="btn" onclick="loadVen(true)">↻ Refresh</button> <a class="btn" href="vendor-payments.html" style="text-decoration:none">Vendor Payments →</a>`;
+  ensureVen();
+  if(VEN.state !== 'ok'){ $('#view').innerHTML = `<div class="card">${venMessage()}</div>`; return; }
+  const T = venTotals();
+  $('#view').innerHTML = `
+  <div class="grid g4" style="margin-bottom:18px">
+    <div class="stat" style="--c:#2563EB"><div class="k">Total to pay</div><div class="v">${inrC(T.total)}</div><div class="n">${T.n} vendors with open bills</div></div>
+    <div class="stat" style="--c:#B91C1C"><div class="k">Overdue</div><div class="v" style="color:var(--crit)">${inrC(T.overdue)}</div><div class="n">${T.nOver} vendors past due date</div></div>
+    <div class="stat" style="--c:#7F1D1D"><div class="k">MSME over 45 days</div><div class="v">${inrC(T.msme45)}</div><div class="n">Sec 43B(h) — pay to keep the expense allowable</div></div>
+    <div class="stat" style="--c:#15803D"><div class="k">Paid this month</div><div class="v">${inrC(T.paidMonth)}</div><div class="n">payments recorded this month</div></div>
+  </div>
+  <div class="card"><div class="card-h"><h3>Ageing of what we owe</h3></div><div class="card-b">${ageBar(T.b)}</div></div>
+  <div class="card"><div class="card-h"><input id="vq" placeholder="Search vendor…" value="${esc(VQ)}" style="max-width:260px">
+    <select id="vflt" style="max-width:200px">${[['all', 'All vendors'], ['overdue', 'Overdue only'], ['msme', 'MSME over 45 days'], ['d60', 'Over 60 days']].map(o => `<option value="${o[0]}" ${VFLT === o[0] ? 'selected' : ''}>${o[1]}</option>`).join('')}</select>
+    <select id="vsort" style="max-width:190px">${[['total', 'Largest amount'], ['overdue', 'Largest overdue'], ['msme45', 'MSME risk first'], ['name', 'Name A–Z']].map(o => `<option value="${o[0]}" ${VSORT === o[0] ? 'selected' : ''}>${o[1]}</option>`).join('')}</select></div><div class="tw" id="vbody"></div></div>`;
+  $('#vq').oninput = e => { VQ = e.target.value; drawPay(); }; $('#vflt').onchange = e => { VFLT = e.target.value; drawPay(); }; $('#vsort').onchange = e => { VSORT = e.target.value; drawPay(); };
+  drawPay();
+}
+function drawPay(){
+  const q = VQ.toLowerCase();
+  let L = venRows().filter(r => (!q || (r.name + ' ' + r.gstin).toLowerCase().includes(q)) &&
+    (VFLT === 'all' || (VFLT === 'overdue' && r.overdue > 0.5) || (VFLT === 'msme' && r.msme45 > 0.5) || (VFLT === 'd60' && r.b61 + r.b90 > 0.5)));
+  const key = {total: r => -r.total, overdue: r => -r.overdue, msme45: r => -r.msme45}[VSORT];
+  L = key ? L.sort((a, b) => key(a) - key(b)) : L.sort((a, b) => String(a.name).localeCompare(b.name));
+  const cell = v => v > 0.5 ? inr0(v) : '<span class="hint">·</span>';
+  $('#vbody').innerHTML = L.length ? `<table><thead><tr><th>Vendor</th><th class="num">Not due</th><th class="num">0–30 d</th><th class="num">31–60 d</th><th class="num">61–90 d</th><th class="num">90+ d</th><th class="num">Total</th><th>MSME</th></tr></thead><tbody>
+  ${L.map(r => `<tr class="click" onclick="venDue(${jsq(r.id)})"><td><b>${esc(r.name)}</b><div class="hint">${[r.gstin, r.advance > 0.5 ? 'advance ' + inr0(r.advance) : ''].filter(Boolean).map(esc).join(' · ')}</div></td>
+    <td class="num">${cell(r.up)}</td><td class="num">${cell(r.b0)}</td><td class="num">${cell(r.b31)}</td><td class="num" style="color:#c2410c">${cell(r.b61)}</td><td class="num" style="color:#7F1D1D;font-weight:600">${cell(r.b90)}</td>
+    <td class="num"><b>${inr0(r.total)}</b></td><td>${['micro', 'small'].includes(r.msme) ? (r.msme45 > 0.5 ? `<span class="pill crit">${inrC(r.msme45)} &gt; 45 d</span>` : '<span class="pill warn">' + esc(r.msme) + '</span>') : r.msme === 'medium' ? '<span class="pill">medium</span>' : '<span class="hint">—</span>'}</td></tr>`).join('')}</tbody></table>` : '<div class="empty">No vendors match.</div>';
+}
+function venDue(id){
+  const r = venRows().find(x => x.id === id); if(!r) return;
+  const bills = r.bills.slice().sort((a, b) => (b.dpd || 0) - (a.dpd || 0));
+  const pays = VEN.payments.filter(p => p.vendorId === id).sort((a, b) => String(b.paymentDate).localeCompare(String(a.paymentDate))).slice(0, 5);
+  const when = x => x.dpd > 0 ? `<span class="pill ${x.dpd > 60 ? 'crit' : 'warn'}">${x.dpd} d overdue</span>` : `<span class="pill blue">due in ${-(x.dpd || 0)} d</span>`;
+  modal(`<div class="modal-h"><h3>${esc(r.name)}</h3><button class="btn sm" onclick="closeModal()">✕</button></div><div class="modal-b">
+    <div class="grid g4" style="margin-bottom:14px"><div class="stat" style="--c:#2563EB"><div class="k">To pay</div><div class="v" style="font-size:22px">${inr0(r.total)}</div></div>
+      <div class="stat" style="--c:#B91C1C"><div class="k">Overdue</div><div class="v" style="font-size:22px;color:var(--crit)">${inr0(r.overdue)}</div></div>
+      <div class="stat" style="--c:#15803D"><div class="k">Advance paid</div><div class="v" style="font-size:22px">${inr0(r.advance)}</div></div>
+      <div class="stat" style="--c:#7c5cff"><div class="k">MSME</div><div class="v" style="font-size:22px">${esc(r.msme || '—')}</div><div class="n">${num(r.creditDays) || 0} days credit</div></div></div>
+    ${r.msme45 > 0.5 ? `<div class="banner crit"><span>⚠</span><div><b>${inr0(r.msme45)}</b> unpaid for more than 45 days to an MSME supplier — Sec 43B(h).</div></div>` : ''}
+    ${ageBar({up: r.up, b0: r.b0, b31: r.b31, b61: r.b61, b90: r.b90})}
+    <div class="tw" style="margin-top:14px;max-height:300px"><table><thead><tr><th>Bill</th><th>Bill date</th><th>Due</th><th class="num">Amount</th><th class="num">Balance</th><th>Status</th></tr></thead><tbody>
+    ${bills.map(x => `<tr><td class="mono"><b>${esc(x.invoiceNo || '')}</b></td><td>${esc(String(x.invoiceDate || '').slice(0, 10))}</td><td>${esc(String(x.dueDate || '').slice(0, 10))}</td><td class="num">${inr0(x.amount)}</td><td class="num"><b>${inr0(x.balance)}</b></td><td>${when(x)}</td></tr>`).join('')}</tbody></table></div>
+    ${pays.length ? `<div class="hint" style="margin:14px 0 6px">Last payments</div><div class="chips">${pays.map(p => `<span class="chip"><b>${inr0(p.amount)}</b> · ${esc(String(p.paymentDate || '').slice(0, 10))}${p.mode ? ' · ' + esc(p.mode) : ''}</span>`).join('')}</div>` : ''}
+  </div><div class="modal-f"><a class="btn pri" href="vendor-payments.html" style="text-decoration:none">Open in Vendor Payments</a></div>`);
+}
+
 /* ---------- dashboard ---------- */
 function vDash(){
   $('#ttl').textContent = 'Dashboard';
@@ -456,6 +568,7 @@ function vDash(){
       <div class="st"><div class="k">Dispatched this month</div><div class="v">${dispM}</div><div class="hint">pcs</div></div>
     </div></div></div>
   ${moneyCard()}
+  ${payCard()}
   <div class="grid g4" style="margin-bottom:16px">
     <div class="stat" style="--c:#2F6FED"><div class="k">Open orders</div><div class="v">${open.length}</div><div class="n">${open.reduce((a,x)=>a+x.s.open,0)} pcs pending</div></div>
     <div class="stat" style="--c:#c0201c"><div class="k">Overdue orders</div><div class="v">${overdue.length}</div><div class="n">past delivery date</div></div>
