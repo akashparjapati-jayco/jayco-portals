@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Jayco ERP — Order Tracker &amp; Costing</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
+<style>
+:root{--bg:#F4F5F7;--panel:#fff;--ink:#101114;--soft:#4a4d55;--faint:#8a8d96;--line:#e3e5ea;--brand:#E5322D;--brand-d:#a30000;--ok:#1a8f4c;--warn:#c27803;--crit:#c0201c;--blue:#2F6FED;--side:#101114}
+*{box-sizing:border-box}
+body{margin:0;font-family:Inter,system-ui,sans-serif;background:var(--bg);color:var(--ink);font-size:14px}
+h1,h2,h3{font-family:'Space Grotesk',Inter,sans-serif;margin:0}
+button,input,select,textarea{font:inherit;color:inherit}
+input,select,textarea{border:1px solid var(--line);border-radius:8px;padding:8px 10px;background:#fff;width:100%}
+input:focus,select:focus,textarea:focus{outline:2px solid rgba(229,50,45,.25);border-color:var(--brand)}
+.mono{font-family:ui-monospace,Menlo,monospace}
+.hint{color:var(--faint);font-size:12px}
+#login{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:50}
+#login .box{background:#fff;padding:28px;border-radius:14px;width:340px;box-shadow:0 10px 40px rgba(0,0,0,.1)}
+#login label{font-size:12px;font-weight:600;color:var(--soft);display:block;margin:12px 0 4px}
+.app{display:grid;grid-template-columns:240px 1fr;min-height:100vh}
+aside{background:var(--side);color:#fff;padding:18px 12px;position:sticky;top:0;height:100vh;overflow:auto}
+aside .logo{font-family:'Space Grotesk';font-weight:700;font-size:18px;padding:4px 10px 2px}
+aside .logo b{color:var(--brand)}
+aside .sub{font-size:11px;color:#9aa;padding:0 10px 14px;letter-spacing:.06em}
+aside .grp{font-size:10px;letter-spacing:.12em;color:#7c808a;padding:14px 10px 6px;text-transform:uppercase}
+aside a{display:flex;gap:8px;align-items:center;padding:8px 10px;border-radius:8px;color:#d6d8de;text-decoration:none;cursor:pointer;font-weight:500}
+aside a:hover{background:#1d1f25}
+aside a.on{background:var(--brand);color:#fff}
+aside a .n{margin-left:auto;font-size:11px;background:#2a2d35;border-radius:10px;padding:1px 7px}
+aside a.on .n{background:rgba(255,255,255,.25)}
+main{padding:22px 26px;min-width:0}
+.top{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:16px}
+.top h1{font-size:24px}
+.top .sp{margin-left:auto;display:flex;gap:8px;align-items:center}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;margin-bottom:16px}
+.card-h{padding:12px 16px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.card-h h3{font-size:15px}
+.card-b{padding:16px}
+.grid{display:grid;gap:14px}
+.g4{grid-template-columns:repeat(auto-fit,minmax(170px,1fr))}
+.stat{background:#fff;border:1px solid var(--line);border-radius:12px;padding:14px;border-left:4px solid var(--c,var(--brand))}
+.stat .k{font-size:12px;color:var(--faint);font-weight:600}
+.stat .v{font-size:26px;font-weight:700;font-family:'Space Grotesk'}
+.stat .n{font-size:12px;color:var(--soft)}
+.btn{border:1px solid var(--line);background:#fff;padding:7px 12px;border-radius:8px;cursor:pointer;font-weight:600}
+.btn:hover{background:#f0f1f4}
+.btn.pri{background:var(--brand);color:#fff;border-color:var(--brand)}
+.btn.pri:hover{background:var(--brand-d)}
+.btn.sm{padding:4px 9px;font-size:12px}
+table{border-collapse:collapse;width:100%}
+th{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--faint);text-align:left;padding:9px 12px;border-bottom:1px solid var(--line);white-space:nowrap}
+td{padding:10px 12px;border-bottom:1px solid #eef0f3;vertical-align:top}
+tr.click{cursor:pointer}tr.click:hover td{background:#fafbfc}
+.num{text-align:right;font-variant-numeric:tabular-nums}
+.tw{overflow:auto}
+.pill{display:inline-block;padding:2px 9px;border-radius:20px;font-size:11px;font-weight:700;background:#eef0f3;color:var(--soft);white-space:nowrap}
+.pill.ok{background:#e3f5ea;color:var(--ok)}.pill.warn{background:#fdf0d6;color:var(--warn)}.pill.crit{background:#fde4e3;color:var(--crit)}.pill.blue{background:#e4edff;color:var(--blue)}
+.bar{height:8px;background:#eceef2;border-radius:6px;overflow:hidden;display:flex;min-width:90px}
+.bar i{display:block;height:100%}
+.chips{display:flex;gap:5px;flex-wrap:wrap}
+.chip{font-size:11px;border-radius:6px;padding:2px 7px;background:#eef0f3;color:var(--soft);white-space:nowrap}
+.chip b{color:var(--ink)}
+.chip.on{background:#fde4e3;color:var(--crit)}
+.chip.done{background:#e3f5ea;color:var(--ok)}
+.flow{display:flex;gap:0;flex-wrap:wrap}
+.flow .st{flex:1;min-width:120px;padding:12px;border:1px solid var(--line);margin-left:-1px;background:#fff;text-align:center}
+.flow .st:first-child{border-radius:10px 0 0 10px;margin-left:0}.flow .st:last-child{border-radius:0 10px 10px 0}
+.flow .st .v{font-size:22px;font-weight:700;font-family:'Space Grotesk'}
+.flow .st .k{font-size:11px;color:var(--faint);font-weight:600;text-transform:uppercase;letter-spacing:.04em}
+.flow .st a{font-size:11px;color:var(--brand);text-decoration:none;font-weight:600}
+.ovl{position:fixed;inset:0;background:rgba(10,12,16,.55);z-index:60;display:flex;align-items:flex-start;justify-content:center;padding:30px 14px;overflow:auto}
+.modal{background:#fff;border-radius:14px;width:100%;max-width:720px}
+.modal-h{padding:14px 18px;border-bottom:1px solid var(--line);display:flex;align-items:center}
+.modal-h h3{flex:1}
+.modal-b{padding:16px 18px}
+.modal-f{padding:12px 18px;border-top:1px solid var(--line);display:flex;gap:8px;justify-content:flex-end}
+.form{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.form .full{grid-column:1/-1}
+.fld label{display:block;font-size:12px;font-weight:600;color:var(--soft);margin-bottom:4px}
+.sec{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--faint);border-bottom:1px solid var(--line);padding-bottom:4px;margin:14px 0 8px;grid-column:1/-1}
+.tl{border-left:2px solid var(--line);margin-left:6px;padding-left:14px}
+.tl .it{position:relative;padding:0 0 12px}
+.tl .it:before{content:"";position:absolute;left:-20px;top:4px;width:10px;height:10px;border-radius:50%;background:var(--c,#bfc3cc);border:2px solid #fff}
+.tl .it.done:before{background:var(--ok)}
+.empty{padding:30px;text-align:center;color:var(--faint)}
+#toast{position:fixed;bottom:20px;right:20px;background:#101114;color:#fff;padding:10px 16px;border-radius:8px;z-index:99;display:none}
+.cost-row{display:grid;grid-template-columns:1fr 90px 100px 30px;gap:6px;margin-bottom:6px}
+.sumbox{background:#f7f8fa;border:1px solid var(--line);border-radius:10px;padding:12px}
+.sumbox .r{display:flex;justify-content:space-between;padding:3px 0}
+.sumbox .r.t{border-top:1px solid var(--line);margin-top:6px;padding-top:8px;font-weight:700;font-size:15px}
+@media(max-width:860px){.app{grid-template-columns:1fr}aside{position:static;height:auto}.form{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div id="login"><div class="box">
+  <h2>Jayco ERP</h2><div class="hint">Order tracker &amp; product costing</div>
+  <label>Email</label><input id="lgEmail" autocomplete="username">
+  <label>Password</label><input id="lgPwd" type="password" autocomplete="current-password">
+  <div id="lgErr" style="color:var(--crit);font-size:12px;margin-top:8px"></div>
+  <button class="btn pri" id="lgBtn" style="width:100%;margin-top:14px">Sign in</button>
+  <div class="hint" style="margin-top:10px">Same login as PO Management / Sales.</div>
+</div></div>
+
+<div class="app" id="app" style="display:none">
+  <aside>
+    <div class="logo">JAYCO <b>ERP</b></div><div class="sub">PLUMMER BLOCK WORKS</div>
+    <div class="grp">Track</div>
+    <a data-nav="dashboard">▦ Dashboard</a>
+    <a data-nav="orders">▤ Order Tracker <span class="n" id="nOrders"></span></a>
+    <a data-nav="wip">◫ Shop-floor Board <span class="n" id="nWip"></span></a>
+    <div class="grp">Cost</div>
+    <a data-nav="costing">₹ Product Costing</a>
+    <a data-nav="settings">⚙ Costing Defaults</a>
+    <div class="grp">Order-to-dispatch flow</div>
+    <a href="sales-crm.html">1 · Inquiry &amp; Quotation</a>
+    <a href="po-management.html">2 · Customer PO</a>
+    <a href="casting-control.html">3 · Casting &amp; Pattern</a>
+    <a href="production.html">4 · Production</a>
+    <a href="store-control.html">5 · Store &amp; Tools</a>
+    <a href="dispatch-board.html">6 · Packing &amp; Dispatch</a>
+    <a href="customer-portal.html">7 · Customer Accounts</a>
+    <a href="vendor-payments.html">8 · Vendor Payments</a>
+    <div class="grp">&nbsp;</div>
+    <a href="index.html">← All portals</a>
+    <a id="lgOut">⎋ Log out</a>
+  </aside>
+  <main><div class="top"><h1 id="ttl"></h1><div class="sp" id="topr"></div></div><div id="view"></div></main>
+</div>
+<div id="toast"></div>
+
+<script>
+const firebaseConfig = {
+  apiKey: "AIzaSyCV_iL9c59t4f70ZCF-moqPbGzUH6Yv-iA", authDomain: "jayco-po-management.firebaseapp.com",
+  projectId: "jayco-po-management", storageBucket: "jayco-po-management.firebasestorage.app",
+  messagingSenderId: "116018254897", appId: "1:116018254897:web:63b37aed6fa5ccef8b7110"
+};
+const STAFF_EMAIL = "staff@jayco-po-management.local";
+
+/* ---------- Plummer-block routing: the stages every item passes through ---------- */
+const STAGES = [
+  {k:'pattern',  n:'Pattern / Drawing',      c:'#7c5cff'},
+  {k:'casting',  n:'Casting',                c:'#c27803'},
+  {k:'fettling', n:'Fettling & Shot-blast',  c:'#d9622b'},
+  {k:'machining',n:'Machining',              c:'#2F6FED'},
+  {k:'inspection',n:'Inspection (QC)',       c:'#0e9aa7'},
+  {k:'painting', n:'Painting',               c:'#c0201c'},
+  {k:'packing',  n:'Assembly & Packing',     c:'#6b7a1f'},
+  {k:'ready',    n:'Ready to Dispatch',      c:'#1a8f4c'}
+];
+const DEFAULT_OPS = ['Base — face & bottom milling','Cap — face milling','Bore boring','Seal groove / recess','Drilling & tapping','Assembly & trial'];
+const DEFAULT_SET = {castRate:0, rejPct:5, ovhPct:10, ops: DEFAULT_OPS};
+
+let started = false;
+let db, USER=null, PO=[], ITEMS_PO=[], STG={}, DESP=[], RATES=[], LEADS=[], QUOTES=[], COST={}, SET={...DEFAULT_SET}, ROUTE='dashboard';
+const $ = (s, r=document) => r.querySelector(s), $$ = (s, r=document) => [...r.querySelectorAll(s)];
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const num = v => { const n = parseFloat(v); return isFinite(n) ? n : 0; };
+const inr = v => '₹' + num(v).toLocaleString('en-IN', {maximumFractionDigits:2});
+const toDate = t => !t ? null : t.toDate ? t.toDate() : new Date(t);
+const fmtD = t => { const d = toDate(t); return d && !isNaN(d) ? d.toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'}) : '—'; };
+const costKey = c => String(c || '').trim().replace(/[\/\s]+/g, '_');
+const me = () => (USER && USER.email) || 'staff';
+function toast(m){ const t=$('#toast'); t.textContent=m; t.style.display='block'; clearTimeout(toast.t); toast.t=setTimeout(()=>t.style.display='none',2800); }
+
+/* ---------- login ---------- */
+$('#lgEmail').value = localStorage.getItem('crm_email') || STAFF_EMAIL;
+firebase.initializeApp(firebaseConfig); db = firebase.firestore();
+$('#lgBtn').onclick = () => {
+  $('#lgErr').textContent = '';
+  firebase.auth().signInWithEmailAndPassword($('#lgEmail').value.trim(), $('#lgPwd').value)
+    .then(() => localStorage.setItem('crm_email', $('#lgEmail').value.trim()))
+    .catch(e => $('#lgErr').textContent = /password|credential|user-not-found/.test(e.code || '') ? 'Incorrect email or password.' : e.message);
+};
+$('#lgPwd').addEventListener('keydown', e => { if(e.key === 'Enter') $('#lgBtn').click(); });
+$('#lgOut').onclick = () => firebase.auth().signOut();
+firebase.auth().onAuthStateChanged(u => {
+  USER = u; $('#login').style.display = u ? 'none' : 'flex'; $('#app').style.display = u ? 'grid' : 'none';
+  if(u) start();
+});
+
+async function start(){
+  if(started) return; started = true;
+  const snap = (col, fn, order) => (order ? db.collection(col).orderBy(order, 'desc') : db.collection(col)).onSnapshot(s => { fn(s.docs.map(d => ({id:d.id, ...d.data()}))); render(); }, e => console.warn(col, e.message));
+  snap('purchaseOrders', r => PO = r);
+  snap('poItems', r => ITEMS_PO = r);
+  snap('despatches', r => DESP = r);
+  snap('erp_itemStages', r => { STG = {}; r.forEach(x => STG[x.id] = x); });
+  snap('erp_costing', r => { COST = {}; r.forEach(x => COST[x.id] = x); });
+  snap('crm_rates', r => RATES = r);
+  snap('crm_leads', r => LEADS = r);
+  snap('crm_quotes', r => QUOTES = r);
+  db.collection('erp_settings').doc('main').onSnapshot(d => { SET = {...DEFAULT_SET, ...(d.exists ? d.data() : {})}; render(); });
+}
+
+/* ---------- derived data ---------- */
+// Pieces of one PO line in each stage. Dispatched comes from PO Management's dispatch entry (single source of truth).
+function itemState(it){
+  const st = (STG[it.id] && STG[it.id].stageQty) || {};
+  const ordered = num(it.orderedQty), desp = num(it.despatchedQty), open = Math.max(0, ordered - desp);
+  const q = {}; STAGES.forEach(s => q[s.k] = Math.max(0, num(st[s.k])));
+  // if PO Management dispatched pieces that were still sitting in a stage, trim from the most advanced stage backwards
+  let excess = STAGES.reduce((a, s) => a + q[s.k], 0) - open;
+  for(let i = STAGES.length - 1; i >= 0 && excess > 0; i--){ const t = Math.min(q[STAGES[i].k], excess); q[STAGES[i].k] -= t; excess -= t; }
+  const inProc = STAGES.reduce((a, s) => a + q[s.k], 0);
+  return {q, ordered, desp, open, inProc, notStarted: Math.max(0, open - inProc), scrap: num(STG[it.id] && STG[it.id].scrapQty)};
+}
+function furthest(it){ const s = itemState(it); for(let i = STAGES.length - 1; i >= 0; i--) if(s.q[STAGES[i].k] > 0) return STAGES[i]; return null; }
+function poStatus(items){
+  const sts = items.map(itemState), ord = sts.reduce((a, s) => a + s.ordered, 0), desp = sts.reduce((a, s) => a + s.desp, 0);
+  const inProc = sts.reduce((a, s) => a + s.inProc, 0), ready = sts.reduce((a, s) => a + s.q.ready, 0);
+  let label = 'Not started', cls = '';
+  if(ord > 0 && desp >= ord) { label = 'Dispatched'; cls = 'ok'; }
+  else if(desp > 0) { label = 'Part dispatched'; cls = 'blue'; }
+  else if(ready > 0 && ready >= ord) { label = 'Ready'; cls = 'ok'; }
+  else if(inProc > 0) { label = 'In production'; cls = 'warn'; }
+  return {label, cls, ord, desp, inProc, ready, open: ord - desp};
+}
+const itemsOfPo = po => ITEMS_PO.filter(i => i.poId === po.id);
+const rateOf = code => { const r = RATES.find(x => String(x.itemCode).toLowerCase() === String(code).toLowerCase()); return r ? num(r.rate) : 0; };
+function costOf(code){
+  const c = COST[costKey(code)]; if(!c) return null;
+  const casting = num(c.castWt) * num(c.castRate) * (1 + num(c.rejPct) / 100);
+  const mach = (c.ops || []).reduce((a, o) => a + num(o.cost), 0);
+  const bought = (c.bought || []).reduce((a, b) => a + num(b.qty) * num(b.rate), 0);
+  const sub = casting + mach + bought + num(c.paint) + num(c.packing) + num(c.freight);
+  const ovh = sub * num(c.ovhPct) / 100;
+  return {casting, mach, bought, paint: num(c.paint), packing: num(c.packing), freight: num(c.freight), sub, ovh, total: sub + ovh};
+}
+const lateDays = po => { const d = toDate(po.deliveryDate); if(!d) return 0; return Math.floor((new Date().setHours(0,0,0,0) - d.setHours(0,0,0,0)) / 864e5); };
+
+/* ---------- routing ---------- */
+const NAV = {dashboard:'Dashboard', orders:'Order Tracker', wip:'Shop-floor Board', costing:'Product Costing', settings:'Costing Defaults'};
+function go(h){ location.hash = h; }
+window.addEventListener('hashchange', render);
+function render(){
+  if(!USER) return;
+  const h = (location.hash || '#dashboard').slice(1), [r, arg] = h.split('/');
+  ROUTE = r;
+  $$('aside a[data-nav]').forEach(a => a.classList.toggle('on', a.dataset.nav === r || (r === 'order' && a.dataset.nav === 'orders')));
+  $('#nOrders').textContent = PO.filter(p => poStatus(itemsOfPo(p)).open > 0).length;
+  $('#nWip').textContent = ITEMS_PO.reduce((a, i) => a + itemState(i).inProc, 0);
+  $('#topr').innerHTML = '';
+  ({dashboard:vDash, orders:vOrders, order:vOrder, wip:vWip, costing:vCosting, settings:vSettings}[r] || vDash)(decodeURIComponent(arg || ''));
+}
+$$('aside a[data-nav]').forEach(a => a.onclick = () => go(a.dataset.nav));
+
+/* ---------- dashboard ---------- */
+function vDash(){
+  $('#ttl').textContent = 'Dashboard';
+  const open = PO.map(p => ({p, s: poStatus(itemsOfPo(p))})).filter(x => x.s.open > 0);
+  const overdue = open.filter(x => lateDays(x.p) > 0);
+  const month = new Date().toISOString().slice(0, 7);
+  const dispM = DESP.filter(d => (toDate(d.despatchDate) || toDate(d.createdAt) || new Date(0)).toISOString().slice(0, 7) === month).reduce((a, d) => a + num(d.qtyDespatched), 0);
+  const wipBy = STAGES.map(s => ({...s, n: ITEMS_PO.reduce((a, i) => a + itemState(i).q[s.k], 0)}));
+  const notStarted = ITEMS_PO.reduce((a, i) => a + itemState(i).notStarted, 0);
+  const openLeads = LEADS.filter(l => !['Won','Lost'].includes(l.stage)).length;
+  const quotesOut = QUOTES.filter(q => q.status === 'Sent').length, quotesWait = QUOTES.filter(q => q.status === 'Pending approval').length;
+  const mx = Math.max(1, notStarted, ...wipBy.map(w => w.n));
+  $('#view').innerHTML = `
+  <div class="card"><div class="card-h"><h3>Order-to-dispatch pipeline</h3><span class="hint">live from Sales, PO Management and this tracker</span></div><div class="card-b">
+    <div class="flow">
+      <div class="st"><div class="k">Open inquiries</div><div class="v">${openLeads}</div><a href="sales-crm.html#leads">Sales →</a></div>
+      <div class="st"><div class="k">Quotes out</div><div class="v">${quotesOut}</div><div class="hint">${quotesWait} awaiting approval</div></div>
+      <div class="st"><div class="k">Open orders</div><div class="v">${open.length}</div><a href="#orders">Tracker →</a></div>
+      <div class="st"><div class="k">Not started (pcs)</div><div class="v">${notStarted}</div><div class="hint">no stage yet</div></div>
+      <div class="st"><div class="k">In production (pcs)</div><div class="v">${wipBy.reduce((a,w)=>a+w.n-(w.k==='ready'?w.n:0),0)}</div><a href="#wip">Board →</a></div>
+      <div class="st"><div class="k">Ready (pcs)</div><div class="v">${wipBy.find(w=>w.k==='ready').n}</div><a href="dispatch-board.html">Dispatch →</a></div>
+      <div class="st"><div class="k">Dispatched this month</div><div class="v">${dispM}</div><div class="hint">pcs</div></div>
+    </div></div></div>
+  <div class="grid g4" style="margin-bottom:16px">
+    <div class="stat" style="--c:#2F6FED"><div class="k">Open orders</div><div class="v">${open.length}</div><div class="n">${open.reduce((a,x)=>a+x.s.open,0)} pcs pending</div></div>
+    <div class="stat" style="--c:#c0201c"><div class="k">Overdue orders</div><div class="v">${overdue.length}</div><div class="n">past delivery date</div></div>
+    <div class="stat" style="--c:#c27803"><div class="k">Costing sheets</div><div class="v">${Object.keys(COST).length}</div><div class="n">of ${new Set([...RATES.map(r=>r.itemCode),...ITEMS_PO.map(i=>i.itemCode)]).size} items</div></div>
+    <div class="stat" style="--c:#1a8f4c"><div class="k">Scrapped pieces</div><div class="v">${Object.values(STG).reduce((a,s)=>a+num(s.scrapQty),0)}</div><div class="n">logged in tracker</div></div>
+  </div>
+  <div class="card"><div class="card-h"><h3>Work in process by stage</h3></div><div class="card-b">
+    ${[{n:'Not started',c:'#bfc3cc',v:notStarted}, ...wipBy.map(w => ({n:w.n, c:w.c, v:w.n}))].map(w => `
+      <div style="display:grid;grid-template-columns:170px 1fr 60px;gap:10px;align-items:center;margin-bottom:8px"><span>${w.n}</span>
+      <div class="bar" style="height:14px"><i style="width:${w.v/mx*100}%;background:${w.c}"></i></div><b class="num">${w.v}</b></div>`).join('')}
+  </div></div>
+  <div class="card"><div class="card-h"><h3>Overdue orders</h3></div>${overdue.length ? `<div class="tw"><table><thead><tr><th>PO</th><th>Customer</th><th>Due</th><th class="num">Late</th><th class="num">Pending pcs</th><th>Status</th></tr></thead><tbody>
+    ${overdue.sort((a,b)=>lateDays(b.p)-lateDays(a.p)).slice(0,12).map(x => `<tr class="click" onclick="go('order/${x.p.id}')"><td class="mono"><b>${esc(x.p.poNo)}</b></td><td>${esc(x.p.customerName)}</td><td>${fmtD(x.p.deliveryDate)}</td><td class="num"><span class="pill crit">${lateDays(x.p)} d</span></td><td class="num">${x.s.open}</td><td><span class="pill ${x.s.cls}">${x.s.label}</span></td></tr>`).join('')}</tbody></table></div>` : '<div class="empty">No overdue orders 🎉</div>'}</div>`;
+}
+
+/* ---------- orders ---------- */
+let OQ = '', OF = 'open';
+function vOrders(){
+  $('#ttl').textContent = 'Order Tracker';
+  $('#topr').innerHTML = `<a class="btn pri" href="po-management.html" style="text-decoration:none">＋ New PO (PO Management)</a>`;
+  $('#view').innerHTML = `<div class="card"><div class="card-h"><input id="oq" placeholder="Search PO, customer, item…" value="${esc(OQ)}" style="max-width:300px">
+    <select id="of" style="max-width:180px">${[['open','Open orders'],['all','All orders'],['late','Overdue'],['done','Completed']].map(o => `<option value="${o[0]}" ${OF===o[0]?'selected':''}>${o[1]}</option>`).join('')}</select></div><div class="tw" id="obody"></div></div>`;
+  $('#oq').oninput = e => { OQ = e.target.value; drawOrders(); }; $('#of').onchange = e => { OF = e.target.value; drawOrders(); };
+  drawOrders();
+}
+function drawOrders(){
+  const q = OQ.toLowerCase();
+  const rows = PO.map(p => ({p, items: itemsOfPo(p)})).map(x => ({...x, s: poStatus(x.items)})).filter(x =>
+    (OF === 'all' || (OF === 'open' && x.s.open > 0) || (OF === 'late' && x.s.open > 0 && lateDays(x.p) > 0) || (OF === 'done' && x.s.open <= 0 && x.s.ord > 0)) &&
+    (!q || [x.p.poNo, x.p.customerName, ...x.items.map(i => i.itemCode)].join(' ').toLowerCase().includes(q)));
+  rows.sort((a, b) => (toDate(a.p.deliveryDate) || 0) - (toDate(b.p.deliveryDate) || 0));
+  $('#obody').innerHTML = rows.length ? `<table><thead><tr><th>PO</th><th>Customer</th><th>Items</th><th>Delivery</th><th style="min-width:200px">Progress</th><th>Status</th></tr></thead><tbody>
+  ${rows.map(x => { const late = lateDays(x.p); const sts = x.items.map(itemState); const nsT = sts.reduce((a,s)=>a+s.notStarted,0), ipT = sts.reduce((a,s)=>a+s.inProc-s.q.ready,0), rdT = sts.reduce((a,s)=>a+s.q.ready,0), dpT = x.s.desp, tot = Math.max(1, x.s.ord);
+    return `<tr class="click" onclick="go('order/${x.p.id}')"><td class="mono"><b>${esc(x.p.poNo)}</b><div class="hint">${fmtD(x.p.poDate)}</div></td><td>${esc(x.p.customerName)}</td><td>${x.items.length} <span class="hint">· ${x.s.ord} pcs</span></td>
+    <td>${fmtD(x.p.deliveryDate)}${x.s.open > 0 && late > 0 ? ` <span class="pill crit">${late} d late</span>` : ''}</td>
+    <td><div class="bar" title="not started ${nsT} · in process ${ipT} · ready ${rdT} · dispatched ${dpT}"><i style="width:${dpT/tot*100}%;background:#1a8f4c"></i><i style="width:${rdT/tot*100}%;background:#7fd4a1"></i><i style="width:${ipT/tot*100}%;background:#e8a317"></i></div><div class="hint">${x.s.desp}/${x.s.ord} dispatched</div></td>
+    <td><span class="pill ${x.s.cls}">${x.s.label}</span></td></tr>`; }).join('')}</tbody></table>` : '<div class="empty">No orders match.</div>';
+}
+
+/* ---------- single order ---------- */
+function vOrder(id){
+  const p = PO.find(x => x.id === id); if(!p){ $('#ttl').textContent = 'Order'; $('#view').innerHTML = '<div class="empty">Loading… or order not found. <a href="#orders">Back</a></div>'; return; }
+  const items = itemsOfPo(p), s = poStatus(items);
+  $('#ttl').textContent = 'PO ' + p.poNo;
+  $('#topr').innerHTML = `<a class="btn" href="#orders" style="text-decoration:none">← Orders</a>`;
+  const quote = QUOTES.find(q => q.poNo && String(q.poNo).trim().toLowerCase() === String(p.poNo).trim().toLowerCase() && String(q.customerName).toLowerCase() === String(p.customerName).toLowerCase());
+  const lead = quote && LEADS.find(l => l.id === quote.leadId);
+  const first = ts => ts ? fmtD(ts) : '—';
+  const value = items.reduce((a, i) => a + rateOf(i.itemCode) * num(i.orderedQty), 0);
+  const cost = items.reduce((a, i) => { const c = costOf(i.itemCode); return a + (c ? c.total * num(i.orderedQty) : 0); }, 0);
+  const allCosted = items.length && items.every(i => costOf(i.itemCode));
+  const dispatches = DESP.filter(d => d.poId === p.id).sort((a, b) => (toDate(a.despatchDate) || 0) - (toDate(b.despatchDate) || 0));
+  $('#view').innerHTML = `
+  <div class="grid g4" style="margin-bottom:16px">
+    <div class="stat" style="--c:#2F6FED"><div class="k">Customer</div><div class="v" style="font-size:16px">${esc(p.customerName)}</div><div class="n">PO date ${fmtD(p.poDate)}</div></div>
+    <div class="stat" style="--c:#c27803"><div class="k">Delivery</div><div class="v" style="font-size:20px">${fmtD(p.deliveryDate)}</div><div class="n">${s.open > 0 && lateDays(p) > 0 ? `<span class="pill crit">${lateDays(p)} d late</span>` : esc(p.deliveryRemark || '')}</div></div>
+    <div class="stat" style="--c:#1a8f4c"><div class="k">Status</div><div class="v" style="font-size:20px">${s.label}</div><div class="n">${s.desp}/${s.ord} pcs dispatched</div></div>
+    <div class="stat" style="--c:#7c5cff"><div class="k">Est. value / cost</div><div class="v" style="font-size:18px">${value ? inr(value) : '—'}</div><div class="n">${allCosted ? `cost ${inr(cost)} · margin ${value ? ((value - cost) / value * 100).toFixed(1) + '%' : '—'}` : 'costing sheet missing for some items'}</div></div>
+  </div>
+  <div class="card"><div class="card-h"><h3>Order journey</h3></div><div class="card-b"><div class="tl">
+    <div class="it ${lead ? 'done' : ''}"><b>Inquiry</b> ${lead ? `${esc(lead.leadNo)} · ${esc(lead.source || '')} · ${first(lead.createdAt)}` : '<span class="hint">no linked inquiry (PO entered directly)</span>'}</div>
+    <div class="it ${quote ? 'done' : ''}"><b>Quotation</b> ${quote ? `${esc(quote.quoteNo)} · ${esc(quote.status)} · ${inr(quote.total)}` : '<span class="hint">no linked quotation</span>'}</div>
+    <div class="it done"><b>Customer PO received</b> ${esc(p.poNo)} · ${fmtD(p.poDate)}</div>
+    <div class="it ${s.inProc || s.desp ? 'done' : ''}"><b>Production</b> ${s.inProc} pcs in process · ${s.ready} ready</div>
+    <div class="it ${s.desp ? 'done' : ''}"><b>Dispatch</b> ${dispatches.length ? dispatches.map(d => `${fmtD(d.despatchDate)}: ${d.qtyDespatched} × ${esc(d.itemCode)} (inv ${esc(d.invoiceNumber || '—')})`).join('<br>') : '<span class="hint">nothing dispatched yet — enter in PO Management</span>'}</div>
+  </div></div></div>
+  <div class="card"><div class="card-h"><h3>Items &amp; working stage</h3><span class="hint">Move pieces forward as they finish each stage</span></div><div class="tw"><table>
+    <thead><tr><th>Item</th><th class="num">Ordered</th><th>Where the pieces are</th><th class="num">Dispatched</th><th></th></tr></thead><tbody>
+    ${items.map(i => { const st = itemState(i), c = costOf(i.itemCode); return `<tr><td><b class="mono">${esc(i.itemCode)}</b><div class="hint">${esc(i.itemDescription || '')}</div>${c ? `<div class="hint">cost ${inr(c.total)}/pc</div>` : `<div class="hint" style="color:var(--warn)">no costing sheet</div>`}</td>
+      <td class="num">${st.ordered}</td>
+      <td><div class="chips">${st.notStarted ? `<span class="chip"><b>${st.notStarted}</b> not started</span>` : ''}${STAGES.filter(s => st.q[s.k] > 0).map(s => `<span class="chip ${s.k === 'ready' ? 'done' : 'on'}"><b>${st.q[s.k]}</b> ${esc(s.n)}</span>`).join('')}${st.scrap ? `<span class="chip" style="background:#fde4e3"><b>${st.scrap}</b> scrapped</span>` : ''}</div></td>
+      <td class="num">${st.desp}</td>
+      <td><button class="btn sm pri" onclick="openMove('${i.id}')" ${st.open <= 0 ? 'disabled' : ''}>Move</button> <button class="btn sm" onclick="openHistory('${i.id}')">History</button></td></tr>`; }).join('')}
+  </tbody></table></div></div>`;
+}
+
+/* ---------- move pieces between stages ---------- */
+function openMove(itemId){
+  const it = ITEMS_PO.find(i => i.id === itemId), st = itemState(it);
+  const froms = [...(st.notStarted ? [{k:'__ns', n:'Not started', q:st.notStarted}] : []), ...STAGES.filter(s => st.q[s.k] > 0).map(s => ({k:s.k, n:s.n, q:st.q[s.k]}))];
+  if(!froms.length){ toast('Nothing left to move for this item'); return; }
+  modal(`<div class="modal-h"><h3>Move pieces — ${esc(it.itemCode)}</h3><button class="btn sm" onclick="closeModal()">✕</button></div>
+  <div class="modal-b"><div class="form">
+    <div class="fld"><label>From</label><select id="mvFrom">${froms.map(f => `<option value="${f.k}" data-q="${f.q}">${esc(f.n)} (${f.q} pcs)</option>`).join('')}</select></div>
+    <div class="fld"><label>To</label><select id="mvTo">${STAGES.map(s => `<option value="${s.k}">${esc(s.n)}</option>`).join('')}<option value="__scrap">✖ Rejected / scrapped</option></select></div>
+    <div class="fld"><label>Pieces</label><input id="mvQty" type="number" min="1" value="${froms[0].q}"></div>
+    <div class="fld"><label>Done by / note</label><input id="mvNote" placeholder="operator, challan no, reason for rejection…"></div>
+  </div></div>
+  <div class="modal-f"><button class="btn" onclick="closeModal()">Cancel</button><button class="btn pri" id="mvSave" onclick="saveMove('${itemId}')">Save move</button></div>`);
+  const sync = () => { const o = $('#mvFrom').selectedOptions[0]; $('#mvQty').max = o.dataset.q; $('#mvQty').value = o.dataset.q;
+    const idx = STAGES.findIndex(s => s.k === $('#mvFrom').value); $('#mvTo').value = STAGES[Math.min(STAGES.length - 1, idx + 1)].k; };
+  $('#mvFrom').onchange = sync; sync();
+}
+async function saveMove(itemId){
+  const it = ITEMS_PO.find(i => i.id === itemId), from = $('#mvFrom').value, to = $('#mvTo').value, qty = Math.floor(num($('#mvQty').value)), note = $('#mvNote').value.trim();
+  const avail = num($('#mvFrom').selectedOptions[0].dataset.q);
+  if(qty < 1 || qty > avail){ toast('Pieces must be between 1 and ' + avail); return; }
+  if(from === to){ toast('Choose a different stage'); return; }
+  $('#mvSave').disabled = true;
+  const ref = db.collection('erp_itemStages').doc(itemId), name = k => k === '__ns' ? 'Not started' : k === '__scrap' ? 'Scrapped' : STAGES.find(s => s.k === k).n;
+  try{
+    await db.runTransaction(async tx => {
+      const cur = await tx.get(ref), d = cur.exists ? cur.data() : {stageQty:{}, history:[], scrapQty:0};
+      const sq = {...(d.stageQty || {})}, now = new Date().toISOString();
+      if(from !== '__ns') sq[from] = Math.max(0, num(sq[from]) - qty);
+      let scrap = num(d.scrapQty);
+      if(to === '__scrap') scrap += qty; else sq[to] = num(sq[to]) + qty;
+      const hist = [...(d.history || []), {at: now, by: me(), from: name(from), to: name(to), qty, note}].slice(-200);
+      tx.set(ref, {poItemId: itemId, poNo: it.poNo, itemCode: it.itemCode, stageQty: sq, scrapQty: scrap, history: hist, updatedAt: now}, {merge: true});
+    });
+    closeModal(); toast(`${qty} pcs → ${name(to)}`);
+  }catch(e){ toast('Could not save: ' + e.message); $('#mvSave').disabled = false; }
+}
+function openHistory(itemId){
+  const it = ITEMS_PO.find(i => i.id === itemId), h = ((STG[itemId] || {}).history || []).slice().reverse();
+  modal(`<div class="modal-h"><h3>Stage history — ${esc(it.itemCode)}</h3><button class="btn sm" onclick="closeModal()">✕</button></div><div class="modal-b">
+  ${h.length ? `<table><thead><tr><th>When</th><th>Move</th><th class="num">Pcs</th><th>By</th><th>Note</th></tr></thead><tbody>${h.map(x => `<tr><td>${new Date(x.at).toLocaleString('en-IN',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'})}</td><td>${esc(x.from)} → <b>${esc(x.to)}</b></td><td class="num">${x.qty}</td><td>${esc((x.by||'').split('@')[0])}</td><td>${esc(x.note || '')}</td></tr>`).join('')}</tbody></table>` : '<div class="empty">No stage moves recorded yet.</div>'}</div>`);
+}
+
+/* ---------- shop-floor board: every open item × every stage ---------- */
+let WQ = '';
+function vWip(){
+  $('#ttl').textContent = 'Shop-floor Board';
+  $('#view').innerHTML = `<div class="card"><div class="card-h"><input id="wq" placeholder="Search item, PO, customer…" value="${esc(WQ)}" style="max-width:300px"><span class="hint">Every open order line and where its pieces are right now. Click a row to open the order.</span></div><div class="tw" id="wbody"></div></div>`;
+  $('#wq').oninput = e => { WQ = e.target.value; drawWip(); }; drawWip();
+}
+function drawWip(){
+  const q = WQ.toLowerCase();
+  const rows = ITEMS_PO.map(i => ({i, s: itemState(i)})).filter(x => x.s.open > 0 && (!q || [x.i.itemCode, x.i.poNo, x.i.customerName].join(' ').toLowerCase().includes(q)))
+    .sort((a, b) => (toDate(a.i.deliveryDate) || 0) - (toDate(b.i.deliveryDate) || 0));
+  const tot = {ns: rows.reduce((a, x) => a + x.s.notStarted, 0), ...Object.fromEntries(STAGES.map(s => [s.k, rows.reduce((a, x) => a + x.s.q[s.k], 0)]))};
+  $('#wbody').innerHTML = rows.length ? `<table><thead><tr><th>Item</th><th>PO / customer</th><th>Due</th><th class="num">Open</th><th class="num">Not started</th>${STAGES.map(s => `<th class="num" style="color:${s.c}">${esc(s.n)}</th>`).join('')}</tr></thead><tbody>
+  ${rows.map(x => { const late = lateDays({deliveryDate: x.i.deliveryDate}); return `<tr class="click" onclick="go('order/${x.i.poId}')"><td class="mono"><b>${esc(x.i.itemCode)}</b></td><td>${esc(x.i.poNo)}<div class="hint">${esc(x.i.customerName)}</div></td><td>${fmtD(x.i.deliveryDate)}${late > 0 ? ` <span class="pill crit">${late}d</span>` : ''}</td><td class="num"><b>${x.s.open}</b></td><td class="num">${x.s.notStarted || '·'}</td>${STAGES.map(s => `<td class="num">${x.s.q[s.k] ? `<b style="color:${s.c}">${x.s.q[s.k]}</b>` : '·'}</td>`).join('')}</tr>`; }).join('')}
+  <tr><td colspan="4"><b>Total</b></td><td class="num"><b>${tot.ns}</b></td>${STAGES.map(s => `<td class="num"><b>${tot[s.k]}</b></td>`).join('')}</tr></tbody></table>` : '<div class="empty">No open order lines.</div>';
+}
+
+/* ---------- product costing ---------- */
+let CQ = '';
+function vCosting(){
+  $('#ttl').textContent = 'Product Costing';
+  $('#view').innerHTML = `<div class="card"><div class="card-h"><input id="cq" placeholder="Search item code…" value="${esc(CQ)}" style="max-width:260px"><span class="hint">Cost = casting (weight × rate/kg + rejection) + machining + bought-outs + paint + packing + freight + overhead. Selling rate comes from the Sales price list.</span></div><div class="tw" id="cbody"></div></div>`;
+  $('#cq').oninput = e => { CQ = e.target.value; drawCosting(); }; drawCosting();
+}
+function allCodes(){ return [...new Set([...RATES.map(r => String(r.itemCode || '').trim()), ...ITEMS_PO.map(i => String(i.itemCode || '').trim()), ...Object.values(COST).map(c => c.itemCode)])].filter(Boolean).sort((a, b) => a.localeCompare(b, undefined, {numeric: true})); }
+function drawCosting(){
+  const q = CQ.toLowerCase(), codes = allCodes().filter(c => !q || c.toLowerCase().includes(q));
+  $('#cbody').innerHTML = `<table><thead><tr><th>Item</th><th class="num">Casting wt (kg)</th><th class="num">Cost / pc</th><th class="num">Selling rate</th><th class="num">Margin</th><th></th></tr></thead><tbody>
+  ${codes.slice(0, 400).map(code => { const c = costOf(code), rate = rateOf(code), sheet = COST[costKey(code)], m = c && rate ? (rate - c.total) / rate * 100 : null;
+    return `<tr class="click" onclick="openCost('${esc(code).replace(/'/g, "\\'")}')"><td class="mono"><b>${esc(code)}</b></td><td class="num">${sheet ? num(sheet.castWt) || '—' : '—'}</td><td class="num">${c ? inr(c.total) : '<span class="pill warn">not costed</span>'}</td><td class="num">${rate ? inr(rate) : '—'}</td>
+    <td class="num">${m == null ? '—' : `<span class="pill ${m < 10 ? 'crit' : m < 20 ? 'warn' : 'ok'}">${m.toFixed(1)}%</span>`}</td><td><button class="btn sm">${sheet ? 'Edit' : 'Add'}</button></td></tr>`; }).join('')}</tbody></table>${codes.length > 400 ? '<div class="hint" style="padding:10px">Showing first 400 — search to narrow.</div>' : ''}`;
+}
+let CD = null;
+function openCost(code){
+  const ex = COST[costKey(code)];
+  CD = ex ? JSON.parse(JSON.stringify(ex)) : {itemCode: code, castWt: '', castRate: SET.castRate || '', rejPct: SET.rejPct, ops: (SET.ops || DEFAULT_OPS).map(n => ({n, cost: ''})), bought: [{n:'Seal / felt ring', qty: 2, rate: ''}, {n:'Grease nipple', qty: 1, rate: ''}], paint: '', packing: '', freight: '', ovhPct: SET.ovhPct, notes: ''};
+  modal(`<div class="modal-h"><h3>Costing — <span class="mono">${esc(code)}</span></h3><button class="btn sm" onclick="closeModal()">✕</button></div><div class="modal-b" id="cdBody"></div>
+  <div class="modal-f"><button class="btn" onclick="closeModal()">Cancel</button><button class="btn pri" onclick="saveCost()">Save costing</button></div>`);
+  drawCostForm();
+}
+function drawCostForm(){
+  const row = (arr, k, i, cols) => `<div class="cost-row"><input data-l="${arr}" data-i="${i}" data-f="n" value="${esc(CD[arr][i].n)}" placeholder="Name">${cols}<button class="btn sm" onclick="rmRow('${arr}',${i})">✕</button></div>`;
+  $('#cdBody').innerHTML = `<div class="form">
+    <div class="sec">1 · Casting</div>
+    <div class="fld"><label>Casting weight (kg)</label><input data-h="castWt" type="number" step="0.01" value="${esc(CD.castWt)}"></div>
+    <div class="fld"><label>Casting rate (₹/kg)</label><input data-h="castRate" type="number" step="0.01" value="${esc(CD.castRate)}"></div>
+    <div class="fld"><label>Rejection allowance %</label><input data-h="rejPct" type="number" step="0.1" value="${esc(CD.rejPct)}"></div>
+    <div class="sec">2 · Machining &amp; operations (₹ per piece)</div>
+    <div class="full" style="grid-column:1/-1">${CD.ops.map((o, i) => row('ops', 'n', i, `<span></span><input data-l="ops" data-i="${i}" data-f="cost" type="number" step="0.01" value="${esc(o.cost)}" placeholder="₹">`)).join('')}<button class="btn sm" onclick="addRow('ops')">＋ Operation</button></div>
+    <div class="sec">3 · Bought-out parts</div>
+    <div class="full" style="grid-column:1/-1">${CD.bought.map((b, i) => row('bought', 'n', i, `<input data-l="bought" data-i="${i}" data-f="qty" type="number" step="0.01" value="${esc(b.qty)}" placeholder="Qty"><input data-l="bought" data-i="${i}" data-f="rate" type="number" step="0.01" value="${esc(b.rate)}" placeholder="Rate ₹">`)).join('')}<button class="btn sm" onclick="addRow('bought')">＋ Part</button></div>
+    <div class="sec">4 · Finishing, packing &amp; overhead</div>
+    <div class="fld"><label>Paint (₹/pc)</label><input data-h="paint" type="number" step="0.01" value="${esc(CD.paint)}"></div>
+    <div class="fld"><label>Packing (₹/pc)</label><input data-h="packing" type="number" step="0.01" value="${esc(CD.packing)}"></div>
+    <div class="fld"><label>Freight (₹/pc)</label><input data-h="freight" type="number" step="0.01" value="${esc(CD.freight)}"></div>
+    <div class="fld"><label>Overhead %</label><input data-h="ovhPct" type="number" step="0.1" value="${esc(CD.ovhPct)}"></div>
+    <div class="fld full"><label>Notes</label><input data-h="notes" value="${esc(CD.notes || '')}"></div>
+  </div><div class="sumbox" id="cdSum" style="margin-top:14px"></div>`;
+  $$('#cdBody [data-h]').forEach(e => e.oninput = () => { CD[e.dataset.h] = e.value; sumCost(); });
+  $$('#cdBody [data-l]').forEach(e => e.oninput = () => { CD[e.dataset.l][+e.dataset.i][e.dataset.f] = e.value; sumCost(); });
+  sumCost();
+}
+function addRow(l){ CD[l].push(l === 'ops' ? {n:'', cost:''} : {n:'', qty:1, rate:''}); drawCostForm(); }
+function rmRow(l, i){ CD[l].splice(i, 1); drawCostForm(); }
+function sumCost(){
+  const saved = COST[costKey(CD.itemCode)]; COST[costKey(CD.itemCode)] = CD; const c = costOf(CD.itemCode); if(saved) COST[costKey(CD.itemCode)] = saved; else delete COST[costKey(CD.itemCode)];
+  const rate = rateOf(CD.itemCode), m = rate ? (rate - c.total) / rate * 100 : null;
+  $('#cdSum').innerHTML = [['Casting (incl. rejection)', c.casting], ['Machining', c.mach], ['Bought-out', c.bought], ['Paint', c.paint], ['Packing', c.packing], ['Freight', c.freight], [`Overhead ${num(CD.ovhPct)}%`, c.ovh]].map(r => `<div class="r"><span>${r[0]}</span><span>${inr(r[1])}</span></div>`).join('') +
+    `<div class="r t"><span>Total cost per piece</span><span>${inr(c.total)}</span></div><div class="r"><span>Selling rate (price list)</span><span>${rate ? inr(rate) : '—'}</span></div><div class="r"><span>Margin</span><span><b>${m == null ? '—' : inr(rate - c.total) + ' · ' + m.toFixed(1) + '%'}</b></span></div>`;
+}
+async function saveCost(){
+  const d = {...CD, itemCode: CD.itemCode, updatedAt: new Date().toISOString(), updatedBy: me()};
+  try{ await db.collection('erp_costing').doc(costKey(d.itemCode)).set(d); closeModal(); toast('Costing saved'); }catch(e){ toast('Could not save: ' + e.message); }
+}
+
+/* ---------- costing defaults ---------- */
+function vSettings(){
+  $('#ttl').textContent = 'Costing Defaults';
+  $('#view').innerHTML = `<div class="card"><div class="card-h"><h3>Defaults for new costing sheets</h3></div><div class="card-b"><div class="form" style="max-width:640px">
+    <div class="fld"><label>Casting rate (₹/kg)</label><input id="sCast" type="number" step="0.01" value="${esc(SET.castRate)}"></div>
+    <div class="fld"><label>Rejection allowance %</label><input id="sRej" type="number" step="0.1" value="${esc(SET.rejPct)}"></div>
+    <div class="fld"><label>Overhead %</label><input id="sOvh" type="number" step="0.1" value="${esc(SET.ovhPct)}"></div>
+    <div class="fld full"><label>Standard machining operations (one per line)</label><textarea id="sOps" rows="7">${esc((SET.ops || DEFAULT_OPS).join('\n'))}</textarea></div>
+    <div class="full"><button class="btn pri" onclick="saveSettings()">Save defaults</button></div></div>
+    <div class="hint" style="margin-top:12px">These only pre-fill <i>new</i> costing sheets. Existing sheets keep their own values.</div></div></div>`;
+}
+async function saveSettings(){
+  const d = {castRate: num($('#sCast').value), rejPct: num($('#sRej').value), ovhPct: num($('#sOvh').value), ops: $('#sOps').value.split('\n').map(x => x.trim()).filter(Boolean)};
+  try{ await db.collection('erp_settings').doc('main').set(d, {merge: true}); toast('Defaults saved'); }catch(e){ toast('Could not save: ' + e.message); }
+}
+
+/* ---------- modal ---------- */
+function modal(html){ closeModal(); const o = document.createElement('div'); o.className = 'ovl'; o.id = 'ovl'; o.innerHTML = `<div class="modal">${html}</div>`; o.addEventListener('mousedown', e => { if(e.target === o) closeModal(); }); document.body.appendChild(o); }
+function closeModal(){ const o = $('#ovl'); if(o) o.remove(); }
+</script>
+</body>
+</html>
