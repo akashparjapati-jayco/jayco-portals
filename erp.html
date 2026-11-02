@@ -115,6 +115,19 @@ tr.click{cursor:pointer}tr.click:hover td{background:#FAFBFD}
 .debt:hover .nm{color:var(--brand)}
 .debt .nm{font-weight:600}
 .debt .amt{font-weight:700;text-align:right;font-variant-numeric:tabular-nums}
+.wtabs{display:grid;grid-template-columns:repeat(auto-fill,minmax(118px,1fr));gap:8px}
+.wtab{min-width:0;text-align:left;border:1px solid var(--line);background:#fff;border-radius:12px;padding:9px 12px;cursor:pointer;border-top:3px solid var(--c);display:flex;flex-direction:column;gap:1px}
+.wtab:hover{background:#FAFBFC}
+.wtab.on{background:color-mix(in srgb, var(--c) 10%, white);border-color:var(--c);box-shadow:0 2px 8px rgba(0,0,0,.08)}
+.wtab .wn{font-size:11px;font-weight:600;color:var(--soft);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.wtab b{font-size:20px;font-family:'Space Grotesk';line-height:1.2}
+.wtab .wl{font-size:11px;color:var(--faint)}
+.wrow{display:grid;grid-template-columns:minmax(150px,1.3fr) minmax(150px,1.3fr) 110px 90px minmax(220px,2.4fr) 70px;gap:14px;align-items:start;padding:13px 18px;border-top:1px solid var(--line2);cursor:pointer}
+.wrow:hover{background:#FAFBFD}
+.wrow .wd{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.wrow .wq b{font-size:18px;font-family:'Space Grotesk'}
+.wrow .wa{text-align:right}
+@media(max-width:1100px){.wrow{grid-template-columns:1fr 1fr;}.wrow .wst{grid-column:1/-1}.wrow .wa{text-align:left}}
 @media(max-width:900px){.app{grid-template-columns:1fr}aside{position:static;height:auto}.form{grid-template-columns:1fr}main{padding:0 14px 30px}.top{position:static}}
 </style>
 </head>
@@ -692,21 +705,40 @@ function openHistory(itemId){
 }
 
 /* ---------- shop-floor board: every open item × every stage ---------- */
-let WQ = '';
+let WQ = '', WST = '';
+/* Shop-floor board: stage tabs with piece counts, then one compact card per open order line.
+   Only the stages that actually hold pieces are shown, so nothing runs off the right of the screen. */
 function vWip(){
   $('#ttl').textContent = 'Shop-floor Board';
-  $('#view').innerHTML = `<div class="card"><div class="card-h"><input id="wq" placeholder="Search item, PO, customer…" value="${esc(WQ)}" style="max-width:300px"><span class="hint">Every open order line and where its pieces are right now. Click a row to open the order.</span></div><div class="tw" id="wbody"></div></div>`;
+  $('#view').innerHTML = `<div class="card"><div class="card-b" style="padding-bottom:10px"><div id="wtabs" class="wtabs"></div>
+    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:12px"><input id="wq" placeholder="Search item, PO, customer…" value="${esc(WQ)}" style="max-width:320px">
+    <span class="hint">Tap a stage to see only the lines with pieces there. Tap a line to open its order.</span></div></div><div id="wbody"></div></div>`;
   $('#wq').oninput = e => { WQ = e.target.value; drawWip(); }; drawWip();
 }
+function wipSetStage(k){ WST = WST === k ? '' : k; drawWip(); }
 function drawWip(){
   const q = WQ.toLowerCase();
-  const rows = ITEMS_PO.map(i => ({i, s: itemState(i)})).filter(x => x.s.open > 0 && (!q || [x.i.itemCode, x.i.poNo, x.i.customerName].join(' ').toLowerCase().includes(q)))
-    .sort((a, b) => (toDate(a.i.deliveryDate) || 0) - (toDate(b.i.deliveryDate) || 0));
-  const totalRows = rows.length, shown = rows.slice(0, 300);   // keep the table fast; totals below still cover every row
-  const tot = {ns: rows.reduce((a, x) => a + x.s.notStarted, 0), ...Object.fromEntries(STAGES.map(s => [s.k, rows.reduce((a, x) => a + x.s.q[s.k], 0)]))};
-  $('#wbody').innerHTML = rows.length ? `<table><thead><tr><th>Item</th><th>PO / customer</th><th>Due</th><th class="num">Open</th><th class="num">Not started</th>${STAGES.map(s => `<th class="num" style="color:${s.c}">${esc(s.n)}</th>`).join('')}<th></th></tr></thead><tbody>
-  ${shown.map(x => { const late = lateDays({deliveryDate: x.i.deliveryDate}); return `<tr class="click" onclick="go('order/${x.i.poId}')"><td class="mono"><b>${esc(x.i.itemCode)}</b></td><td>${esc(x.i.poNo)}<div class="hint">${esc(x.i.customerName)}</div></td><td>${fmtD(x.i.deliveryDate)}${late > 0 ? ` <span class="pill crit">${late}d</span>` : ''}</td><td class="num"><b>${x.s.open}</b></td><td class="num">${x.s.notStarted || '·'}</td>${STAGES.map(s => `<td class="num">${x.s.q[s.k] ? `<b style="color:${s.c}">${x.s.q[s.k]}</b>` : '·'}</td>`).join('')}<td><button class="btn sm pri" onclick="event.stopPropagation();openMove('${x.i.id}')">Move</button></td></tr>`; }).join('')}
-  <tr><td colspan="4"><b>Total</b></td><td class="num"><b>${tot.ns}</b></td>${STAGES.map(s => `<td class="num"><b>${tot[s.k]}</b></td>`).join('')}<td></td></tr></tbody></table>${totalRows > 300 ? `<div class="hint" style="padding:10px">Showing the 300 earliest-due of ${totalRows} open lines — search to narrow. Totals include all ${totalRows}.</div>` : ''}` : '<div class="empty">No open order lines.</div>';
+  const base = ITEMS_PO.map(i => ({i, s: itemState(i)})).filter(x => x.s.open > 0 && (!q || [x.i.itemCode, x.i.itemDescription, x.i.poNo, x.i.customerName].join(' ').toLowerCase().includes(q)));
+  const inStage = (x, k) => k === '__ns' ? x.s.notStarted > 0 : x.s.q[k] > 0;
+  const tabs = [{k: '', n: 'All lines', c: '#0F1115', pcs: base.reduce((a, x) => a + x.s.open, 0), lines: base.length},
+    {k: '__ns', n: 'Not started', c: '#9CA3AF', pcs: base.reduce((a, x) => a + x.s.notStarted, 0), lines: base.filter(x => inStage(x, '__ns')).length},
+    ...STAGES.map(st => ({k: st.k, n: st.n, c: st.c, pcs: base.reduce((a, x) => a + x.s.q[st.k], 0), lines: base.filter(x => inStage(x, st.k)).length}))];
+  $('#wtabs').innerHTML = tabs.map(t => `<button class="wtab ${WST === t.k ? 'on' : ''}" style="--c:${t.c}" onclick="wipSetStage(${jsq(t.k)})"><span class="wn">${esc(t.n)}</span><b>${t.pcs.toLocaleString('en-IN')}</b><span class="wl">${t.lines} line${t.lines === 1 ? '' : 's'}</span></button>`).join('');
+  const rows = base.filter(x => !WST || inStage(x, WST)).sort((a, b) => (toDate(a.i.deliveryDate) || new Date(8.64e15)) - (toDate(b.i.deliveryDate) || new Date(8.64e15)));
+  const shown = rows.slice(0, 300);
+  $('#wbody').innerHTML = rows.length ? shown.map(x => {
+    const late = x.i.deliveryDate ? lateDays({deliveryDate: x.i.deliveryDate}) : 0, tot = Math.max(1, x.s.ordered);
+    const segs = [['#9CA3AF', x.s.notStarted], ...STAGES.map(st => [st.c, x.s.q[st.k]]), ['#15803D', x.s.desp]].filter(p => p[1] > 0);
+    const where = [x.s.notStarted ? `<span class="chip"><b>${x.s.notStarted}</b> not started</span>` : '', ...STAGES.filter(st => x.s.q[st.k] > 0).map(st => `<span class="chip" style="background:color-mix(in srgb, ${st.c} 14%, white);color:${st.c}"><b>${x.s.q[st.k]}</b> ${esc(st.n)}</span>`), x.s.desp ? `<span class="chip done"><b>${x.s.desp}</b> dispatched</span>` : ''].join('');
+    return `<div class="wrow" onclick="go('order/${x.i.poId}')">
+      <div class="wi"><b class="mono">${esc(x.i.itemCode)}</b>${x.i.itemDescription && x.i.itemDescription !== x.i.itemCode ? `<div class="hint wd">${esc(x.i.itemDescription)}</div>` : ''}</div>
+      <div class="wp"><b>${esc(x.i.poNo)}</b><div class="hint">${esc(x.i.customerName)}</div></div>
+      <div class="wdue">${x.i.deliveryDate ? fmtD(x.i.deliveryDate) : '<span class="hint">no date</span>'}${late > 0 ? `<div><span class="pill crit">${late} d late</span></div>` : ''}</div>
+      <div class="wq"><div class="hint">open</div><b>${x.s.open}</b><span class="hint"> / ${x.s.ordered}</span></div>
+      <div class="wst"><div class="bar" style="height:10px;margin-bottom:6px">${segs.map(p => `<i style="width:${p[1] / tot * 100}%;background:${p[0]}"></i>`).join('')}</div><div class="chips">${where}</div></div>
+      <div class="wa"><button class="btn sm pri" onclick="event.stopPropagation();openMove('${x.i.id}')">Move</button></div></div>`; }).join('') +
+    (rows.length > 300 ? `<div class="hint" style="padding:12px 18px">Showing the 300 earliest-due of ${rows.length} lines — search or pick a stage to narrow.</div>` : '')
+    : `<div class="empty">${WST ? 'No pieces in this stage right now.' : 'No open order lines.'}</div>`;
 }
 
 /* ---------- moves log: everything staff moved on a day ---------- */
