@@ -42,6 +42,7 @@ function doPost(e) {
       case 'deletePayment'  : result = deletePayment(data); break;
       case 'getAllocations'  : result = getAllocations(data); break;
       case 'getOutstanding' : result = getOutstanding(); break;
+      case 'uploadFile'     : result = uploadFile(data); break;
       case 'getCashflowForecast': result = getCashflowForecast(); break;
       case 'getStatement'   : result = getStatement(data); break;
       case 'getDashboard'   : result = getDashboard(); break;
@@ -57,7 +58,7 @@ function doPost(e) {
   }
 }
 
-function doGet(e) { return resp({ ok: true, message: 'CMS API v2 is live', customerFields: 'v3' }); }
+function doGet(e) { return resp({ ok: true, message: 'CMS API v2 is live', customerFields: 'v3', uploads: true }); }
 function resp(obj) {
   return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(ContentService.MimeType.JSON);
 }
@@ -851,4 +852,32 @@ function importPayments(d) {
     catch(e) { results.errors.push({row:i+1,error:e.message}); }
   });
   return results;
+}
+
+
+// ══════════════════════════════════════════════════════════════
+//  SCAN COPIES — the Entry Desk uploads invoice / bill / challan scans here.
+//  Files go to Google Drive → "Jayco Entry Desk Scans" / <sub-folder>, viewable by anyone with the link.
+//  First time only: select the function authorizeDrive and press Run, then allow Drive access.
+// ══════════════════════════════════════════════════════════════
+function authorizeDrive() { return _scanFolder('Test').getUrl(); }
+
+function _scanFolder(sub) {
+  const props = PropertiesService.getScriptProperties();
+  let root = null, id = props.getProperty('SCAN_FOLDER_ID');
+  if (id) { try { root = DriveApp.getFolderById(id); } catch (e) { root = null; } }
+  if (!root) { root = DriveApp.createFolder('Jayco Entry Desk Scans'); props.setProperty('SCAN_FOLDER_ID', root.getId()); }
+  const name = String(sub || 'Other').replace(/[\\/:*?"<>|]/g, '-').slice(0, 80);
+  const it = root.getFoldersByName(name);
+  return it.hasNext() ? it.next() : root.createFolder(name);
+}
+
+function uploadFile(d) {
+  if (!d || !d.base64) throw new Error('No file received');
+  const bytes = Utilities.base64Decode(d.base64);
+  if (bytes.length > 15 * 1024 * 1024) throw new Error('File is larger than 15 MB');
+  const blob = Utilities.newBlob(bytes, d.mimeType || 'application/octet-stream', String(d.name || 'scan').slice(0, 150));
+  const file = _scanFolder(d.folder).createFile(blob);
+  file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+  return { id: file.getId(), url: file.getUrl(), name: file.getName() };
 }
