@@ -67,6 +67,8 @@
   .sec-title p{margin:2px 0 0;font-size:12.5px;color:var(--ink-faint);}
   .sec-n{flex:none;width:30px;height:30px;border-radius:50%;background:var(--ink);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;}
   .grid.grid-one{grid-template-columns:minmax(0,1fr);}
+  .grid.grid-two{grid-template-columns:minmax(0,1fr) minmax(0,2fr);}
+  @media(max-width:760px){.grid.grid-two{grid-template-columns:minmax(0,1fr);}}
   .erp-card .card-main{padding-right:20px;}
   /* ---------- hero ---------- */
   .hero{text-align:center;margin-bottom:16px;animation:rise .6s ease .05s both;}
@@ -228,8 +230,21 @@
     <span class="fact"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21V8l9-5 9 5v13"></path><path d="M9 21V12h6v9"></path></svg>Plummer Block &amp; Bearing Housing Manufacturer</span>
   </div>
 
-  <div class="sec-title"><span class="sec-n">★</span><div><h2>Track &amp; cost every order</h2><p>One view of each order, each item and its stage — plus product costing.</p></div></div>
-  <div class="grid grid-one">
+  <div class="sec-title"><span class="sec-n">★</span><div><h2>Enter once · Track &amp; cost every order</h2><p>Staff enter documents at the Entry Desk; admins see every order, payment and cost in the ERP.</p></div></div>
+  <div class="grid grid-two">
+    <a class="card neutral" href="entry-desk.html">
+      <div class="card-main">
+        <div class="icon-box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"></path></svg></div>
+        <div class="card-text">
+          <h3>Entry Desk</h3>
+          <p>Enter a sales invoice, purchase bill or casting challan once (with e-way no.) — it is posted to every portal automatically.</p>
+        </div>
+      </div>
+      <div class="card-bottom">
+        <span class="tag">Staff</span>
+        <span class="open-btn">Open Entry Desk <i>→</i></span>
+      </div>
+    </a>
     <a class="card glow orange erp-card" href="erp.html">
       <div class="card-main">
         <div class="icon-box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"></path><path d="M7 15l4-4 3 3 5-6"></path></svg></div>
@@ -239,7 +254,7 @@
         </div>
       </div>
       <div class="card-bottom">
-        <span class="tag">New</span>
+        <span class="tag">Admin</span>
         <span class="open-btn">Open ERP <i>→</i></span>
       </div>
     </a>

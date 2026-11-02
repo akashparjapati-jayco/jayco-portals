@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Jayco Entry Desk</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
+<link rel="stylesheet" href="erp.css">
+<script>window.ERP_MODE = 'entry';</script>
+</head>
+<body>
+<div id="login"><div class="box">
+  <h2>Jayco Entry Desk</h2><div class="hint">Enter sales invoices, purchase bills and casting challans once</div>
+  <label>Email</label><input id="lgEmail" autocomplete="username">
+  <label>Password</label><input id="lgPwd" type="password" autocomplete="current-password">
+  <div id="lgErr" style="color:var(--crit);font-size:12px;margin-top:8px"></div>
+  <button class="btn pri" id="lgBtn" style="width:100%;margin-top:14px">Sign in</button>
+  <div class="hint" style="margin-top:10px">Same staff login as PO Management / Sales.</div>
+</div></div>
+
+<div class="app" id="app" style="display:none">
+  <aside>
+    <div class="logo"><i>✎</i><span>JAYCO <b>ENTRY</b></span></div><div class="sub">ENTRY DESK</div>
+    <div class="grp">Enter</div>
+    <a data-nav="entry">✎ Entry Desk</a>
+    <div class="grp">Portals</div>
+    <a href="po-management.html">Customer PO</a>
+    <a href="customer-portal.html">Customer Accounts</a>
+    <a href="vendor-payments.html">Vendor Payments</a>
+    <a href="dispatch-board.html">Packing &amp; Dispatch</a>
+    <div class="grp">&nbsp;</div>
+    <a href="index.html">← All portals</a>
+    <a id="lgOut">⎋ Log out</a>
+  </aside>
+  <main><div class="top"><div><h1 id="ttl"></h1><div class="sub2" id="sub2"></div></div><div class="sp" id="topr"></div></div><div id="view"></div></main>
+</div>
+<div id="toast"></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="erp-app.js"></script>
+</body>
+</html>
