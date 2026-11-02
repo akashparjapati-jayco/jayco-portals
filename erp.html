@@ -114,6 +114,7 @@ tr.click{cursor:pointer}tr.click:hover td{background:#fafbfc}
     <a data-nav="dashboard">▦ Dashboard</a>
     <a data-nav="orders">▤ Order Tracker <span class="n" id="nOrders"></span></a>
     <a data-nav="wip">◫ Shop-floor Board <span class="n" id="nWip"></span></a>
+    <a data-nav="moves">☰ Moves Log</a>
     <div class="grp">Cost</div>
     <a data-nav="costing">₹ Product Costing</a>
     <a data-nav="parts">⚙ Bought-out Parts <span class="n" id="nParts"></span></a>
@@ -258,7 +259,7 @@ function render(){
   $('#nWip').textContent = ITEMS_PO.reduce((a, i) => a + itemState(i).inProc, 0);
   $('#topr').innerHTML = '';
   $('#nParts').textContent = Object.keys(PARTS).length || '';
-  ({dashboard:vDash, orders:vOrders, order:vOrder, wip:vWip, costing:vCosting, parts:vParts, settings:vSettings}[r] || vDash)(decodeURIComponent(arg || ''));
+  ({dashboard:vDash, orders:vOrders, order:vOrder, wip:vWip, moves:vMoves, costing:vCosting, parts:vParts, settings:vSettings}[r] || vDash)(decodeURIComponent(arg || ''));
 }
 $$('aside a[data-nav]').forEach(a => a.onclick = () => go(a.dataset.nav));
 
@@ -416,9 +417,31 @@ function drawWip(){
   const rows = ITEMS_PO.map(i => ({i, s: itemState(i)})).filter(x => x.s.open > 0 && (!q || [x.i.itemCode, x.i.poNo, x.i.customerName].join(' ').toLowerCase().includes(q)))
     .sort((a, b) => (toDate(a.i.deliveryDate) || 0) - (toDate(b.i.deliveryDate) || 0));
   const tot = {ns: rows.reduce((a, x) => a + x.s.notStarted, 0), ...Object.fromEntries(STAGES.map(s => [s.k, rows.reduce((a, x) => a + x.s.q[s.k], 0)]))};
-  $('#wbody').innerHTML = rows.length ? `<table><thead><tr><th>Item</th><th>PO / customer</th><th>Due</th><th class="num">Open</th><th class="num">Not started</th>${STAGES.map(s => `<th class="num" style="color:${s.c}">${esc(s.n)}</th>`).join('')}</tr></thead><tbody>
-  ${rows.map(x => { const late = lateDays({deliveryDate: x.i.deliveryDate}); return `<tr class="click" onclick="go('order/${x.i.poId}')"><td class="mono"><b>${esc(x.i.itemCode)}</b></td><td>${esc(x.i.poNo)}<div class="hint">${esc(x.i.customerName)}</div></td><td>${fmtD(x.i.deliveryDate)}${late > 0 ? ` <span class="pill crit">${late}d</span>` : ''}</td><td class="num"><b>${x.s.open}</b></td><td class="num">${x.s.notStarted || '·'}</td>${STAGES.map(s => `<td class="num">${x.s.q[s.k] ? `<b style="color:${s.c}">${x.s.q[s.k]}</b>` : '·'}</td>`).join('')}</tr>`; }).join('')}
-  <tr><td colspan="4"><b>Total</b></td><td class="num"><b>${tot.ns}</b></td>${STAGES.map(s => `<td class="num"><b>${tot[s.k]}</b></td>`).join('')}</tr></tbody></table>` : '<div class="empty">No open order lines.</div>';
+  $('#wbody').innerHTML = rows.length ? `<table><thead><tr><th>Item</th><th>PO / customer</th><th>Due</th><th class="num">Open</th><th class="num">Not started</th>${STAGES.map(s => `<th class="num" style="color:${s.c}">${esc(s.n)}</th>`).join('')}<th></th></tr></thead><tbody>
+  ${rows.map(x => { const late = lateDays({deliveryDate: x.i.deliveryDate}); return `<tr class="click" onclick="go('order/${x.i.poId}')"><td class="mono"><b>${esc(x.i.itemCode)}</b></td><td>${esc(x.i.poNo)}<div class="hint">${esc(x.i.customerName)}</div></td><td>${fmtD(x.i.deliveryDate)}${late > 0 ? ` <span class="pill crit">${late}d</span>` : ''}</td><td class="num"><b>${x.s.open}</b></td><td class="num">${x.s.notStarted || '·'}</td>${STAGES.map(s => `<td class="num">${x.s.q[s.k] ? `<b style="color:${s.c}">${x.s.q[s.k]}</b>` : '·'}</td>`).join('')}<td><button class="btn sm pri" onclick="event.stopPropagation();openMove('${x.i.id}')">Move</button></td></tr>`; }).join('')}
+  <tr><td colspan="4"><b>Total</b></td><td class="num"><b>${tot.ns}</b></td>${STAGES.map(s => `<td class="num"><b>${tot[s.k]}</b></td>`).join('')}<td></td></tr></tbody></table>` : '<div class="empty">No open order lines.</div>';
+}
+
+/* ---------- moves log: everything staff moved on a day ---------- */
+let MD = '', MF = '';
+const dayKey = iso => { const d = new Date(iso); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
+function vMoves(){
+  $('#ttl').textContent = 'Moves Log';
+  if(!MD) MD = dayKey(new Date().toISOString());
+  $('#view').innerHTML = `<div class="card"><div class="card-h"><input id="mdate" type="date" value="${MD}" style="max-width:170px"><input id="mf" placeholder="Filter item, PO, person…" value="${esc(MF)}" style="max-width:240px"><span class="hint">Every stage move entered by staff on the chosen day.</span></div><div id="mbody"></div></div>`;
+  $('#mdate').onchange = e => { MD = e.target.value; drawMoves(); }; $('#mf').oninput = e => { MF = e.target.value; drawMoves(); }; drawMoves();
+}
+function drawMoves(){
+  const f = MF.toLowerCase(), list = [];
+  Object.values(STG).forEach(d => (d.history || []).forEach(h => { if(dayKey(h.at) !== MD) return;
+    const it = ITEMS_PO.find(i => i.id === d.id) || {}; const row = {...h, itemCode: d.itemCode || it.itemCode || '', poNo: d.poNo || it.poNo || '', customer: it.customerName || '', poId: it.poId, itemId: d.id};
+    if(!f || [row.itemCode, row.poNo, row.customer, row.by, row.note, row.to, row.from].join(' ').toLowerCase().includes(f)) list.push(row); }));
+  list.sort((a, b) => b.at.localeCompare(a.at));
+  const into = {}, by = {}; list.forEach(h => { into[h.to] = (into[h.to] || 0) + h.qty; const p = (h.by || '').split('@')[0]; by[p] = (by[p] || 0) + h.qty; });
+  const sum = obj => Object.entries(obj).sort((a, b) => b[1] - a[1]).map(([k, v]) => `<span class="chip"><b>${v}</b> ${esc(k)}</span>`).join('');
+  $('#mbody').innerHTML = list.length ? `<div class="card-b" style="border-bottom:1px solid var(--line)"><div class="hint" style="margin-bottom:6px">Pieces moved into each stage</div><div class="chips">${sum(into)}</div><div class="hint" style="margin:10px 0 6px">By person</div><div class="chips">${sum(by)}</div></div>
+    <div class="tw"><table><thead><tr><th>Time</th><th>Item</th><th>PO / customer</th><th>Move</th><th class="num">Pcs</th><th>By</th><th>Note</th></tr></thead><tbody>
+    ${list.map(h => `<tr class="${h.poId ? 'click' : ''}" ${h.poId ? `onclick="go('order/${h.poId}')"` : ''}><td>${new Date(h.at).toLocaleTimeString('en-IN', {hour: '2-digit', minute: '2-digit'})}</td><td class="mono"><b>${esc(h.itemCode)}</b></td><td>${esc(h.poNo)}<div class="hint">${esc(h.customer)}</div></td><td>${esc(h.from)} → <b>${esc(h.to)}</b></td><td class="num">${h.qty}</td><td>${esc((h.by || '').split('@')[0])}</td><td>${esc(h.note || '')}</td></tr>`).join('')}</tbody></table></div>` : '<div class="empty">No stage moves on this day.</div>';
 }
 
 /* ---------- product costing ---------- */
