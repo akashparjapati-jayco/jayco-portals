@@ -320,10 +320,11 @@ async function loadOut(force){
   if(OUT.state === 'loading') return; if(!force && OUT.state === 'ok' && Date.now() - OUT.at < 300000) return;
   OUT.state = 'loading'; render();
   try{
+    if(force) CMS.cfg = null;   // re-read the saved Customer Portal address/token
     if(!(await cmsConfig())){ OUT.state = 'noconfig'; render(); return; }
     OUT.list = (await cmsApi('getOutstanding')) || []; OUT.at = Date.now(); OUT.state = 'ok';
     OUT_BY_CUST = {}; OUT_BY_KEY = {}; OUT.list.forEach(r => { OUT_BY_CUST[String(r.custId)] = r; const k = nameKey(r.name); if(k && !OUT_BY_KEY[k]) OUT_BY_KEY[k] = r; });
-  }catch(e){ OUT.state = 'error:' + e.message; }
+  }catch(e){ OUT.state = 'error:' + e.message + (CMS.cfg ? ' — the ERP used the token saved in Sales settings (' + String(CMS.cfg.token).length + ' characters)' + (/unauthor/i.test(e.message) ? '. It must be the same ' + 'as the AUTH_TOKEN script property: save the new token in Sales → Settings & Setup, then press Try again.' : '') : ''); }
   render();
 }
 const ensureOut = () => { if(OUT.state === '' || (OUT.state === 'ok' && Date.now() - OUT.at > 300000)) loadOut(); };
