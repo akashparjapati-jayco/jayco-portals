@@ -134,6 +134,7 @@ tr.click{cursor:pointer}tr.click:hover td{background:#fafbfc}
 </div>
 <div id="toast"></div>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script>
 const firebaseConfig = {
   apiKey: "AIzaSyCV_iL9c59t4f70ZCF-moqPbGzUH6Yv-iA", authDomain: "jayco-po-management.firebaseapp.com",
@@ -154,12 +155,12 @@ const STAGES = [
   {k:'ready',    n:'Ready to Dispatch',      c:'#1a8f4c'}
 ];
 const DEFAULT_OPS = ['Base — face & bottom milling','Cap — face milling','Bore boring','Seal groove / recess','Drilling & tapping','Assembly & trial'];
-const DEFAULT_MATS = [{n:'Cast Iron', rate:75}, {n:'Cast Steel', rate:125}, {n:'SG Iron', rate:100}];
-const DEFAULT_SET = {mats: DEFAULT_MATS, rejPct:5, ovhPct:10, ops: DEFAULT_OPS};
+const DEFAULT_MATS = [{n:'Cast Iron', rate:75}, {n:'FG 260', rate:85}, {n:'Cast Steel', rate:125}, {n:'SG Iron', rate:100}];
+const DEFAULT_SET = {mats: DEFAULT_MATS, rejPct:5, ovhPct:10, marginPct:15, machLossPct:8, ops: DEFAULT_OPS};
 const matList = () => (SET.mats && SET.mats.length ? SET.mats : DEFAULT_MATS);
 const matRate = n => { const m = matList().find(x => x.n === n); return m ? num(m.rate) : 0; };
 // price-list / PO material text → one of our three casting materials
-function normMat(t){ t = String(t || '').toLowerCase(); if(/s\.?\s?g|ductile|spheroidal/.test(t)) return 'SG Iron'; if(/steel/.test(t)) return 'Cast Steel'; return 'Cast Iron'; }
+function normMat(t){ t = String(t || '').toLowerCase(); if(/fg\s?260/.test(t)) return 'FG 260'; if(/s\.?\s?g|ductile|spheroidal/.test(t)) return 'SG Iron'; if(/steel/.test(t)) return 'Cast Steel'; return 'Cast Iron'; }
 const materialOf = code => { const r = RATES.find(x => String(x.itemCode).toLowerCase() === String(code).toLowerCase()), i = ITEMS_PO.find(x => String(x.itemCode).toLowerCase() === String(code).toLowerCase()); return normMat((r && r.material) || (i && i.material)); };
 
 let started = false;
@@ -236,7 +237,8 @@ function costOf(code){
   const bought = (c.bought || []).reduce((a, b) => a + num(b.qty) * num(b.rate), 0);
   const sub = casting + mach + bought + num(c.paint) + num(c.packing) + num(c.freight);
   const ovh = sub * num(c.ovhPct) / 100;
-  return {casting, mach, bought, paint: num(c.paint), packing: num(c.packing), freight: num(c.freight), sub, ovh, total: sub + ovh};
+  const total = sub + ovh, mp = c.marginPct === '' || c.marginPct == null ? num(SET.marginPct) : num(c.marginPct);
+  return {casting, mach, bought, paint: num(c.paint), packing: num(c.packing), freight: num(c.freight), sub, ovh, total, marginPct: mp, suggested: total * (1 + mp / 100), finishedWt: num(c.castWt) * (1 - num(SET.machLossPct) / 100)};
 }
 const lateDays = po => { const d = toDate(po.deliveryDate); if(!d) return 0; return Math.floor((new Date().setHours(0,0,0,0) - d.setHours(0,0,0,0)) / 864e5); };
 
@@ -421,20 +423,109 @@ function vCosting(){
   $('#ttl').textContent = 'Product Costing';
   $('#view').innerHTML = `<div class="card"><div class="card-h"><input id="cq" placeholder="Search item code…" value="${esc(CQ)}" style="max-width:260px"><span class="hint">Cost = casting (weight × rate/kg + rejection) + machining + bought-outs + paint + packing + freight + overhead. Selling rate comes from the Sales price list.</span></div><div class="tw" id="cbody"></div></div>`;
   $('#cq').oninput = e => { CQ = e.target.value; drawCosting(); }; drawCosting();
+  $('#topr').innerHTML = `<label class="btn pri" style="cursor:pointer">⬆ Import costing workbook (.xlsx)<input type="file" accept=".xlsx,.xls" id="wbFile" style="display:none"></label>`;
+  $('#wbFile').onchange = e => { const f = e.target.files[0]; if(f) importWorkbookFile(f); e.target.value = ''; };
+}
+
+/* ---------- import the company's production-costing workbook ----------
+   Reads every casting-series sheet (S, SN, SNA, SNH, SNL, SAF, SD, JEG, SDGS, SBD…): rough weight, material cost,
+   labour, production cost, margin and final rate per size, and turns each into a costing sheet. */
+const SKIP_SHEETS = /^(assumptions|purchase log|uc pillow|stc offer|sleeve|rubber|accessories|locating|casting part|packing|sleeve & nut)/i;
+const H = {
+  weight: /^(total( rough wt| weight)?|t\.?\s?weight)$/i, mcost: /^(m\.?\s?c(ost)?\.?|material cost)$/i, labour: /^(total )?labour$/i,
+  cost: /^(total cost|production cost|p\.?\s?cost|total)$/i, final: /^(final rate|net price)$/i, finwt: /^(f\.?\s?weight|finish(ed)? (w(ei)?ght|wt)|finish weight)$/i
+};
+// the rate the workbook actually costed with is the most reliable sign of the material (115 = cast steel, 95 = SG, 85 = FG 260)
+function matByRate(rate, code){ const r = Math.round(rate); if(r >= 110 && r <= 130) return 'Cast Steel'; if(r >= 92 && r <= 105) return 'SG Iron'; if(r >= 83 && r <= 88) return 'FG 260'; if(r >= 60 && r <= 80) return 'Cast Iron'; return normMat(code); }
+function parseCostingWorkbook(sheets){
+  const out = [], skipped = [], n = v => { const x = typeof v === 'number' ? v : parseFloat(v); return isFinite(x) ? x : 0; };
+  Object.keys(sheets).forEach(sn => {
+    if(SKIP_SHEETS.test(sn.trim())) return;
+    const rows = sheets[sn];
+    let hr = -1;
+    for(let r = 0; r < Math.min(rows.length, 16); r++){ const hs = (rows[r] || []).map(c => String(c == null ? '' : c).trim());
+      if(hs.some(h => H.weight.test(h)) && hs.some(h => H.mcost.test(h))){ hr = r; break; } }
+    if(hr < 0){ skipped.push(sn); return; }
+    const head = (rows[hr] || []).map(c => String(c == null ? '' : c).trim());
+    // blocks = runs of non-empty header cells; a blank header cell separates side-by-side tables
+    const blocks = []; let st = -1;
+    head.forEach((h, i) => { if(h && st < 0) st = i; if(!h && st >= 0){ blocks.push([st, i - 1]); st = -1; } }); if(st >= 0) blocks.push([st, head.length - 1]);
+    blocks.forEach(([a, b]) => {
+      const find = (re, from = a, to = b) => { for(let i = from; i <= to; i++) if(re.test(head[i])) return i; return -1; };
+      const mi = find(H.mcost); if(mi < 0) return;
+      let wi = -1; for(let i = mi - 1; i >= a; i--) if(H.weight.test(head[i])){ wi = i; break; }
+      if(wi < 0) return;
+      const li = find(/^total labour$/i, mi + 1) >= 0 ? find(/^total labour$/i, mi + 1) : find(H.labour, mi + 1);
+      const ci = find(H.cost, Math.max(mi, li) + 1), fi = find(H.final, mi + 1), wf = find(H.finwt, mi + 1);
+      const detail = li > mi + 1 && /^total labour$/i.test(head[li]) ? Array.from({length: li - mi - 1}, (_, k) => mi + 1 + k) : [];
+      for(let r = hr + 1; r < rows.length; r++){
+        const row = rows[r] || []; let code = row[a];
+        if(typeof code === 'number'){ code = /sdgs/i.test(sn) ? 'SDGS ' + code : ''; }
+        code = String(code == null ? '' : code).trim();
+        if(!code || /series|·/i.test(code)) continue;
+        const w = n(row[wi]), mc = n(row[mi]);
+        if(!(w > 0 && mc > 0)) continue;
+        let labour = li >= 0 ? n(row[li]) : 0; const cost = ci >= 0 && n(row[ci]) > 0 ? n(row[ci]) : mc + labour;
+        if(li < 0) labour = Math.max(0, cost - mc);
+        const final = fi >= 0 ? n(row[fi]) : 0;
+        const ops = [], doc = {paint: 0, packing: 0};
+        detail.forEach(i => { const v = n(row[i]), h = head[i]; if(v <= 0) return; if(/^paint/i.test(h)) doc.paint = v; else if(/^box|pack/i.test(h)) doc.packing = v; else ops.push({n: h + (/^(cap|bottom)$/i.test(h) ? ' machining' : ''), cost: Math.round(v * 100) / 100}); });
+        if(!detail.length && labour > 0) ops.push({n: 'Labour (per costing workbook)', cost: Math.round(labour * 100) / 100});
+        out.push({itemCode: code, material: matByRate(mc / w, code), castWt: Math.round(w * 1000) / 1000, castRate: Math.round(mc / w * 100) / 100, rejPct: 0,
+          ops, bought: [], paint: doc.paint, packing: doc.packing, freight: 0, ovhPct: 0,
+          marginPct: final > cost ? Math.round((final - cost) / cost * 1000) / 10 : 15, wbFinalRate: final || null,
+          series: sn.trim(), source: 'costing workbook', notes: ''});
+      }
+    });
+  });
+  return {items: out, skipped};
+}
+let IMPORT_ITEMS = [];
+async function importWorkbookFile(file){
+  if(typeof XLSX === 'undefined'){ toast('Excel reader could not load — check your internet connection'); return; }
+  try{
+    const wb = XLSX.read(await file.arrayBuffer(), {type: 'array'}), sheets = {};
+    wb.SheetNames.forEach(n => sheets[n] = XLSX.utils.sheet_to_json(wb.Sheets[n], {header: 1, raw: true, defval: null}));
+    previewImport(parseCostingWorkbook(sheets));
+  }catch(e){ toast('Could not read the file: ' + e.message); }
+}
+function previewImport(res){
+  IMPORT_ITEMS = res.items;
+  const by = {}; res.items.forEach(i => { (by[i.series] = by[i.series] || {n: 0, ex: 0}).n++; if(COST[costKey(i.itemCode)]) by[i.series].ex++; });
+  const exist = res.items.filter(i => COST[costKey(i.itemCode)]).length;
+  modal(`<div class="modal-h"><h3>Import costing workbook</h3><button class="btn sm" onclick="closeModal()">✕</button></div><div class="modal-b">
+    ${res.items.length ? `<p><b>${res.items.length}</b> costed sizes found in <b>${Object.keys(by).length}</b> series. ${exist} already have a costing sheet.</p>
+    <div class="tw" style="max-height:260px"><table><thead><tr><th>Series</th><th class="num">Sizes</th><th class="num">Already costed</th></tr></thead><tbody>${Object.entries(by).map(([k, v]) => `<tr><td>${esc(k)}</td><td class="num">${v.n}</td><td class="num">${v.ex || '—'}</td></tr>`).join('')}</tbody></table></div>
+    <label style="display:flex;gap:8px;align-items:center;margin-top:12px"><input type="checkbox" id="impOver" style="width:auto"> Overwrite the ${exist} existing sheets (otherwise they are kept)</label>
+    <div class="hint" style="margin-top:8px">Each size becomes a costing sheet: rough weight × material rate, labour/machining, margin. Sizes with no weight or no material cost in the workbook are skipped.</div>`
+    : '<div class="empty">No costed sizes found. Is this the production-costing workbook?</div>'}
+    ${res.skipped.length ? `<div class="hint">Sheets without a costing table (skipped): ${esc(res.skipped.join(', '))}</div>` : ''}</div>
+  <div class="modal-f"><button class="btn" onclick="closeModal()">Cancel</button>${res.items.length ? '<button class="btn pri" id="impGo" onclick="runImport()">Import</button>' : ''}</div>`);
+}
+async function runImport(){
+  const over = $('#impOver').checked, list = IMPORT_ITEMS.filter(i => over || !COST[costKey(i.itemCode)]), now = new Date().toISOString();
+  $('#impGo').disabled = true; $('#impGo').textContent = 'Importing…';
+  try{
+    for(let k = 0; k < list.length; k += 400){
+      const b = db.batch(); list.slice(k, k + 400).forEach(i => b.set(db.collection('erp_costing').doc(costKey(i.itemCode)), {...i, updatedAt: now, updatedBy: me()}));
+      await b.commit();
+    }
+    closeModal(); toast(`Imported ${list.length} costing sheets`);
+  }catch(e){ toast('Import failed: ' + e.message); $('#impGo').disabled = false; $('#impGo').textContent = 'Import'; }
 }
 function allCodes(){ return [...new Set([...RATES.map(r => String(r.itemCode || '').trim()), ...ITEMS_PO.map(i => String(i.itemCode || '').trim()), ...Object.values(COST).map(c => c.itemCode)])].filter(Boolean).sort((a, b) => a.localeCompare(b, undefined, {numeric: true})); }
 function drawCosting(){
   const q = CQ.toLowerCase(), codes = allCodes().filter(c => !q || c.toLowerCase().includes(q));
-  $('#cbody').innerHTML = `<table><thead><tr><th>Item</th><th>Material</th><th class="num">Casting wt (kg)</th><th class="num">Cost / pc</th><th class="num">Selling rate</th><th class="num">Margin</th><th></th></tr></thead><tbody>
+  $('#cbody').innerHTML = `<table><thead><tr><th>Item</th><th>Material</th><th class="num">Casting wt (kg)</th><th class="num">Cost / pc</th><th class="num">Suggested price</th><th class="num">Price-list rate</th><th class="num">Margin on price list</th><th></th></tr></thead><tbody>
   ${codes.slice(0, 400).map(code => { const c = costOf(code), rate = rateOf(code), sheet = COST[costKey(code)], m = c && rate ? (rate - c.total) / rate * 100 : null;
-    return `<tr class="click" onclick="openCost('${esc(code).replace(/'/g, "\\'")}')"><td class="mono"><b>${esc(code)}</b></td><td>${esc(sheet && sheet.material || materialOf(code))}</td><td class="num">${sheet ? num(sheet.castWt) || '—' : '—'}</td><td class="num">${c ? inr(c.total) : '<span class="pill warn">not costed</span>'}</td><td class="num">${rate ? inr(rate) : '—'}</td>
+    return `<tr class="click" onclick="openCost('${esc(code).replace(/'/g, "\\'")}')"><td class="mono"><b>${esc(code)}</b></td><td>${esc(sheet && sheet.material || materialOf(code))}</td><td class="num">${sheet ? num(sheet.castWt) || '—' : '—'}</td><td class="num">${c ? inr(c.total) : '<span class="pill warn">not costed</span>'}</td><td class="num">${c ? inr(c.suggested) : '—'}</td><td class="num">${rate ? inr(rate) : '—'}</td>
     <td class="num">${m == null ? '—' : `<span class="pill ${m < 10 ? 'crit' : m < 20 ? 'warn' : 'ok'}">${m.toFixed(1)}%</span>`}</td><td><button class="btn sm">${sheet ? 'Edit' : 'Add'}</button></td></tr>`; }).join('')}</tbody></table>${codes.length > 400 ? '<div class="hint" style="padding:10px">Showing first 400 — search to narrow.</div>' : ''}`;
 }
 let CD = null;
 function openCost(code){
   const ex = COST[costKey(code)];
   const mat0 = materialOf(code);
-  CD = ex ? JSON.parse(JSON.stringify(ex)) : {itemCode: code, material: mat0, castWt: '', castRate: matRate(mat0) || '', rejPct: SET.rejPct, ops: (SET.ops || DEFAULT_OPS).map(n => ({n, cost: ''})), bought: [{n:'Seal / felt ring', qty: 2, rate: ''}, {n:'Grease nipple', qty: 1, rate: ''}], paint: '', packing: '', freight: '', ovhPct: SET.ovhPct, notes: ''};
+  CD = ex ? JSON.parse(JSON.stringify(ex)) : {itemCode: code, material: mat0, castWt: '', castRate: matRate(mat0) || '', rejPct: SET.rejPct, ops: (SET.ops || DEFAULT_OPS).map(n => ({n, cost: ''})), bought: [{n:'Seal / felt ring', qty: 2, rate: ''}, {n:'Grease nipple', qty: 1, rate: ''}], paint: '', packing: '', freight: '', ovhPct: SET.ovhPct, marginPct: SET.marginPct, notes: ''};
   modal(`<div class="modal-h"><h3>Costing — <span class="mono">${esc(code)}</span></h3><button class="btn sm" onclick="closeModal()">✕</button></div><div class="modal-b" id="cdBody"></div>
   <div class="modal-f"><button class="btn" onclick="closeModal()">Cancel</button><button class="btn pri" onclick="saveCost()">Save costing</button></div>`);
   drawCostForm();
@@ -456,6 +547,7 @@ function drawCostForm(){
     <div class="fld"><label>Packing (₹/pc)</label><input data-h="packing" type="number" step="0.01" value="${esc(CD.packing)}"></div>
     <div class="fld"><label>Freight (₹/pc)</label><input data-h="freight" type="number" step="0.01" value="${esc(CD.freight)}"></div>
     <div class="fld"><label>Overhead %</label><input data-h="ovhPct" type="number" step="0.1" value="${esc(CD.ovhPct)}"></div>
+    <div class="fld"><label>Margin % on cost <span class="hint">for suggested price</span></label><input data-h="marginPct" type="number" step="0.1" value="${esc(CD.marginPct == null ? SET.marginPct : CD.marginPct)}"></div>
     <div class="fld full"><label>Notes</label><input data-h="notes" value="${esc(CD.notes || '')}"></div>
   </div><div class="sumbox" id="cdSum" style="margin-top:14px"></div>`;
   $('#cdMat').onchange = e => { CD.material = e.target.value; CD.castRate = matRate(CD.material) || CD.castRate; const r = $('#cdBody [data-h=castRate]'); r.value = CD.castRate; sumCost(); };
@@ -469,7 +561,7 @@ function sumCost(){
   const saved = COST[costKey(CD.itemCode)]; COST[costKey(CD.itemCode)] = CD; const c = costOf(CD.itemCode); if(saved) COST[costKey(CD.itemCode)] = saved; else delete COST[costKey(CD.itemCode)];
   const rate = rateOf(CD.itemCode), m = rate ? (rate - c.total) / rate * 100 : null;
   $('#cdSum').innerHTML = [['Casting (incl. rejection)', c.casting], ['Machining', c.mach], ['Bought-out', c.bought], ['Paint', c.paint], ['Packing', c.packing], ['Freight', c.freight], [`Overhead ${num(CD.ovhPct)}%`, c.ovh]].map(r => `<div class="r"><span>${r[0]}</span><span>${inr(r[1])}</span></div>`).join('') +
-    `<div class="r t"><span>Total cost per piece</span><span>${inr(c.total)}</span></div><div class="r"><span>Selling rate (price list)</span><span>${rate ? inr(rate) : '—'}</span></div><div class="r"><span>Margin</span><span><b>${m == null ? '—' : inr(rate - c.total) + ' · ' + m.toFixed(1) + '%'}</b></span></div>`;
+    `<div class="r t"><span>Total cost per piece</span><span>${inr(c.total)}</span></div><div class="r"><span>Suggested price (cost + ${c.marginPct}% margin)</span><span><b>${inr(c.suggested)}</b></span></div>${CD.wbFinalRate ? `<div class="r"><span>Rate in costing workbook</span><span>${inr(CD.wbFinalRate)}</span></div>` : ''}<div class="r"><span>Selling rate (price list)</span><span>${rate ? inr(rate) : '—'}</span></div><div class="r"><span>Margin</span><span><b>${m == null ? '—' : inr(rate - c.total) + ' · ' + m.toFixed(1) + '%'}</b></span></div>`;
 }
 async function saveCost(){
   const d = {...CD, itemCode: CD.itemCode, updatedAt: new Date().toISOString(), updatedBy: me()};
@@ -485,12 +577,14 @@ function vSettings(){
     <div class="sec">Other defaults</div>
     <div class="fld"><label>Rejection allowance %</label><input id="sRej" type="number" step="0.1" value="${esc(SET.rejPct)}"></div>
     <div class="fld"><label>Overhead %</label><input id="sOvh" type="number" step="0.1" value="${esc(SET.ovhPct)}"></div>
+    <div class="fld"><label>Margin % on cost</label><input id="sMar" type="number" step="0.1" value="${esc(SET.marginPct)}"></div>
+    <div class="fld"><label>Machining loss % (finished weight)</label><input id="sLoss" type="number" step="0.1" value="${esc(SET.machLossPct)}"></div>
     <div class="fld full"><label>Standard machining operations (one per line)</label><textarea id="sOps" rows="7">${esc((SET.ops || DEFAULT_OPS).join('\n'))}</textarea></div>
     <div class="full"><button class="btn pri" onclick="saveSettings()">Save defaults</button></div></div>
     <div class="hint" style="margin-top:12px">Material rates pre-fill <i>new</i> costing sheets (and update when you change the material on a sheet). Existing sheets keep the rate they were saved with.</div></div></div>`;
 }
 async function saveSettings(){
-  const d = {mats: $$('.sMat').map(e => ({n: e.dataset.n, rate: num(e.value)})), rejPct: num($('#sRej').value), ovhPct: num($('#sOvh').value), ops: $('#sOps').value.split('\n').map(x => x.trim()).filter(Boolean)};
+  const d = {mats: $$('.sMat').map(e => ({n: e.dataset.n, rate: num(e.value)})), rejPct: num($('#sRej').value), ovhPct: num($('#sOvh').value), marginPct: num($('#sMar').value), machLossPct: num($('#sLoss').value), ops: $('#sOps').value.split('\n').map(x => x.trim()).filter(Boolean)};
   try{ await db.collection('erp_settings').doc('main').set(d, {merge: true}); toast('Defaults saved'); }catch(e){ toast('Could not save: ' + e.message); }
 }
 
