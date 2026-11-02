@@ -11,90 +11,111 @@
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
 <style>
-:root{--bg:#F4F5F7;--panel:#fff;--ink:#101114;--soft:#4a4d55;--faint:#8a8d96;--line:#e3e5ea;--brand:#E5322D;--brand-d:#a30000;--ok:#1a8f4c;--warn:#c27803;--crit:#c0201c;--blue:#2F6FED;--side:#101114}
+:root{--bg:#F3F4F7;--panel:#fff;--ink:#0F1115;--soft:#4B5060;--faint:#8A8F9C;--line:#E4E6EC;--line2:#EEF0F4;--brand:#E5322D;--brand-d:#A30000;--ok:#15803D;--okbg:#E7F6EC;--warn:#B45309;--warnbg:#FEF3C7;--crit:#B91C1C;--critbg:#FDE8E8;--blue:#2563EB;--bluebg:#E8EFFE;--side:#0E0F12;--r:14px;--sh:0 1px 2px rgba(16,24,40,.04),0 1px 3px rgba(16,24,40,.06)}
 *{box-sizing:border-box}
-body{margin:0;font-family:Inter,system-ui,sans-serif;background:var(--bg);color:var(--ink);font-size:14px}
-h1,h2,h3{font-family:'Space Grotesk',Inter,sans-serif;margin:0}
+body{margin:0;font-family:Inter,system-ui,sans-serif;background:var(--bg);color:var(--ink);font-size:14px;line-height:1.45;-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:'Space Grotesk',Inter,sans-serif;margin:0;letter-spacing:-.01em}
 button,input,select,textarea{font:inherit;color:inherit}
-input,select,textarea{border:1px solid var(--line);border-radius:8px;padding:8px 10px;background:#fff;width:100%}
-input:focus,select:focus,textarea:focus{outline:2px solid rgba(229,50,45,.25);border-color:var(--brand)}
-.mono{font-family:ui-monospace,Menlo,monospace}
+input,select,textarea{border:1px solid var(--line);border-radius:10px;padding:9px 11px;background:#fff;width:100%}
+input:focus,select:focus,textarea:focus{outline:3px solid rgba(229,50,45,.15);border-color:var(--brand)}
+.mono{font-family:ui-monospace,Menlo,monospace;font-size:13px}
 .hint{color:var(--faint);font-size:12px}
-#login{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:50}
-#login .box{background:#fff;padding:28px;border-radius:14px;width:340px;box-shadow:0 10px 40px rgba(0,0,0,.1)}
-#login label{font-size:12px;font-weight:600;color:var(--soft);display:block;margin:12px 0 4px}
-.app{display:grid;grid-template-columns:240px 1fr;min-height:100vh}
-aside{background:var(--side);color:#fff;padding:18px 12px;position:sticky;top:0;height:100vh;overflow:auto}
-aside .logo{font-family:'Space Grotesk';font-weight:700;font-size:18px;padding:4px 10px 2px}
-aside .logo b{color:var(--brand)}
-aside .sub{font-size:11px;color:#9aa;padding:0 10px 14px;letter-spacing:.06em}
-aside .grp{font-size:10px;letter-spacing:.12em;color:#7c808a;padding:14px 10px 6px;text-transform:uppercase}
-aside a{display:flex;gap:8px;align-items:center;padding:8px 10px;border-radius:8px;color:#d6d8de;text-decoration:none;cursor:pointer;font-weight:500}
-aside a:hover{background:#1d1f25}
-aside a.on{background:var(--brand);color:#fff}
-aside a .n{margin-left:auto;font-size:11px;background:#2a2d35;border-radius:10px;padding:1px 7px}
+a{color:inherit}
+#login{position:fixed;inset:0;background:radial-gradient(1200px 500px at 20% -10%,#fde4e3,transparent),var(--bg);display:flex;align-items:center;justify-content:center;z-index:50}
+#login .box{background:#fff;padding:30px;border-radius:18px;width:360px;box-shadow:0 20px 60px rgba(16,24,40,.14)}
+#login label{font-size:12px;font-weight:600;color:var(--soft);display:block;margin:14px 0 5px}
+.app{display:grid;grid-template-columns:248px 1fr;min-height:100vh}
+aside{background:var(--side);color:#fff;padding:18px 12px 24px;position:sticky;top:0;height:100vh;overflow:auto}
+aside .logo{display:flex;align-items:center;gap:10px;padding:4px 10px 2px;font-family:'Space Grotesk';font-weight:700;font-size:19px;letter-spacing:.02em}
+aside .logo i{width:30px;height:30px;border-radius:9px;background:linear-gradient(135deg,#ff5a52,#a30000);display:inline-flex;align-items:center;justify-content:center;font-style:normal;font-size:15px}
+aside .logo b{color:#ff6b64}
+aside .sub{font-size:10.5px;color:#8b8f99;padding:2px 12px 14px 50px;letter-spacing:.14em}
+aside .grp{font-size:10px;letter-spacing:.14em;color:#6f7480;padding:16px 12px 6px;text-transform:uppercase;font-weight:600}
+aside a{display:flex;gap:10px;align-items:center;padding:8px 12px;border-radius:10px;color:#cfd2da;text-decoration:none;cursor:pointer;font-weight:500;font-size:13.5px;transition:background .12s}
+aside a:hover{background:#1a1c22;color:#fff}
+aside a.on{background:linear-gradient(90deg,var(--brand),#c42823);color:#fff;box-shadow:0 4px 14px rgba(229,50,45,.35)}
+aside a .n{margin-left:auto;font-size:11px;background:#2a2d35;border-radius:10px;padding:1px 8px;color:#e6e8ee}
 aside a.on .n{background:rgba(255,255,255,.25)}
-main{padding:22px 26px;min-width:0}
-.top{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:16px}
-.top h1{font-size:24px}
-.top .sp{margin-left:auto;display:flex;gap:8px;align-items:center}
-.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;margin-bottom:16px}
-.card-h{padding:12px 16px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+aside a .n:empty{display:none}
+main{padding:0 28px 40px;min-width:0}
+.top{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:20px 0 16px;position:sticky;top:0;background:linear-gradient(var(--bg) 82%,transparent);z-index:5}
+.top h1{font-size:26px}
+.top .sub2{color:var(--faint);font-size:12.5px;margin-top:2px}
+.top .sp{margin-left:auto;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);margin-bottom:18px;box-shadow:var(--sh)}
+.card-h{padding:14px 18px;border-bottom:1px solid var(--line2);display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 .card-h h3{font-size:15px}
-.card-b{padding:16px}
+.card-b{padding:18px}
 .grid{display:grid;gap:14px}
-.g4{grid-template-columns:repeat(auto-fit,minmax(170px,1fr))}
-.stat{background:#fff;border:1px solid var(--line);border-radius:12px;padding:14px;border-left:4px solid var(--c,var(--brand))}
-.stat .k{font-size:12px;color:var(--faint);font-weight:600}
-.stat .v{font-size:26px;font-weight:700;font-family:'Space Grotesk'}
+.g4{grid-template-columns:repeat(auto-fit,minmax(190px,1fr))}
+.g2{grid-template-columns:repeat(auto-fit,minmax(340px,1fr))}
+.stat{background:#fff;border:1px solid var(--line);border-radius:var(--r);padding:16px 16px 14px;box-shadow:var(--sh);position:relative;overflow:hidden}
+.stat:before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--c,var(--brand))}
+.stat .k{font-size:11.5px;color:var(--faint);font-weight:600;text-transform:uppercase;letter-spacing:.06em}
+.stat .v{font-size:27px;font-weight:700;font-family:'Space Grotesk';margin:3px 0 1px;letter-spacing:-.02em}
 .stat .n{font-size:12px;color:var(--soft)}
-.btn{border:1px solid var(--line);background:#fff;padding:7px 12px;border-radius:8px;cursor:pointer;font-weight:600}
-.btn:hover{background:#f0f1f4}
-.btn.pri{background:var(--brand);color:#fff;border-color:var(--brand)}
+.btn{border:1px solid var(--line);background:#fff;padding:8px 13px;border-radius:10px;cursor:pointer;font-weight:600;font-size:13px;transition:all .12s}
+.btn:hover{background:#f1f2f5}
+.btn.pri{background:var(--brand);color:#fff;border-color:var(--brand);box-shadow:0 2px 8px rgba(229,50,45,.28)}
 .btn.pri:hover{background:var(--brand-d)}
-.btn.sm{padding:4px 9px;font-size:12px}
+.btn.sm{padding:4px 10px;font-size:12px;border-radius:8px}
+.btn:disabled{opacity:.45;cursor:not-allowed}
 table{border-collapse:collapse;width:100%}
-th{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--faint);text-align:left;padding:9px 12px;border-bottom:1px solid var(--line);white-space:nowrap}
-td{padding:10px 12px;border-bottom:1px solid #eef0f3;vertical-align:top}
-tr.click{cursor:pointer}tr.click:hover td{background:#fafbfc}
+th{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--faint);text-align:left;padding:10px 14px;border-bottom:1px solid var(--line);white-space:nowrap;background:#FAFBFC;font-weight:600}
+td{padding:11px 14px;border-bottom:1px solid var(--line2);vertical-align:top}
+tr:last-child td{border-bottom:none}
+tr.click{cursor:pointer}tr.click:hover td{background:#FAFBFD}
 .num{text-align:right;font-variant-numeric:tabular-nums}
 .tw{overflow:auto}
-.pill{display:inline-block;padding:2px 9px;border-radius:20px;font-size:11px;font-weight:700;background:#eef0f3;color:var(--soft);white-space:nowrap}
-.pill.ok{background:#e3f5ea;color:var(--ok)}.pill.warn{background:#fdf0d6;color:var(--warn)}.pill.crit{background:#fde4e3;color:var(--crit)}.pill.blue{background:#e4edff;color:var(--blue)}
-.bar{height:8px;background:#eceef2;border-radius:6px;overflow:hidden;display:flex;min-width:90px}
+.pill{display:inline-block;padding:2px 10px;border-radius:20px;font-size:11px;font-weight:700;background:#EEF0F4;color:var(--soft);white-space:nowrap}
+.pill.ok{background:var(--okbg);color:var(--ok)}.pill.warn{background:var(--warnbg);color:var(--warn)}.pill.crit{background:var(--critbg);color:var(--crit)}.pill.blue{background:var(--bluebg);color:var(--blue)}
+.bar{height:8px;background:#ECEEF2;border-radius:6px;overflow:hidden;display:flex;min-width:90px}
 .bar i{display:block;height:100%}
+.seg{height:16px;border-radius:9px;overflow:hidden;display:flex;background:#ECEEF2}
+.seg i{display:block;height:100%;min-width:2px}
+.legend{display:flex;gap:16px;flex-wrap:wrap;margin-top:10px;font-size:12px;color:var(--soft)}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.legend em{width:10px;height:10px;border-radius:3px;display:inline-block}
 .chips{display:flex;gap:5px;flex-wrap:wrap}
-.chip{font-size:11px;border-radius:6px;padding:2px 7px;background:#eef0f3;color:var(--soft);white-space:nowrap}
+.chip{font-size:11px;border-radius:7px;padding:2px 8px;background:#EEF0F4;color:var(--soft);white-space:nowrap}
 .chip b{color:var(--ink)}
-.chip.on{background:#fde4e3;color:var(--crit)}
-.chip.done{background:#e3f5ea;color:var(--ok)}
+.chip.on{background:var(--critbg);color:var(--crit)}
+.chip.done{background:var(--okbg);color:var(--ok)}
 .flow{display:flex;gap:0;flex-wrap:wrap}
-.flow .st{flex:1;min-width:120px;padding:12px;border:1px solid var(--line);margin-left:-1px;background:#fff;text-align:center}
-.flow .st:first-child{border-radius:10px 0 0 10px;margin-left:0}.flow .st:last-child{border-radius:0 10px 10px 0}
-.flow .st .v{font-size:22px;font-weight:700;font-family:'Space Grotesk'}
-.flow .st .k{font-size:11px;color:var(--faint);font-weight:600;text-transform:uppercase;letter-spacing:.04em}
-.flow .st a{font-size:11px;color:var(--brand);text-decoration:none;font-weight:600}
-.ovl{position:fixed;inset:0;background:rgba(10,12,16,.55);z-index:60;display:flex;align-items:flex-start;justify-content:center;padding:30px 14px;overflow:auto}
-.modal{background:#fff;border-radius:14px;width:100%;max-width:720px}
-.modal-h{padding:14px 18px;border-bottom:1px solid var(--line);display:flex;align-items:center}
+.flow .st{flex:1;min-width:128px;padding:14px 12px;border:1px solid var(--line);margin-left:-1px;background:#fff;text-align:center}
+.flow .st:first-child{border-radius:12px 0 0 12px;margin-left:0}.flow .st:last-child{border-radius:0 12px 12px 0}
+.flow .st .v{font-size:24px;font-weight:700;font-family:'Space Grotesk'}
+.flow .st .k{font-size:10.5px;color:var(--faint);font-weight:600;text-transform:uppercase;letter-spacing:.05em}
+.flow .st a{font-size:11.5px;color:var(--brand);text-decoration:none;font-weight:600}
+.ovl{position:fixed;inset:0;background:rgba(10,12,16,.55);backdrop-filter:blur(2px);z-index:60;display:flex;align-items:flex-start;justify-content:center;padding:32px 14px;overflow:auto}
+.modal{background:#fff;border-radius:16px;width:100%;max-width:760px;box-shadow:0 30px 80px rgba(0,0,0,.3)}
+.modal-h{padding:16px 20px;border-bottom:1px solid var(--line);display:flex;align-items:center}
 .modal-h h3{flex:1}
-.modal-b{padding:16px 18px}
-.modal-f{padding:12px 18px;border-top:1px solid var(--line);display:flex;gap:8px;justify-content:flex-end}
-.form{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.modal-b{padding:18px 20px}
+.modal-f{padding:14px 20px;border-top:1px solid var(--line);display:flex;gap:8px;justify-content:flex-end}
+.form{display:grid;grid-template-columns:1fr 1fr;gap:13px}
 .form .full{grid-column:1/-1}
 .fld label{display:block;font-size:12px;font-weight:600;color:var(--soft);margin-bottom:4px}
 .sec{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--faint);border-bottom:1px solid var(--line);padding-bottom:4px;margin:14px 0 8px;grid-column:1/-1}
-.tl{border-left:2px solid var(--line);margin-left:6px;padding-left:14px}
+.tl{border-left:2px solid var(--line);margin-left:6px;padding-left:16px}
 .tl .it{position:relative;padding:0 0 12px}
-.tl .it:before{content:"";position:absolute;left:-20px;top:4px;width:10px;height:10px;border-radius:50%;background:var(--c,#bfc3cc);border:2px solid #fff}
+.tl .it:before{content:"";position:absolute;left:-23px;top:4px;width:10px;height:10px;border-radius:50%;background:#C3C7D0;border:2px solid #fff}
 .tl .it.done:before{background:var(--ok)}
-.empty{padding:30px;text-align:center;color:var(--faint)}
-#toast{position:fixed;bottom:20px;right:20px;background:#101114;color:#fff;padding:10px 16px;border-radius:8px;z-index:99;display:none}
+.empty{padding:34px;text-align:center;color:var(--faint)}
+#toast{position:fixed;bottom:22px;right:22px;background:#101114;color:#fff;padding:11px 18px;border-radius:10px;z-index:99;display:none;box-shadow:0 10px 30px rgba(0,0,0,.3)}
 .cost-row{display:grid;grid-template-columns:1fr 90px 100px 30px;gap:6px;margin-bottom:6px}
-.sumbox{background:#f7f8fa;border:1px solid var(--line);border-radius:10px;padding:12px}
+.sumbox{background:#F7F8FA;border:1px solid var(--line);border-radius:12px;padding:14px}
 .sumbox .r{display:flex;justify-content:space-between;padding:3px 0}
 .sumbox .r.t{border-top:1px solid var(--line);margin-top:6px;padding-top:8px;font-weight:700;font-size:15px}
-@media(max-width:860px){.app{grid-template-columns:1fr}aside{position:static;height:auto}.form{grid-template-columns:1fr}}
+.banner{display:flex;gap:10px;align-items:center;padding:12px 16px;border-radius:12px;margin-bottom:16px;font-size:13px;border:1px solid}
+.banner.crit{background:var(--critbg);border-color:#F6C4C2;color:var(--crit)}
+.banner.warn{background:var(--warnbg);border-color:#F3DB9A;color:var(--warn)}
+.debt{display:grid;grid-template-columns:1fr auto;gap:2px 12px;padding:10px 0;border-bottom:1px solid var(--line2);cursor:pointer}
+.debt:last-child{border-bottom:none}
+.debt:hover .nm{color:var(--brand)}
+.debt .nm{font-weight:600}
+.debt .amt{font-weight:700;text-align:right;font-variant-numeric:tabular-nums}
+@media(max-width:900px){.app{grid-template-columns:1fr}aside{position:static;height:auto}.form{grid-template-columns:1fr}main{padding:0 14px 30px}.top{position:static}}
 </style>
 </head>
 <body>
@@ -109,14 +130,16 @@ tr.click{cursor:pointer}tr.click:hover td{background:#fafbfc}
 
 <div class="app" id="app" style="display:none">
   <aside>
-    <div class="logo">JAYCO <b>ERP</b></div><div class="sub">PLUMMER BLOCK WORKS</div>
+    <div class="logo"><i>◆</i><span>JAYCO <b>ERP</b></span></div><div class="sub">PLUMMER BLOCK WORKS</div>
     <div class="grp">Track</div>
     <a data-nav="dashboard">▦ Dashboard</a>
     <a data-nav="orders">▤ Order Tracker <span class="n" id="nOrders"></span></a>
     <a data-nav="wip">◫ Shop-floor Board <span class="n" id="nWip"></span></a>
     <a data-nav="moves">☰ Moves Log</a>
+    <div class="grp">Money</div>
+    <a data-nav="outstanding">₹ Outstanding Payments <span class="n" id="nOut"></span></a>
     <div class="grp">Master data</div>
-    <a data-nav="customers">◐ Customer Master <span class="n" id="nCust"></span></a>
+    <a data-nav="customers">◉ Customer Master <span class="n" id="nCust"></span></a>
     <div class="grp">Cost</div>
     <a data-nav="costing">₹ Product Costing</a>
     <a data-nav="parts">⚙ Bought-out Parts <span class="n" id="nParts"></span></a>
@@ -134,7 +157,7 @@ tr.click{cursor:pointer}tr.click:hover td{background:#fafbfc}
     <a href="index.html">← All portals</a>
     <a id="lgOut">⎋ Log out</a>
   </aside>
-  <main><div class="top"><h1 id="ttl"></h1><div class="sp" id="topr"></div></div><div id="view"></div></main>
+  <main><div class="top"><div><h1 id="ttl"></h1><div class="sub2" id="sub2"></div></div><div class="sp" id="topr"></div></div><div id="view"></div></main>
 </div>
 <div id="toast"></div>
 
@@ -275,10 +298,138 @@ function renderNow(){
   $('#nOrders').textContent = PO.filter(p => poStatus(itemsOfPo(p)).open > 0).length;
   $('#nWip').textContent = ITEMS_PO.reduce((a, i) => a + itemState(i).inProc, 0);
   $('#topr').innerHTML = '';
+  $('#sub2').textContent = new Date().toLocaleDateString('en-IN', {weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'});
+  $('#nOut').textContent = OUT.state === 'ok' ? (OUT.list.filter(x => overdueOf(x) > 0.5).length || '') : '';
   $('#nParts').textContent = Object.keys(PARTS).length || '';
-  ({dashboard:vDash, orders:vOrders, order:vOrder, wip:vWip, moves:vMoves, customers:vCustomers, costing:vCosting, parts:vParts, settings:vSettings}[r] || vDash)(decodeURIComponent(arg || ''));
+  ({dashboard:vDash, orders:vOrders, order:vOrder, wip:vWip, moves:vMoves, outstanding:vOutstanding, customers:vCustomers, costing:vCosting, parts:vParts, settings:vSettings}[r] || vDash)(decodeURIComponent(arg || ''));
 }
 $$('aside a[data-nav]').forEach(a => a.onclick = () => go(a.dataset.nav));
+
+/* ---------- outstanding payments (receivables, read from the Customer Portal) ---------- */
+let OUT = {state: '', list: [], at: 0}, OUT_BY_CUST = {}, OUT_BY_KEY = {};
+const inrC = v => { v = num(v); const a = Math.abs(v); return a >= 1e7 ? '₹' + (v / 1e7).toFixed(2) + ' Cr' : a >= 1e5 ? '₹' + (v / 1e5).toFixed(2) + ' L' : '₹' + Math.round(v).toLocaleString('en-IN'); };
+const inr0 = v => '₹' + Math.round(num(v)).toLocaleString('en-IN');
+const overdueOf = r => num(r.b0_30) + num(r.b31_60) + num(r.b61_90) + num(r.b90plus);
+const over60 = r => num(r.b61_90) + num(r.b90plus);
+async function cmsConfig(){
+  if(CMS.cfg) return CMS.cfg;
+  const d = await db.collection('crm_settings').doc('main').get(), m = d.exists ? d.data() : {};
+  if(m.cmsUrl && m.cmsToken) CMS.cfg = {url: m.cmsUrl, token: m.cmsToken}; return CMS.cfg || null;
+}
+async function loadOut(force){
+  if(OUT.state === 'loading') return; if(!force && OUT.state === 'ok' && Date.now() - OUT.at < 300000) return;
+  OUT.state = 'loading'; render();
+  try{
+    if(!(await cmsConfig())){ OUT.state = 'noconfig'; render(); return; }
+    OUT.list = (await cmsApi('getOutstanding')) || []; OUT.at = Date.now(); OUT.state = 'ok';
+    OUT_BY_CUST = {}; OUT_BY_KEY = {}; OUT.list.forEach(r => { OUT_BY_CUST[String(r.custId)] = r; const k = nameKey(r.name); if(k && !OUT_BY_KEY[k]) OUT_BY_KEY[k] = r; });
+  }catch(e){ OUT.state = 'error:' + e.message; }
+  render();
+}
+const ensureOut = () => { if(OUT.state === '' || (OUT.state === 'ok' && Date.now() - OUT.at > 300000)) loadOut(); };
+function dueFor(custId, name){   // outstanding row for an ERP customer: by Customer Portal link first, then by normalised name
+  if(OUT.state !== 'ok') return null;
+  const c = CUSTS.find(x => x.id === custId); if(c && c.cmsId && OUT_BY_CUST[String(c.cmsId)]) return OUT_BY_CUST[String(c.cmsId)];
+  return OUT_BY_KEY[nameKey(name)] || null;
+}
+function outTotals(){
+  const L = OUT.list, sum = f => L.reduce((a, r) => a + num(f(r)), 0);
+  return {net: sum(r => r.total), overdue: sum(overdueOf), advance: sum(r => r.advance), d90: sum(r => r.b90plus), n: L.filter(r => num(r.total) > 0.5).length, nOver: L.filter(r => overdueOf(r) > 0.5).length,
+    b: {up: sum(r => r.upcoming), b0: sum(r => r.b0_30), b31: sum(r => r.b31_60), b61: sum(r => r.b61_90), b90: sum(r => r.b90plus)}};
+}
+const AGE = [['Not yet due', '#60A5FA'], ['0–30 days', '#FBBF24'], ['31–60 days', '#F97316'], ['61–90 days', '#EF4444'], ['90+ days', '#7F1D1D']];
+function ageBar(b){
+  const v = [b.up, b.b0, b.b31, b.b61, b.b90], t = v.reduce((a, x) => a + num(x), 0) || 1;
+  return `<div class="seg">${v.map((x, i) => `<i title="${AGE[i][0]}: ${inr0(x)}" style="width:${num(x) / t * 100}%;background:${AGE[i][1]}"></i>`).join('')}</div>
+  <div class="legend">${v.map((x, i) => `<span><em style="background:${AGE[i][1]}"></em>${AGE[i][0]} <b>${inrC(x)}</b></span>`).join('')}</div>`;
+}
+function outMessage(){
+  if(OUT.state === '' || OUT.state === 'loading') return '<div class="empty">Loading outstanding payments from the Customer Portal…</div>';
+  if(OUT.state === 'noconfig') return `<div class="card-b"><b>The Customer Portal is not connected.</b><p class="hint">Open <a href="sales-crm.html#settings">Sales → Settings &amp; Setup</a> and fill in <i>Customer Portal link</i> (Apps Script URL and token).</p></div>`;
+  if(OUT.state.startsWith('error:')) return `<div class="card-b" style="color:var(--crit)"><b>Could not read outstanding payments.</b><p>${esc(OUT.state.slice(6))}</p><button class="btn sm" onclick="loadOut(true)">Try again</button></div>`;
+  return '';
+}
+function moneyCard(){
+  ensureOut();
+  const head = `<div class="card-h"><h3>Money to collect</h3><span class="hint">from the Customer Portal${OUT.state === 'ok' ? ' · updated ' + new Date(OUT.at).toLocaleTimeString('en-IN', {hour: '2-digit', minute: '2-digit'}) : ''}</span><a class="btn sm" href="#outstanding" style="margin-left:auto;text-decoration:none">All outstanding →</a></div>`;
+  if(OUT.state !== 'ok') return `<div class="card">${head}${outMessage()}</div>`;
+  const T = outTotals(), top = OUT.list.slice().sort((a, b) => num(b.total) - num(a.total)).slice(0, 5);
+  return `<div class="card">${head}<div class="card-b"><div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:28px">
+    <div><div style="display:flex;gap:28px;flex-wrap:wrap;margin-bottom:16px">
+      <div><div class="hint">Outstanding</div><div style="font-size:30px;font-weight:700;font-family:'Space Grotesk'">${inrC(T.net)}</div><div class="hint">${T.n} customers</div></div>
+      <div><div class="hint">Overdue</div><div style="font-size:30px;font-weight:700;font-family:'Space Grotesk';color:var(--crit)">${inrC(T.overdue)}</div><div class="hint">${T.nOver} customers</div></div>
+      <div><div class="hint">Over 90 days</div><div style="font-size:30px;font-weight:700;font-family:'Space Grotesk';color:#7F1D1D">${inrC(T.d90)}</div></div></div>
+      ${ageBar(T.b)}</div>
+    <div><div class="hint" style="margin-bottom:4px">Top 5 customers by outstanding</div>${top.map(r => `<div class="debt" onclick="custDue(${jsq(r.custId)})"><span class="nm">${esc(r.name)}</span><span class="amt">${inrC(r.total)}</span><span class="hint">${overdueOf(r) > 0 ? '<b style="color:var(--crit)">' + inrC(overdueOf(r)) + ' overdue</b>' : 'not yet due'}</span><span class="hint" style="text-align:right">${num(r.b90plus) > 0 ? inrC(r.b90plus) + ' over 90 d' : ''}</span></div>`).join('')}</div>
+  </div></div></div>`;
+}
+let OQ2 = '', OFLT = 'all', OSORT = 'total';
+function vOutstanding(){
+  $('#ttl').textContent = 'Outstanding Payments';
+  $('#topr').innerHTML = `<button class="btn" onclick="loadOut(true)">↻ Refresh</button> <a class="btn" href="customer-portal.html" style="text-decoration:none">Customer Portal →</a>`;
+  ensureOut();
+  if(OUT.state !== 'ok'){ $('#view').innerHTML = `<div class="card">${outMessage()}</div>`; return; }
+  const T = outTotals();
+  $('#view').innerHTML = `
+  <div class="grid g4" style="margin-bottom:18px">
+    <div class="stat" style="--c:#2563EB"><div class="k">Total outstanding</div><div class="v">${inrC(T.net)}</div><div class="n">${T.n} customers owe money (after advances)</div></div>
+    <div class="stat" style="--c:#B91C1C"><div class="k">Overdue</div><div class="v" style="color:var(--crit)">${inrC(T.overdue)}</div><div class="n">${T.nOver} customers past due date</div></div>
+    <div class="stat" style="--c:#7F1D1D"><div class="k">Over 90 days</div><div class="v">${inrC(T.d90)}</div><div class="n">needs follow-up now</div></div>
+    <div class="stat" style="--c:#15803D"><div class="k">Advances received</div><div class="v">${inrC(T.advance)}</div><div class="n">payments not yet matched to bills</div></div>
+  </div>
+  <div class="card"><div class="card-h"><h3>Ageing of what is owed</h3></div><div class="card-b">${ageBar(T.b)}</div></div>
+  <div class="card"><div class="card-h"><input id="oq2" placeholder="Search customer…" value="${esc(OQ2)}" style="max-width:260px">
+    <select id="oflt" style="max-width:190px">${[['all', 'All customers'], ['overdue', 'Overdue only'], ['d60', 'Over 60 days'], ['limit', 'Over credit limit']].map(o => `<option value="${o[0]}" ${OFLT === o[0] ? 'selected' : ''}>${o[1]}</option>`).join('')}</select>
+    <select id="osort" style="max-width:190px">${[['total', 'Largest outstanding'], ['overdue', 'Largest overdue'], ['b90plus', 'Oldest (90+ days)'], ['name', 'Name A–Z']].map(o => `<option value="${o[0]}" ${OSORT === o[0] ? 'selected' : ''}>${o[1]}</option>`).join('')}</select></div><div class="tw" id="obody2"></div></div>`;
+  $('#oq2').oninput = e => { OQ2 = e.target.value; drawOut(); }; $('#oflt').onchange = e => { OFLT = e.target.value; drawOut(); }; $('#osort').onchange = e => { OSORT = e.target.value; drawOut(); };
+  drawOut();
+}
+function openOrdersFor(r){
+  const ids = new Set(CUSTS.filter(c => String(c.cmsId) === String(r.custId) || nameKey(c.name) === nameKey(r.name)).map(c => c.id));
+  return PO.filter(p => ids.has(p.customerId) && poStatus(itemsOfPo(p)).open > 0);
+}
+function drawOut(){
+  const q = OQ2.toLowerCase();
+  let L = OUT.list.filter(r => (!q || (r.name + ' ' + (r.gstin || '')).toLowerCase().includes(q)) &&
+    (OFLT === 'all' || (OFLT === 'overdue' && overdueOf(r) > 0.5) || (OFLT === 'd60' && over60(r) > 0.5) || (OFLT === 'limit' && num(r.creditLimit) > 0 && num(r.total) > num(r.creditLimit))));
+  const key = {total: r => -num(r.total), overdue: r => -overdueOf(r), b90plus: r => -num(r.b90plus)}[OSORT];
+  L = key ? L.sort((a, b) => key(a) - key(b)) : L.sort((a, b) => String(a.name).localeCompare(b.name));
+  const cell = v => num(v) > 0.5 ? inr0(v) : '<span class="hint">·</span>';
+  $('#obody2').innerHTML = L.length ? `<table><thead><tr><th>Customer</th><th class="num">Not due</th><th class="num">0–30 d</th><th class="num">31–60 d</th><th class="num">61–90 d</th><th class="num">90+ d</th><th class="num">Total</th><th>Credit</th><th>Open orders</th></tr></thead><tbody>
+  ${L.map(r => { const lim = num(r.creditLimit), over = lim > 0 && num(r.total) > lim, ords = openOrdersFor(r).length;
+    return `<tr class="click" onclick="custDue(${jsq(r.custId)})"><td><b>${esc(r.name)}</b><div class="hint">${[r.gstin, num(r.advance) > 0.5 ? 'advance ' + inr0(r.advance) : ''].filter(Boolean).map(esc).join(' · ')}</div></td>
+    <td class="num">${cell(r.upcoming)}</td><td class="num">${cell(r.b0_30)}</td><td class="num">${cell(r.b31_60)}</td><td class="num" style="color:#c2410c">${cell(r.b61_90)}</td><td class="num" style="color:#7F1D1D;font-weight:600">${cell(r.b90plus)}</td>
+    <td class="num"><b>${inr0(r.total)}</b></td><td>${over ? `<span class="pill crit">over limit</span>` : lim > 0 ? `<span class="hint">limit ${inrC(lim)}</span>` : '<span class="hint">—</span>'}<div class="hint">${num(r.creditDays) || 0} d</div></td><td>${ords ? `<span class="pill blue">${ords} open</span>` : '<span class="hint">—</span>'}</td></tr>`; }).join('')}</tbody></table>` : '<div class="empty">No customers match.</div>';
+}
+function custDue(custId){
+  const r = OUT_BY_CUST[String(custId)]; if(!r) return;
+  const bills = (r.bills || []).slice().sort((a, b) => num(b.daysPastDue) - num(a.daysPastDue)), orders = openOrdersFor(r);
+  const b = {up: r.upcoming, b0: r.b0_30, b31: r.b31_60, b61: r.b61_90, b90: r.b90plus};
+  const when = x => { const d = num(x.daysPastDue); return d > 0 ? `<span class="pill ${d > 60 ? 'crit' : 'warn'}">${d} d overdue</span>` : `<span class="pill blue">due in ${-d} d</span>`; };
+  modal(`<div class="modal-h"><h3>${esc(r.name)}</h3><button class="btn sm" onclick="closeModal()">✕</button></div><div class="modal-b">
+    <div class="grid g4" style="margin-bottom:14px"><div class="stat" style="--c:#2563EB"><div class="k">Outstanding</div><div class="v" style="font-size:22px">${inr0(r.total)}</div></div>
+      <div class="stat" style="--c:#B91C1C"><div class="k">Overdue</div><div class="v" style="font-size:22px;color:var(--crit)">${inr0(overdueOf(r))}</div></div>
+      <div class="stat" style="--c:#15803D"><div class="k">Advance</div><div class="v" style="font-size:22px">${inr0(r.advance)}</div></div>
+      <div class="stat" style="--c:#7c5cff"><div class="k">Credit</div><div class="v" style="font-size:22px">${num(r.creditLimit) > 0 ? inrC(r.creditLimit) : 'No limit'}</div><div class="n">${num(r.creditDays) || 0} days</div></div></div>
+    ${ageBar(b)}
+    <div class="tw" style="margin-top:14px;max-height:300px"><table><thead><tr><th>Bill</th><th>Bill date</th><th>Due</th><th class="num">Amount</th><th class="num">Balance</th><th>Status</th></tr></thead><tbody>
+    ${bills.length ? bills.map(x => `<tr><td class="mono"><b>${esc(x.billNo || x.billId || '')}</b></td><td>${esc(String(x.billDate || '').slice(0, 10))}</td><td>${esc(String(x.dueDate || '').slice(0, 10))}</td><td class="num">${inr0(x.totalAmount)}</td><td class="num"><b>${inr0(x.balance)}</b></td><td>${when(x)}</td></tr>`).join('') : '<tr><td colspan="6" class="empty">No open bills.</td></tr>'}</tbody></table></div>
+    ${orders.length ? `<div style="margin-top:14px"><div class="hint" style="margin-bottom:6px">Open orders in production for this customer</div><div class="chips">${orders.map(p => `<a class="chip" style="text-decoration:none" href="#order/${p.id}" onclick="closeModal()"><b>${esc(p.poNo)}</b> · ${poStatus(itemsOfPo(p)).label}</a>`).join('')}</div></div>` : ''}
+  </div><div class="modal-f"><button class="btn" onclick="copyReminder(${jsq(custId)})">Copy payment reminder</button><a class="btn pri" href="customer-portal.html" style="text-decoration:none">Open in Customer Portal</a></div>`);
+}
+async function copyReminder(custId){
+  const r = OUT_BY_CUST[String(custId)]; if(!r) return;
+  const od = (r.bills || []).filter(x => num(x.daysPastDue) > 0).sort((a, b) => num(b.daysPastDue) - num(a.daysPastDue));
+  const txt = `Dear ${r.name},\n\nAs per our records, an amount of ${inr0(r.total)} is outstanding against your account with JAYCO Engineering India.` +
+    (od.length ? `\n\nOverdue bills:\n${od.map(x => `• ${x.billNo || ''} (due ${String(x.dueDate || '').slice(0, 10)}) — ${inr0(x.balance)}`).join('\n')}` : '') +
+    `\n\nKindly arrange the payment at the earliest and share the UTR / reference. Please ignore this message if already paid.\n\nRegards,\nAccounts — JAYCO Engineering India`;
+  try{ await navigator.clipboard.writeText(txt); toast('Reminder copied — paste it in WhatsApp or email'); }catch(e){ toast('Could not copy: ' + e.message); }
+}
+function dueCell(p){
+  const r = dueFor(p.customerId, p.customerName); if(!r) return '<span class="hint">—</span>';
+  const od = overdueOf(r);
+  return od > 0.5 ? `<span class="pill ${over60(r) > 0.5 ? 'crit' : 'warn'}" title="Total outstanding ${inr0(r.total)}">${inrC(od)} overdue</span>` : num(r.total) > 0.5 ? `<span class="pill">${inrC(r.total)} due</span>` : '<span class="pill ok">Clear</span>';
+}
 
 /* ---------- dashboard ---------- */
 function vDash(){
@@ -287,11 +438,11 @@ function vDash(){
   const overdue = open.filter(x => lateDays(x.p) > 0);
   const month = new Date().toISOString().slice(0, 7);
   const dispM = DESP.filter(d => (toDate(d.despatchDate) || toDate(d.createdAt) || new Date(0)).toISOString().slice(0, 7) === month).reduce((a, d) => a + num(d.qtyDespatched), 0);
-  const wipBy = STAGES.map(s => ({...s, n: ITEMS_PO.reduce((a, i) => a + itemState(i).q[s.k], 0)}));
+  const wipBy = STAGES.map(s => ({...s, cnt: ITEMS_PO.reduce((a, i) => a + itemState(i).q[s.k], 0)}));
   const notStarted = ITEMS_PO.reduce((a, i) => a + itemState(i).notStarted, 0);
   const openLeads = LEADS.filter(l => !['Won','Lost'].includes(l.stage)).length;
   const quotesOut = QUOTES.filter(q => q.status === 'Sent').length, quotesWait = QUOTES.filter(q => q.status === 'Pending approval').length;
-  const mx = Math.max(1, notStarted, ...wipBy.map(w => w.n));
+  const mx = Math.max(1, notStarted, ...wipBy.map(w => w.cnt));
   $('#view').innerHTML = `
   <div class="card"><div class="card-h"><h3>Order-to-dispatch pipeline</h3><span class="hint">live from Sales, PO Management and this tracker</span></div><div class="card-b">
     <div class="flow">
@@ -299,10 +450,11 @@ function vDash(){
       <div class="st"><div class="k">Quotes out</div><div class="v">${quotesOut}</div><div class="hint">${quotesWait} awaiting approval</div></div>
       <div class="st"><div class="k">Open orders</div><div class="v">${open.length}</div><a href="#orders">Tracker →</a></div>
       <div class="st"><div class="k">Not started (pcs)</div><div class="v">${notStarted}</div><div class="hint">no stage yet</div></div>
-      <div class="st"><div class="k">In production (pcs)</div><div class="v">${wipBy.reduce((a,w)=>a+w.n-(w.k==='ready'?w.n:0),0)}</div><a href="#wip">Board →</a></div>
-      <div class="st"><div class="k">Ready (pcs)</div><div class="v">${wipBy.find(w=>w.k==='ready').n}</div><a href="dispatch-board.html">Dispatch →</a></div>
+      <div class="st"><div class="k">In production (pcs)</div><div class="v">${wipBy.reduce((a,w)=>a+(w.k==='ready'?0:w.cnt),0)}</div><a href="#wip">Board →</a></div>
+      <div class="st"><div class="k">Ready (pcs)</div><div class="v">${wipBy.find(w=>w.k==='ready').cnt}</div><a href="dispatch-board.html">Dispatch →</a></div>
       <div class="st"><div class="k">Dispatched this month</div><div class="v">${dispM}</div><div class="hint">pcs</div></div>
     </div></div></div>
+  ${moneyCard()}
   <div class="grid g4" style="margin-bottom:16px">
     <div class="stat" style="--c:#2F6FED"><div class="k">Open orders</div><div class="v">${open.length}</div><div class="n">${open.reduce((a,x)=>a+x.s.open,0)} pcs pending</div></div>
     <div class="stat" style="--c:#c0201c"><div class="k">Overdue orders</div><div class="v">${overdue.length}</div><div class="n">past delivery date</div></div>
@@ -310,7 +462,7 @@ function vDash(){
     <div class="stat" style="--c:#1a8f4c"><div class="k">Scrapped pieces</div><div class="v">${Object.values(STG).reduce((a,s)=>a+num(s.scrapQty),0)}</div><div class="n">logged in tracker</div></div>
   </div>
   <div class="card"><div class="card-h"><h3>Work in process by stage</h3></div><div class="card-b">
-    ${[{n:'Not started',c:'#bfc3cc',v:notStarted}, ...wipBy.map(w => ({n:w.n, c:w.c, v:w.n}))].map(w => `
+    ${[{n:'Not started',c:'#bfc3cc',v:notStarted}, ...wipBy.map(w => ({n:w.n, c:w.c, v:w.cnt}))].map(w => `
       <div style="display:grid;grid-template-columns:170px 1fr 60px;gap:10px;align-items:center;margin-bottom:8px"><span>${w.n}</span>
       <div class="bar" style="height:14px"><i style="width:${w.v/mx*100}%;background:${w.c}"></i></div><b class="num">${w.v}</b></div>`).join('')}
   </div></div>
@@ -321,6 +473,7 @@ function vDash(){
 /* ---------- orders ---------- */
 let OQ = '', OF = 'open';
 function vOrders(){
+  ensureOut();
   $('#ttl').textContent = 'Order Tracker';
   $('#topr').innerHTML = `<a class="btn pri" href="po-management.html" style="text-decoration:none">＋ New PO (PO Management)</a>`;
   $('#view').innerHTML = `<div class="card"><div class="card-h"><input id="oq" placeholder="Search PO, customer, item…" value="${esc(OQ)}" style="max-width:300px">
@@ -334,12 +487,12 @@ function drawOrders(){
     (OF === 'all' || (OF === 'open' && x.s.open > 0) || (OF === 'late' && x.s.open > 0 && lateDays(x.p) > 0) || (OF === 'done' && x.s.open <= 0 && x.s.ord > 0)) &&
     (!q || [x.p.poNo, x.p.customerName, ...x.items.map(i => i.itemCode)].join(' ').toLowerCase().includes(q)));
   rows.sort((a, b) => (toDate(a.p.deliveryDate) || 0) - (toDate(b.p.deliveryDate) || 0));
-  $('#obody').innerHTML = rows.length ? `<table><thead><tr><th>PO</th><th>Customer</th><th>Items</th><th>Delivery</th><th style="min-width:200px">Progress</th><th>Status</th></tr></thead><tbody>
+  $('#obody').innerHTML = rows.length ? `<table><thead><tr><th>PO</th><th>Customer</th><th>Items</th><th>Delivery</th><th style="min-width:200px">Progress</th><th>Status</th><th>Customer dues</th></tr></thead><tbody>
   ${rows.map(x => { const late = lateDays(x.p); const sts = x.items.map(itemState); const nsT = sts.reduce((a,s)=>a+s.notStarted,0), ipT = sts.reduce((a,s)=>a+s.inProc-s.q.ready,0), rdT = sts.reduce((a,s)=>a+s.q.ready,0), dpT = x.s.desp, tot = Math.max(1, x.s.ord);
     return `<tr class="click" onclick="go('order/${x.p.id}')"><td class="mono"><b>${esc(x.p.poNo)}</b><div class="hint">${fmtD(x.p.poDate)}</div></td><td>${esc(x.p.customerName)}</td><td>${x.items.length} <span class="hint">· ${x.s.ord} pcs</span></td>
     <td>${fmtD(x.p.deliveryDate)}${x.s.open > 0 && late > 0 ? ` <span class="pill crit">${late} d late</span>` : ''}</td>
     <td><div class="bar" title="not started ${nsT} · in process ${ipT} · ready ${rdT} · dispatched ${dpT}"><i style="width:${dpT/tot*100}%;background:#1a8f4c"></i><i style="width:${rdT/tot*100}%;background:#7fd4a1"></i><i style="width:${ipT/tot*100}%;background:#e8a317"></i></div><div class="hint">${x.s.desp}/${x.s.ord} dispatched</div></td>
-    <td><span class="pill ${x.s.cls}">${x.s.label}</span></td></tr>`; }).join('')}</tbody></table>` : '<div class="empty">No orders match.</div>';
+    <td><span class="pill ${x.s.cls}">${x.s.label}</span></td><td>${dueCell(x.p)}</td></tr>`; }).join('')}</tbody></table>` : '<div class="empty">No orders match.</div>';
 }
 
 /* ---------- single order ---------- */
@@ -355,7 +508,9 @@ function vOrder(id){
   const cost = items.reduce((a, i) => { const c = costOf(i.itemCode); return a + (c ? c.total * num(i.orderedQty) : 0); }, 0);
   const allCosted = items.length && items.every(i => costOf(i.itemCode));
   const dispatches = DESP.filter(d => d.poId === p.id).sort((a, b) => (toDate(a.despatchDate) || 0) - (toDate(b.despatchDate) || 0));
+  ensureOut(); const dueR = dueFor(p.customerId, p.customerName), dueOD = dueR ? overdueOf(dueR) : 0;
   $('#view').innerHTML = `
+  ${dueR && dueOD > 0.5 ? `<div class="banner ${over60(dueR) > 0.5 ? 'crit' : 'warn'}"><span style="font-size:18px">⚠</span><div style="flex:1"><b>${esc(p.customerName)}</b> has <b>${inr0(dueOD)}</b> overdue${over60(dueR) > 0.5 ? ` (<b>${inr0(over60(dueR))}</b> older than 60 days)` : ''} — total outstanding ${inr0(dueR.total)}. Check before dispatching.</div><button class="btn sm" onclick="custDue(${jsq(dueR.custId)})">View bills</button></div>` : ''}
   <div class="grid g4" style="margin-bottom:16px">
     <div class="stat" style="--c:#2F6FED"><div class="k">Customer</div><div class="v" style="font-size:16px">${esc(p.customerName)}</div><div class="n">PO date ${fmtD(p.poDate)}</div></div>
     <div class="stat" style="--c:#c27803"><div class="k">Delivery</div><div class="v" style="font-size:20px">${fmtD(p.deliveryDate)}</div><div class="n">${s.open > 0 && lateDays(p) > 0 ? `<span class="pill crit">${lateDays(p)} d late</span>` : esc(p.deliveryRemark || '')}</div></div>
