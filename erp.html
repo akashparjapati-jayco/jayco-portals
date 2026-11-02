@@ -115,6 +115,8 @@ tr.click{cursor:pointer}tr.click:hover td{background:#fafbfc}
     <a data-nav="orders">▤ Order Tracker <span class="n" id="nOrders"></span></a>
     <a data-nav="wip">◫ Shop-floor Board <span class="n" id="nWip"></span></a>
     <a data-nav="moves">☰ Moves Log</a>
+    <div class="grp">Master data</div>
+    <a data-nav="customers">◐ Customer Master <span class="n" id="nCust"></span></a>
     <div class="grp">Cost</div>
     <a data-nav="costing">₹ Product Costing</a>
     <a data-nav="parts">⚙ Bought-out Parts <span class="n" id="nParts"></span></a>
@@ -165,7 +167,7 @@ const matRate = n => { const m = matList().find(x => x.n === n); return m ? num(
 function normMat(t){ t = String(t || '').toLowerCase(); if(/fg\s?260/.test(t)) return 'FG 260'; if(/s\.?\s?g|ductile|spheroidal/.test(t)) return 'SG Iron'; if(/steel/.test(t)) return 'Cast Steel'; return 'Cast Iron'; }
 const materialOf = code => { const r = RATES.find(x => String(x.itemCode).toLowerCase() === String(code).toLowerCase()), i = ITEMS_PO.find(x => String(x.itemCode).toLowerCase() === String(code).toLowerCase()); return normMat((r && r.material) || (i && i.material)); };
 
-let started = false, PARTS = {};
+let started = false, PARTS = {}, CUSTS = [];
 let db, USER=null, PO=[], ITEMS_PO=[], STG={}, DESP=[], RATES=[], LEADS=[], QUOTES=[], COST={}, SET={...DEFAULT_SET}, ROUTE='dashboard';
 const $ = (s, r=document) => r.querySelector(s), $$ = (s, r=document) => [...r.querySelectorAll(s)];
 const jsq = v => JSON.stringify(String(v)).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '\\u003c');   // safe inside onclick="…"
@@ -203,6 +205,7 @@ async function start(){
   snap('despatches', r => DESP = r);
   snap('erp_itemStages', r => { STG = {}; r.forEach(x => STG[x.id] = x); });
   snap('erp_costing', r => { COST = {}; r.forEach(x => COST[x.id] = x); });
+  snap('customers', r => CUSTS = r);
   snap('erp_parts', r => { PARTS = {}; r.forEach(x => PARTS[x.id] = x); });
   snap('crm_rates', r => RATES = r);
   snap('crm_leads', r => LEADS = r);
@@ -273,7 +276,7 @@ function renderNow(){
   $('#nWip').textContent = ITEMS_PO.reduce((a, i) => a + itemState(i).inProc, 0);
   $('#topr').innerHTML = '';
   $('#nParts').textContent = Object.keys(PARTS).length || '';
-  ({dashboard:vDash, orders:vOrders, order:vOrder, wip:vWip, moves:vMoves, costing:vCosting, parts:vParts, settings:vSettings}[r] || vDash)(decodeURIComponent(arg || ''));
+  ({dashboard:vDash, orders:vOrders, order:vOrder, wip:vWip, moves:vMoves, customers:vCustomers, costing:vCosting, parts:vParts, settings:vSettings}[r] || vDash)(decodeURIComponent(arg || ''));
 }
 $$('aside a[data-nav]').forEach(a => a.onclick = () => go(a.dataset.nav));
 
@@ -618,6 +621,134 @@ function sumCost(){
 async function saveCost(){
   const d = {...CD, itemCode: CD.itemCode, updatedAt: new Date().toISOString(), updatedBy: me()};
   try{ await db.collection('erp_costing').doc(costKey(d.itemCode)).set(d); closeModal(); toast('Costing saved'); }catch(e){ toast('Could not save: ' + e.message); }
+}
+
+
+/* ---------- single customer master ----------
+   PO Management / Sales / this ERP keep customers in Firestore ("customers"). The Customer Portal keeps them in a Google Sheet.
+   The Customer Portal is the master for tax & contact details; every Firestore customer carries its sheet id in `cmsId`.
+   This page finds the matches, links them, fills blanks and creates whatever is missing on either side. Names are never changed. */
+let CMS = {list: [], state: '', cfg: null}, CM_SKIP = new Set(), CM_MSG = '';
+const NAME_STOP = new Set(['pvt', 'private', 'ltd', 'limited', 'llp', 'co', 'company', 'corp', 'corporation', 'the', 'and', 'of']);
+function nameTokens(n){
+  const t = String(n || '').toLowerCase().replace(/^\s*(m\/s\.?|messrs\.?|ms\.?)\s+/, '').replace(/&/g, ' and ').replace(/[^a-z0-9 ]+/g, ' ').split(/\s+/)
+    .filter(x => x && !NAME_STOP.has(x)).map(x => x.length > 4 && x.endsWith('s') ? x.slice(0, -1) : x);
+  // initials written apart ("G P", "G.P.") become one word, so they match "GP"
+  const out = []; let run = false;
+  t.forEach(x => { if(x.length === 1){ if(run) out[out.length - 1] += x; else { out.push(x); run = true; } } else { out.push(x); run = false; } });
+  return out;
+}
+const nameKey = n => nameTokens(n).slice().sort().join(' ');
+function nameScore(a, b){ const A = new Set(nameTokens(a)), B = new Set(nameTokens(b)); if(!A.size || !B.size) return 0; let i = 0; A.forEach(x => { if(B.has(x)) i++; });
+  const j = i / (A.size + B.size - i), contain = i === Math.min(A.size, B.size) && Math.min(A.size, B.size) >= 2 ? 0.75 : 0; return Math.max(j, contain); }
+async function cmsApi(action, data){
+  const r = await fetch(CMS.cfg.url, {method: 'POST', body: JSON.stringify({token: CMS.cfg.token, action, data: data || {}})}), j = await r.json();
+  if(!j.ok) throw new Error(j.error || 'Customer Portal error'); return j.data;
+}
+async function loadCms(force){
+  if(CMS.state === 'loading' || (CMS.state === 'ok' && !force)) return;
+  CMS.state = 'loading'; render();
+  try{
+    const d = await db.collection('crm_settings').doc('main').get(), m = d.exists ? d.data() : {};
+    if(!m.cmsUrl || !m.cmsToken){ CMS.state = 'noconfig'; render(); return; }
+    CMS.cfg = {url: m.cmsUrl, token: m.cmsToken};
+    CMS.list = (await cmsApi('getCustomers')) || []; CMS.list = CMS.list.filter(c => c.name && String(c.active).toLowerCase() !== 'false');
+    CMS.state = 'ok';
+  }catch(e){ CMS.state = 'error:' + e.message; }
+  render();
+}
+function custMatches(){
+  const cmsById = {}; CMS.list.forEach(c => cmsById[String(c.custId)] = c);
+  const linked = [], rest = [];
+  CUSTS.forEach(f => (f.cmsId && cmsById[String(f.cmsId)] ? linked : rest).push(f));
+  const usedC = new Set(linked.map(f => String(f.cmsId))), freeC = CMS.list.filter(c => !usedC.has(String(c.custId)));
+  const byKey = {}; freeC.forEach(c => (byKey[nameKey(c.name)] = byKey[nameKey(c.name)] || []).push(c));
+  const confident = [], possible = [], fsOnly = [], dupOf = [], takenC = new Set();
+  rest.sort((a, b) => a.name.localeCompare(b.name)).forEach(f => {
+    const k = nameKey(f.name), cand = (byKey[k] || []).filter(c => !takenC.has(String(c.custId)));
+    if(cand.length === 1 && k){ confident.push({f, c: cand[0]}); takenC.add(String(cand[0].custId)); }
+    else if(cand.length > 1) possible.push({f, c: cand[0], score: 1, note: cand.length + ' sheet customers share this name'});
+    else if(k && (confident.some(p => nameKey(p.f.name) === k) || linked.some(l => nameKey(l.name) === k))) dupOf.push(f);   // same company entered twice in PO/Sales
+    else fsOnly.push(f);
+  });
+  // second chance for leftovers: similar (not identical) names
+  const stillF = [], pool = freeC.filter(c => !takenC.has(String(c.custId)));
+  fsOnly.forEach(f => { let best = null, bs = 0; pool.forEach(c => { if(takenC.has(String(c.custId))) return; const sc = nameScore(f.name, c.name); if(sc > bs){ bs = sc; best = c; } });
+    if(best && bs >= 0.6 && !CM_SKIP.has(f.id + '|' + best.custId)){ possible.push({f, c: best, score: bs}); takenC.add(String(best.custId)); } else stillF.push(f); });
+  const cmsOnly = freeC.filter(c => !takenC.has(String(c.custId)));
+  const dup = {}; CUSTS.forEach(f => { const k = nameKey(f.name); if(k) (dup[k] = dup[k] || []).push(f); });
+  return {linked, confident, possible, fsOnly: stillF, cmsOnly, dups: Object.values(dup).filter(a => a.length > 1)};
+}
+// blank-filling maps (never overwrite a value that is already there)
+const FS_FROM_CMS = c => ({contact: c.contactPerson, phone: c.phone || c.mobile, email: c.email, gstin: c.gstin, pan: c.pan, state: c.state, address: [c.address, c.city, c.pincode].filter(Boolean).join(', '), cmsCreditDays: c.creditDays});
+const CMS_FROM_FS = f => ({contactPerson: f.contact, phone: f.phone, email: f.email, gstin: f.gstin, state: f.state, address: f.address});
+const blanksOnly = (target, src) => { const o = {}; Object.keys(src).forEach(k => { const v = src[k]; if(v !== undefined && v !== null && String(v).trim() !== '' && String(target[k] == null ? '' : target[k]).trim() === '') o[k] = v; }); return o; };
+async function linkPair(fid, cid, alsoSheet){
+  const f = CUSTS.find(x => x.id === fid), c = CMS.list.find(x => String(x.custId) === String(cid)); if(!f || !c) return;
+  const patch = {cmsId: String(c.custId), ...blanksOnly(f, FS_FROM_CMS(c))}; delete patch.cmsCreditDays;
+  await db.collection('customers').doc(fid).update(patch); Object.assign(f, patch);
+  if(alsoSheet){ const sp = blanksOnly(c, CMS_FROM_FS(f)); if(Object.keys(sp).length) await cmsApi('saveCustomer', {custId: c.custId, ...sp}); }
+}
+async function linkAll(kind){
+  const m = custMatches(), list = kind === 'confident' ? m.confident : m.possible, also = $('#cmAlso') && $('#cmAlso').checked;
+  if(!list.length) return; if(!confirm(`Link ${list.length} customer pair${list.length > 1 ? 's' : ''}?${also ? '\n\nBlank details in the Customer Portal sheet will also be filled (this can take a few minutes).' : ''}`)) return;
+  try{ let n = 0; for(const p of list){ CM_MSG = `Linking ${++n} of ${list.length}…`; $('#cmMsg') && ($('#cmMsg').textContent = CM_MSG); await linkPair(p.f.id, p.c.custId, also); }
+    CM_MSG = ''; toast(`Linked ${list.length} customers`); }catch(e){ CM_MSG = ''; toast('Stopped: ' + e.message); } render();
+}
+async function linkOne(fid, cid){ try{ await linkPair(fid, cid, $('#cmAlso') && $('#cmAlso').checked); toast('Linked'); }catch(e){ toast(e.message); } render(); }
+// manual link for names that differ too much to match by themselves ("Shiva" / "Shiv")
+let PICK = '';
+function pickLink(fid){
+  const f = CUSTS.find(x => x.id === fid); if(!f) return; PICK = fid;
+  modal(`<div class="modal-h"><h3>Link “${esc(f.name)}” to a Customer Portal customer</h3><button class="btn sm" onclick="closeModal()">✕</button></div><div class="modal-b"><input id="pkq" placeholder="Search Customer Portal customers…" autofocus><div id="pkl" style="max-height:340px;overflow:auto;margin-top:10px"></div></div>`);
+  const draw = () => { const q = $('#pkq').value.toLowerCase(), used = new Set(CUSTS.filter(x => x.cmsId).map(x => String(x.cmsId)));
+    const list = CMS.list.filter(c => !used.has(String(c.custId)) && (!q || String(c.name).toLowerCase().includes(q))).map(c => ({c, sc: nameScore(f.name, c.name)})).sort((a, b) => b.sc - a.sc).slice(0, 40);
+    $('#pkl').innerHTML = list.length ? list.map(x => `<div style="display:flex;gap:8px;align-items:center;padding:6px 0;border-bottom:1px solid var(--line)"><div style="flex:1"><b>${esc(x.c.name)}</b><div class="hint">${esc(x.c.gstin || '')}</div></div><button class="btn sm pri" onclick="doPick(${jsq(x.c.custId)})">Link</button></div>`).join('') : '<div class="empty">No unlinked customers match.</div>'; };
+  $('#pkq').oninput = draw; draw();
+}
+async function doPick(cid){ closeModal(); await linkOne(PICK, cid); }
+function skipOne(fid, cid){ CM_SKIP.add(fid + '|' + cid); render(); }
+async function createInCms(fid){
+  const f = CUSTS.find(x => x.id === fid); if(!f) return;
+  try{ const r = await cmsApi('saveCustomer', {name: f.name, gstType: f.gstin ? 'registered' : 'unregistered', gstin: f.gstin || '', pan: f.pan || '', state: f.state || '', address: f.address || '', contactPerson: f.contact || '', phone: f.phone || '', email: f.email || '', creditDays: 45, creditLimit: 0});
+    await db.collection('customers').doc(fid).update({cmsId: String(r.custId)}); f.cmsId = String(r.custId); CMS.list.push({custId: r.custId, name: f.name, ...CMS_FROM_FS(f)}); toast('Created in Customer Portal'); }catch(e){ toast(e.message); }
+  render();
+}
+async function createInFs(cid){
+  const c = CMS.list.find(x => String(x.custId) === String(cid)); if(!c) return;
+  try{ const doc = {name: String(c.name).trim(), isExclusive: false, ...Object.fromEntries(Object.entries(FS_FROM_CMS(c)).filter(([k, v]) => k !== 'cmsCreditDays' && v)), cmsId: String(c.custId), createdAt: new Date().toISOString()};
+    const ref = await db.collection('customers').add(doc); CUSTS.push({id: ref.id, ...doc}); toast('Created in PO / Sales'); }catch(e){ toast(e.message); }
+  render();
+}
+async function bulkCreate(kind){
+  const m = custMatches(), list = kind === 'cms' ? m.fsOnly : m.cmsOnly; if(!list.length) return;
+  if(!confirm(`Create ${list.length} customer${list.length > 1 ? 's' : ''} in ${kind === 'cms' ? 'the Customer Portal' : 'PO Management / Sales'}?`)) return;
+  let n = 0; for(const x of list){ $('#cmMsg') && ($('#cmMsg').textContent = `Creating ${++n} of ${list.length}…`); if(kind === 'cms') await createInCms(x.id); else await createInFs(x.custId); }
+  $('#cmMsg') && ($('#cmMsg').textContent = '');
+}
+function vCustomers(){
+  $('#ttl').textContent = 'Customer Master';
+  $('#topr').innerHTML = `<button class="btn" onclick="loadCms(true)">↻ Reload Customer Portal</button>`;
+  if(CMS.state === '') { loadCms(); }
+  if(CMS.state === '' || CMS.state === 'loading'){ $('#view').innerHTML = '<div class="empty">Loading the Customer Portal list…</div>'; return; }
+  if(CMS.state === 'noconfig'){ $('#view').innerHTML = `<div class="card"><div class="card-b"><b>The Customer Portal is not connected yet.</b><p>Open <a href="sales-crm.html#settings">Sales → Settings &amp; Setup</a>, fill in <i>Customer Portal link</i> (Apps Script URL and token) and save. Then come back here.</p></div></div>`; return; }
+  if(CMS.state.startsWith('error:')){ $('#view').innerHTML = `<div class="card"><div class="card-b" style="color:var(--crit)"><b>Could not read the Customer Portal.</b><p>${esc(CMS.state.slice(6))}</p><p class="hint">Check that the Apps Script web app is deployed with the latest code, the URL/token in Sales settings are current, and the token matches the AUTH_TOKEN script property.</p></div></div>`; return; }
+  const m = custMatches(), row = (a, b, extra) => `<tr><td><b>${esc(a)}</b></td><td>${esc(b)}</td>${extra}</tr>`;
+  $('#nCust').textContent = (m.confident.length + m.possible.length + m.fsOnly.length + m.cmsOnly.length) || '';
+  $('#view').innerHTML = `
+  <div class="grid g4" style="margin-bottom:16px">
+    <div class="stat" style="--c:#1a8f4c"><div class="k">Linked</div><div class="v">${m.linked.length}</div><div class="n">in both systems</div></div>
+    <div class="stat" style="--c:#2F6FED"><div class="k">Same name — ready to link</div><div class="v">${m.confident.length}</div><div class="n">${m.possible.length} similar names to review</div></div>
+    <div class="stat" style="--c:#c27803"><div class="k">Only in PO / Sales</div><div class="v">${m.fsOnly.length}</div><div class="n">${CUSTS.length} total there</div></div>
+    <div class="stat" style="--c:#c0201c"><div class="k">Only in Customer Portal</div><div class="v">${m.cmsOnly.length}</div><div class="n">${CMS.list.length} total there</div></div>
+  </div>
+  <div class="card"><div class="card-b" style="display:flex;gap:14px;align-items:center;flex-wrap:wrap"><label style="display:flex;gap:8px;align-items:center;margin:0"><input type="checkbox" id="cmAlso" style="width:auto"> Also fill blank details in the Customer Portal sheet (slower)</label><span class="hint">Linking never changes a name and never overwrites a value — it only fills blanks. <span id="cmMsg" style="color:var(--brand);font-weight:600">${esc(CM_MSG)}</span></span></div></div>
+  ${m.confident.length ? `<div class="card"><div class="card-h"><h3>Same customer, same name (${m.confident.length})</h3><button class="btn pri sm" style="margin-left:auto" onclick="linkAll('confident')">Link all ${m.confident.length}</button></div><div class="tw" style="max-height:340px"><table><thead><tr><th>PO / Sales</th><th>Customer Portal</th><th></th></tr></thead><tbody>${m.confident.map(p => row(p.f.name, p.c.name, `<td><button class="btn sm" onclick="linkOne(${jsq(p.f.id)},${jsq(p.c.custId)})">Link</button></td>`)).join('')}</tbody></table></div></div>` : ''}
+  ${m.possible.length ? `<div class="card"><div class="card-h"><h3>Similar names — please check (${m.possible.length})</h3><span class="hint">Only link if it is really the same company.</span></div><div class="tw" style="max-height:340px"><table><thead><tr><th>PO / Sales</th><th>Customer Portal</th><th>Match</th><th></th></tr></thead><tbody>${m.possible.map(p => `<tr><td><b>${esc(p.f.name)}</b><div class="hint">${esc(p.f.gstin || '')}</div></td><td>${esc(p.c.name)}<div class="hint">${esc(p.c.gstin || '')}</div></td><td><span class="pill ${p.score >= .8 ? 'warn' : ''}">${Math.round(p.score * 100)}%</span>${p.note ? `<div class="hint">${esc(p.note)}</div>` : ''}</td><td><button class="btn sm pri" onclick="linkOne(${jsq(p.f.id)},${jsq(p.c.custId)})">Same — link</button> <button class="btn sm" onclick="skipOne(${jsq(p.f.id)},${jsq(p.c.custId)})">Different</button></td></tr>`).join('')}</tbody></table></div></div>` : ''}
+  ${m.fsOnly.length ? `<div class="card"><div class="card-h"><h3>Only in PO / Sales (${m.fsOnly.length})</h3><button class="btn sm" style="margin-left:auto" onclick="bulkCreate('cms')">Create all in Customer Portal</button></div><div class="tw" style="max-height:300px"><table><tbody>${m.fsOnly.map(f => `<tr><td><b>${esc(f.name)}</b></td><td class="hint">${esc(f.gstin || '')}</td><td><button class="btn sm" onclick="pickLink(${jsq(f.id)})">Link to…</button> <button class="btn sm" onclick="pickLink(${jsq(f.id)})">Link to…</button> <button class="btn sm" onclick="createInCms(${jsq(f.id)})">Create in Customer Portal</button></td></tr>`).join('')}</tbody></table></div></div>` : ''}
+  ${m.cmsOnly.length ? `<div class="card"><div class="card-h"><h3>Only in Customer Portal (${m.cmsOnly.length})</h3><button class="btn sm" style="margin-left:auto" onclick="bulkCreate('fs')">Create all in PO / Sales</button><span class="hint">so they appear in PO entry and quotation lists</span></div><div class="tw" style="max-height:300px"><table><tbody>${m.cmsOnly.map(c => `<tr><td><b>${esc(c.name)}</b></td><td class="hint">${esc(c.gstin || '')}</td><td><button class="btn sm" onclick="createInFs(${jsq(c.custId)})">Create in PO / Sales</button></td></tr>`).join('')}</tbody></table></div></div>` : ''}
+  ${m.dups.length ? `<div class="card"><div class="card-h"><h3>Possible duplicates inside PO / Sales (${m.dups.length})</h3><span class="hint">Same company entered twice. Not merged automatically because existing POs point to each record.</span></div><div class="card-b">${m.dups.map(g => `<div style="margin-bottom:6px">${g.map(f => `<span class="chip"><b>${esc(f.name)}</b>${f.cmsId ? ' ✓' : ''}</span>`).join(' ')}</div>`).join('')}</div></div>` : ''}
+  ${!m.confident.length && !m.possible.length && !m.fsOnly.length && !m.cmsOnly.length ? '<div class="card"><div class="empty">✓ Every customer is linked. One master.</div></div>' : ''}`;
 }
 
 /* ---------- bought-out parts register ---------- */
