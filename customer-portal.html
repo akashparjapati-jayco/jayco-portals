@@ -445,7 +445,7 @@ tr:hover td { background: #f8fafc; }
     </div>
     <div class="field" style="margin-bottom:24px">
       <label>Auth Token (must match Code.gs)</label>
-      <input id="setup-token" type="text" value="CMS@PBGCo2025" />
+      <input id="setup-token" type="password" placeholder="the AUTH_TOKEN you set in Script properties" autocomplete="off" />
     </div>
     <button class="btn btn-primary" style="width:100%;justify-content:center;padding:12px" onclick="saveSetup()">Save &amp; Launch</button>
   </div>
@@ -737,7 +737,7 @@ const S = {
 // ── SETUP ────────────────────────────────────────────────────
 function loadConfig() {
   S.apiUrl = localStorage.getItem('cms_api_url') || '';
-  S.token  = localStorage.getItem('cms_token') || 'CMS@PBGCo2025';
+  S.token  = localStorage.getItem('cms_token') || '';
 }
 function saveSetup() {
   const url   = document.getElementById('setup-url').value.trim();

@@ -5,8 +5,15 @@
 //  Web App (see the "First-Time Setup" screen inside the portal).
 // ============================================================
 
-const SHEET_ID   = '1T_qeGE7iw2sb7lxjPyTNwZlDwEloXeSVGvX2Cg_hGGY';
-const AUTH_TOKEN = 'A@2026';
+// ── SECRETS ARE NOT STORED IN THIS FILE (the repository is public) ──
+// Set them once in Apps Script: Project Settings (gear icon) → Script properties → Add script property
+//   SHEET_ID    = the Google Sheet ID (the long text between /d/ and /edit in the sheet's address)
+//   AUTH_TOKEN  = a long random password; enter the same value in Customer Portal → Settings → Auth Token
+function _prop(key) {
+  const v = PropertiesService.getScriptProperties().getProperty(key);
+  if (!v) throw new Error('Script property ' + key + ' is not set — Apps Script → Project Settings → Script properties.');
+  return v;
+}
 const DEFAULT_DUE_DAYS = 45;  // fallback when no due date / credit days specified
 
 const SHEETS = {
@@ -20,7 +27,7 @@ const SHEETS = {
 function doPost(e) {
   try {
     const payload = JSON.parse(e.postData.contents);
-    if (payload.token !== AUTH_TOKEN) return resp({ ok: false, error: 'Unauthorized' });
+    if (!payload.token || payload.token !== _prop('AUTH_TOKEN')) return resp({ ok: false, error: 'Unauthorized' });
     const { action, data } = payload;
     let result;
     switch (action) {
@@ -57,7 +64,7 @@ function resp(obj) {
 
 // ── Sheet Helpers ─────────────────────────────────────────────
 function getSheet(name) {
-  const ss = SpreadsheetApp.openById(SHEET_ID);
+  const ss = SpreadsheetApp.openById(_prop('SHEET_ID'));
   let sh = ss.getSheetByName(name);
   if (!sh) sh = ss.insertSheet(name);
   return sh;
@@ -182,7 +189,7 @@ function setupSheets() {
     { name: SHEETS.PAYMENTS,     headers: ['payId','custId','payDate','amount','mode','refNo','narration','createdAt'] },
     { name: SHEETS.ALLOCATIONS,  headers: ['allocId','payId','billId','custId','allocAmount','createdAt'] },
   ];
-  const ss = SpreadsheetApp.openById(SHEET_ID);
+  const ss = SpreadsheetApp.openById(_prop('SHEET_ID'));
   configs.forEach(cfg => {
     let sh = ss.getSheetByName(cfg.name);
     if (!sh) {
