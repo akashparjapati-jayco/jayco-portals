@@ -53,7 +53,7 @@ $('#lgBtn').onclick = () => {
 $('#lgPwd').addEventListener('keydown', e => { if(e.key === 'Enter') $('#lgBtn').click(); });
 $('#lgOut').onclick = () => firebase.auth().signOut();
 firebase.auth().onAuthStateChanged(u => {
-  USER = u; $('#login').style.display = u ? 'none' : 'flex'; $('#app').style.display = u ? (ERP_MODE === 'entry' ? 'block' : 'grid') : 'none';
+  USER = u; $('#login').style.display = u ? 'none' : 'flex'; $('#app').style.display = u ? (ERP_MODE !== 'admin' ? 'block' : 'grid') : 'none';
   if(u && $('#eUser')) $('#eUser').textContent = u.email;
   if(u) start();
 });
@@ -133,6 +133,7 @@ function renderNow(){
   if(!USER) return;
   const h = (location.hash || '#dashboard').slice(1); let [r, arg] = h.split('/');
   if(ERP_MODE === 'entry') r = 'entry';
+  else if(ERP_MODE === 'board') r = r === 'order' ? 'order' : 'wip';   // Shop-floor Board page (also shown inside PO Management)
   else {   // the full ERP is for admins only; everyone else is sent to the Entry Desk
     if(!SET_READY){ $('#ttl').textContent = ''; $('#view').innerHTML = '<div class="empty">Loading…</div>'; return; }
     const adm = (SET.admins || []).map(x => String(x).toLowerCase());
@@ -824,7 +825,7 @@ function vOrder(id){
   const p = PO.find(x => x.id === id); if(!p){ $('#ttl').textContent = 'Order'; $('#view').innerHTML = '<div class="empty">Loading… or order not found. <a href="#orders">Back</a></div>'; return; }
   const items = itemsOfPo(p), s = poStatus(items);
   $('#ttl').textContent = 'PO ' + p.poNo;
-  $('#topr').innerHTML = `<a class="btn" href="#orders" style="text-decoration:none">← Orders</a>`;
+  $('#topr').innerHTML = ERP_MODE === 'board' ? `<a class="btn" href="#wip" style="text-decoration:none">← Shop-floor Board</a>` : `<a class="btn" href="#orders" style="text-decoration:none">← Orders</a>`;
   const quote = QUOTES.find(q => q.poNo && String(q.poNo).trim().toLowerCase() === String(p.poNo).trim().toLowerCase() && String(q.customerName).toLowerCase() === String(p.customerName).toLowerCase());
   const lead = quote && LEADS.find(l => l.id === quote.leadId);
   const first = ts => ts ? fmtD(ts) : '—';
