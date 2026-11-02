@@ -53,7 +53,8 @@ $('#lgBtn').onclick = () => {
 $('#lgPwd').addEventListener('keydown', e => { if(e.key === 'Enter') $('#lgBtn').click(); });
 $('#lgOut').onclick = () => firebase.auth().signOut();
 firebase.auth().onAuthStateChanged(u => {
-  USER = u; $('#login').style.display = u ? 'none' : 'flex'; $('#app').style.display = u ? 'grid' : 'none';
+  USER = u; $('#login').style.display = u ? 'none' : 'flex'; $('#app').style.display = u ? (ERP_MODE === 'entry' ? 'block' : 'grid') : 'none';
+  if(u && $('#eUser')) $('#eUser').textContent = u.email;
   if(u) start();
 });
 
@@ -148,7 +149,7 @@ function renderNow(){
   setN('nOrders', PO.filter(p => poStatus(itemsOfPo(p)).open > 0).length);
   setN('nWip', ITEMS_PO.reduce((a, i) => a + itemState(i).inProc, 0));
   $('#topr').innerHTML = '';
-  $('#sub2').textContent = new Date().toLocaleDateString('en-IN', {weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'});
+  if($('#sub2')) $('#sub2').textContent = new Date().toLocaleDateString('en-IN', {weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'});
   setN('nOut', OUT.state === 'ok' ? (OUT.list.filter(x => overdueOf(x) > 0.5).length || '') : '');
   setN('nPay', VEN.state === 'ok' ? (venRows().filter(r => r.overdue > 0.5).length || '') : '');
   setN('nParts', Object.keys(PARTS).length || '');
@@ -308,7 +309,7 @@ function vEntry(){
     ${tab('sales', 'Sales invoice', 'PO dispatch · Customer Portal bill · Dispatch Board')}
     ${tab('purchase', 'Purchase bill', 'Vendor Payments')}
     ${tab('casting', 'Casting challan / invoice', 'Casting stage · Vendor Payments')}
-  </div><div class="hint" style="margin-top:10px">Type the document once. The ERP posts it to each portal and shows below what was saved where.</div></div></div>
+  </div></div></div>
   <div class="card"><div class="card-h"><h3>${DOC_TYPES[ED_TAB]}</h3></div><div class="card-b" id="edForm"></div></div>
   <div id="edRes">${ED_RES || ''}</div>
   <div class="card"><div class="card-h"><h3>Documents entered</h3><span class="hint">latest first</span></div><div class="tw" id="edReg"></div></div>`;

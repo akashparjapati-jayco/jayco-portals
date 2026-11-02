@@ -11,6 +11,18 @@
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
 <link rel="stylesheet" href="erp.css">
+<style>
+  .app.entry-only{display:block;grid-template-columns:none}
+  .ebar{display:flex;align-items:center;gap:12px;padding:12px 28px;background:var(--side);color:#fff;position:sticky;top:0;z-index:10}
+  .ebar .logo{display:flex;align-items:center;gap:10px;font-family:'Space Grotesk';font-weight:700;font-size:18px;letter-spacing:.02em}
+  .ebar .logo i{width:30px;height:30px;border-radius:9px;background:linear-gradient(135deg,#ff5a52,#a30000);display:inline-flex;align-items:center;justify-content:center;font-style:normal;font-size:15px}
+  .ebar .logo b{color:#ff6b64}
+  .ebar .hint{color:#aab}
+  .ebar .btn{color:var(--ink);text-decoration:none}
+  .entry-only main{max-width:1280px;margin:0 auto}
+  .entry-only .top{display:none}
+  .entry-only main{padding-top:20px}
+</style>
 <script>window.ERP_MODE = 'entry';</script>
 </head>
 <body>
@@ -23,21 +35,13 @@
   <div class="hint" style="margin-top:10px">Same staff login as PO Management / Sales.</div>
 </div></div>
 
-<div class="app" id="app" style="display:none">
-  <aside>
-    <div class="logo"><i>✎</i><span>JAYCO <b>ENTRY</b></span></div><div class="sub">ENTRY DESK</div>
-    <div class="grp">Enter</div>
-    <a data-nav="entry">✎ Entry Desk</a>
-    <div class="grp">Portals</div>
-    <a href="po-management.html">Customer PO</a>
-    <a href="customer-portal.html">Customer Accounts</a>
-    <a href="vendor-payments.html">Vendor Payments</a>
-    <a href="dispatch-board.html">Packing &amp; Dispatch</a>
-    <div class="grp">&nbsp;</div>
-    <a href="index.html">← All portals</a>
-    <a id="lgOut">⎋ Log out</a>
-  </aside>
-  <main><div class="top"><div><h1 id="ttl"></h1><div class="sub2" id="sub2"></div></div><div class="sp" id="topr"></div></div><div id="view"></div></main>
+<div class="app entry-only" id="app" style="display:none">
+  <header class="ebar">
+    <div class="logo"><i>✎</i><span>JAYCO <b>ENTRY DESK</b></span></div>
+    <span class="hint" id="eUser" style="margin-left:auto"></span>
+    <a id="lgOut" class="btn sm" style="cursor:pointer">Log out</a>
+  </header>
+  <main><div class="top"><div><h1 id="ttl"></h1></div><div class="sp" id="topr"></div></div><div id="view"></div></main>
 </div>
 <div id="toast"></div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
