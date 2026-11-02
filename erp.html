@@ -154,7 +154,13 @@ const STAGES = [
   {k:'ready',    n:'Ready to Dispatch',      c:'#1a8f4c'}
 ];
 const DEFAULT_OPS = ['Base — face & bottom milling','Cap — face milling','Bore boring','Seal groove / recess','Drilling & tapping','Assembly & trial'];
-const DEFAULT_SET = {castRate:0, rejPct:5, ovhPct:10, ops: DEFAULT_OPS};
+const DEFAULT_MATS = [{n:'Cast Iron', rate:75}, {n:'Cast Steel', rate:125}, {n:'SG Iron', rate:100}];
+const DEFAULT_SET = {mats: DEFAULT_MATS, rejPct:5, ovhPct:10, ops: DEFAULT_OPS};
+const matList = () => (SET.mats && SET.mats.length ? SET.mats : DEFAULT_MATS);
+const matRate = n => { const m = matList().find(x => x.n === n); return m ? num(m.rate) : 0; };
+// price-list / PO material text → one of our three casting materials
+function normMat(t){ t = String(t || '').toLowerCase(); if(/s\.?\s?g|ductile|spheroidal/.test(t)) return 'SG Iron'; if(/steel/.test(t)) return 'Cast Steel'; return 'Cast Iron'; }
+const materialOf = code => { const r = RATES.find(x => String(x.itemCode).toLowerCase() === String(code).toLowerCase()), i = ITEMS_PO.find(x => String(x.itemCode).toLowerCase() === String(code).toLowerCase()); return normMat((r && r.material) || (i && i.material)); };
 
 let started = false;
 let db, USER=null, PO=[], ITEMS_PO=[], STG={}, DESP=[], RATES=[], LEADS=[], QUOTES=[], COST={}, SET={...DEFAULT_SET}, ROUTE='dashboard';
@@ -419,15 +425,16 @@ function vCosting(){
 function allCodes(){ return [...new Set([...RATES.map(r => String(r.itemCode || '').trim()), ...ITEMS_PO.map(i => String(i.itemCode || '').trim()), ...Object.values(COST).map(c => c.itemCode)])].filter(Boolean).sort((a, b) => a.localeCompare(b, undefined, {numeric: true})); }
 function drawCosting(){
   const q = CQ.toLowerCase(), codes = allCodes().filter(c => !q || c.toLowerCase().includes(q));
-  $('#cbody').innerHTML = `<table><thead><tr><th>Item</th><th class="num">Casting wt (kg)</th><th class="num">Cost / pc</th><th class="num">Selling rate</th><th class="num">Margin</th><th></th></tr></thead><tbody>
+  $('#cbody').innerHTML = `<table><thead><tr><th>Item</th><th>Material</th><th class="num">Casting wt (kg)</th><th class="num">Cost / pc</th><th class="num">Selling rate</th><th class="num">Margin</th><th></th></tr></thead><tbody>
   ${codes.slice(0, 400).map(code => { const c = costOf(code), rate = rateOf(code), sheet = COST[costKey(code)], m = c && rate ? (rate - c.total) / rate * 100 : null;
-    return `<tr class="click" onclick="openCost('${esc(code).replace(/'/g, "\\'")}')"><td class="mono"><b>${esc(code)}</b></td><td class="num">${sheet ? num(sheet.castWt) || '—' : '—'}</td><td class="num">${c ? inr(c.total) : '<span class="pill warn">not costed</span>'}</td><td class="num">${rate ? inr(rate) : '—'}</td>
+    return `<tr class="click" onclick="openCost('${esc(code).replace(/'/g, "\\'")}')"><td class="mono"><b>${esc(code)}</b></td><td>${esc(sheet && sheet.material || materialOf(code))}</td><td class="num">${sheet ? num(sheet.castWt) || '—' : '—'}</td><td class="num">${c ? inr(c.total) : '<span class="pill warn">not costed</span>'}</td><td class="num">${rate ? inr(rate) : '—'}</td>
     <td class="num">${m == null ? '—' : `<span class="pill ${m < 10 ? 'crit' : m < 20 ? 'warn' : 'ok'}">${m.toFixed(1)}%</span>`}</td><td><button class="btn sm">${sheet ? 'Edit' : 'Add'}</button></td></tr>`; }).join('')}</tbody></table>${codes.length > 400 ? '<div class="hint" style="padding:10px">Showing first 400 — search to narrow.</div>' : ''}`;
 }
 let CD = null;
 function openCost(code){
   const ex = COST[costKey(code)];
-  CD = ex ? JSON.parse(JSON.stringify(ex)) : {itemCode: code, castWt: '', castRate: SET.castRate || '', rejPct: SET.rejPct, ops: (SET.ops || DEFAULT_OPS).map(n => ({n, cost: ''})), bought: [{n:'Seal / felt ring', qty: 2, rate: ''}, {n:'Grease nipple', qty: 1, rate: ''}], paint: '', packing: '', freight: '', ovhPct: SET.ovhPct, notes: ''};
+  const mat0 = materialOf(code);
+  CD = ex ? JSON.parse(JSON.stringify(ex)) : {itemCode: code, material: mat0, castWt: '', castRate: matRate(mat0) || '', rejPct: SET.rejPct, ops: (SET.ops || DEFAULT_OPS).map(n => ({n, cost: ''})), bought: [{n:'Seal / felt ring', qty: 2, rate: ''}, {n:'Grease nipple', qty: 1, rate: ''}], paint: '', packing: '', freight: '', ovhPct: SET.ovhPct, notes: ''};
   modal(`<div class="modal-h"><h3>Costing — <span class="mono">${esc(code)}</span></h3><button class="btn sm" onclick="closeModal()">✕</button></div><div class="modal-b" id="cdBody"></div>
   <div class="modal-f"><button class="btn" onclick="closeModal()">Cancel</button><button class="btn pri" onclick="saveCost()">Save costing</button></div>`);
   drawCostForm();
@@ -436,8 +443,9 @@ function drawCostForm(){
   const row = (arr, k, i, cols) => `<div class="cost-row"><input data-l="${arr}" data-i="${i}" data-f="n" value="${esc(CD[arr][i].n)}" placeholder="Name">${cols}<button class="btn sm" onclick="rmRow('${arr}',${i})">✕</button></div>`;
   $('#cdBody').innerHTML = `<div class="form">
     <div class="sec">1 · Casting</div>
+    <div class="fld"><label>Material</label><select id="cdMat">${matList().map(m => `<option value="${esc(m.n)}" ${CD.material === m.n ? 'selected' : ''}>${esc(m.n)} — ₹${num(m.rate)}/kg</option>`).join('')}</select></div>
     <div class="fld"><label>Casting weight (kg)</label><input data-h="castWt" type="number" step="0.01" value="${esc(CD.castWt)}"></div>
-    <div class="fld"><label>Casting rate (₹/kg)</label><input data-h="castRate" type="number" step="0.01" value="${esc(CD.castRate)}"></div>
+    <div class="fld"><label>Casting rate (₹/kg) <span class="hint">auto from material, editable</span></label><input data-h="castRate" type="number" step="0.01" value="${esc(CD.castRate)}"></div>
     <div class="fld"><label>Rejection allowance %</label><input data-h="rejPct" type="number" step="0.1" value="${esc(CD.rejPct)}"></div>
     <div class="sec">2 · Machining &amp; operations (₹ per piece)</div>
     <div class="full" style="grid-column:1/-1">${CD.ops.map((o, i) => row('ops', 'n', i, `<span></span><input data-l="ops" data-i="${i}" data-f="cost" type="number" step="0.01" value="${esc(o.cost)}" placeholder="₹">`)).join('')}<button class="btn sm" onclick="addRow('ops')">＋ Operation</button></div>
@@ -450,6 +458,7 @@ function drawCostForm(){
     <div class="fld"><label>Overhead %</label><input data-h="ovhPct" type="number" step="0.1" value="${esc(CD.ovhPct)}"></div>
     <div class="fld full"><label>Notes</label><input data-h="notes" value="${esc(CD.notes || '')}"></div>
   </div><div class="sumbox" id="cdSum" style="margin-top:14px"></div>`;
+  $('#cdMat').onchange = e => { CD.material = e.target.value; CD.castRate = matRate(CD.material) || CD.castRate; const r = $('#cdBody [data-h=castRate]'); r.value = CD.castRate; sumCost(); };
   $$('#cdBody [data-h]').forEach(e => e.oninput = () => { CD[e.dataset.h] = e.value; sumCost(); });
   $$('#cdBody [data-l]').forEach(e => e.oninput = () => { CD[e.dataset.l][+e.dataset.i][e.dataset.f] = e.value; sumCost(); });
   sumCost();
@@ -471,15 +480,17 @@ async function saveCost(){
 function vSettings(){
   $('#ttl').textContent = 'Costing Defaults';
   $('#view').innerHTML = `<div class="card"><div class="card-h"><h3>Defaults for new costing sheets</h3></div><div class="card-b"><div class="form" style="max-width:640px">
-    <div class="fld"><label>Casting rate (₹/kg)</label><input id="sCast" type="number" step="0.01" value="${esc(SET.castRate)}"></div>
+    <div class="sec">Casting rate by material (₹ per kg)</div>
+    ${matList().map((m, i) => `<div class="fld"><label>${esc(m.n)}</label><input class="sMat" data-n="${esc(m.n)}" type="number" step="0.01" value="${num(m.rate)}"></div>`).join('')}
+    <div class="sec">Other defaults</div>
     <div class="fld"><label>Rejection allowance %</label><input id="sRej" type="number" step="0.1" value="${esc(SET.rejPct)}"></div>
     <div class="fld"><label>Overhead %</label><input id="sOvh" type="number" step="0.1" value="${esc(SET.ovhPct)}"></div>
     <div class="fld full"><label>Standard machining operations (one per line)</label><textarea id="sOps" rows="7">${esc((SET.ops || DEFAULT_OPS).join('\n'))}</textarea></div>
     <div class="full"><button class="btn pri" onclick="saveSettings()">Save defaults</button></div></div>
-    <div class="hint" style="margin-top:12px">These only pre-fill <i>new</i> costing sheets. Existing sheets keep their own values.</div></div></div>`;
+    <div class="hint" style="margin-top:12px">Material rates pre-fill <i>new</i> costing sheets (and update when you change the material on a sheet). Existing sheets keep the rate they were saved with.</div></div></div>`;
 }
 async function saveSettings(){
-  const d = {castRate: num($('#sCast').value), rejPct: num($('#sRej').value), ovhPct: num($('#sOvh').value), ops: $('#sOps').value.split('\n').map(x => x.trim()).filter(Boolean)};
+  const d = {mats: $$('.sMat').map(e => ({n: e.dataset.n, rate: num(e.value)})), rejPct: num($('#sRej').value), ovhPct: num($('#sOvh').value), ops: $('#sOps').value.split('\n').map(x => x.trim()).filter(Boolean)};
   try{ await db.collection('erp_settings').doc('main').set(d, {merge: true}); toast('Defaults saved'); }catch(e){ toast('Could not save: ' + e.message); }
 }
 
