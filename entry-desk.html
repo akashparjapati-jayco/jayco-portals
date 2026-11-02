@@ -10,9 +10,10 @@
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
-<link rel="stylesheet" href="erp.css">
+<link rel="stylesheet" href="erp.css?v=202611021658">
 <style>
-  .app.entry-only{display:block;grid-template-columns:none}
+  .app.entry-only{display:block;grid-template-columns:none;min-height:0;align-content:start}
+  #app.entry-only:not([style*="none"]){display:block !important}
   .ebar{display:flex;align-items:center;gap:12px;padding:12px 28px;background:var(--side);color:#fff;position:sticky;top:0;z-index:10}
   .ebar .logo{display:flex;align-items:center;gap:10px;font-family:'Space Grotesk';font-weight:700;font-size:18px;letter-spacing:.02em}
   .ebar .logo i{width:30px;height:30px;border-radius:9px;background:linear-gradient(135deg,#ff5a52,#a30000);display:inline-flex;align-items:center;justify-content:center;font-style:normal;font-size:15px}
@@ -41,10 +42,10 @@
     <span class="hint" id="eUser" style="margin-left:auto"></span>
     <a id="lgOut" class="btn sm" style="cursor:pointer">Log out</a>
   </header>
-  <main><div class="top"><div><h1 id="ttl"></h1></div><div class="sp" id="topr"></div></div><div id="view"></div></main>
+  <main><div class="top"><div><h1 id="ttl"></h1><div class="sub2" id="sub2"></div></div><div class="sp" id="topr"></div></div><div id="view"></div></main>
 </div>
 <div id="toast"></div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<script src="erp-app.js"></script>
+<script src="erp-app.js?v=202611021658"></script>
 </body>
 </html>
