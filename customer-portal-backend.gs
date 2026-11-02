@@ -865,6 +865,8 @@ function authorizeDrive() { return _scanFolder('Test').getUrl(); }
 function _scanFolder(sub) {
   const props = PropertiesService.getScriptProperties();
   let root = null, id = props.getProperty('SCAN_FOLDER_ID');
+  // accept a pasted folder address too: keep only the ID after /folders/ and before any ?
+  if (id) id = String(id).replace(/^.*\/folders\//, '').replace(/[?#].*$/, '').trim();
   if (id) { try { root = DriveApp.getFolderById(id); } catch (e) { root = null; } }
   if (!root) { root = DriveApp.createFolder('Jayco Entry Desk Scans'); props.setProperty('SCAN_FOLDER_ID', root.getId()); }
   const name = String(sub || 'Other').replace(/[\\/:*?"<>|]/g, '-').slice(0, 80);
