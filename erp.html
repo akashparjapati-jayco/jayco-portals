@@ -116,6 +116,7 @@ tr.click{cursor:pointer}tr.click:hover td{background:#fafbfc}
     <a data-nav="wip">◫ Shop-floor Board <span class="n" id="nWip"></span></a>
     <div class="grp">Cost</div>
     <a data-nav="costing">₹ Product Costing</a>
+    <a data-nav="parts">⚙ Bought-out Parts <span class="n" id="nParts"></span></a>
     <a data-nav="settings">⚙ Costing Defaults</a>
     <div class="grp">Order-to-dispatch flow</div>
     <a href="sales-crm.html">1 · Inquiry &amp; Quotation</a>
@@ -156,14 +157,14 @@ const STAGES = [
 ];
 const DEFAULT_OPS = ['Base — face & bottom milling','Cap — face milling','Bore boring','Seal groove / recess','Drilling & tapping','Assembly & trial'];
 const DEFAULT_MATS = [{n:'Cast Iron', rate:75}, {n:'FG 260', rate:85}, {n:'Cast Steel', rate:125}, {n:'SG Iron', rate:100}];
-const DEFAULT_SET = {mats: DEFAULT_MATS, rejPct:5, ovhPct:10, marginPct:15, machLossPct:8, ops: DEFAULT_OPS};
+const DEFAULT_SET = {mats: DEFAULT_MATS, rejPct:5, ovhPct:10, marginPct:15, machLossPct:8, boughtMarginPct:15, freightPct:2, ops: DEFAULT_OPS};
 const matList = () => (SET.mats && SET.mats.length ? SET.mats : DEFAULT_MATS);
 const matRate = n => { const m = matList().find(x => x.n === n); return m ? num(m.rate) : 0; };
 // price-list / PO material text → one of our three casting materials
 function normMat(t){ t = String(t || '').toLowerCase(); if(/fg\s?260/.test(t)) return 'FG 260'; if(/s\.?\s?g|ductile|spheroidal/.test(t)) return 'SG Iron'; if(/steel/.test(t)) return 'Cast Steel'; return 'Cast Iron'; }
 const materialOf = code => { const r = RATES.find(x => String(x.itemCode).toLowerCase() === String(code).toLowerCase()), i = ITEMS_PO.find(x => String(x.itemCode).toLowerCase() === String(code).toLowerCase()); return normMat((r && r.material) || (i && i.material)); };
 
-let started = false;
+let started = false, PARTS = {};
 let db, USER=null, PO=[], ITEMS_PO=[], STG={}, DESP=[], RATES=[], LEADS=[], QUOTES=[], COST={}, SET={...DEFAULT_SET}, ROUTE='dashboard';
 const $ = (s, r=document) => r.querySelector(s), $$ = (s, r=document) => [...r.querySelectorAll(s)];
 const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -171,6 +172,7 @@ const num = v => { const n = parseFloat(v); return isFinite(n) ? n : 0; };
 const inr = v => '₹' + num(v).toLocaleString('en-IN', {maximumFractionDigits:2});
 const toDate = t => !t ? null : t.toDate ? t.toDate() : new Date(t);
 const fmtD = t => { const d = toDate(t); return d && !isNaN(d) ? d.toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'}) : '—'; };
+const landed = p => num(p.price) * (1 + (num(SET.boughtMarginPct) + num(SET.freightPct)) / 100);
 const costKey = c => String(c || '').trim().replace(/[\/\s]+/g, '_');
 const me = () => (USER && USER.email) || 'staff';
 function toast(m){ const t=$('#toast'); t.textContent=m; t.style.display='block'; clearTimeout(toast.t); toast.t=setTimeout(()=>t.style.display='none',2800); }
@@ -199,6 +201,7 @@ async function start(){
   snap('despatches', r => DESP = r);
   snap('erp_itemStages', r => { STG = {}; r.forEach(x => STG[x.id] = x); });
   snap('erp_costing', r => { COST = {}; r.forEach(x => COST[x.id] = x); });
+  snap('erp_parts', r => { PARTS = {}; r.forEach(x => PARTS[x.id] = x); });
   snap('crm_rates', r => RATES = r);
   snap('crm_leads', r => LEADS = r);
   snap('crm_quotes', r => QUOTES = r);
@@ -243,7 +246,7 @@ function costOf(code){
 const lateDays = po => { const d = toDate(po.deliveryDate); if(!d) return 0; return Math.floor((new Date().setHours(0,0,0,0) - d.setHours(0,0,0,0)) / 864e5); };
 
 /* ---------- routing ---------- */
-const NAV = {dashboard:'Dashboard', orders:'Order Tracker', wip:'Shop-floor Board', costing:'Product Costing', settings:'Costing Defaults'};
+
 function go(h){ location.hash = h; }
 window.addEventListener('hashchange', render);
 function render(){
@@ -254,7 +257,8 @@ function render(){
   $('#nOrders').textContent = PO.filter(p => poStatus(itemsOfPo(p)).open > 0).length;
   $('#nWip').textContent = ITEMS_PO.reduce((a, i) => a + itemState(i).inProc, 0);
   $('#topr').innerHTML = '';
-  ({dashboard:vDash, orders:vOrders, order:vOrder, wip:vWip, costing:vCosting, settings:vSettings}[r] || vDash)(decodeURIComponent(arg || ''));
+  $('#nParts').textContent = Object.keys(PARTS).length || '';
+  ({dashboard:vDash, orders:vOrders, order:vOrder, wip:vWip, costing:vCosting, parts:vParts, settings:vSettings}[r] || vDash)(decodeURIComponent(arg || ''));
 }
 $$('aside a[data-nav]').forEach(a => a.onclick = () => go(a.dataset.nav));
 
@@ -465,7 +469,9 @@ function parseCostingWorkbook(sheets){
         if(!code || /series|·/i.test(code)) continue;
         const w = n(row[wi]), mc = n(row[mi]);
         if(!(w > 0 && mc > 0)) continue;
-        let labour = li >= 0 ? n(row[li]) : 0; const cost = ci >= 0 && n(row[ci]) > 0 ? n(row[ci]) : mc + labour;
+        let labour = li >= 0 ? n(row[li]) : 0; let cost = ci >= 0 && n(row[ci]) > 0 ? n(row[ci]) : mc + labour;
+        // some sheets (SNA) have a 'Total' that is labour + parts only, i.e. it leaves out material cost — add it back
+        if(cost < mc * 0.999){ cost = mc + cost; labour = cost - mc; }
         if(li < 0) labour = Math.max(0, cost - mc);
         const final = fi >= 0 ? n(row[fi]) : 0;
         const ops = [], doc = {paint: 0, packing: 0};
@@ -480,27 +486,28 @@ function parseCostingWorkbook(sheets){
   });
   return {items: out, skipped};
 }
-let IMPORT_ITEMS = [];
+let IMPORT_ITEMS = [], IMPORT_PARTS = [];
 async function importWorkbookFile(file){
   if(typeof XLSX === 'undefined'){ toast('Excel reader could not load — check your internet connection'); return; }
   try{
     const wb = XLSX.read(await file.arrayBuffer(), {type: 'array'}), sheets = {};
     wb.SheetNames.forEach(n => sheets[n] = XLSX.utils.sheet_to_json(wb.Sheets[n], {header: 1, raw: true, defval: null}));
-    previewImport(parseCostingWorkbook(sheets));
+    const res = parseCostingWorkbook(sheets); res.parts = parseParts(sheets); previewImport(res);
   }catch(e){ toast('Could not read the file: ' + e.message); }
 }
 function previewImport(res){
-  IMPORT_ITEMS = res.items;
+  IMPORT_ITEMS = res.items; IMPORT_PARTS = res.parts || [];
   const by = {}; res.items.forEach(i => { (by[i.series] = by[i.series] || {n: 0, ex: 0}).n++; if(COST[costKey(i.itemCode)]) by[i.series].ex++; });
   const exist = res.items.filter(i => COST[costKey(i.itemCode)]).length;
   modal(`<div class="modal-h"><h3>Import costing workbook</h3><button class="btn sm" onclick="closeModal()">✕</button></div><div class="modal-b">
+    ${IMPORT_PARTS.length ? `<p>🔩 <b>${IMPORT_PARTS.length}</b> bought-out parts found in the Purchase Log (latest price per size).</p>` : ''}
     ${res.items.length ? `<p><b>${res.items.length}</b> costed sizes found in <b>${Object.keys(by).length}</b> series. ${exist} already have a costing sheet.</p>
     <div class="tw" style="max-height:260px"><table><thead><tr><th>Series</th><th class="num">Sizes</th><th class="num">Already costed</th></tr></thead><tbody>${Object.entries(by).map(([k, v]) => `<tr><td>${esc(k)}</td><td class="num">${v.n}</td><td class="num">${v.ex || '—'}</td></tr>`).join('')}</tbody></table></div>
     <label style="display:flex;gap:8px;align-items:center;margin-top:12px"><input type="checkbox" id="impOver" style="width:auto"> Overwrite the ${exist} existing sheets (otherwise they are kept)</label>
     <div class="hint" style="margin-top:8px">Each size becomes a costing sheet: rough weight × material rate, labour/machining, margin. Sizes with no weight or no material cost in the workbook are skipped.</div>`
-    : '<div class="empty">No costed sizes found. Is this the production-costing workbook?</div>'}
+    : (IMPORT_PARTS.length ? '' : '<div class="empty">Nothing found. Is this the production-costing workbook?</div>')}
     ${res.skipped.length ? `<div class="hint">Sheets without a costing table (skipped): ${esc(res.skipped.join(', '))}</div>` : ''}</div>
-  <div class="modal-f"><button class="btn" onclick="closeModal()">Cancel</button>${res.items.length ? '<button class="btn pri" id="impGo" onclick="runImport()">Import</button>' : ''}</div>`);
+  <div class="modal-f"><button class="btn" onclick="closeModal()">Cancel</button>${res.items.length || IMPORT_PARTS.length ? '<button class="btn pri" id="impGo" onclick="runImport()">Import</button>' : ''}</div>`);
 }
 async function runImport(){
   const over = $('#impOver').checked, list = IMPORT_ITEMS.filter(i => over || !COST[costKey(i.itemCode)]), now = new Date().toISOString();
@@ -510,7 +517,12 @@ async function runImport(){
       const b = db.batch(); list.slice(k, k + 400).forEach(i => b.set(db.collection('erp_costing').doc(costKey(i.itemCode)), {...i, updatedAt: now, updatedBy: me()}));
       await b.commit();
     }
-    closeModal(); toast(`Imported ${list.length} costing sheets`);
+    const parts = IMPORT_PARTS.filter(p => over || !PARTS[costKey(p.name)]);
+    for(let k = 0; k < parts.length; k += 400){
+      const b = db.batch(); parts.slice(k, k + 400).forEach(p => b.set(db.collection('erp_parts').doc(costKey(p.name)), {...p, updatedAt: now}));
+      await b.commit();
+    }
+    closeModal(); toast(`Imported ${list.length} costing sheets and ${parts.length} parts`);
   }catch(e){ toast('Import failed: ' + e.message); $('#impGo').disabled = false; $('#impGo').textContent = 'Import'; }
 }
 function allCodes(){ return [...new Set([...RATES.map(r => String(r.itemCode || '').trim()), ...ITEMS_PO.map(i => String(i.itemCode || '').trim()), ...Object.values(COST).map(c => c.itemCode)])].filter(Boolean).sort((a, b) => a.localeCompare(b, undefined, {numeric: true})); }
@@ -531,7 +543,7 @@ function openCost(code){
   drawCostForm();
 }
 function drawCostForm(){
-  const row = (arr, k, i, cols) => `<div class="cost-row"><input data-l="${arr}" data-i="${i}" data-f="n" value="${esc(CD[arr][i].n)}" placeholder="Name">${cols}<button class="btn sm" onclick="rmRow('${arr}',${i})">✕</button></div>`;
+  const row = (arr, k, i, cols) => `<div class="cost-row"><input data-l="${arr}" data-i="${i}" data-f="n" ${arr === 'bought' ? 'list="dlParts"' : ''} value="${esc(CD[arr][i].n)}" placeholder="Name">${cols}<button class="btn sm" onclick="rmRow('${arr}',${i})">✕</button></div>`;
   $('#cdBody').innerHTML = `<div class="form">
     <div class="sec">1 · Casting</div>
     <div class="fld"><label>Material</label><select id="cdMat">${matList().map(m => `<option value="${esc(m.n)}" ${CD.material === m.n ? 'selected' : ''}>${esc(m.n)} — ₹${num(m.rate)}/kg</option>`).join('')}</select></div>
@@ -540,7 +552,8 @@ function drawCostForm(){
     <div class="fld"><label>Rejection allowance %</label><input data-h="rejPct" type="number" step="0.1" value="${esc(CD.rejPct)}"></div>
     <div class="sec">2 · Machining &amp; operations (₹ per piece)</div>
     <div class="full" style="grid-column:1/-1">${CD.ops.map((o, i) => row('ops', 'n', i, `<span></span><input data-l="ops" data-i="${i}" data-f="cost" type="number" step="0.01" value="${esc(o.cost)}" placeholder="₹">`)).join('')}<button class="btn sm" onclick="addRow('ops')">＋ Operation</button></div>
-    <div class="sec">3 · Bought-out parts</div>
+    <div class="sec">3 · Bought-out parts <span class="hint" style="text-transform:none;letter-spacing:0">pick a part from the register and its landed rate (price + ${num(SET.boughtMarginPct)}% margin + ${num(SET.freightPct)}% freight) fills in</span></div>
+    <datalist id="dlParts">${Object.values(PARTS).sort((a, b) => a.name.localeCompare(b.name, undefined, {numeric: true})).map(p => `<option value="${esc(p.name)}">`).join('')}</datalist>
     <div class="full" style="grid-column:1/-1">${CD.bought.map((b, i) => row('bought', 'n', i, `<input data-l="bought" data-i="${i}" data-f="qty" type="number" step="0.01" value="${esc(b.qty)}" placeholder="Qty"><input data-l="bought" data-i="${i}" data-f="rate" type="number" step="0.01" value="${esc(b.rate)}" placeholder="Rate ₹">`)).join('')}<button class="btn sm" onclick="addRow('bought')">＋ Part</button></div>
     <div class="sec">4 · Finishing, packing &amp; overhead</div>
     <div class="fld"><label>Paint (₹/pc)</label><input data-h="paint" type="number" step="0.01" value="${esc(CD.paint)}"></div>
@@ -553,6 +566,7 @@ function drawCostForm(){
   $('#cdMat').onchange = e => { CD.material = e.target.value; CD.castRate = matRate(CD.material) || CD.castRate; const r = $('#cdBody [data-h=castRate]'); r.value = CD.castRate; sumCost(); };
   $$('#cdBody [data-h]').forEach(e => e.oninput = () => { CD[e.dataset.h] = e.value; sumCost(); });
   $$('#cdBody [data-l]').forEach(e => e.oninput = () => { CD[e.dataset.l][+e.dataset.i][e.dataset.f] = e.value; sumCost(); });
+  $$('#cdBody [data-l=bought][data-f=n]').forEach(e => e.onchange = () => { const p = PARTS[costKey(e.value)]; if(!p) return; const row = CD.bought[+e.dataset.i]; row.rate = Math.round(landed(p) * 100) / 100; if(!num(row.qty)) row.qty = 1; drawCostForm(); toast(`${p.name}: ₹${num(p.price)} + margin & freight = ₹${row.rate}`); });
   sumCost();
 }
 function addRow(l){ CD[l].push(l === 'ops' ? {n:'', cost:''} : {n:'', qty:1, rate:''}); drawCostForm(); }
@@ -568,6 +582,45 @@ async function saveCost(){
   try{ await db.collection('erp_costing').doc(costKey(d.itemCode)).set(d); closeModal(); toast('Costing saved'); }catch(e){ toast('Could not save: ' + e.message); }
 }
 
+/* ---------- bought-out parts register ---------- */
+let PQ = '';
+function vParts(){
+  $('#ttl').textContent = 'Bought-out Parts';
+  $('#topr').innerHTML = `<button class="btn" onclick="editPart('')">＋ Add part</button> <label class="btn pri" style="cursor:pointer">⬆ Import costing workbook<input type="file" accept=".xlsx,.xls" id="wbFile2" style="display:none"></label>`;
+  $('#wbFile2').onchange = e => { const f = e.target.files[0]; if(f) importWorkbookFile(f); e.target.value = ''; };
+  $('#view').innerHTML = `<div class="card"><div class="card-h"><input id="pq" placeholder="Search part…" value="${esc(PQ)}" style="max-width:260px"><span class="hint">Purchase prices of sleeves, rings, seals, bolts… The landed rate adds ${num(SET.boughtMarginPct)}% margin and ${num(SET.freightPct)}% freight (change on Costing Defaults).</span></div><div class="tw" id="pbody"></div></div>`;
+  $('#pq').oninput = e => { PQ = e.target.value; drawParts(); }; drawParts();
+}
+function drawParts(){
+  const q = PQ.toLowerCase(), list = Object.values(PARTS).filter(p => !q || (p.name + ' ' + (p.party || '')).toLowerCase().includes(q)).sort((a, b) => a.name.localeCompare(b.name, undefined, {numeric: true}));
+  $('#pbody').innerHTML = list.length ? `<table><thead><tr><th>Part / size</th><th>Supplier</th><th>Last purchase</th><th class="num">Purchase price</th><th class="num">Landed rate</th><th></th></tr></thead><tbody>
+  ${list.map(p => `<tr class="click" onclick="editPart('${esc(p.id).replace(/'/g, "\\'")}')"><td><b class="mono">${esc(p.name)}</b></td><td>${esc(p.party || '—')}</td><td>${esc(p.date || '—')}</td><td class="num">${inr(p.price)}</td><td class="num"><b>${inr(landed(p))}</b></td><td><button class="btn sm">Edit</button></td></tr>`).join('')}</tbody></table>` : '<div class="empty">No parts yet. Add one, or import the costing workbook (its Purchase Log sheet loads here).</div>';
+}
+function editPart(id){
+  const p = PARTS[id] || {name: '', price: '', party: '', date: ''};
+  modal(`<div class="modal-h"><h3>${id ? 'Edit part' : 'Add part'}</h3><button class="btn sm" onclick="closeModal()">✕</button></div><div class="modal-b"><div class="form">
+    <div class="fld full"><label>Part name / size</label><input id="ptName" value="${esc(p.name)}" ${id ? 'readonly' : ''} placeholder="e.g. H 211 sleeve, TG 508 ring"></div>
+    <div class="fld"><label>Purchase price (₹)</label><input id="ptPrice" type="number" step="0.01" value="${esc(p.price)}"></div>
+    <div class="fld"><label>Supplier</label><input id="ptParty" value="${esc(p.party || '')}"></div>
+    <div class="fld"><label>Purchase date</label><input id="ptDate" type="date" value="${esc(p.date || '')}"></div></div></div>
+  <div class="modal-f">${id ? `<button class="btn" style="color:var(--crit)" onclick="delPart('${esc(id).replace(/'/g, "\\'")}')">Delete</button>` : ''}<button class="btn" onclick="closeModal()">Cancel</button><button class="btn pri" onclick="savePart()">Save</button></div>`);
+}
+async function savePart(){
+  const name = $('#ptName').value.trim(); if(!name){ toast('Enter a part name'); return; }
+  try{ await db.collection('erp_parts').doc(costKey(name)).set({name, price: num($('#ptPrice').value), party: $('#ptParty').value.trim(), date: $('#ptDate').value, source: 'manual', updatedAt: new Date().toISOString()}, {merge: true}); closeModal(); toast('Part saved'); }catch(e){ toast('Could not save: ' + e.message); }
+}
+async function delPart(id){ if(!confirm('Delete this part?')) return; try{ await db.collection('erp_parts').doc(id).delete(); closeModal(); toast('Part deleted'); }catch(e){ toast(e.message); } }
+// 'Purchase Log' sheet: Size | Party | Date | Price | Remarks — keep the most recent purchase of each size
+function parseParts(sheets){
+  const key = Object.keys(sheets).find(k => /purchase log/i.test(k)); if(!key) return [];
+  const rows = sheets[key], hr = rows.findIndex(r => (r || []).some(c => /^size$/i.test(String(c || '').trim()))); if(hr < 0) return [];
+  const h = rows[hr].map(c => String(c || '').trim().toLowerCase()), ix = re => h.findIndex(x => re.test(x));
+  const a = ix(/^size$/), b = ix(/party/), d = ix(/date/), p = ix(/price/), best = {};
+  rows.slice(hr + 1).forEach(r => { const name = String(r[a] == null ? '' : r[a]).trim(), price = parseFloat(r[p]); if(!name || !(price > 0)) return;
+    const date = r[d] ? String(r[d]).slice(0, 10) : ''; if(!best[name] || date >= best[name].date) best[name] = {name, price, party: r[b] ? String(r[b]).trim() : '', date, source: 'costing workbook (Purchase Log)'}; });
+  return Object.values(best);
+}
+
 /* ---------- costing defaults ---------- */
 function vSettings(){
   $('#ttl').textContent = 'Costing Defaults';
@@ -579,12 +632,14 @@ function vSettings(){
     <div class="fld"><label>Overhead %</label><input id="sOvh" type="number" step="0.1" value="${esc(SET.ovhPct)}"></div>
     <div class="fld"><label>Margin % on cost</label><input id="sMar" type="number" step="0.1" value="${esc(SET.marginPct)}"></div>
     <div class="fld"><label>Machining loss % (finished weight)</label><input id="sLoss" type="number" step="0.1" value="${esc(SET.machLossPct)}"></div>
+    <div class="fld"><label>Bought-out margin % on purchase price</label><input id="sBm" type="number" step="0.1" value="${esc(SET.boughtMarginPct)}"></div>
+    <div class="fld"><label>Freight &amp; handling % on purchase price</label><input id="sFr" type="number" step="0.1" value="${esc(SET.freightPct)}"></div>
     <div class="fld full"><label>Standard machining operations (one per line)</label><textarea id="sOps" rows="7">${esc((SET.ops || DEFAULT_OPS).join('\n'))}</textarea></div>
     <div class="full"><button class="btn pri" onclick="saveSettings()">Save defaults</button></div></div>
     <div class="hint" style="margin-top:12px">Material rates pre-fill <i>new</i> costing sheets (and update when you change the material on a sheet). Existing sheets keep the rate they were saved with.</div></div></div>`;
 }
 async function saveSettings(){
-  const d = {mats: $$('.sMat').map(e => ({n: e.dataset.n, rate: num(e.value)})), rejPct: num($('#sRej').value), ovhPct: num($('#sOvh').value), marginPct: num($('#sMar').value), machLossPct: num($('#sLoss').value), ops: $('#sOps').value.split('\n').map(x => x.trim()).filter(Boolean)};
+  const d = {mats: $$('.sMat').map(e => ({n: e.dataset.n, rate: num(e.value)})), rejPct: num($('#sRej').value), ovhPct: num($('#sOvh').value), marginPct: num($('#sMar').value), machLossPct: num($('#sLoss').value), boughtMarginPct: num($('#sBm').value), freightPct: num($('#sFr').value), ops: $('#sOps').value.split('\n').map(x => x.trim()).filter(Boolean)};
   try{ await db.collection('erp_settings').doc('main').set(d, {merge: true}); toast('Defaults saved'); }catch(e){ toast('Could not save: ' + e.message); }
 }
 
