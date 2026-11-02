@@ -168,6 +168,7 @@ const materialOf = code => { const r = RATES.find(x => String(x.itemCode).toLowe
 let started = false, PARTS = {};
 let db, USER=null, PO=[], ITEMS_PO=[], STG={}, DESP=[], RATES=[], LEADS=[], QUOTES=[], COST={}, SET={...DEFAULT_SET}, ROUTE='dashboard';
 const $ = (s, r=document) => r.querySelector(s), $$ = (s, r=document) => [...r.querySelectorAll(s)];
+const jsq = v => JSON.stringify(String(v)).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '\\u003c');   // safe inside onclick="…"
 const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const num = v => { const n = parseFloat(v); return isFinite(n) ? n : 0; };
 const inr = v => '₹' + num(v).toLocaleString('en-IN', {maximumFractionDigits:2});
@@ -196,7 +197,7 @@ firebase.auth().onAuthStateChanged(u => {
 
 async function start(){
   if(started) return; started = true;
-  const snap = (col, fn, order) => (order ? db.collection(col).orderBy(order, 'desc') : db.collection(col)).onSnapshot(s => { fn(s.docs.map(d => ({id:d.id, ...d.data()}))); render(); }, e => console.warn(col, e.message));
+  const snap = (col, fn, order) => (order ? db.collection(col).orderBy(order, 'desc') : db.collection(col)).onSnapshot(s => { fn(s.docs.map(d => ({id:d.id, ...d.data()}))); bump(); render(); }, e => console.warn(col, e.message));
   snap('purchaseOrders', r => PO = r);
   snap('poItems', r => ITEMS_PO = r);
   snap('despatches', r => DESP = r);
@@ -206,12 +207,13 @@ async function start(){
   snap('crm_rates', r => RATES = r);
   snap('crm_leads', r => LEADS = r);
   snap('crm_quotes', r => QUOTES = r);
-  db.collection('erp_settings').doc('main').onSnapshot(d => { SET = {...DEFAULT_SET, ...(d.exists ? d.data() : {})}; render(); });
+  db.collection('erp_settings').doc('main').onSnapshot(d => { SET = {...DEFAULT_SET, ...(d.exists ? d.data() : {})}; bump(); render(); });
 }
 
 /* ---------- derived data ---------- */
 // Pieces of one PO line in each stage. Dispatched comes from PO Management's dispatch entry (single source of truth).
 function itemState(it){
+  ensureIdx(); if(_memo[it.id]) return _memo[it.id];
   const st = (STG[it.id] && STG[it.id].stageQty) || {};
   const ordered = num(it.orderedQty), desp = num(it.despatchedQty), open = Math.max(0, ordered - desp);
   const q = {}; STAGES.forEach(s => q[s.k] = Math.max(0, num(st[s.k])));
@@ -219,7 +221,7 @@ function itemState(it){
   let excess = STAGES.reduce((a, s) => a + q[s.k], 0) - open;
   for(let i = STAGES.length - 1; i >= 0 && excess > 0; i--){ const t = Math.min(q[STAGES[i].k], excess); q[STAGES[i].k] -= t; excess -= t; }
   const inProc = STAGES.reduce((a, s) => a + q[s.k], 0);
-  return {q, ordered, desp, open, inProc, notStarted: Math.max(0, open - inProc), scrap: num(STG[it.id] && STG[it.id].scrapQty)};
+  return (_memo[it.id] = {q, ordered, desp, open, inProc, notStarted: Math.max(0, open - inProc), scrap: num(STG[it.id] && STG[it.id].scrapQty)});
 }
 function furthest(it){ const s = itemState(it); for(let i = STAGES.length - 1; i >= 0; i--) if(s.q[STAGES[i].k] > 0) return STAGES[i]; return null; }
 function poStatus(items){
@@ -232,7 +234,11 @@ function poStatus(items){
   else if(inProc > 0) { label = 'In production'; cls = 'warn'; }
   return {label, cls, ord, desp, inProc, ready, open: ord - desp};
 }
-const itemsOfPo = po => ITEMS_PO.filter(i => i.poId === po.id);
+// data is indexed once per change instead of scanned for every row (was O(orders × lines) on every render)
+let DV = 0, _idxV = -1, _byPo = {}, _memo = {};
+const bump = () => { DV++; };
+function ensureIdx(){ if(_idxV === DV) return; _idxV = DV; _byPo = {}; _memo = {}; ITEMS_PO.forEach(i => (_byPo[i.poId] = _byPo[i.poId] || []).push(i)); }
+const itemsOfPo = po => { ensureIdx(); return _byPo[po.id] || []; };
 const rateOf = code => { const r = RATES.find(x => String(x.itemCode).toLowerCase() === String(code).toLowerCase()); return r ? num(r.rate) : 0; };
 function costOf(code){
   const c = COST[costKey(code)]; if(!c) return null;
@@ -249,8 +255,16 @@ const lateDays = po => { const d = toDate(po.deliveryDate); if(!d) return 0; ret
 /* ---------- routing ---------- */
 
 function go(h){ location.hash = h; }
-window.addEventListener('hashchange', render);
-function render(){
+window.addEventListener('hashchange', () => doRender());
+let _rt = null;
+function render(){ clearTimeout(_rt); _rt = setTimeout(doRender, 60); }   // many snapshots arrive at once on load — draw once
+function doRender(){
+  if(!USER) return;
+  const a = document.activeElement, keep = a && a.id && $('#view') && $('#view').contains(a) && a.tagName === 'INPUT' ? {id: a.id, s: a.selectionStart, e: a.selectionEnd} : null;
+  renderNow();
+  if(keep){ const n = document.getElementById(keep.id); if(n){ n.focus(); try{ n.setSelectionRange(keep.s, keep.e); }catch(e){} } }
+}
+function renderNow(){
   if(!USER) return;
   const h = (location.hash || '#dashboard').slice(1), [r, arg] = h.split('/');
   ROUTE = r;
@@ -416,10 +430,11 @@ function drawWip(){
   const q = WQ.toLowerCase();
   const rows = ITEMS_PO.map(i => ({i, s: itemState(i)})).filter(x => x.s.open > 0 && (!q || [x.i.itemCode, x.i.poNo, x.i.customerName].join(' ').toLowerCase().includes(q)))
     .sort((a, b) => (toDate(a.i.deliveryDate) || 0) - (toDate(b.i.deliveryDate) || 0));
+  const totalRows = rows.length, shown = rows.slice(0, 300);   // keep the table fast; totals below still cover every row
   const tot = {ns: rows.reduce((a, x) => a + x.s.notStarted, 0), ...Object.fromEntries(STAGES.map(s => [s.k, rows.reduce((a, x) => a + x.s.q[s.k], 0)]))};
   $('#wbody').innerHTML = rows.length ? `<table><thead><tr><th>Item</th><th>PO / customer</th><th>Due</th><th class="num">Open</th><th class="num">Not started</th>${STAGES.map(s => `<th class="num" style="color:${s.c}">${esc(s.n)}</th>`).join('')}<th></th></tr></thead><tbody>
-  ${rows.map(x => { const late = lateDays({deliveryDate: x.i.deliveryDate}); return `<tr class="click" onclick="go('order/${x.i.poId}')"><td class="mono"><b>${esc(x.i.itemCode)}</b></td><td>${esc(x.i.poNo)}<div class="hint">${esc(x.i.customerName)}</div></td><td>${fmtD(x.i.deliveryDate)}${late > 0 ? ` <span class="pill crit">${late}d</span>` : ''}</td><td class="num"><b>${x.s.open}</b></td><td class="num">${x.s.notStarted || '·'}</td>${STAGES.map(s => `<td class="num">${x.s.q[s.k] ? `<b style="color:${s.c}">${x.s.q[s.k]}</b>` : '·'}</td>`).join('')}<td><button class="btn sm pri" onclick="event.stopPropagation();openMove('${x.i.id}')">Move</button></td></tr>`; }).join('')}
-  <tr><td colspan="4"><b>Total</b></td><td class="num"><b>${tot.ns}</b></td>${STAGES.map(s => `<td class="num"><b>${tot[s.k]}</b></td>`).join('')}<td></td></tr></tbody></table>` : '<div class="empty">No open order lines.</div>';
+  ${shown.map(x => { const late = lateDays({deliveryDate: x.i.deliveryDate}); return `<tr class="click" onclick="go('order/${x.i.poId}')"><td class="mono"><b>${esc(x.i.itemCode)}</b></td><td>${esc(x.i.poNo)}<div class="hint">${esc(x.i.customerName)}</div></td><td>${fmtD(x.i.deliveryDate)}${late > 0 ? ` <span class="pill crit">${late}d</span>` : ''}</td><td class="num"><b>${x.s.open}</b></td><td class="num">${x.s.notStarted || '·'}</td>${STAGES.map(s => `<td class="num">${x.s.q[s.k] ? `<b style="color:${s.c}">${x.s.q[s.k]}</b>` : '·'}</td>`).join('')}<td><button class="btn sm pri" onclick="event.stopPropagation();openMove('${x.i.id}')">Move</button></td></tr>`; }).join('')}
+  <tr><td colspan="4"><b>Total</b></td><td class="num"><b>${tot.ns}</b></td>${STAGES.map(s => `<td class="num"><b>${tot[s.k]}</b></td>`).join('')}<td></td></tr></tbody></table>${totalRows > 300 ? `<div class="hint" style="padding:10px">Showing the 300 earliest-due of ${totalRows} open lines — search to narrow. Totals include all ${totalRows}.</div>` : ''}` : '<div class="empty">No open order lines.</div>';
 }
 
 /* ---------- moves log: everything staff moved on a day ---------- */
@@ -513,7 +528,7 @@ let IMPORT_ITEMS = [], IMPORT_PARTS = [];
 async function importWorkbookFile(file){
   if(typeof XLSX === 'undefined'){ toast('Excel reader could not load — check your internet connection'); return; }
   try{
-    const wb = XLSX.read(await file.arrayBuffer(), {type: 'array'}), sheets = {};
+    const wb = XLSX.read(await file.arrayBuffer(), {type: 'array', cellDates: true}), sheets = {};
     wb.SheetNames.forEach(n => sheets[n] = XLSX.utils.sheet_to_json(wb.Sheets[n], {header: 1, raw: true, defval: null}));
     const res = parseCostingWorkbook(sheets); res.parts = parseParts(sheets); previewImport(res);
   }catch(e){ toast('Could not read the file: ' + e.message); }
@@ -553,7 +568,7 @@ function drawCosting(){
   const q = CQ.toLowerCase(), codes = allCodes().filter(c => !q || c.toLowerCase().includes(q));
   $('#cbody').innerHTML = `<table><thead><tr><th>Item</th><th>Material</th><th class="num">Casting wt (kg)</th><th class="num">Cost / pc</th><th class="num">Suggested price</th><th class="num">Price-list rate</th><th class="num">Margin on price list</th><th></th></tr></thead><tbody>
   ${codes.slice(0, 400).map(code => { const c = costOf(code), rate = rateOf(code), sheet = COST[costKey(code)], m = c && rate ? (rate - c.total) / rate * 100 : null;
-    return `<tr class="click" onclick="openCost('${esc(code).replace(/'/g, "\\'")}')"><td class="mono"><b>${esc(code)}</b></td><td>${esc(sheet && sheet.material || materialOf(code))}</td><td class="num">${sheet ? num(sheet.castWt) || '—' : '—'}</td><td class="num">${c ? inr(c.total) : '<span class="pill warn">not costed</span>'}</td><td class="num">${c ? inr(c.suggested) : '—'}</td><td class="num">${rate ? inr(rate) : '—'}</td>
+    return `<tr class="click" onclick="openCost(${jsq(code)})"><td class="mono"><b>${esc(code)}</b></td><td>${esc(sheet && sheet.material || materialOf(code))}</td><td class="num">${sheet ? num(sheet.castWt) || '—' : '—'}</td><td class="num">${c ? inr(c.total) : '<span class="pill warn">not costed</span>'}</td><td class="num">${c ? inr(c.suggested) : '—'}</td><td class="num">${rate ? inr(rate) : '—'}</td>
     <td class="num">${m == null ? '—' : `<span class="pill ${m < 10 ? 'crit' : m < 20 ? 'warn' : 'ok'}">${m.toFixed(1)}%</span>`}</td><td><button class="btn sm">${sheet ? 'Edit' : 'Add'}</button></td></tr>`; }).join('')}</tbody></table>${codes.length > 400 ? '<div class="hint" style="padding:10px">Showing first 400 — search to narrow.</div>' : ''}`;
 }
 let CD = null;
@@ -617,7 +632,7 @@ function vParts(){
 function drawParts(){
   const q = PQ.toLowerCase(), list = Object.values(PARTS).filter(p => !q || (p.name + ' ' + (p.party || '')).toLowerCase().includes(q)).sort((a, b) => a.name.localeCompare(b.name, undefined, {numeric: true}));
   $('#pbody').innerHTML = list.length ? `<table><thead><tr><th>Part / size</th><th>Supplier</th><th>Last purchase</th><th class="num">Purchase price</th><th class="num">Landed rate</th><th></th></tr></thead><tbody>
-  ${list.map(p => `<tr class="click" onclick="editPart('${esc(p.id).replace(/'/g, "\\'")}')"><td><b class="mono">${esc(p.name)}</b></td><td>${esc(p.party || '—')}</td><td>${esc(p.date || '—')}</td><td class="num">${inr(p.price)}</td><td class="num"><b>${inr(landed(p))}</b></td><td><button class="btn sm">Edit</button></td></tr>`).join('')}</tbody></table>` : '<div class="empty">No parts yet. Add one, or import the costing workbook (its Purchase Log sheet loads here).</div>';
+  ${list.map(p => `<tr class="click" onclick="editPart(${jsq(p.id)})"><td><b class="mono">${esc(p.name)}</b></td><td>${esc(p.party || '—')}</td><td>${esc(p.date || '—')}</td><td class="num">${inr(p.price)}</td><td class="num"><b>${inr(landed(p))}</b></td><td><button class="btn sm">Edit</button></td></tr>`).join('')}</tbody></table>` : '<div class="empty">No parts yet. Add one, or import the costing workbook (its Purchase Log sheet loads here).</div>';
 }
 function editPart(id){
   const p = PARTS[id] || {name: '', price: '', party: '', date: ''};
@@ -626,7 +641,7 @@ function editPart(id){
     <div class="fld"><label>Purchase price (₹)</label><input id="ptPrice" type="number" step="0.01" value="${esc(p.price)}"></div>
     <div class="fld"><label>Supplier</label><input id="ptParty" value="${esc(p.party || '')}"></div>
     <div class="fld"><label>Purchase date</label><input id="ptDate" type="date" value="${esc(p.date || '')}"></div></div></div>
-  <div class="modal-f">${id ? `<button class="btn" style="color:var(--crit)" onclick="delPart('${esc(id).replace(/'/g, "\\'")}')">Delete</button>` : ''}<button class="btn" onclick="closeModal()">Cancel</button><button class="btn pri" onclick="savePart()">Save</button></div>`);
+  <div class="modal-f">${id ? `<button class="btn" style="color:var(--crit)" onclick="delPart(${jsq(id)})">Delete</button>` : ''}<button class="btn" onclick="closeModal()">Cancel</button><button class="btn pri" onclick="savePart()">Save</button></div>`);
 }
 async function savePart(){
   const name = $('#ptName').value.trim(); if(!name){ toast('Enter a part name'); return; }
@@ -634,13 +649,20 @@ async function savePart(){
 }
 async function delPart(id){ if(!confirm('Delete this part?')) return; try{ await db.collection('erp_parts').doc(id).delete(); closeModal(); toast('Part deleted'); }catch(e){ toast(e.message); } }
 // 'Purchase Log' sheet: Size | Party | Date | Price | Remarks — keep the most recent purchase of each size
+function toIso(v){
+  if(v == null || v === '') return '';
+  if(v instanceof Date) return isNaN(v) ? '' : new Date(v.getTime() - v.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+  if(typeof v === 'number' && v > 20000 && v < 80000) return new Date(Math.round((v - 25569) * 864e5)).toISOString().slice(0, 10);   // Excel serial date
+  const m = String(v).trim().match(/^(\d{1,2})[.\/-](\d{1,2})[.\/-](\d{4})$/); if(m) return `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}`;
+  return String(v).slice(0, 10);
+}
 function parseParts(sheets){
   const key = Object.keys(sheets).find(k => /purchase log/i.test(k)); if(!key) return [];
   const rows = sheets[key], hr = rows.findIndex(r => (r || []).some(c => /^size$/i.test(String(c || '').trim()))); if(hr < 0) return [];
   const h = rows[hr].map(c => String(c || '').trim().toLowerCase()), ix = re => h.findIndex(x => re.test(x));
   const a = ix(/^size$/), b = ix(/party/), d = ix(/date/), p = ix(/price/), best = {};
   rows.slice(hr + 1).forEach(r => { const name = String(r[a] == null ? '' : r[a]).trim(), price = parseFloat(r[p]); if(!name || !(price > 0)) return;
-    const date = r[d] ? String(r[d]).slice(0, 10) : ''; if(!best[name] || date >= best[name].date) best[name] = {name, price, party: r[b] ? String(r[b]).trim() : '', date, source: 'costing workbook (Purchase Log)'}; });
+    const date = toIso(r[d]); if(!best[name] || date >= best[name].date) best[name] = {name, price, party: r[b] ? String(r[b]).trim() : '', date, source: 'costing workbook (Purchase Log)'}; });
   return Object.values(best);
 }
 
