@@ -1396,12 +1396,12 @@ function viewSettings(){
     ${fld('Auto-approve quotes up to (₹) — 0 means every quote needs approval', `<input id="s_limit" type="number" min="0" value="${SET.approvalLimit}">`)}
     ${fld('Daily digest email (8 AM follow-ups)', `<input id="s_digest" type="email" value="${esc(SET.digestTo)}" placeholder="you@company.com">`)}</div>
     <div class="note" style="margin-top:12px">Give each salesperson their own login (Firebase Console → Authentication → Add user). The role is decided by the email used to sign in.</div></div></div></div>
-  <div class="card"><div class="card-h"><h3>Email & lead backend</h3><div class="sp"><button class="btn sm" data-act="testBackend">Test connection</button></div></div><div class="card-b"><div class="form">
+  <div class="card"><div class="card-h"><h3>Email & lead backend</h3><div class="sp"><button class="btn sm" data-act="testBackend">Test email backend</button></div></div><div class="card-b"><div class="form">
     ${fld('Web app URL (Apps Script /exec)', `<input id="s_url" value="${esc(SET.scriptUrl)}" placeholder="https://script.google.com/macros/s/…/exec">`, {cls:'full'})}
     ${fld('Backend key', `<input id="s_key" type="password" value="${esc(SET.scriptKey)}" autocomplete="off">`)}${fld('Website form key', `<input id="s_wkey" value="${esc(SET.webformKey)}">`)}</div></div></div>
-  <div class="card"><div class="card-h"><h3>Customer Portal link (Customer Master)</h3></div><div class="card-b"><div class="form">
+  <div class="card"><div class="card-h"><h3>Customer Portal link (Customer Master)</h3><div class="sp"><button class="btn sm" data-act="testCms">Test Customer Portal link</button></div></div><div class="card-b"><div class="form">
     ${fld('Customer Portal Apps Script URL', `<input id="s_cmsurl" value="${esc(SET.cmsUrl)}" placeholder="https://script.google.com/macros/s/…/exec">`, {cls:'full'})}
-    ${fld('Customer Portal auth token', `<input id="s_cmstoken" type="password" value="${esc(SET.cmsToken)}" autocomplete="off">`)}</div>
+    ${fld('Customer Portal auth token', `<div style="display:flex;gap:6px"><input id="s_cmstoken" type="password" value="${esc(SET.cmsToken)}" autocomplete="off" spellcheck="false"><button class="btn sm" type="button" data-act="toggleCmsTok">Show</button></div>`)}<div id="cmsTestRes" class="full" style="font-weight:600"></div></div>
     <div class="note" style="margin-top:12px">Same URL and token you use in the Customer Portal. Customers added there then appear in the quotation customer dropdown. ${CMS_STATUS === 'ok' ? '<b>Connected ✔</b>' : esc(CMS_STATUS)}</div></div></div>
   <div class="card"><div class="card-h"><h3>Setup guide — connect Gmail, IndiaMART and your website (10 minutes, once)</h3></div><div class="card-b" style="line-height:1.7">
     <ol style="margin:0;padding-left:20px">
@@ -1424,6 +1424,21 @@ ACT.saveSettings = async () => {
   if(data.admins.length && !data.admins.includes((me() || '').toLowerCase()) && !confirm('You are not in the admin list — you will lose admin access after saving. Continue?')) return;
   await DB.set('crm_settings', 'main', data); SET = {...DEFAULT_SETTINGS, ...data, company: {...DEFAULT_SETTINGS.company, ...data.company}, terms: data.terms.length ? data.terms : DEFAULT_TERMS};
   await loadAll(); toast('Settings saved'); const r = $('#roleTag'); r.textContent = isAdmin() ? 'admin' : 'sales'; r.className = 'role ' + (isAdmin() ? 'admin' : ''); viewSettings();
+};
+// Test the Customer Portal link with the values typed in the boxes (before saving)
+ACT.toggleCmsTok = el => { const i = $('#s_cmstoken'); i.type = i.type === 'password' ? 'text' : 'password'; el.textContent = i.type === 'password' ? 'Show' : 'Hide'; };
+ACT.testCms = async () => {
+  const url = $('#s_cmsurl').value.trim(), token = $('#s_cmstoken').value.trim(), out = $('#cmsTestRes');
+  const show = (ok, msg) => { out.style.color = ok ? 'var(--ok)' : 'var(--crit)'; out.textContent = msg; };
+  if(!/^https:\/\/script\.google\.com\/macros\/s\/[^/]+\/exec$/.test(url)){ show(false, 'The URL must start with https://script.google.com/macros/s/ and end with /exec (no "…").'); return; }
+  if(!token){ show(false, 'Enter the auth token.'); return; }
+  show(true, 'Testing…');
+  try{
+    const j = await (await fetch(url, {method: 'POST', body: JSON.stringify({token, action: 'getCustomers', data: {}})})).json();
+    if(j.ok) show(true, `Connected ✔ — ${(j.data || []).length} customers found. Now press "Save all settings" at the top of this page.`);
+    else if(/unauthor/i.test(j.error || '')) show(false, `Unauthorized — this token (${token.length} characters) is not the same as the AUTH_TOKEN script property. Copy it again from Apps Script → Project Settings → Script properties.`);
+    else show(false, 'Customer Portal error: ' + (j.error || 'unknown'));
+  }catch(e){ show(false, 'Not reachable: ' + e.message + ' — check the URL and that the web app is deployed for "Anyone".'); }
 };
 ACT.testBackend = async () => {
   const url = $('#s_url').value.trim(); if(!url){ toast('Enter the Web app URL first', 'warn'); return; }
