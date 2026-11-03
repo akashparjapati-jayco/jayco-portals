@@ -11,7 +11,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-database-compat.js"></script>
-<link rel="stylesheet" href="erp.css?v=202611030448">
+<link rel="stylesheet" href="erp.css?v=202611030531">
 <script>window.ERP_MODE = 'admin';</script>
 </head>
 <body>
@@ -26,41 +26,41 @@
 
 <div class="app" id="app" style="display:none">
   <aside>
-    <div class="logo"><i>◆</i><span>JAYCO <b>ERP</b></span></div><div class="sub">PLUMMER BLOCK WORKS</div>
+    <div class="logo"><i>J</i><span>Jayco <b>ERP</b></span></div><div class="sub">Plummer Block Works</div>
     <div class="grp">Entry</div>
-    <a data-nav="entry">✎ Entry Desk <span class="n" id="nDocs"></span></a>
+    <a data-nav="entry"><span class="ni" style="--ic:#0071E3"><svg viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></span>Entry Desk<span class="n" id="nDocs"></span></a>
     <div class="grp">Track</div>
-    <a data-nav="dashboard">▦ Dashboard</a>
-    <a data-nav="orders">▤ Order Tracker <span class="n" id="nOrders"></span></a>
-    <a data-nav="wip">◫ Shop-floor Board <span class="n" id="nWip"></span></a>
-    <a data-nav="moves">☰ Moves Log</a>
+    <a data-nav="dashboard"><span class="ni" style="--ic:#1D1D1F"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg></span>Dashboard</a>
+    <a data-nav="orders"><span class="ni" style="--ic:#FF6A2B"><svg viewBox="0 0 24 24"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4h6v3H9zM9 12h6M9 16h4"/></svg></span>Order Tracker<span class="n" id="nOrders"></span></a>
+    <a data-nav="wip"><span class="ni" style="--ic:#7C3AED"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></span>Shop-Floor Board<span class="n" id="nWip"></span></a>
+    <a data-nav="moves"><span class="ni" style="--ic:#64748B"><svg viewBox="0 0 24 24"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg></span>Moves Log</a>
     <div class="grp">Money</div>
-    <a data-nav="outstanding">₹ Outstanding Payments <span class="n" id="nOut"></span></a>
-    <a data-nav="payables">⇣ Vendor Payables <span class="n" id="nPay"></span></a>
-    <div class="grp">Master data</div>
-    <a data-nav="customers">◉ Customer Master <span class="n" id="nCust"></span></a>
+    <a data-nav="outstanding"><span class="ni" style="--ic:#00A86B"><svg viewBox="0 0 24 24"><path d="M12 3v18M17 7H9.5a3 3 0 0 0 0 6h5a3 3 0 0 1 0 6H6"/></svg></span>Outstanding Payments<span class="n" id="nOut"></span></a>
+    <a data-nav="payables"><span class="ni" style="--ic:#E5322D"><svg viewBox="0 0 24 24"><path d="M12 4v14M6 12l6 6 6-6"/></svg></span>Vendor Payables<span class="n" id="nPay"></span></a>
+    <div class="grp">Master Data</div>
+    <a data-nav="customers"><span class="ni" style="--ic:#0891B2"><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v2"/><circle cx="10" cy="7" r="4"/><path d="M21 21v-2a4 4 0 0 0-3-3.9"/></svg></span>Customer Master<span class="n" id="nCust"></span></a>
     <div class="grp">Cost</div>
-    <a data-nav="costing">₹ Product Costing</a>
-    <a data-nav="parts">⚙ Bought-out Parts <span class="n" id="nParts"></span></a>
-    <a data-nav="settings">⚙ Settings &amp; Defaults</a>
-    <div class="grp">Order-to-dispatch flow</div>
-    <a href="sales-crm.html">1 · Inquiry &amp; Quotation</a>
-    <a href="po-management.html">2 · Customer PO</a>
-    <a href="casting-control.html">3 · Casting &amp; Pattern</a>
-    <a href="production.html">4 · Production</a>
-    <a href="store-control.html">5 · Store &amp; Tools</a>
-    <a href="dispatch-board.html">6 · Packing &amp; Dispatch</a>
-    <a href="customer-portal.html">7 · Customer Accounts</a>
-    <a href="vendor-payments.html">8 · Vendor Payments</a>
+    <a data-nav="costing"><span class="ni" style="--ic:#D97706"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9 8h6M9 11h6M12 11c2 0 3 1 3 2.5S13.5 16 12 16H9l5 3"/></svg></span>Product Costing</a>
+    <a data-nav="parts"><span class="ni" style="--ic:#B4237A"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1 7 17M17 7l2.1-2.1"/></svg></span>Bought-Out Parts<span class="n" id="nParts"></span></a>
+    <a data-nav="settings"><span class="ni" style="--ic:#8E8E93"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z"/></svg></span>Settings &amp; Defaults</a>
+    <div class="grp">Order To Dispatch</div>
+    <a href="sales-crm.html"><span class="nn">1</span>Inquiry &amp; Quotation</a>
+    <a href="po-management.html"><span class="nn">2</span>Customer PO</a>
+    <a href="casting-control.html"><span class="nn">3</span>Casting &amp; Pattern</a>
+    <a href="production.html"><span class="nn">4</span>Production</a>
+    <a href="store-control.html"><span class="nn">5</span>Store &amp; Tools</a>
+    <a href="dispatch-board.html"><span class="nn">6</span>Packing &amp; Dispatch</a>
+    <a href="customer-portal.html"><span class="nn">7</span>Customer Accounts</a>
+    <a href="vendor-payments.html"><span class="nn">8</span>Vendor Payments</a>
     <div class="grp">&nbsp;</div>
-    <a href="index.html">← All portals</a>
-    <a id="lgOut">⎋ Log out</a>
+    <a href="index.html"><span class="nn">←</span>All Portals</a>
+    <a id="lgOut"><span class="nn">⎋</span>Log Out</a>
   </aside>
   <main><div class="top"><div><h1 id="ttl"></h1><div class="sub2" id="sub2"></div></div><div class="sp" id="topr"></div></div><div id="view"></div></main>
 </div>
 <div id="toast"></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<script src="erp-app.js?v=202611030448"></script>
+<script src="erp-app.js?v=202611030531"></script>
 </body>
 </html>

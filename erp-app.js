@@ -206,14 +206,14 @@ function outMessage(){
 }
 function moneyCard(){
   ensureOut();
-  const head = `<div class="card-h"><h3>Money to collect</h3><span class="hint">from the Customer Portal${OUT.state === 'ok' ? ' · updated ' + new Date(OUT.at).toLocaleTimeString('en-IN', {hour: '2-digit', minute: '2-digit'}) : ''}</span><a class="btn sm" href="#outstanding" style="margin-left:auto;text-decoration:none">All outstanding →</a></div>`;
+  const head = `<div class="card-h"><h3>Money To Collect</h3><span class="hint">from the Customer Portal${OUT.state === 'ok' ? ' · updated ' + new Date(OUT.at).toLocaleTimeString('en-IN', {hour: '2-digit', minute: '2-digit'}) : ''}</span><a class="btn sm" href="#outstanding" style="margin-left:auto;text-decoration:none">All outstanding →</a></div>`;
   if(OUT.state !== 'ok') return `<div class="card">${head}${outMessage()}</div>`;
   const T = outTotals(), top = OUT.list.slice().sort((a, b) => num(b.total) - num(a.total)).slice(0, 5);
   return `<div class="card">${head}<div class="card-b"><div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:28px">
     <div><div style="display:flex;gap:28px;flex-wrap:wrap;margin-bottom:16px">
-      <div><div class="hint">Outstanding</div><div style="font-size:30px;font-weight:700;font-family:'Space Grotesk'">${inrC(T.net)}</div><div class="hint">${T.n} customers</div></div>
-      <div><div class="hint">Overdue</div><div style="font-size:30px;font-weight:700;font-family:'Space Grotesk';color:var(--crit)">${inrC(T.overdue)}</div><div class="hint">${T.nOver} customers</div></div>
-      <div><div class="hint">Over 90 days</div><div style="font-size:30px;font-weight:700;font-family:'Space Grotesk';color:#7F1D1D">${inrC(T.d90)}</div></div></div>
+      <div><div class="hint">Outstanding</div><div style="font-size:30px;font-weight:700;font-family:var(--font)">${inrC(T.net)}</div><div class="hint">${T.n} customers</div></div>
+      <div><div class="hint">Overdue</div><div style="font-size:30px;font-weight:700;font-family:var(--font);color:var(--crit)">${inrC(T.overdue)}</div><div class="hint">${T.nOver} customers</div></div>
+      <div><div class="hint">Over 90 days</div><div style="font-size:30px;font-weight:700;font-family:var(--font);color:#7F1D1D">${inrC(T.d90)}</div></div></div>
       ${ageBar(T.b)}</div>
     <div><div class="hint" style="margin-bottom:4px">Top 5 customers by outstanding</div>${top.map(r => `<div class="debt" onclick="custDue(${jsq(r.custId)})"><span class="nm">${esc(r.name)}</span><span class="amt">${inrC(r.total)}</span><span class="hint">${overdueOf(r) > 0 ? '<b style="color:var(--crit)">' + inrC(overdueOf(r)) + ' overdue</b>' : 'not yet due'}</span><span class="hint" style="text-align:right">${num(r.b90plus) > 0 ? inrC(r.b90plus) + ' over 90 d' : ''}</span></div>`).join('')}</div>
   </div></div></div>`;
@@ -691,10 +691,10 @@ function venMessage(){
 }
 function payCard(){
   ensureVen();
-  const head = `<div class="card-h"><h3>Money to pay</h3><span class="hint">from Vendor Payments${VEN.state === 'ok' ? ' · updated ' + new Date(VEN.at).toLocaleTimeString('en-IN', {hour: '2-digit', minute: '2-digit'}) : ''}</span><a class="btn sm" href="#payables" style="margin-left:auto;text-decoration:none">All payables →</a></div>`;
+  const head = `<div class="card-h"><h3>Money To Pay</h3><span class="hint">from Vendor Payments${VEN.state === 'ok' ? ' · updated ' + new Date(VEN.at).toLocaleTimeString('en-IN', {hour: '2-digit', minute: '2-digit'}) : ''}</span><a class="btn sm" href="#payables" style="margin-left:auto;text-decoration:none">All payables →</a></div>`;
   if(VEN.state !== 'ok') return `<div class="card">${head}${venMessage()}</div>`;
   const T = venTotals(), top = T.R.slice().sort((a, b) => b.total - a.total).slice(0, 5), net = OUT.state === 'ok' ? outTotals().net - T.total : null;
-  const big = (label, v, color, note) => `<div><div class="hint">${label}</div><div style="font-size:30px;font-weight:700;font-family:'Space Grotesk'${color ? ';color:' + color : ''}">${v}</div><div class="hint">${note || ''}</div></div>`;
+  const big = (label, v, color, note) => `<div><div class="hint">${label}</div><div style="font-size:30px;font-weight:700;font-family:var(--font)${color ? ';color:' + color : ''}">${v}</div><div class="hint">${note || ''}</div></div>`;
   return `<div class="card">${head}<div class="card-b">
     ${T.msme45 > 0.5 ? `<div class="banner crit" style="margin-bottom:16px"><span style="font-size:18px">⚠</span><div style="flex:1"><b>${inr0(T.msme45)}</b> owed to <b>${T.nMsme}</b> MSME (micro/small) supplier${T.nMsme > 1 ? 's' : ''} for more than 45 days — under Sec 43B(h) this expense is disallowed until paid.</div><a class="btn sm" href="#payables" style="text-decoration:none">View</a></div>` : ''}
     <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:28px">
@@ -769,7 +769,7 @@ function vDash(){
   const quotesOut = QUOTES.filter(q => q.status === 'Sent').length, quotesWait = QUOTES.filter(q => q.status === 'Pending approval').length;
   const mx = Math.max(1, notStarted, ...wipBy.map(w => w.cnt));
   $('#view').innerHTML = `
-  <div class="card"><div class="card-h"><h3>Order-to-dispatch pipeline</h3><span class="hint">live from Sales, PO Management and this tracker</span></div><div class="card-b">
+  <div class="card"><div class="card-h"><h3>Order-To-Dispatch Pipeline</h3><span class="hint">live from Sales, PO Management and this tracker</span></div><div class="card-b">
     <div class="flow">
       <div class="st"><div class="k">Open inquiries</div><div class="v">${openLeads}</div><a href="sales-crm.html#leads">Sales →</a></div>
       <div class="st"><div class="k">Quotes out</div><div class="v">${quotesOut}</div><div class="hint">${quotesWait} awaiting approval</div></div>
@@ -787,12 +787,12 @@ function vDash(){
     <div class="stat" style="--c:#c27803"><div class="k">Costing sheets</div><div class="v">${Object.keys(COST).length}</div><div class="n">of ${new Set([...RATES.map(r=>r.itemCode),...ITEMS_PO.map(i=>i.itemCode)]).size} items</div></div>
     <div class="stat" style="--c:#1a8f4c"><div class="k">Scrapped pieces</div><div class="v">${Object.values(STG).reduce((a,s)=>a+num(s.scrapQty),0)}</div><div class="n">logged in tracker</div></div>
   </div>
-  <div class="card"><div class="card-h"><h3>Work in process by stage</h3></div><div class="card-b">
+  <div class="card"><div class="card-h"><h3>Work In Process By Stage</h3></div><div class="card-b">
     ${[{n:'Not started',c:'#bfc3cc',v:notStarted}, ...wipBy.map(w => ({n:w.n, c:w.c, v:w.cnt}))].map(w => `
       <div style="display:grid;grid-template-columns:170px 1fr 60px;gap:10px;align-items:center;margin-bottom:8px"><span>${w.n}</span>
       <div class="bar" style="height:14px"><i style="width:${w.v/mx*100}%;background:${w.c}"></i></div><b class="num">${w.v}</b></div>`).join('')}
   </div></div>
-  <div class="card"><div class="card-h"><h3>Overdue orders</h3></div>${overdue.length ? `<div class="tw"><table><thead><tr><th>PO</th><th>Customer</th><th>Due</th><th class="num">Late</th><th class="num">Pending pcs</th><th>Status</th></tr></thead><tbody>
+  <div class="card"><div class="card-h"><h3>Overdue Orders</h3></div>${overdue.length ? `<div class="tw"><table><thead><tr><th>PO</th><th>Customer</th><th>Due</th><th class="num">Late</th><th class="num">Pending pcs</th><th>Status</th></tr></thead><tbody>
     ${overdue.sort((a,b)=>lateDays(b.p)-lateDays(a.p)).slice(0,12).map(x => `<tr class="click" onclick="go('order/${x.p.id}')"><td class="mono"><b>${esc(x.p.poNo)}</b></td><td>${esc(x.p.customerName)}</td><td>${fmtD(x.p.deliveryDate)}</td><td class="num"><span class="pill crit">${lateDays(x.p)} d</span></td><td class="num">${x.s.open}</td><td><span class="pill ${x.s.cls}">${x.s.label}</span></td></tr>`).join('')}</tbody></table></div>` : '<div class="empty">No overdue orders 🎉</div>'}</div>`;
 }
 
@@ -926,7 +926,7 @@ let WQ = '', WST = '';
 /* Shop-floor board: stage tabs with piece counts, then one compact card per open order line.
    Only the stages that actually hold pieces are shown, so nothing runs off the right of the screen. */
 function vWip(){
-  $('#ttl').textContent = 'Shop-floor Board';
+  $('#ttl').textContent = 'Shop-Floor Board';
   $('#view').innerHTML = `<div class="card"><div class="card-b" style="padding-bottom:10px"><div id="wtabs" class="wtabs"></div>
     <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:12px"><input id="wq" placeholder="Search item, PO, customer…" value="${esc(WQ)}" style="max-width:320px">
     <span class="hint">Tap a stage to see only the lines with pieces there. Tap a line to open its order.</span></div>
