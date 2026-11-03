@@ -744,6 +744,7 @@ tbody tr:hover td{background:#F9F9FB}
     </div>
     <div class="modal-body" id="modal-stmt-body"></div>
     <div class="modal-footer">
+      <button class="btn btn-primary" onclick="copyReminder(S.stmtCustId)">📋 Copy payment reminder</button>
       <button class="btn btn-secondary" onclick="printStatement()">🖨️ Print</button>
       <button class="btn btn-secondary" onclick="closeModal('modal-statement')">Close</button>
     </div>
@@ -1054,6 +1055,33 @@ function custAdvance(custId) {
   return Math.max(0, totalPaid - totalAlloc);
 }
 function customerName(custId) { const cid=String(custId); const c = S.customers.find(c=>String(c.custId)===cid); return c?c.name:'Unknown'; }
+// Payment reminder text (same wording as the ERP "Copy payment reminder")
+function reminderText(custId) {
+  const cid = String(custId);
+  const inr0 = n => '₹' + Math.round(parseFloat(n||0)).toLocaleString('en-IN');
+  const total = custOutstanding(cid);
+  const od = S.bills
+    .filter(b => String(b.custId)===cid && b.status!=='closed')
+    .map(b => ({ b, bal: billBalance(b.billId), dpd: daysPastDue(b.dueDate) }))
+    .filter(x => x.bal > 0.5 && x.dpd !== null && x.dpd > 0)
+    .sort((a, c) => c.dpd - a.dpd);
+  return `Dear ${customerName(cid)},\n\nAs per our records, an amount of ${inr0(total)} is outstanding against your account with JAYCO Engineering India.` +
+    (od.length ? `\n\nOverdue bills:\n${od.map(x => `• ${x.b.billNo || ''} (due ${fmtDate(x.b.dueDate)}, ${x.dpd} days overdue) — ${inr0(x.bal)}`).join('\n')}` : '') +
+    `\n\nKindly arrange the payment at the earliest and share the UTR / reference. Please ignore this message if already paid.\n\nRegards,\nAccounts — JAYCO Engineering India`;
+}
+async function copyReminder(custId) {
+  if (!custId && custId !== 0) return toast('Select a customer', 'error');
+  if (custOutstanding(custId) <= 0.5) return toast('No outstanding amount for ' + customerName(custId), 'info');
+  const txt = reminderText(custId);
+  try { await navigator.clipboard.writeText(txt); toast('Reminder copied — paste it in WhatsApp or email', 'success'); }
+  catch (e) {
+    const ta = document.createElement('textarea'); ta.value = txt; ta.style.cssText = 'position:fixed;top:-1000px';
+    document.body.appendChild(ta); ta.select();
+    let ok = false; try { ok = document.execCommand('copy'); } catch (_) {}
+    ta.remove();
+    if (ok) toast('Reminder copied — paste it in WhatsApp or email', 'success'); else window.prompt('Copy this reminder:', txt);
+  }
+}
 
 // ── DASHBOARD ────────────────────────────────────────────────
 function renderDashboard() {
@@ -1189,7 +1217,7 @@ ${hasNoAllocs ? `<div style="background:#fef3c7;border:1px solid #fde68a;border-
               <td>${ag.b61>0?`<span style="color:var(--danger);font-weight:600">${fmt(ag.b61)}</span>`:'—'}</td>
               <td>${ag.b90>0?`<span style="color:var(--danger);font-weight:800">${fmt(ag.b90)}</span>`:'—'}</td>
               <td class="text-right"><strong>${fmt(d.out)}</strong></td>
-              <td><button class="btn btn-secondary btn-xs" onclick="showStatement('${d.custId}')">Statement</button></td>
+              <td><button class="btn btn-secondary btn-xs" onclick="showStatement('${d.custId}')">Statement</button> <button class="btn btn-secondary btn-xs" title="Copy payment reminder" onclick="copyReminder('${d.custId}')">📋 Reminder</button></td>
             </tr>`;
           }).join('')}
       </tbody>
@@ -1253,7 +1281,7 @@ function renderCustomers(filter) {
               <td class="text-right">${out>0?`<strong style="color:var(--danger)">${fmt(out)}</strong>`:`<span style="color:var(--success)">✓ Nil</span>`}</td>
               <td>
                 <div style="display:flex;gap:6px">
-                  <button class="btn btn-secondary btn-xs" onclick="showStatement('${c.custId}')">Statement</button>
+                  <button class="btn btn-secondary btn-xs" onclick="showStatement('${c.custId}')">Statement</button> <button class="btn btn-secondary btn-xs" title="Copy payment reminder" onclick="copyReminder('${c.custId}')">📋 Reminder</button>
                   <button class="btn btn-secondary btn-xs" onclick="openCustomerModal('${c.custId}')">Edit</button>
                   <button class="btn btn-danger btn-xs" onclick="confirmDelete('customer','${c.custId}','${esc(c.name)}')">Del</button>
                 </div>
@@ -1838,7 +1866,7 @@ ${Object.entries(buckets).filter(([k,b])=>b.bills.length>0).map(([key,b])=>`
             <td>${bill.custName}</td>
             <td>${bill.dueDate?fmtDate(bill.dueDate):'<span style="color:var(--muted)">No due date</span>'}</td>
             <td class="text-right"><strong>${fmt(bill.balance)}</strong></td>
-            <td><button class="btn btn-secondary btn-xs" onclick="showStatement('${bill.custId}')">Statement</button></td>
+            <td><button class="btn btn-secondary btn-xs" onclick="showStatement('${bill.custId}')">Statement</button> <button class="btn btn-secondary btn-xs" title="Copy payment reminder" onclick="copyReminder('${bill.custId}')">📋 Reminder</button></td>
           </tr>`).join('')}
       </tbody>
     </table>
@@ -1951,7 +1979,7 @@ function renderOutstanding() {
               <div class="seg" style="background:#ef4444;flex:${c.b90||0.01}"></div>
             </div>
           </td>
-          <td><button class="btn btn-secondary btn-xs" onclick="showStatement('${c.custId}')">Statement</button></td>
+          <td><button class="btn btn-secondary btn-xs" onclick="showStatement('${c.custId}')">Statement</button> <button class="btn btn-secondary btn-xs" title="Copy payment reminder" onclick="copyReminder('${c.custId}')">📋 Reminder</button></td>
         </tr>`).join('')}
       </tbody>
       <tfoot>
@@ -2064,7 +2092,7 @@ function renderAdvanceReport() {
           </td>
           <td>
             <div style="display:flex;gap:6px">
-              <button class="btn btn-secondary btn-xs" onclick="showStatement('${c.custId}')">Statement</button>
+              <button class="btn btn-secondary btn-xs" onclick="showStatement('${c.custId}')">Statement</button> <button class="btn btn-secondary btn-xs" title="Copy payment reminder" onclick="copyReminder('${c.custId}')">📋 Reminder</button>
               <button class="btn btn-primary btn-xs" onclick="openBillModal();setTimeout(()=>billCustSearch&&billCustSearch.setValue('${c.custId}'),150)">+ Bill</button>
             </div>
           </td>
@@ -2106,6 +2134,7 @@ function showStatement(custId) {
   const cid  = String(custId);
   const cust = S.customers.find(c => String(c.custId) === cid);
   if (!cust) return toast('Customer not found', 'error');
+  S.stmtCustId = cid;
 
   const allocMap    = {};
   const payAllocMap = {};
@@ -2567,7 +2596,7 @@ function globalSearch(q) {
             <td>${c.gstin||'—'}</td>
             <td class="text-right"><strong>${fmt(custOutstanding(c.custId))}</strong></td>
             <td><div style="display:flex;gap:6px">
-              <button class="btn btn-secondary btn-xs" onclick="showStatement('${c.custId}')">Statement</button>
+              <button class="btn btn-secondary btn-xs" onclick="showStatement('${c.custId}')">Statement</button> <button class="btn btn-secondary btn-xs" title="Copy payment reminder" onclick="copyReminder('${c.custId}')">📋 Reminder</button>
               <button class="btn btn-primary btn-xs" onclick="openPaymentModal('${c.custId}')">+ Payment</button>
             </div></td>
           </tr>`).join('')}
