@@ -1398,10 +1398,10 @@ function viewSettings(){
     <div class="note" style="margin-top:12px">Give each salesperson their own login (Firebase Console → Authentication → Add user). The role is decided by the email used to sign in.</div></div></div></div>
   <div class="card"><div class="card-h"><h3>Email & lead backend</h3><div class="sp"><button class="btn sm" data-act="testBackend">Test email backend</button></div></div><div class="card-b"><div class="form">
     ${fld('Web app URL (Apps Script /exec)', `<input id="s_url" value="${esc(SET.scriptUrl)}" placeholder="https://script.google.com/macros/s/…/exec">`, {cls:'full'})}
-    ${fld('Backend key', `<input id="s_key" type="password" value="${esc(SET.scriptKey)}" autocomplete="off">`)}${fld('Website form key', `<input id="s_wkey" value="${esc(SET.webformKey)}">`)}</div></div></div>
+    ${fld('Backend key', `<input id="s_key" type="text" name="lead-backend-key" value="${esc(SET.scriptKey)}" style="-webkit-text-security:disc" autocomplete="off" autocapitalize="off" spellcheck="false" data-lpignore="true" data-1p-ignore>`)}${fld('Website form key', `<input id="s_wkey" value="${esc(SET.webformKey)}">`)}</div></div></div>
   <div class="card"><div class="card-h"><h3>Customer Portal link (Customer Master)</h3><div class="sp"><button class="btn sm" data-act="testCms">Test Customer Portal link</button></div></div><div class="card-b"><div class="form">
     ${fld('Customer Portal Apps Script URL', `<input id="s_cmsurl" value="${esc(SET.cmsUrl)}" placeholder="https://script.google.com/macros/s/…/exec">`, {cls:'full'})}
-    ${fld('Customer Portal auth token', `<div style="display:flex;gap:6px"><input id="s_cmstoken" type="password" value="${esc(SET.cmsToken)}" autocomplete="off" spellcheck="false"><button class="btn sm" type="button" data-act="toggleCmsTok">Show</button></div>`)}<div id="cmsTestRes" class="full" style="font-weight:600"></div></div>
+    ${fld('Customer Portal auth token', `<div style="display:flex;gap:6px"><input id="s_cmstoken" type="text" name="cms-link-token" value="${esc(SET.cmsToken)}" style="-webkit-text-security:disc" autocomplete="off" autocapitalize="off" spellcheck="false" data-lpignore="true" data-1p-ignore><button class="btn sm" type="button" data-act="toggleCmsTok">Show</button></div>`)}<div id="cmsTestRes" class="full" style="font-weight:600"></div></div>
     <div class="note" style="margin-top:12px">Same URL and token you use in the Customer Portal. Customers added there then appear in the quotation customer dropdown. ${CMS_STATUS === 'ok' ? '<b>Connected ✔</b>' : esc(CMS_STATUS)}</div></div></div>
   <div class="card"><div class="card-h"><h3>Setup guide — connect Gmail, IndiaMART and your website (10 minutes, once)</h3></div><div class="card-b" style="line-height:1.7">
     <ol style="margin:0;padding-left:20px">
@@ -1421,12 +1421,13 @@ ACT.saveSettings = async () => {
   const data = {company: {name: g('s_name'), tagline: g('s_tag'), addr1: g('s_a1'), addr2: g('s_a2'), addr3: g('s_a3'), gstin: g('s_gstin'), pan: g('s_pan'), state: g('s_state'), phone: g('s_phone'), email: g('s_email'), web: g('s_web'), bank: ''},
     validityDays: num(g('s_valid')) || 30, defaultGst: num(g('s_gst')), freightGst: num(g('s_fgst')), followUpDays: num(g('s_fu')) || 7, paymentTerms: g('s_pay'), deliveryTerms: g('s_del'), terms: list('s_terms'),
     admins: list('s_admins').map(x => x.toLowerCase()), approvalLimit: num(g('s_limit')), digestTo: g('s_digest'), scriptUrl: g('s_url'), scriptKey: g('s_key'), webformKey: g('s_wkey'), cmsUrl: g('s_cmsurl'), cmsToken: g('s_cmstoken')};
+  if(data.cmsUrl && data.cmsToken && data.cmsToken.length < 12 && !confirm('The Customer Portal token is only ' + data.cmsToken.length + ' characters — that looks like the OLD token (or a browser autofill), and the ERP money cards will stop working.\n\nSave it anyway?')) return;
   if(data.admins.length && !data.admins.includes((me() || '').toLowerCase()) && !confirm('You are not in the admin list — you will lose admin access after saving. Continue?')) return;
   await DB.set('crm_settings', 'main', data); SET = {...DEFAULT_SETTINGS, ...data, company: {...DEFAULT_SETTINGS.company, ...data.company}, terms: data.terms.length ? data.terms : DEFAULT_TERMS};
   await loadAll(); toast('Settings saved'); const r = $('#roleTag'); r.textContent = isAdmin() ? 'admin' : 'sales'; r.className = 'role ' + (isAdmin() ? 'admin' : ''); viewSettings();
 };
 // Test the Customer Portal link with the values typed in the boxes (before saving)
-ACT.toggleCmsTok = el => { const i = $('#s_cmstoken'); i.type = i.type === 'password' ? 'text' : 'password'; el.textContent = i.type === 'password' ? 'Show' : 'Hide'; };
+ACT.toggleCmsTok = el => { const i = $('#s_cmstoken'), hidden = i.style.webkitTextSecurity !== 'none'; i.style.webkitTextSecurity = hidden ? 'none' : 'disc'; el.textContent = hidden ? 'Hide' : 'Show'; };
 ACT.testCms = async () => {
   const url = $('#s_cmsurl').value.trim(), token = $('#s_cmstoken').value.trim(), out = $('#cmsTestRes');
   const show = (ok, msg) => { out.style.color = ok ? 'var(--ok)' : 'var(--crit)'; out.textContent = msg; };
