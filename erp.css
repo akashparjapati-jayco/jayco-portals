@@ -122,3 +122,112 @@ tr.click{cursor:pointer}tr.click:hover td{background:#FAFBFD}
 .stb.dim{opacity:.4;pointer-events:none}
 .syncbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:12px;padding:10px 12px;border:1px dashed var(--line);border-radius:10px;font-size:13px}
 @media(max-width:900px){.app{grid-template-columns:1fr}aside{position:static;height:auto}.form{grid-template-columns:1fr}main{padding:0 14px 30px}.top{position:static}}
+
+/* =====================================================================
+   APPLE-STYLE THEME LAYER — overrides the base look above.
+   Light canvas, frosted sidebar with coloured app icons, large titles,
+   rounded tiles with soft depth, pill controls, refined tables.
+   ===================================================================== */
+:root{--bg:#F5F5F7;--panel:#FFFFFF;--ink:#1D1D1F;--soft:#515154;--faint:#86868B;--line:#E5E5EA;--line2:#F0F0F3;
+  --brand:#0071E3;--brand-d:#0062C4;--ok:#1A7F37;--okbg:#E8F7EC;--warn:#B25000;--warnbg:#FFF2DE;--crit:#D70015;--critbg:#FFE9EB;--blue:#0071E3;--bluebg:#E6F1FD;
+  --r:22px;--sh:0 1px 1px rgba(0,0,0,.02),0 6px 24px -10px rgba(0,0,0,.14);
+  --font:-apple-system,BlinkMacSystemFont,"SF Pro Display","SF Pro Text","Helvetica Neue",Inter,Arial,sans-serif}
+body{font-family:var(--font);letter-spacing:-.01em;background:var(--bg)}
+h1,h2,h3{font-family:var(--font);letter-spacing:-.025em;font-weight:700}
+.mono{font-family:"SF Mono",ui-monospace,Menlo,monospace;letter-spacing:0}
+input,select,textarea{border:1px solid #D2D2D7;border-radius:12px;padding:10px 12px;background:#fff;transition:border-color .2s,box-shadow .2s}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--blue);box-shadow:0 0 0 4px rgba(0,113,227,.15)}
+
+/* sidebar: frosted white, Apple "Settings" style icons */
+.app{grid-template-columns:264px 1fr}
+aside{background:rgba(250,250,252,.82);backdrop-filter:saturate(180%) blur(24px);-webkit-backdrop-filter:saturate(180%) blur(24px);color:var(--ink);border-right:1px solid rgba(0,0,0,.07);padding:22px 14px 28px}
+aside .logo{font-family:var(--font);font-size:20px;letter-spacing:-.02em;padding:2px 8px;gap:11px}
+aside .logo i{width:34px;height:34px;border-radius:10px;background:linear-gradient(145deg,#FF6A2B,#E5322D 55%,#B4237A);font-weight:800;font-size:17px;color:#fff;box-shadow:0 6px 16px -6px rgba(229,50,45,.7)}
+aside .logo b{color:var(--ink);font-weight:700}
+aside .sub{color:var(--faint);letter-spacing:0;font-size:12px;padding:2px 10px 16px 53px;text-transform:none}
+aside .grp{color:var(--faint);letter-spacing:.02em;text-transform:none;font-size:12px;font-weight:600;padding:16px 10px 6px}
+aside a{color:#1D1D1F;font-weight:500;font-size:14px;padding:7px 10px;border-radius:10px;gap:11px}
+aside a:hover{background:rgba(0,0,0,.05);color:#000}
+aside a.on{background:var(--blue);color:#fff;box-shadow:0 6px 16px -8px rgba(0,113,227,.8)}
+aside a .n{background:rgba(0,0,0,.07);color:var(--soft);font-weight:600}
+aside a.on .n{background:rgba(255,255,255,.25);color:#fff}
+.ni{width:26px;height:26px;border-radius:7px;flex:none;display:inline-flex;align-items:center;justify-content:center;background:var(--ic);box-shadow:inset 0 1px 0 rgba(255,255,255,.25),0 1px 2px rgba(0,0,0,.15)}
+.ni svg{width:15px;height:15px;fill:none;stroke:#fff;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+aside a.on .ni{box-shadow:0 0 0 2px rgba(255,255,255,.55)}
+.nn{width:26px;height:26px;border-radius:7px;flex:none;display:inline-flex;align-items:center;justify-content:center;background:#E8E8ED;color:var(--soft);font-size:12px;font-weight:700}
+
+/* page header: large Apple title */
+main{padding:0 36px 48px}
+.top{background:linear-gradient(var(--bg) 78%,rgba(245,245,247,0));padding:28px 0 18px}
+.top h1{font-size:34px;letter-spacing:-.035em}
+.top .sub2{font-size:14px;color:var(--faint);margin-top:4px}
+
+/* cards & tiles */
+.card{border:none;border-radius:var(--r);box-shadow:var(--sh);margin-bottom:22px}
+.card-h{padding:18px 22px;border-bottom:1px solid var(--line2)}
+.card-h h3{font-size:17px;letter-spacing:-.02em}
+.card-b{padding:22px}
+.stat{border:none;border-radius:var(--r);box-shadow:var(--sh);padding:20px 22px 18px;background:#fff}
+.stat:before{left:22px;right:auto;top:0;bottom:auto;width:36px;height:4px;border-radius:0 0 4px 4px}
+.stat .k{text-transform:none;letter-spacing:0;font-size:13px;color:var(--faint);font-weight:500}
+.stat .v{font-family:var(--font);font-size:32px;letter-spacing:-.035em;margin:6px 0 2px}
+.flow .st{border:none;background:#fff;margin-left:0;border-radius:0;box-shadow:none}
+.flow{gap:1px;background:var(--line2);border-radius:18px;overflow:hidden}
+.flow .st:first-child,.flow .st:last-child{border-radius:0}
+.flow .st .v{font-family:var(--font);font-size:30px;letter-spacing:-.03em}
+.flow .st .k{text-transform:none;letter-spacing:0;font-size:12.5px;font-weight:500}
+.flow .st a{color:var(--blue);font-weight:500}
+
+/* buttons: Apple pills */
+.btn{border-radius:980px;border:1px solid #D2D2D7;padding:8px 16px;font-weight:500;background:#fff}
+.btn:hover{background:#F5F5F7}
+.btn.pri{background:var(--blue);border-color:var(--blue);box-shadow:none}
+.btn.pri:hover{background:var(--brand-d)}
+.btn.sm{padding:5px 12px;border-radius:980px}
+
+/* tables */
+th{background:transparent;text-transform:none;letter-spacing:0;font-size:12.5px;font-weight:600;color:var(--faint);padding:12px 16px;border-bottom:1px solid var(--line)}
+td{padding:14px 16px;border-bottom:1px solid var(--line2)}
+tr.click:hover td{background:#F9F9FB}
+td.mono b,td .mono{font-size:13.5px}
+.pill{border-radius:980px;padding:3px 11px;font-weight:600;font-size:12px}
+.bar{height:6px;border-radius:6px;background:#EEEEF2}
+.seg{height:12px;border-radius:12px}
+.chip{border-radius:980px;padding:3px 10px;font-size:12px}
+.banner{border-radius:16px}
+
+/* shop-floor board, entry desk */
+.wtab{border:none;border-radius:18px;box-shadow:var(--sh);border-top:none;position:relative;overflow:hidden;padding:14px 14px 12px}
+.wtab:before{content:"";position:absolute;left:14px;top:0;width:28px;height:4px;border-radius:0 0 4px 4px;background:var(--c)}
+.wtab.on{background:color-mix(in srgb,var(--c) 9%,white);box-shadow:0 0 0 2px var(--c),var(--sh)}
+.wtab b{font-family:var(--font);font-size:24px;letter-spacing:-.03em}
+.wrow{padding:16px 22px}
+.stb{border-radius:14px}
+.syncbar{border-radius:14px;border-style:solid;background:#FAFAFC}
+
+/* modal */
+.ovl{background:rgba(0,0,0,.28);backdrop-filter:blur(10px)}
+.modal{border-radius:24px;box-shadow:0 40px 100px rgba(0,0,0,.28)}
+.modal-h{padding:20px 24px;border-bottom:1px solid var(--line2)}
+.modal-h h3{font-size:19px}
+.modal-b{padding:22px 24px}.modal-f{padding:16px 24px;border-top:1px solid var(--line2)}
+.sumbox{border:none;background:#F5F5F7;border-radius:16px}
+
+/* login */
+#login{background:radial-gradient(900px 500px at 50% -10%,#E6F1FD,transparent),var(--bg)}
+#login .box{border-radius:26px;box-shadow:0 30px 80px -20px rgba(0,0,0,.25)}
+#login h2{font-size:28px;letter-spacing:-.03em}
+#toast{border-radius:14px;background:rgba(29,29,31,.92);backdrop-filter:blur(10px)}
+
+/* entry-desk / shop-floor top bar */
+.ebar{background:rgba(250,250,252,.82)!important;backdrop-filter:saturate(180%) blur(20px);color:var(--ink)!important;border-bottom:1px solid rgba(0,0,0,.08)}
+.ebar .logo b{color:var(--ink)!important}
+.ebar .logo i{background:linear-gradient(145deg,#FF6A2B,#E5322D 55%,#B4237A)!important}
+.ebar .hint{color:var(--faint)!important}
+
+/* subtle entrance */
+#view>*{animation:rise .45s cubic-bezier(.2,.8,.2,1) both}
+#view>*:nth-child(2){animation-delay:.04s}#view>*:nth-child(3){animation-delay:.08s}#view>*:nth-child(4){animation-delay:.12s}
+@keyframes rise{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+@media(prefers-reduced-motion:reduce){#view>*{animation:none}}
+@media(max-width:900px){main{padding:0 16px 30px}aside{border-right:none;border-bottom:1px solid rgba(0,0,0,.07)}}
