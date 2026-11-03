@@ -120,4 +120,5 @@ tr.click{cursor:pointer}tr.click:hover td{background:#FAFBFD}
 .stb input{width:18px;height:18px;margin:0;padding:0;flex:none;accent-color:var(--c)}
 .stb:has(input:checked){background:color-mix(in srgb, var(--c) 12%, white);border-color:var(--c)}
 .stb.dim{opacity:.4;pointer-events:none}
+.syncbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:12px;padding:10px 12px;border:1px dashed var(--line);border-radius:10px;font-size:13px}
 @media(max-width:900px){.app{grid-template-columns:1fr}aside{position:static;height:auto}.form{grid-template-columns:1fr}main{padding:0 14px 30px}.top{position:static}}
