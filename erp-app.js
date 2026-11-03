@@ -47,7 +47,7 @@ firebase.initializeApp(firebaseConfig); db = firebase.firestore();
 $('#lgBtn').onclick = () => {
   $('#lgErr').textContent = '';
   firebase.auth().signInWithEmailAndPassword($('#lgEmail').value.trim(), $('#lgPwd').value)
-    .then(() => localStorage.setItem('crm_email', $('#lgEmail').value.trim()))
+    .then(() => { localStorage.setItem('crm_email', $('#lgEmail').value.trim()); prodSignIn($('#lgPwd').value).catch(() => {}); })
     .catch(e => $('#lgErr').textContent = /password|credential|user-not-found/.test(e.code || '') ? 'Incorrect email or password.' : e.message);
 };
 $('#lgPwd').addEventListener('keydown', e => { if(e.key === 'Enter') $('#lgBtn').click(); });
@@ -60,6 +60,7 @@ firebase.auth().onAuthStateChanged(u => {
 
 async function start(){
   if(started) return; started = true;
+  if(ERP_MODE !== 'entry') setTimeout(() => { autoSync(); setInterval(autoSync, 5 * 60000); }, 4000);
   const snap = (col, fn, order) => (order ? db.collection(col).orderBy(order, 'desc') : db.collection(col)).onSnapshot(s => { fn(s.docs.map(d => ({id:d.id, ...d.data()}))); bump(); render(); }, e => console.warn(col, e.message));
   snap('purchaseOrders', r => PO = r);
   snap('poItems', r => ITEMS_PO = r);
@@ -928,7 +929,9 @@ function vWip(){
   $('#ttl').textContent = 'Shop-floor Board';
   $('#view').innerHTML = `<div class="card"><div class="card-b" style="padding-bottom:10px"><div id="wtabs" class="wtabs"></div>
     <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:12px"><input id="wq" placeholder="Search item, PO, customer…" value="${esc(WQ)}" style="max-width:320px">
-    <span class="hint">Tap a stage to see only the lines with pieces there. Tap a line to open its order.</span></div></div><div id="wbody"></div></div>`;
+    <span class="hint">Tap a stage to see only the lines with pieces there. Tap a line to open its order.</span></div>
+    <div id="syncBar" class="syncbar"></div></div><div id="wbody"></div></div>`;
+  drawSyncBar();
   $('#wq').oninput = e => { WQ = e.target.value; drawWip(); }; drawWip();
 }
 function wipSetStage(k){ WST = WST === k ? '' : k; drawWip(); }
@@ -956,6 +959,121 @@ function drawWip(){
     (rows.length > 300 ? `<div class="hint" style="padding:12px 18px">Showing the 300 earliest-due of ${rows.length} lines — search or pick a stage to narrow.</div>` : '')
     : `<div class="empty">${WST ? 'No pieces in this stage right now.' : 'No open order lines.'}</div>`;
 }
+
+/* ---------- AUTO-SYNC: entries made in other portals move pieces on the Shop-floor Board ----------
+   Casting Control challan line  → Casting           (every line's quantity, as pieces)
+   Production "1 (Bottom)"       → Machining         (first machining operation; later operations stay inside Machining)
+   Production "5 (Inspection)"   → Inspection
+   Production "6 (Paint)"        → Painting
+   Dispatch Board paint challan  → Ready to Dispatch (painted stock-in; "Repaint" lines are rework and are skipped)
+   PO Management dispatch        → Dispatched        (already counted directly)
+   Pieces go to open PO lines of the same item, earliest delivery date first. Each source entry is applied exactly once
+   (a marker document in erp_sync is written in the same transaction), so several open screens never double-count.
+   Only entries dated on/after the "auto-sync from" date are used, so old history is not replayed. */
+const PROD_FB = {apiKey: "AIzaSyA-g_9GoUg3W1dfxjxFsvH-w130S6y_eAU", authDomain: "jayco-production.firebaseapp.com", databaseURL: "https://jayco-production-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "jayco-production", storageBucket: "jayco-production.firebasestorage.app", messagingSenderId: "1064982683384", appId: "1:1064982683384:web:00786a7d04ac6f6728650d"};
+const PROD_EMAIL = 'staff@jayco-production.local';
+const PROD_STAGE_MAP = {'1 (bottom)': 'machining', '5 (inspection)': 'inspection', '6 (paint)': 'painting'};
+let SYNC = {state: '', at: 0, applied: 0, unmatched: [], prod: '', cast: '', paint: '', running: false};
+function prodApp(){ return firebase.apps.find(a => a.name === 'production') || firebase.initializeApp(PROD_FB, 'production'); }
+async function prodSignIn(pwd){ const a = firebase.auth(prodApp()); if(a.currentUser) return; await a.signInWithEmailAndPassword(PROD_EMAIL, pwd); }
+function prodReady(){ return new Promise(res => { const a = firebase.auth(prodApp()); if(a.currentUser) return res(true); let off = null; off = a.onAuthStateChanged(u => { if(typeof off === 'function') off(); res(!!u); }); setTimeout(() => res(!!a.currentUser), 4000); }); }
+async function castReady(){ const app = firebase.apps.find(a => a.name === 'dispatch') || (ddb(), firebase.apps.find(a => a.name === 'dispatch')); const a = firebase.auth(app); if(!a.currentUser) await a.signInAnonymously(); return true; }
+const normCode = x => String(x || '').toUpperCase().replace(/[^A-Z0-9]+/g, ' ').trim();
+function matchItemCode(text){   // the PO item code an entry refers to: exact, else the longest code it starts with ("SN 507 CAP" → "SN 507")
+  const t = normCode(text); if(!t) return null;
+  let best = null;
+  new Set(ITEMS_PO.map(i => i.itemCode)).forEach(c => { const n = normCode(c); if(n && (t === n || t.startsWith(n + ' ')) && (!best || n.length > normCode(best).length)) best = c; });
+  return best;
+}
+const isoDay = v => { const d = v && v.toDate ? v.toDate() : v instanceof Date ? v : null; if(d) return d.toISOString().slice(0, 10); return toIso ? toIso(v) : String(v || '').slice(0, 10); };
+const syncKey = k => String(k).replace(/[\/.#$\[\]]/g, '_').slice(0, 400);
+
+async function collectEvents(from){
+  const ev = [];
+  // Casting Control (jayco-dispatch-board · casting_challans)
+  try{
+    await castReady();
+    const snap = await ddb().collection('casting_challans').get();
+    snap.docs.forEach(d => { const c = d.data(), day = isoDay(c.challanDate); if(!day || day < from) return;
+      (c.items || []).forEach((l, i) => { const q = Math.floor(num(l.quantity)); if(q > 0) ev.push({key: 'cc_' + d.id + '_' + i, text: l.itemName || l.masterCode, stage: 'casting', qty: q, day,
+        note: `Auto · Casting challan ${c.challanNumber || ''}${c.foundryName ? ' · ' + c.foundryName : ''}${l.itemType ? ' · ' + l.itemType : ''}`}); }); });
+    SYNC.cast = 'ok';
+  }catch(e){ SYNC.cast = e.message; }
+  // Production (jayco-production · Realtime DB records)
+  try{
+    if(!(await prodReady())) throw new Error('not signed in to Production');
+    const snap = await prodApp().database().ref('records').orderByChild('date').startAt(from).once('value');
+    snap.forEach(ch => { const r = ch.val() || {}, st = PROD_STAGE_MAP[String(r.stage || '').trim().toLowerCase()], q = Math.floor(num(r.quantity));
+      if(!st || q <= 0 || /^REJ-/i.test(String(r.item || '')) || String(r.date || '') < from) return;
+      ev.push({key: 'pr_' + ch.key, text: r.item, stage: st, qty: q, day: r.date, note: `Auto · Production ${r.stage}${r.person ? ' · ' + r.person : ''}`}); });
+    SYNC.prod = 'ok';
+  }catch(e){ SYNC.prod = e.message; }
+  // Dispatch Board paint challans → finished stock (jayco-dispatch-board · dispatch/board.paintLog)
+  try{
+    const b = await ddb().collection('dispatch').doc('board').get(), log = (b.exists && b.data().paintLog) || [];
+    log.forEach(p => { if(!p.date || p.date < from) return; (p.items || []).forEach((l, i) => { const q = Math.floor(num(l.qty));
+      if(q > 0 && !/repaint/i.test(l.paintType || '')) ev.push({key: 'pt_' + (p.id || p.slipNo) + '_' + (l.id || i), text: l.item, stage: 'ready', qty: q, day: p.date,
+        note: `Auto · Paint challan ${p.slipNo || ''}${p.painterName ? ' · ' + p.painterName : ''}`}); }); });
+    SYNC.paint = 'ok';
+  }catch(e){ SYNC.paint = e.message; }
+  return ev.sort((a, b) => String(a.day).localeCompare(String(b.day)));
+}
+async function applyEvent(e){
+  const code = matchItemCode(e.text), ti = STAGES.findIndex(s => s.k === e.stage);
+  const lines = code ? ITEMS_PO.filter(i => i.itemCode === code && num(i.orderedQty) - num(i.despatchedQty) > 0)
+    .sort((a, b) => (toDate(a.deliveryDate) || new Date(8.64e15)) - (toDate(b.deliveryDate) || new Date(8.64e15))).slice(0, 15) : [];
+  const mark = db.collection('erp_sync').doc(syncKey(e.key));
+  return db.runTransaction(async tx => {
+    if((await tx.get(mark)).exists) return {skip: true};
+    const refs = lines.map(i => db.collection('erp_itemStages').doc(i.id)), snaps = [];
+    for(const r of refs) snaps.push(await tx.get(r));
+    let left = e.qty; const now = new Date().toISOString(), used = [];
+    lines.forEach((it, n) => {
+      if(left <= 0) return;
+      const d = snaps[n].exists ? snaps[n].data() : {stageQty: {}, history: []}, sq = {...(d.stageQty || {})};
+      const open = num(it.orderedQty) - num(it.despatchedQty), inSt = STAGES.reduce((a, s) => a + Math.max(0, num(sq[s.k])), 0);
+      let ns = Math.max(0, open - inSt), take = 0; const hist = [];
+      for(let k = ti - 1; k >= -1 && left > 0; k--){          // nearest earlier stage first, then "not started"
+        const have = k >= 0 ? Math.max(0, num(sq[STAGES[k].k])) : ns, m = Math.min(have, left); if(m <= 0) continue;
+        if(k >= 0) sq[STAGES[k].k] = have - m; else ns -= m;
+        sq[e.stage] = num(sq[e.stage]) + m; left -= m; take += m;
+        hist.push({at: now, by: 'auto-sync', from: k >= 0 ? STAGES[k].n : 'Not started', to: STAGES[ti].n, qty: m, note: e.note + ' · ' + e.day});
+      }
+      if(take > 0){ used.push(take + ' on ' + it.poNo); tx.set(refs[n], {poItemId: it.id, poNo: it.poNo, itemCode: it.itemCode, stageQty: sq, history: [...(d.history || []), ...hist].slice(-200), updatedAt: now}, {merge: true}); }
+    });
+    tx.set(mark, {key: e.key, item: e.text, code: code || '', stage: e.stage, qty: e.qty, applied: e.qty - left, left, used, day: e.day, at: now});
+    return {applied: e.qty - left, left, code};
+  });
+}
+async function autoSync(force){
+  if(SYNC.running || !USER || (!force && Date.now() - SYNC.at < 60000)) return;
+  SYNC.running = true; SYNC.state = 'running'; drawSyncBar();
+  try{
+    let from = SET.autoSyncFrom;
+    if(!from){ from = todayISO(); await db.collection('erp_settings').doc('main').set({autoSyncFrom: from}, {merge: true}); SET.autoSyncFrom = from; }
+    const ev = await collectEvents(from), done = new Set((await db.collection('erp_sync').where('day', '>=', from).get()).docs.map(d => d.id));
+    let applied = 0; const unmatched = [];
+    for(const e of ev){
+      if(done.has(syncKey(e.key))) continue;
+      const r = await applyEvent(e); if(r.skip) continue;
+      applied += r.applied; if(r.left > 0) unmatched.push(`${e.text}: ${r.left} pcs ${STAGES.find(s => s.k === e.stage).n}${r.code ? ' (no open order left)' : ' (item not on any PO)'}`);
+    }
+    SYNC = {...SYNC, state: 'ok', at: Date.now(), applied: SYNC.applied + applied, unmatched: [...unmatched, ...SYNC.unmatched].slice(0, 20), from};
+  }catch(e){ SYNC.state = 'error: ' + e.message; SYNC.at = Date.now(); }
+  SYNC.running = false; drawSyncBar();
+}
+function drawSyncBar(){
+  const el = document.getElementById('syncBar'); if(!el) return;
+  const src = (n, v) => `<span class="pill ${v === 'ok' ? 'ok' : v ? 'crit' : ''}" title="${esc(v || 'not checked yet')}">${v === 'ok' ? '✓' : v ? '✗' : '…'} ${n}</span>`;
+  el.innerHTML = `<b>Auto-update</b> ${src('Casting Control', SYNC.cast)} ${src('Production', SYNC.prod)} ${src('Paint → Ready', SYNC.paint)}
+    <span class="hint">${SYNC.state === 'running' ? 'checking…' : SYNC.at ? 'last check ' + new Date(SYNC.at).toLocaleTimeString('en-IN', {hour: '2-digit', minute: '2-digit'}) + (SYNC.applied ? ' · ' + SYNC.applied + ' pcs moved' : '') : ''}${SYNC.from ? ' · entries from ' + esc(SYNC.from) : ''}</span>
+    <button class="btn sm" onclick="autoSync(true)" style="margin-left:auto">↻ Check now</button>
+    ${SYNC.prod && SYNC.prod !== 'ok' ? `<div class="full" style="width:100%;margin-top:8px">Production not linked on this device: <input id="prodPwd" type="password" placeholder="staff password" style="max-width:200px;display:inline-block"> <button class="btn sm pri" onclick="linkProd()">Link Production</button></div>` : ''}
+    ${String(SYNC.state).startsWith('error') ? `<div style="width:100%;color:var(--crit);margin-top:6px">${esc(SYNC.state)}</div>` : ''}
+    ${SYNC.unmatched.length ? `<details style="width:100%;margin-top:6px"><summary class="hint">${SYNC.unmatched.length} entr${SYNC.unmatched.length > 1 ? 'ies' : 'y'} could not be placed</summary><div class="hint">${SYNC.unmatched.map(esc).join('<br>')}</div></details>` : ''}`;
+}
+async function linkProd(){ try{ await prodSignIn($('#prodPwd').value); toast('Production linked on this device'); autoSync(true); }catch(e){ toast('Production sign-in failed: ' + e.message); } }
 
 /* ---------- moves log: everything staff moved on a day ---------- */
 let MD = '', MF = '';
