@@ -130,8 +130,26 @@ function doRender(){
   renderNow();
   if(keep){ const n = document.getElementById(keep.id); if(n){ n.focus(); try{ n.setSelectionRange(keep.s, keep.e); }catch(e){} } }
 }
+/* ERP-only lock: the full ERP asks for its own password once per browser session, on top of the shared staff sign-in.
+   Only a SHA-256 fingerprint is kept here; the Entry Desk and Shop-Floor Board pages are not affected. */
+const ERP_LOCK_HASH = '949670fb2aa263e16adcd2fa77c558faa64fad0d8ee12997c3ddeeb454f67d65';
+const erpUnlocked = () => { try{ return sessionStorage.getItem('erp_unlocked') === ERP_LOCK_HASH; }catch(e){ return false; } };
+async function sha256hex(t){ const b = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(t)); return [...new Uint8Array(b)].map(x => x.toString(16).padStart(2, '0')).join(''); }
+function showErpLock(){
+  if(document.getElementById('erpLock')) return;
+  const d = document.createElement('div'); d.id = 'erpLock';
+  d.innerHTML = `<div class="box"><div class="lk">🔒</div><h2>Jayco ERP</h2><div class="hint" style="margin-bottom:16px">Admin area — enter the ERP password</div>
+    <input id="erpPwd" type="password" autocomplete="off" placeholder="ERP password"><div id="erpErr" style="color:var(--crit);font-size:12.5px;min-height:18px;margin-top:8px"></div>
+    <button class="btn pri" id="erpGo" style="width:100%;margin-top:6px">Unlock ERP</button>
+    <div style="display:flex;justify-content:space-between;margin-top:14px"><a class="hint" href="index.html">← All portals</a><a class="hint" href="#" onclick="firebase.auth().signOut();return false">Sign out</a></div></div>`;
+  document.body.appendChild(d);
+  const go = async () => { const ok = (await sha256hex('jayco-erp|' + $('#erpPwd').value)) === ERP_LOCK_HASH;
+    if(ok){ try{ sessionStorage.setItem('erp_unlocked', ERP_LOCK_HASH); }catch(e){} d.remove(); doRender(); } else { $('#erpErr').textContent = 'Incorrect ERP password.'; $('#erpPwd').value = ''; $('#erpPwd').focus(); } };
+  $('#erpGo').onclick = go; $('#erpPwd').addEventListener('keydown', e => { if(e.key === 'Enter') go(); }); setTimeout(() => $('#erpPwd').focus(), 50);
+}
 function renderNow(){
   if(!USER) return;
+  if(ERP_MODE === 'admin' && !erpUnlocked()){ showErpLock(); return; }
   const h = (location.hash || '#dashboard').slice(1); let [r, arg] = h.split('/');
   if(ERP_MODE === 'entry') r = 'entry';
   else if(ERP_MODE === 'board') r = r === 'order' ? 'order' : 'wip';   // Shop-floor Board page (also shown inside PO Management)
