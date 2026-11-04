@@ -21,7 +21,12 @@
   };
   // Set your own PIN here — this locks the app on first load.
   // NOTE: this is a soft lock only (see setup guide) — not real security.
-  window.APP_PIN = "Jayco@1011";
+  // Only a SHA-256 hash of the PIN is stored ("jayco-pin|" + PIN). To change the PIN, replace this hash.
+  window.APP_PIN_HASH = "a9dcd9560f213ec1c9df93d6767c76c68128407182e0999d5b23e56a782d7ba7";
+  window.jaycoPinOk = async function (pin) {
+    const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode("jayco-pin|" + String(pin || "")));
+    return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, "0")).join("") === window.APP_PIN_HASH;
+  };
 </script>
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -740,14 +745,14 @@ function Modal({
 function PinGate({
   children
 }) {
-  const REQUIRED_PIN = window.APP_PIN || "";
+  const REQUIRED_PIN = window.APP_PIN_HASH || "";
   const [unlocked, setUnlocked] = useState(() => sessionStorage.getItem("jayco_unlocked") === "true" || !REQUIRED_PIN);
   const [pin, setPin] = useState("");
   const [error, setError] = useState(false);
   if (unlocked) return children;
-  function handleSubmit(e) {
+  async function handleSubmit(e) {
     e.preventDefault();
-    if (pin === REQUIRED_PIN) {
+    if (await window.jaycoPinOk(pin)) {
       sessionStorage.setItem("jayco_unlocked", "true");
       setUnlocked(true);
     } else {
@@ -1721,10 +1726,10 @@ function VendorModal({vendor, vendors, onClose, onSaved}) {
     val = upper(val).slice(0, 11);
     setF(p => ({...p, ifsc: val, bankName: p.bankName && !Object.values(IFSC_BANKS).includes(p.bankName) ? p.bankName : (IFSC_BANKS[val.slice(0, 4)] || p.bankName)}));
   }
-  function unlock() {
+  async function unlock() {
     const pin = window.prompt("Bank details are locked. Enter the admin PIN to change them:");
     if (pin === null) return;
-    if (pin === String(window.APP_PIN || "")) setBankLocked(false); else window.alert("Wrong PIN.");
+    if (await window.jaycoPinOk(pin)) setBankLocked(false); else window.alert("Wrong PIN.");
   }
   async function handleSave(e) {
     e.preventDefault();
