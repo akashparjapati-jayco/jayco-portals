@@ -373,7 +373,12 @@ const normalizeData = (raw) => {
 // It just keeps casual/accidental access out. For real access
 // control, switch to Firebase Authentication instead.
 // ============================================================
-const BOARD_PASSWORD = "Jayco@1011";
+// Only a SHA-256 hash is stored ("jayco-board|" + password). To change the password, replace this hash.
+const BOARD_PASSWORD_HASH = "817bcad794d8359d77ebf9c6ce4ec26e3e13cbc9c89e9069ee2f70dd7490ce93";
+async function boardPwOk(pw) {
+  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode("jayco-board|" + String(pw || "")));
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, "0")).join("") === BOARD_PASSWORD_HASH;
+}
 const UNLOCK_KEY = "jaycoDispatchBoardUnlocked";
 
 function Gate({ children }) {
@@ -385,8 +390,8 @@ function Gate({ children }) {
 
   if (unlocked) return children;
 
-  const tryUnlock = () => {
-    if (pw === BOARD_PASSWORD) {
+  const tryUnlock = async () => {
+    if (await boardPwOk(pw)) {
       try { localStorage.setItem(UNLOCK_KEY, "1"); } catch (e) {}
       setUnlocked(true);
     } else {
