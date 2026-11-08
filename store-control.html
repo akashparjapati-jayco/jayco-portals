@@ -2216,6 +2216,7 @@ function gate(html, wide){
 function closeGate(){ var g = $('#gate'); if (g) g.remove(); }
 
 /* ---------- PIN hashing (obfuscation, not encryption) ---------- */
+var STORE_PIN_HASH = 'aa30dc18f28f3f91'; // hashPin of the staff password
 function hashPin(pin){
   var s = 'jayco-store::' + String(pin), h1 = 0x811c9dc5, h2 = 0x1000193;
   for (var i = 0; i < s.length; i++) {
@@ -2289,8 +2290,8 @@ function setPinScreen(){
 function pinScreen(hash){
   gate(
     '<h2>Store Control</h2>' +
-    '<p>Enter the store PIN to open the registers.</p>' +
-    '<div class="fld"><label for="pin">PIN</label><input id="pin" type="password" inputmode="numeric" autofocus></div>' +
+    '<p>Enter the staff password to open the registers.</p>' +
+    '<div class="fld"><label for="pin">Password</label><input id="pin" type="password" autocomplete="current-password" autofocus></div>' +
     '<label class="chk" style="margin-top:12px"><input type="checkbox" id="pin_rm" checked> Remember this device</label>' +
     '<div class="err" id="fb_err"></div>' +
     '<div class="frow"><button class="btn pri" id="pin_go">Open</button>' +
@@ -2298,7 +2299,7 @@ function pinScreen(hash){
   var go = function(){
     var val = $('#pin').value.trim();
     if (!val) return;
-    if (hashPin(val) !== hash) { $('#fb_err').textContent = 'Wrong PIN.'; $('#pin').value = ''; $('#pin').focus(); return; }
+    if (hashPin(val) !== hash) { $('#fb_err').textContent = 'Wrong password.'; $('#pin').value = ''; $('#pin').focus(); return; }
     remember($('#pin_rm').checked);
     unlock();
   };
@@ -2482,24 +2483,7 @@ window.JA2['fb.lock'] = function(){
   remember(false); location.reload();
 };
 window.JA2['fb.pin'] = function(){
-  U.modal('Change store PIN',
-    '<div class="form">' +
-      U.fld('np1','Current PIN', '<input id="np1" type="password" inputmode="numeric">') +
-      U.fld('np2','New PIN', '<input id="np2" type="password" inputmode="numeric">') +
-      U.fld('np3','Repeat new PIN', '<input id="np3" type="password" inputmode="numeric">') +
-    '</div><div class="err" id="np_err" style="color:var(--crit);font-size:12.5px;min-height:16px"></div>' +
-    '<div class="frow"><button class="btn pri" data-act="fb.pinGo">Save PIN</button>' +
-    '<button class="btn" data-act="modal.close">Cancel</button></div>');
-};
-window.JA2['fb.pinGo'] = function(){
-  var cur = U.v('np1'), a = U.v('np2'), b = U.v('np3');
-  if (hashPin(cur) !== S.DB.meta.pinHash) { $('#np_err').textContent = 'Current PIN is wrong.'; return; }
-  if (a.length < 4) { $('#np_err').textContent = 'Use at least 4 characters.'; return; }
-  if (a !== b) { $('#np_err').textContent = 'The two new entries do not match.'; return; }
-  S.DB.meta.pinHash = hashPin(a);
-  S.save();
-  U.closeModal();
-  U.toast('Store PIN changed on every device.');
+  U.toast('The store password is set by the admin — it is the same staff password as the other portals.');
 };
 
 /* ---------- boot ---------- */
@@ -2538,9 +2522,9 @@ function boot(){
     }
     fdb.collection(P + 'meta').doc('app').get().then(function(doc){
       var m = doc.exists ? (doc.data() || {}) : {};
-      if (!m.pinHash) { setPinScreen(); return; }
-      S.DB.meta.pinHash = m.pinHash;
-      if (remembered()) unlock(); else pinScreen(m.pinHash);
+      // Store password is fixed: the same staff password as the other portals (only its hash is kept here).
+      S.DB.meta.pinHash = STORE_PIN_HASH;
+      if (remembered()) unlock(); else pinScreen(STORE_PIN_HASH);
     }, function(e){
       gate('<h2>Firestore refused the read</h2><p>' + esc(e.message || e.code) +
         '</p><p>Publish the security rules that came with this app, then reload.</p>' +
