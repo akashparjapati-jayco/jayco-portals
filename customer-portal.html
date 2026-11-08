@@ -11,7 +11,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800&family=Play:wght@400;700&display=swap" rel="stylesheet">
 <style>
 /* ── DESIGN TOKENS ─────────────────────────────────────────── */
 :root {
@@ -35,9 +35,9 @@
 
 /* ── RESET ──────────────────────────────────────────────────── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-body { font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+body { font-family: 'Montserrat', 'Segoe UI', system-ui, -apple-system, sans-serif;
        background: var(--bg); color: var(--ink); font-size: 14px; line-height: 1.5; }
-h1, h2, h3, h4, h5, h6 { font-family: 'Space Grotesk', 'Inter', sans-serif; }
+h1, h2, h3, h4, h5, h6 { font-family: 'Montserrat', 'Montserrat', sans-serif; }
 button { cursor: pointer; font-family: inherit; }
 input, select, textarea { font-family: inherit; font-size: 14px; }
 a { color: inherit; text-decoration: none; }
@@ -58,7 +58,7 @@ a { color: inherit; text-decoration: none; }
 }
 .sb-brand .logo {
   font-size: 15px; font-weight: 700; letter-spacing: .5px; color: #fff;
-  display: flex; align-items: center; gap: 8px; font-family: 'Space Grotesk', 'Inter', sans-serif;
+  display: flex; align-items: center; gap: 8px; font-family: 'Montserrat', 'Montserrat', sans-serif;
 }
 .sb-back-link {
   display: inline-flex; align-items: center; gap: 5px; margin-top: 10px;
@@ -417,7 +417,7 @@ tr:hover td { background: #f8fafc; }
    ===================================================================== */
 :root{--ink:#1D1D1F;--ink-soft:#424245;--muted:#86868B;--line:#E5E5EA;--bg:#F5F5F7;--surface:#FFFFFF;--accent:#0071E3;--accent2:#0071E3;
   --success:#1A7F37;--warn:#B25000;--danger:#D70015;--radius:20px;--shadow:0 1px 1px rgba(0,0,0,.02),0 6px 24px -10px rgba(0,0,0,.14);--sidebar-w:250px;--header-h:64px;
-  --font:-apple-system,BlinkMacSystemFont,"SF Pro Display","SF Pro Text","Helvetica Neue",Inter,Arial,sans-serif}
+  --font:-apple-system,BlinkMacSystemFont,"Montserrat","Montserrat","Helvetica Neue",Montserrat,Arial,sans-serif}
 body{font-family:var(--font);letter-spacing:-.01em;-webkit-font-smoothing:antialiased}
 h1,h2,h3,h4,h5,h6,.sb-brand .logo{font-family:var(--font)}
 /* sidebar: frosted white */
@@ -477,7 +477,8 @@ tbody tr:hover td{background:#F9F9FB}
 @keyframes cprise{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
 @media(prefers-reduced-motion:reduce){#content>*{animation:none}}
 </style>
-<link rel="stylesheet" href="jayco-theme.css?v=1">
+<script src="jayco-icons.js?v=1"></script>
+<link rel="stylesheet" href="jayco-theme.css?v=2">
 </head>
 <body>
 
@@ -1126,7 +1127,7 @@ function renderDashboard() {
 
   return `
 ${hasNoAllocs ? `<div style="background:#fef3c7;border:1px solid #fde68a;border-radius:8px;padding:12px 18px;margin-bottom:18px;display:flex;align-items:center;gap:12px">
-  <span style="font-size:20px">⚠️</span>
+  <span style="display:inline-flex;color:var(--warn)">${JI('alert',22)}</span>
   <div>
     <div style="font-weight:700;color:#92400e;font-size:13px">FIFO Allocation Not Run</div>
     <div style="font-size:12px;color:#92400e;margin-top:2px">You have ${S.payments.length} payments but no allocations — outstanding balances may be incorrect. Go to <strong style="cursor:pointer;text-decoration:underline" onclick="navTo('settings')">Settings → Re-Allocate All Customers</strong> to fix this.</div>
@@ -1134,25 +1135,25 @@ ${hasNoAllocs ? `<div style="background:#fef3c7;border:1px solid #fde68a;border-
 </div>` : ''}
 <div class="tiles">
   <div class="tile" style="--tile-color:var(--accent2);cursor:pointer" onclick="navTo('outstanding')">
-    <span class="tile-icon">💰</span>
+    <span class="tile-icon">${JI('wallet',30)}</span>
     <div class="tile-label">Total Outstanding</div>
     <div class="tile-value">${fmt(totalOut)}</div>
     <div class="tile-sub">${S.customers.filter(c=>custOutstanding(c.custId)>0).length} customers with balance ↗</div>
   </div>
   <div class="tile" style="--tile-color:var(--danger);cursor:pointer" onclick="navTo('outstanding')">
-    <span class="tile-icon">⚠️</span>
+    <span class="tile-icon">${JI('alert',30)}</span>
     <div class="tile-label">Overdue</div>
     <div class="tile-value">${fmt(overdue)}</div>
     <div class="tile-sub">${overdueBills.length} bills past due date ↗</div>
   </div>
   <div class="tile" style="--tile-color:#0ea5e9;cursor:pointer" onclick="navTo('cashflow')">
-    <span class="tile-icon">📅</span>
+    <span class="tile-icon">${JI('calendar',30)}</span>
     <div class="tile-label">Not Yet Due</div>
     <div class="tile-value">${fmt(aging.upcoming)}</div>
     <div class="tile-sub">Expected in upcoming period ↗</div>
   </div>
   <div class="tile" style="--tile-color:var(--warn);cursor:pointer" onclick="navTo('customers')">
-    <span class="tile-icon">👥</span>
+    <span class="tile-icon">${JI('customers',30)}</span>
     <div class="tile-label">Total Customers</div>
     <div class="tile-value">${S.customers.length}</div>
     <div class="tile-sub">${debtors.length} with outstanding ↗</div>
@@ -1203,7 +1204,7 @@ ${hasNoAllocs ? `<div style="background:#fef3c7;border:1px solid #fde68a;border-
     <table>
       <thead><tr><th>#</th><th>Customer</th><th>Not Due</th><th>0-30 OD</th><th>31-60 OD</th><th>61-90 OD</th><th>90+ OD</th><th class="text-right">Total Outstanding</th><th></th></tr></thead>
       <tbody>
-        ${debtors.length===0?`<tr><td colspan="9" class="tbl-empty"><span class="empty-icon">🎉</span>No outstanding balances</td></tr>`:
+        ${debtors.length===0?`<tr><td colspan="9" class="tbl-empty"><span class="empty-icon">${JI('check',30)}</span>No outstanding balances</td></tr>`:
           debtors.map((d,i)=>{
             const bills=S.bills.filter(b=>String(b.custId)===String(d.custId)&&b.status!=='closed');
             const ag={up:0,b0:0,b31:0,b61:0,b90:0};
@@ -1266,7 +1267,7 @@ function renderCustomers(filter) {
     <table>
       <thead><tr><th>Name</th><th>GSTIN / PAN</th><th>State</th><th>Phone</th><th>MSME</th><th>Email</th><th>Credit</th><th class="text-right">Outstanding</th><th>Actions</th></tr></thead>
       <tbody>
-        ${list.length===0?`<tr><td colspan="9" class="tbl-empty"><span class="empty-icon">👥</span>${CUST_ONLY_INCOMPLETE?'No incomplete customers.':'No customers yet. Add your first customer.'}</td></tr>`
+        ${list.length===0?`<tr><td colspan="9" class="tbl-empty"><span class="empty-icon">${JI('customers',30)}</span>${CUST_ONLY_INCOMPLETE?'No incomplete customers.':'No customers yet. Add your first customer.'}</td></tr>`
           :list.map(c=>{
             const out=custOutstanding(c.custId), miss=custMissing(c);
             const esc=x=>String(x).replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/"/g,'&quot;').replace(/</g,'&lt;');
@@ -1814,19 +1815,19 @@ function renderCashflow() {
   c.innerHTML = `
 <div class="tiles" style="grid-template-columns:repeat(3,1fr)">
   <div class="tile" style="--tile-color:var(--danger)">
-    <span class="tile-icon">🔴</span>
+    <span class="tile-icon">${JI('alert',30)}</span>
     <div class="tile-label">Overdue Now</div>
     <div class="tile-value">${fmt(buckets.overdue.amount)}</div>
     <div class="tile-sub">${buckets.overdue.count} bills already past due</div>
   </div>
   <div class="tile" style="--tile-color:var(--accent2)">
-    <span class="tile-icon">📥</span>
+    <span class="tile-icon">${JI('download',30)}</span>
     <div class="tile-label">Expected in 30 Days</div>
     <div class="tile-value">${fmt(expected30)}</div>
     <div class="tile-sub">This week + next week + rest of month</div>
   </div>
   <div class="tile" style="--tile-color:var(--success)">
-    <span class="tile-icon">📊</span>
+    <span class="tile-icon">${JI('report',30)}</span>
     <div class="tile-label">Total Pipeline</div>
     <div class="tile-value">${fmt(total)}</div>
     <div class="tile-sub">All open receivables, any due date</div>
@@ -1874,7 +1875,7 @@ ${Object.entries(buckets).filter(([k,b])=>b.bills.length>0).map(([key,b])=>`
   </div>
 </div>`).join('')}
 
-${total<=0.01?`<div class="card mt-16"><div class="card-body tbl-empty"><span class="empty-icon">🎉</span>No open receivables — nothing to forecast</div></div>`:''}
+${total<=0.01?`<div class="card mt-16"><div class="card-body tbl-empty"><span class="empty-icon">${JI('check',30)}</span>No open receivables — nothing to forecast</div></div>`:''}
 `;
 }
 
@@ -1957,7 +1958,7 @@ function renderOutstanding() {
         </tr>
       </thead>
       <tbody>
-        ${list.length===0?`<tr><td colspan="11" class="tbl-empty"><span class="empty-icon">🎉</span>No outstanding balances</td></tr>`:
+        ${list.length===0?`<tr><td colspan="11" class="tbl-empty"><span class="empty-icon">${JI('check',30)}</span>No outstanding balances</td></tr>`:
         list.map(c => `<tr>
           <td><div style="font-weight:600">${c.name}</div><div style="font-size:11px;color:var(--muted)">Credit: ${c.creditDays||0}d | Limit: ${parseFloat(c.creditLimit||0)>0?fmt(c.creditLimit):'Unlimited'}</div></td>
           <td><code style="font-size:11px">${c.gstin||'—'}</code></td>
@@ -2030,19 +2031,19 @@ function renderAdvanceReport() {
   return `
 <div class="tiles" style="grid-template-columns:repeat(3,1fr);margin-bottom:20px">
   <div class="tile" style="--tile-color:var(--warn)">
-    <span class="tile-icon">⚡</span>
+    <span class="tile-icon">${JI('advance',30)}</span>
     <div class="tile-label">Total Advance Credit</div>
     <div class="tile-value">${fmt(totalAdvance)}</div>
     <div class="tile-sub">Sitting with ${custList.length} customer${custList.length!==1?'s':''}</div>
   </div>
   <div class="tile" style="--tile-color:var(--accent2)">
-    <span class="tile-icon">🧾</span>
+    <span class="tile-icon">${JI('statement',30)}</span>
     <div class="tile-label">Will Adjust Against</div>
     <div class="tile-value">${custList.length}</div>
     <div class="tile-sub">customers' future bills (FIFO)</div>
   </div>
   <div class="tile" style="--tile-color:var(--success)">
-    <span class="tile-icon">💡</span>
+    <span class="tile-icon">${JI('trend',30)}</span>
     <div class="tile-label">Action</div>
     <div class="tile-value" style="font-size:14px;padding-top:4px">Raise new bills</div>
     <div class="tile-sub">Advance auto-adjusts on next bill</div>

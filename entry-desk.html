@@ -6,7 +6,7 @@
 <title>Jayco Entry Desk</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800&family=Play:wght@400;700&display=swap" rel="stylesheet">
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
@@ -15,7 +15,7 @@
   .app.entry-only{display:block;grid-template-columns:none;min-height:0;align-content:start}
   #app.entry-only:not([style*="none"]){display:block !important}
   .ebar{display:flex;align-items:center;gap:12px;padding:12px 28px;background:var(--side);color:#fff;position:sticky;top:0;z-index:10}
-  .ebar .logo{display:flex;align-items:center;gap:10px;font-family:'Space Grotesk';font-weight:700;font-size:18px;letter-spacing:.02em}
+  .ebar .logo{display:flex;align-items:center;gap:10px;font-family:'Montserrat';font-weight:700;font-size:18px;letter-spacing:.02em}
   .ebar .logo i{width:30px;height:30px;border-radius:9px;background:linear-gradient(135deg,#ff5a52,#a30000);display:inline-flex;align-items:center;justify-content:center;font-style:normal;font-size:15px}
   .ebar .logo b{color:#ff6b64}
   .ebar .hint{color:#aab}
@@ -25,7 +25,8 @@
   .entry-only main{padding-top:20px}
 </style>
 <script>window.ERP_MODE = 'entry';</script>
-<link rel="stylesheet" href="jayco-theme.css?v=1">
+<script src="jayco-icons.js?v=1"></script>
+<link rel="stylesheet" href="jayco-theme.css?v=2">
 </head>
 <body>
 <div id="login"><div class="box">
@@ -39,7 +40,7 @@
 
 <div class="app entry-only" id="app" style="display:none">
   <header class="ebar">
-    <div class="logo"><i>✎</i><span>JAYCO <b>ENTRY DESK</b></span></div>
+    <div class="logo jl"><img src="assets/jayco-logo.png" alt="JAYCO"><span>Entry Desk</span></div>
     <span class="hint" id="eUser" style="margin-left:auto"></span>
     <a id="lgOut" class="btn sm" style="cursor:pointer">Log out</a>
   </header>

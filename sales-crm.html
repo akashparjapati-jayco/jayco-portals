@@ -12,7 +12,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800&family=Play:wght@400;700&display=swap" rel="stylesheet">
 <style>
 :root{
   --bg:#EFF1F4; --panel:#fff; --panel2:#F6F7F9; --line:#DCE0E7; --line-soft:#E9ECF1;
@@ -23,8 +23,8 @@
   --shadow:0 8px 24px rgba(16,20,28,.08);
 }
 *{box-sizing:border-box}
-html,body{margin:0;background:var(--bg);color:var(--txt);font-family:'IBM Plex Sans',-apple-system,"Segoe UI",Roboto,sans-serif;font-size:14px;line-height:1.45;-webkit-font-smoothing:antialiased}
-h1,h2,h3,h4{font-family:'Barlow Condensed','IBM Plex Sans',sans-serif;margin:0;letter-spacing:.01em}
+html,body{margin:0;background:var(--bg);color:var(--txt);font-family:'Montserrat',-apple-system,"Segoe UI",Roboto,sans-serif;font-size:14px;line-height:1.45;-webkit-font-smoothing:antialiased}
+h1,h2,h3,h4{font-family:'Montserrat','Montserrat',sans-serif;margin:0;letter-spacing:.01em}
 button,input,select,textarea{font-family:inherit;font-size:inherit;color:inherit}
 a{color:var(--brand);text-decoration:none}
 [hidden]{display:none!important}
@@ -34,7 +34,7 @@ a{color:var(--brand);text-decoration:none}
 .rail{background:var(--panel);border-right:1px solid var(--line);display:flex;flex-direction:column;position:sticky;top:0;height:100vh;overflow-y:auto}
 .rail-head{padding:18px 16px 14px;border-bottom:1px solid var(--line)}
 .rail-head img{width:132px;display:block}
-.rail-sub{font-family:'Barlow Condensed',sans-serif;font-size:11.5px;letter-spacing:.18em;text-transform:uppercase;color:var(--txt3);font-weight:600;margin-top:8px}
+.rail-sub{font-family:'Montserrat',sans-serif;font-size:11.5px;letter-spacing:.18em;text-transform:uppercase;color:var(--txt3);font-weight:600;margin-top:8px}
 .back{display:inline-flex;gap:5px;align-items:center;color:var(--txt2);font-size:10.5px;font-weight:600;margin-top:10px;padding:4px 10px;border-radius:99px;border:1px solid var(--line)}
 .back:hover{background:var(--panel2);color:var(--txt)}
 .nav{padding:10px 8px;display:flex;flex-direction:column;gap:2px;flex:1}
@@ -43,7 +43,7 @@ a{color:var(--brand);text-decoration:none}
 .nav-i.on{background:var(--brand-soft);color:var(--txt);font-weight:600}
 .nav-i.on::before{content:"";position:absolute;left:-8px;top:6px;bottom:6px;width:3px;border-radius:0 3px 3px 0;background:var(--brand)}
 .nav-i .ic{width:18px;text-align:center}
-.nav-i .cnt{margin-left:auto;background:var(--crit-soft);color:var(--crit);font-size:10.5px;font-weight:700;padding:1px 7px;border-radius:20px;font-family:'IBM Plex Mono',monospace}
+.nav-i .cnt{margin-left:auto;background:var(--crit-soft);color:var(--crit);font-size:10.5px;font-weight:700;padding:1px 7px;border-radius:20px;font-family:'Play',monospace}
 .rail-foot{border-top:1px solid var(--line);padding:12px 14px;font-size:11.5px;color:var(--txt3)}
 .rail-foot b{color:var(--txt);display:block;font-size:12.5px;word-break:break-all}
 .role{display:inline-block;margin-top:3px;font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;padding:1px 8px;border-radius:99px;background:var(--panel2);border:1px solid var(--line)}
@@ -72,7 +72,7 @@ a{color:var(--brand);text-decoration:none}
 .card-h .sp{margin-left:auto;display:flex;gap:7px;flex-wrap:wrap;align-items:center}
 .card-b{padding:16px}
 .hint{font-size:12px;color:var(--txt3)}
-.lbl{font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacing:.15em;text-transform:uppercase;color:var(--txt3);font-weight:700}
+.lbl{font-family:'Montserrat',sans-serif;font-size:11px;letter-spacing:.15em;text-transform:uppercase;color:var(--txt3);font-weight:700}
 .pill{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;font-weight:600;padding:2px 9px;border-radius:20px;white-space:nowrap}
 .pill.ok{background:var(--ok-soft);color:var(--ok)}.pill.warn{background:var(--warn-soft);color:var(--warn)}
 .pill.crit{background:var(--crit-soft);color:var(--crit)}.pill.info{background:var(--info-soft);color:var(--info)}
@@ -81,8 +81,8 @@ a{color:var(--brand);text-decoration:none}
 .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px}
 .stat{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:13px 15px;border-top:3px solid var(--c,#C9CFD9);cursor:pointer}
 .stat:hover{box-shadow:0 8px 20px -12px rgba(16,20,28,.3)}
-.stat .k{font-family:'Barlow Condensed',sans-serif;font-size:11.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--txt3);font-weight:700}
-.stat .v{font-family:'Barlow Condensed',sans-serif;font-size:34px;font-weight:700;line-height:1.1}
+.stat .k{font-family:'Montserrat',sans-serif;font-size:11.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--txt3);font-weight:700}
+.stat .v{font-family:'Montserrat',sans-serif;font-size:34px;font-weight:700;line-height:1.1}
 .stat .n{font-size:12px;color:var(--txt3)}
 .stat{min-height:112px}
 .grid2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px;align-items:start}
@@ -91,12 +91,12 @@ a{color:var(--brand);text-decoration:none}
 /* tables */
 .tw{overflow-x:auto}
 table{border-collapse:collapse;width:100%;font-size:13px}
-thead th{background:var(--panel2);text-align:left;font-family:'Barlow Condensed',sans-serif;font-size:12px;letter-spacing:.13em;text-transform:uppercase;color:#6E7683;font-weight:700;padding:9px 12px;border-bottom:1px solid var(--line);white-space:nowrap}
+thead th{background:var(--panel2);text-align:left;font-family:'Montserrat',sans-serif;font-size:12px;letter-spacing:.13em;text-transform:uppercase;color:#6E7683;font-weight:700;padding:9px 12px;border-bottom:1px solid var(--line);white-space:nowrap}
 tbody td{padding:9px 12px;border-bottom:1px solid var(--line-soft);vertical-align:middle}
 tbody tr:nth-child(even){background:rgba(12,16,24,.022)}
 tbody tr.click{cursor:pointer}tbody tr.click:hover{background:var(--brand-soft)}
-td.num,th.num{text-align:right;font-family:'IBM Plex Mono',monospace;font-variant-numeric:tabular-nums}
-.mono{font-family:'IBM Plex Mono',monospace;font-size:12.5px}
+td.num,th.num{text-align:right;font-family:'Play',monospace;font-variant-numeric:tabular-nums}
+.mono{font-family:'Play',monospace;font-size:12.5px}
 .empty{padding:34px 16px;text-align:center;color:var(--txt3)}
 tfoot td{padding:9px 12px;font-weight:700;background:var(--panel2)}
 
@@ -104,7 +104,7 @@ tfoot td{padding:9px 12px;font-weight:700;background:var(--panel2)}
 .form{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px 14px}
 .fld{display:flex;flex-direction:column;gap:5px;min-width:0}
 .fld.w2{grid-column:span 2}.fld.full{grid-column:1/-1}
-.fld label{font-family:'Barlow Condensed',sans-serif;font-size:12px;letter-spacing:.13em;text-transform:uppercase;color:var(--txt2);font-weight:700}
+.fld label{font-family:'Montserrat',sans-serif;font-size:12px;letter-spacing:.13em;text-transform:uppercase;color:var(--txt2);font-weight:700}
 .fld label .req{color:var(--brand)}
 input,select,textarea{background:#fff;border:1px solid #C9CFD9;border-radius:7px;padding:8px 10px;width:100%}
 input:focus,select:focus,textarea:focus{outline:none;border-color:var(--brand2);box-shadow:0 0 0 3px var(--brand-soft)}
@@ -121,7 +121,7 @@ textarea{min-height:70px;resize:vertical}
 /* board */
 .board{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(250px,1fr);gap:12px;overflow-x:auto;padding-bottom:8px}
 .col{background:var(--panel2);border:1px solid var(--line);border-radius:10px;display:flex;flex-direction:column;min-height:240px}
-.col-h{padding:10px 12px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--line);font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:15px;letter-spacing:.04em;border-top:3px solid var(--c)}
+.col-h{padding:10px 12px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--line);font-family:'Montserrat',sans-serif;font-weight:700;font-size:15px;letter-spacing:.04em;border-top:3px solid var(--c)}
 .col-b{padding:8px;display:flex;flex-direction:column;gap:8px;flex:1}
 .col.over{outline:2px dashed var(--brand)}
 .lc{background:#fff;border:1px solid var(--line);border-radius:8px;padding:9px 11px;cursor:pointer;border-left:3px solid var(--c,#C9CFD9)}
@@ -162,7 +162,8 @@ textarea{min-height:70px;resize:vertical}
 #login .box{background:#fff;border:1px solid var(--line);border-radius:14px;padding:30px;width:360px;max-width:92vw;box-shadow:var(--shadow)}
 @media (max-width:900px){.app{grid-template-columns:1fr}.rail{position:relative;height:auto}.grid2,.grid3{grid-template-columns:1fr}.view{padding:14px}.fld.w2{grid-column:auto}}
 </style>
-<link rel="stylesheet" href="jayco-theme.css?v=1">
+<script src="jayco-icons.js?v=1"></script>
+<link rel="stylesheet" href="jayco-theme.css?v=2">
 </head>
 <body>
 
@@ -358,8 +359,8 @@ $('#logout').onclick = () => { firebase.auth().signOut(); $('#lgPwd').value = ''
 
 /* ---------------- navigation / router ---------------- */
 const NAV = [
-  ['dashboard','◆','Dashboard'], ['leads','◎','Leads'], ['quotes','▤','Quotations'],
-  ['customers','◐','Customers'], ['rates','▧','Price List'], ['reports','▥','Reports'], ['settings','⚙','Settings & Setup']
+  ['dashboard',JI('dashboard'),'Dashboard'], ['leads',JI('inquiry'),'Leads'], ['quotes',JI('quote'),'Quotations'],
+  ['customers',JI('customers'),'Customers'], ['rates',JI('pricelist'),'Price List'], ['reports',JI('report'),'Reports'], ['settings',JI('settings'),'Settings & Setup']
 ];
 function buildNav(){
   $('#nav').innerHTML = NAV.map(([id,ic,l]) => `<button class="nav-i" data-nav="${id}"><span class="ic">${ic}</span>${l}<span class="cnt" id="cnt-${id}" hidden></span></button>`).join('');
@@ -611,7 +612,7 @@ function viewLead(id){
         ${fld('Requirement', `<textarea id="ld_req" style="min-height:90px">${esc(l.requirement)}</textarea>`, {cls:'full'})}
       </div>
       ${cust ? `<div class="note" style="margin-top:12px"><b>Existing customer:</b> ${esc(cust.name)} — linked to quotations and POs.</div>` : `<div class="note w" style="margin-top:12px">Not in the customer list yet — it is created automatically when you make a quotation.</div>`}</div></div>
-      ${l.emailBody ? `<div class="card"><div class="card-h"><h3>Original email</h3><span class="hint">${esc(l.emailSubject || '')}</span></div><div class="card-b"><pre style="white-space:pre-wrap;font-family:'IBM Plex Sans',sans-serif;margin:0;font-size:13px;max-height:260px;overflow:auto">${esc(l.emailBody)}</pre>${l.attachments ? `<div class="hint" style="margin-top:8px">📎 ${esc(l.attachments)} — open the original email in Gmail to see attachments.</div>` : ''}</div></div>` : ''}
+      ${l.emailBody ? `<div class="card"><div class="card-h"><h3>Original email</h3><span class="hint">${esc(l.emailSubject || '')}</span></div><div class="card-b"><pre style="white-space:pre-wrap;font-family:'Montserrat',sans-serif;margin:0;font-size:13px;max-height:260px;overflow:auto">${esc(l.emailBody)}</pre>${l.attachments ? `<div class="hint" style="margin-top:8px">📎 ${esc(l.attachments)} — open the original email in Gmail to see attachments.</div>` : ''}</div></div>` : ''}
       <div class="card"><div class="card-h"><h3>Quotations</h3></div><div class="tw"><table><thead><tr><th>Quote</th><th>Date</th><th class="num">Total</th><th>Status</th></tr></thead><tbody>
         ${quotes.map(q => `<tr class="click" data-act="go" data-go="#quote/${q.id}"><td class="mono">${esc(q.quoteNo)}</td><td>${fmtDate(q.date)}</td><td class="num">${inr(q.total)}</td><td>${qStatusBadge(q.status)}</td></tr>`).join('') || '<tr><td colspan="4" class="empty">No quotation yet.</td></tr>'}
       </tbody></table></div></div>
