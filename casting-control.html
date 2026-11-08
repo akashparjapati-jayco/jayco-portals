@@ -261,6 +261,33 @@ th.num{text-align:right}
   .metric-card{padding:20px;min-height:126px}
   .metric-card .val{font-size:25px}
 }
+
+/* ---------- pattern tracker ---------- */
+.pt-metrics{grid-template-columns:repeat(5,minmax(0,1fr))!important}
+@media(max-width:900px){.pt-metrics{grid-template-columns:repeat(2,minmax(0,1fr))!important}}
+.pt-board{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:14px}
+.pt-card{all:unset;box-sizing:border-box;cursor:pointer;background:var(--card);border:1px solid var(--card-border);border-radius:var(--r-md);padding:18px;display:flex;flex-direction:column;gap:8px;position:relative;overflow:hidden;transition:transform .2s,box-shadow .2s}
+.pt-card:before{content:"";position:absolute;left:0;top:0;width:40px;height:4px;background:var(--orange);transition:width .3s}
+.pt-card:hover{transform:translateY(-3px);box-shadow:0 18px 36px -22px rgba(0,0,0,.3)}.pt-card:hover:before{width:100%}
+.pt-card.home:before{background:var(--ok)}.pt-card.repair:before{background:var(--warn)}
+.pt-card-top{display:flex;align-items:center;justify-content:space-between}
+.pt-ico{width:38px;height:38px;border-radius:50%;border:2px solid var(--orange);display:grid;place-items:center;color:var(--ink)}
+.pt-card.home .pt-ico{border-color:var(--ok)}.pt-card.repair .pt-ico{border-color:var(--warn)}
+.pt-kind{font-size:10.5px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-faint)}
+.pt-name{font-size:15px;font-weight:800;line-height:1.3}
+.pt-count{font-family:var(--display);font-size:30px;font-weight:700;line-height:1}
+.pt-count small{font-size:12px;font-weight:600;color:var(--ink-faint);font-family:var(--font)}
+.pt-tags{display:flex;gap:6px;flex-wrap:wrap}
+.pt-now{display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap;border:1px solid var(--card-border);border-left:5px solid var(--orange);border-radius:var(--r-md);padding:14px 18px;margin-top:6px}
+.pt-now-loc{margin:2px 0 0;font-size:22px;font-weight:800}
+.pt-tl{position:relative;padding-left:22px;border-left:2px solid var(--line);margin-left:6px}
+.pt-ev{position:relative;padding:0 0 14px 6px;font-size:13.5px;line-height:1.5}
+.pt-dot{position:absolute;left:-30px;top:4px;width:12px;height:12px;border-radius:50%;background:#fff;border:3px solid var(--orange)}
+.pt-ev.cast .pt-dot{border-color:var(--ink-faint)}
+.pt-meta{font-size:12px;color:var(--ink-faint)}
+.pt-edit summary{cursor:pointer;font-weight:700;font-size:13px;color:var(--orange)}
+.pt-conv-list{max-height:220px;overflow:auto;border:1px solid var(--line);border-radius:var(--r-sm);padding:8px;display:grid;gap:4px}
+.pt-conv-list label{font-size:13px;display:flex;gap:8px;align-items:center;cursor:pointer}
 </style>
 <script src="jayco-icons.js?v=1"></script>
 <link rel="stylesheet" href="jayco-theme.css?v=2">
@@ -294,6 +321,7 @@ th.num{text-align:right}
       <div class="nav-label">Operations</div>
       <button class="nav-btn" data-view="dashboard"><span><span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9" rx="1.5"></rect><rect x="14" y="3" width="7" height="5" rx="1.5"></rect><rect x="14" y="12" width="7" height="9" rx="1.5"></rect><rect x="3" y="16" width="7" height="5" rx="1.5"></rect></svg></span><span class="nav-txt">Dashboard</span></span></button>
       <button class="nav-btn" data-view="casting-records"><span><span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 20h18"></path><path d="M6 20V9l6-4 6 4v11"></path><path d="M10 20v-5h4v5"></path></svg></span><span class="nav-txt">Casting Management</span></span><span class="count" id="c-challans">0</span></button>
+      <button class="nav-btn" data-view="pattern-tracker"><span><span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s7-6.2 7-12a7 7 0 1 0-14 0c0 5.8 7 12 7 12z"></path><circle cx="12" cy="10" r="2.5"></circle></svg></span><span class="nav-txt">Pattern Tracker</span></span><span class="count" id="c-pt">0</span></button>
       <button class="nav-btn" data-view="reports"><span><span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"></path><path d="M7 15l4-5 3 3 5-7"></path></svg></span><span class="nav-txt">Reports</span></span></button>
       <div class="nav-sep"></div>
       <button class="nav-btn" data-view="generate-po"><span><span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3h6a1 1 0 0 1 1 1v1H8V4a1 1 0 0 1 1-1Z"></path><rect x="5" y="5" width="14" height="16" rx="2"></rect><path d="M9 12h6M9 16h6M9 8h2"></path></svg></span><span class="nav-txt">Generate P/O</span></span><span class="count" id="c-pos">0</span></button>
@@ -475,7 +503,7 @@ const DB = FirebaseAdapter;
 const state = {
   view: 'dashboard',
   search: '',
-  challans: [], patternMasters: [], castingMasters: [], castingTypes: [], patternRecords: [], purchaseOrders: [], foundries: [], pigIron: [], pigParty: 'All', pigFocus: true,
+  challans: [], patternMasters: [], castingMasters: [], castingTypes: [], patternRecords: [], patternMoves: [], ptTab: 'foundry', ptFoundry: '', purchaseOrders: [], foundries: [], pigIron: [], pigParty: 'All', pigFocus: true,
   entryForm: null, editingChallanId: null,
   poForm: null, editingPoId: null,
   saving: false
@@ -728,6 +756,7 @@ const VIEWS = {
   'generate-po':        {eyebrow:'Outward order', title:'Generate P/O', desc:'Raise a purchase order on a foundry. Approximate weight is calculated from your own challan history.'},
   'pending-items':      {eyebrow:'Purchase orders', title:'Pending Items', desc:'Items still due from each foundry, grouped by foundry and order — ordered minus received.'},
   'over-received':      {eyebrow:'Purchase orders', title:'Over Received', desc:'Items received above the ordered quantity, and items received that were never on the P/O.'},
+  'pattern-tracker':    {eyebrow:'Pattern position', title:'Pattern Tracker', desc:'Where every pattern is now, its travel history, each foundry’s pattern register and convertible patterns.'},
   'pattern-master':     {eyebrow:'Master data', title:'Pattern Master', desc:'One record per pattern: item, type, construction, core boxes and drawings.'},
   'foundry-master':     {eyebrow:'Master data', title:'Foundry Master', desc:'Suppliers you raise purchase orders on — address, GSTIN and contact details.'},
   'pig-iron':           {eyebrow:'Raw material', title:'Pig Iron Bank', desc:'Pig iron received from clients, issued to foundries, and consumed as castings come back.'},
@@ -812,6 +841,7 @@ async function loadAll(notify){
   state.castingMasters = get('casting_masters');
   state.castingTypes   = get('casting_types');
   state.patternRecords = get('control_records').filter(r => r.module === 'patterns');
+  state.patternMoves   = get('control_records').filter(r => r.module === 'pattern_moves');
   state.purchaseOrders = get('purchase_orders').map(x => ({...x, items: x.items || []}));
   state.foundries      = get('foundries');
   state.pigIron        = get('pig_iron');
@@ -851,6 +881,7 @@ function render(){
     b.classList.toggle('active', b.dataset.view === state.view));
   document.getElementById('c-challans').textContent = state.challans.length;
   document.getElementById('c-patmas').textContent  = state.castingMasters.length;
+  { const ce = document.getElementById('c-pt'); if(ce) ce.textContent = state.castingMasters.filter(m => ptLocKind(ptPosition(m).loc) === 'foundry').length; }
   document.getElementById('c-types').textContent   = allTypes().length;
   document.getElementById('c-foundries').textContent = state.foundries.length;
   document.getElementById('c-pig').textContent = state.pigIron.length;
@@ -869,6 +900,7 @@ function render(){
     'generate-po': viewGeneratePO,
     'pending-items': viewPendingItems,
     'over-received': viewOverReceived,
+    'pattern-tracker': viewPatternTracker,
     'pattern-master': viewPatternMaster,
     'foundry-master': viewFoundryMaster,
     'pig-iron': viewPigIron,
@@ -1682,7 +1714,7 @@ function viewPatternMaster(){
       </div>
     </div>
     <div class="table-scroll"><table>
-      <thead><tr><th>Image</th><th>Pattern name</th><th>Type</th><th>Material</th><th>Construction</th><th>Core</th><th class="num">Sets</th><th>Pattern group</th><th>Drawing</th><th>Created by</th><th class="num">Change</th></tr></thead>
+      <thead><tr><th>Image</th><th>Pattern name</th><th>Type</th><th>Material</th><th>Construction</th><th>Core</th><th class="num">Sets</th><th>Pattern group</th><th>Position</th><th>Drawing</th><th>Created by</th><th class="num">Change</th></tr></thead>
       <tbody>${ rows.map(r=>`<tr>
         <td>${ r.patternPhoto ? `<img class="thumb" src="${r.patternPhoto}" alt="">` : '<span class="thumb-none">—</span>' }</td>
         <td><b>${esc(r.itemName)}</b></td>
@@ -1692,15 +1724,372 @@ function viewPatternMaster(){
         <td>${ r.coreBox==='With core box' ? `<span class="badge neutral">${num(r.coreCount)} core${num(r.coreCount)===1?'':'s'}</span>` : '<span class="thumb-none">No core</span>' }</td>
         <td class="num">${num(r.totalSets ?? 1)}</td>
         <td>${esc(r.patternGroup)||'—'}</td>
+        <td style="white-space:nowrap">${ptPosBadge(ptPosition(r))}</td>
         <td>${ r.drawingPdf ? `<button class="btn" data-row-pdf="${esc(r.id)}" style="padding:4px 12px;font-size:12px">Open PDF</button>` : '<span class="thumb-none">—</span>' }</td>
         <td>${ esc(r.createdBy || r.changedBy) || '<span class="thumb-none">—</span>' }${ r.createdOn ? `<div style="font-size:11px;color:var(--ink-faint)">${fmtDate(r.createdOn)}</div>` : '' }</td>
         <td class="num" style="white-space:nowrap">
+          <button class="btn icon" data-pt-hist="${esc(r.id)}" title="Position, travel history and convertible patterns">⇄</button>
           <button class="btn icon" data-open-casting="${esc(r.id)}" title="Edit">✎</button>
           <button class="btn icon danger" data-del-casting="${esc(r.id)}" title="Delete">🗑</button>
         </td></tr>`).join('')
-        || emptyRow(11, state.castingMasters.length ? 'No patterns match the search.' : 'Pattern Master is blank. Select Add pattern to begin.') }
+        || emptyRow(12, state.castingMasters.length ? 'No patterns match the search.' : 'Pattern Master is blank. Select Add pattern to begin.') }
       </tbody></table></div></section>`;
 }
+
+/* ---- Pattern Tracker --------------------------------------------------
+   Where every pattern is right now, how it travelled, what each foundry
+   holds, and which patterns can be converted into which.
+   Movements are saved in the existing pattern-movement collection
+   (control_records, module 'pattern_moves'). Convertible links are stored
+   on the pattern record itself (convertibleTo: [ids], convertNote).       */
+const PT_HOME = 'JAYCO (In-House)';
+const PT_REPAIR = 'Pattern Shop (Repair)';
+const PT_SCRAP = 'Scrapped';
+const PT_KINDS = ['Sent to foundry','Returned to JAYCO','Transferred to another foundry','Sent for repair','Back from repair','Converted','Scrapped'];
+const PT_IDLE_DAYS = 90;
+
+function ptDaysSince(d){ if(!d) return null; const t = new Date(String(d).slice(0,10) + 'T00:00:00'); if(isNaN(t)) return null; return Math.max(0, Math.floor((Date.now() - t) / 86400000)); }
+function ptPattern(id){ return state.castingMasters.find(m => String(m.id) === String(id)) || null; }
+function ptLabel(p){ return p ? (p.itemName + (p.itemType ? ' · ' + p.itemType : '')) : '—'; }
+/* One index per data load — keeps the tracker fast with hundreds of patterns. */
+let PT_CACHE = null;
+function ptIdx(){
+  if(PT_CACHE && PT_CACHE.c === state.challans && PT_CACHE.m === state.patternMoves && PT_CACHE.p === state.castingMasters) return PT_CACHE;
+  const moves = new Map(), rc = new Map(), rev = new Map();
+  for(const m of state.patternMoves){ const k = String(m.patternId); if(!moves.has(k)) moves.set(k, []); moves.get(k).push(m); }
+  for(const arr of moves.values()) arr.sort((a,b) => String(a.date||'').localeCompare(String(b.date||'')) || String(a.createdAt||'').localeCompare(String(b.createdAt||'')));
+  for(const c of state.challans) for(const i of c.items){
+    const k = normKey(i.itemName); if(!rc.has(k)) rc.set(k, []);
+    rc.get(k).push({date:c.challanDate, foundry:c.foundryName || 'Unknown foundry', qty:num(i.quantity), challan:c.challanNumber, challanId:c.id, type:normKey(i.itemType)});
+  }
+  for(const arr of rc.values()) arr.sort((a,b) => String(a.date||'').localeCompare(String(b.date||'')));
+  for(const m of state.castingMasters) for(const t of (m.convertibleTo || [])){ const k = String(t); if(!rev.has(k)) rev.set(k, new Set()); rev.get(k).add(String(m.id)); }
+  PT_CACHE = {c:state.challans, m:state.patternMoves, p:state.castingMasters, moves, rc, rev, pos:new Map()};
+  return PT_CACHE;
+}
+function ptMovesOf(id){ return ptIdx().moves.get(String(id)) || []; }
+/* Casting receipts (closed challans) for a pattern — matched on pattern name, and type when both carry one. */
+function ptReceiptsOf(p){
+  if(!p) return [];
+  const t = normKey(p.itemType);
+  return (ptIdx().rc.get(normKey(p.itemName)) || []).filter(r => !t || !r.type || r.type === t);
+}
+/* Current position: the latest recorded movement wins. With no movement on
+   record, the foundry that last delivered castings from it is shown as
+   "inferred" — the pattern must have been there. */
+function ptPosition(p){
+  const I = ptIdx(), key = String(p.id);
+  if(I.pos.has(key)) return I.pos.get(key);
+  let out;
+  const moves = ptMovesOf(p.id);
+  if(moves.length){ const m = moves[moves.length-1]; out = {loc:m.to || PT_HOME, since:m.date, source:'recorded', move:m}; }
+  else { const rc = ptReceiptsOf(p); out = rc.length ? {loc:rc[rc.length-1].foundry, since:rc[rc.length-1].date, source:'inferred'} : {loc:'', since:'', source:'none'}; }
+  I.pos.set(key, out); return out;
+}
+function ptLocKind(loc){
+  if(!loc) return 'none';
+  if(loc === PT_HOME) return 'home';
+  if(loc === PT_REPAIR) return 'repair';
+  if(loc === PT_SCRAP) return 'scrap';
+  return 'foundry';
+}
+function ptPosBadge(pos){
+  const k = ptLocKind(pos.loc);
+  if(k === 'none') return '<span class="badge neutral">Not recorded</span>';
+  const cls = k === 'home' ? 'ok' : k === 'foundry' ? 'warn' : k === 'scrap' ? 'bad' : 'neutral';
+  return `<span class="badge ${cls}" title="${pos.source==='inferred'?'Inferred from the last casting receipt — no movement recorded yet':'From the movement register'}">${esc(pos.loc)}${pos.source==='inferred'?' *':''}</span>`;
+}
+function ptConvertibles(p){
+  if(!p) return [];
+  const ids = new Set((p.convertibleTo || []).map(String));
+  for(const x of (ptIdx().rev.get(String(p.id)) || [])) ids.add(x);
+  ids.delete(String(p.id));
+  return [...ids].map(ptPattern).filter(Boolean);
+}
+function ptLocations(){
+  const f = foundryOptions().all;
+  return [PT_HOME, ...f.filter(n => n !== PT_HOME), PT_REPAIR, PT_SCRAP];
+}
+/* Pending P/O pieces per foundry per pattern name (still due from that foundry). */
+function ptPendingAt(foundry){
+  const out = {};
+  for(const po of state.purchaseOrders){
+    if(po.foundryName !== foundry) continue;
+    const pr = poProgress(po);
+    for(const l of pr.lines || []) if(l.pending > 0){ const k = normKey(l.itemName); out[k] = (out[k] || 0) + l.pending; }
+  }
+  return out;
+}
+function ptAll(){
+  return state.castingMasters.map(p => ({p, pos:ptPosition(p)}));
+}
+
+function viewPatternTracker(){
+  const all = ptAll();
+  const at = k => all.filter(x => ptLocKind(x.pos.loc) === k).length;
+  const tab = state.ptTab || 'foundry';
+  const metric = (lbl, val, note, red) => `<div class="metric-card${red?' red':''}"><p class="lbl">${lbl}</p><p class="val">${val}</p><p class="note">${note}</p></div>`;
+  const tabs = [['foundry','By Foundry'],['patterns','All Patterns'],['log','Movement Log']]
+    .map(([k,l]) => `<button class="btn ${tab===k?'primary':''}" data-pt-tab="${k}">${l}</button>`).join('');
+  let body = '';
+  if(tab === 'foundry') body = state.ptFoundry ? ptFoundryRegister(state.ptFoundry, all) : ptFoundryBoard(all);
+  else if(tab === 'patterns') body = ptPatternTable(all);
+  else body = ptMoveLog();
+  return `
+  <div class="metrics pt-metrics" style="margin-bottom:22px">
+    ${metric('Total patterns', all.length, 'In Pattern Master')}
+    ${metric('At JAYCO', at('home'), 'In-house store')}
+    ${metric('At foundries', at('foundry'), all.filter(x=>x.pos.source==='inferred').length + ' inferred from castings', true)}
+    ${metric('Repair / scrapped', at('repair') + ' / ' + at('scrap'), 'Pattern shop and retired')}
+    ${metric('Not recorded', at('none'), 'No movement and no casting yet')}
+  </div>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:18px">
+    ${tabs}
+    <span style="flex:1"></span>
+    <button class="btn primary" data-pt-move="">＋ Record pattern movement</button>
+  </div>
+  ${body}
+  <p style="font-size:12px;color:var(--ink-faint);margin:14px 4px 0;line-height:1.6">* Inferred: no movement has been recorded for this pattern yet, so its position is taken from the foundry that last delivered castings from it. Record a movement to confirm it.</p>`;
+}
+
+function ptFoundryBoard(all){
+  const locs = ptLocations().filter(l => l !== PT_SCRAP);
+  const cards = locs.map(loc => {
+    const here = all.filter(x => x.pos.loc === loc);
+    const inferred = here.filter(x => x.pos.source === 'inferred').length;
+    const idle = here.filter(x => { if(ptLocKind(loc) !== 'foundry') return false; const rc = ptReceiptsOf(x.p).filter(r => r.foundry === loc); const last = rc.length ? rc[rc.length-1].date : x.pos.since; const d = ptDaysSince(last); return d !== null && d > PT_IDLE_DAYS; }).length;
+    const pend = Object.values(ptPendingAt(loc)).reduce((a,b)=>a+b,0);
+    const k = ptLocKind(loc);
+    if(k === 'foundry' && !here.length && !pend) return null;
+    return {loc, k, n:here.length, inferred, idle, pend};
+  }).filter(Boolean).filter(c => match(c.loc));
+  return `<div class="pt-board">${cards.map(c => `
+    <button class="pt-card ${c.k}" data-pt-foundry="${esc(c.loc)}">
+      <span class="pt-card-top"><span class="pt-ico">${window.JI ? JI(c.k==='home'?'home':c.k==='repair'?'parts':'casting', 20) : ''}</span>
+        <span class="pt-kind">${c.k==='home'?'In-house':c.k==='repair'?'Repair':'Foundry'}</span></span>
+      <b class="pt-name">${esc(c.loc)}</b>
+      <span class="pt-count">${c.n}<small> pattern${c.n===1?'':'s'}</small></span>
+      <span class="pt-tags">
+        ${c.inferred ? `<span class="badge neutral">${c.inferred} inferred</span>` : ''}
+        ${c.idle ? `<span class="badge bad">${c.idle} idle &gt; ${PT_IDLE_DAYS} days</span>` : ''}
+        ${c.pend ? `<span class="badge warn">${c.pend} pcs on open P/O</span>` : ''}
+      </span>
+    </button>`).join('') || '<p style="color:var(--ink-faint)">No locations match the search.</p>'}</div>`;
+}
+
+function ptFoundryRegister(loc, all){
+  const here = all.filter(x => x.pos.loc === loc)
+    .filter(x => match(x.p.itemName, x.p.itemType, x.p.patternGroup));
+  const isF = ptLocKind(loc) === 'foundry';
+  const pend = isF ? ptPendingAt(loc) : {};
+  const rows = here.map(x => {
+    const rc = ptReceiptsOf(x.p).filter(r => r.foundry === loc);
+    const last = rc.length ? rc[rc.length-1] : null;
+    const pcs = rc.reduce((a,r)=>a+r.qty,0);
+    const idleD = ptDaysSince(last ? last.date : x.pos.since);
+    return {x, last, pcs, idleD, pend: pend[normKey(x.p.itemName)] || 0};
+  }).sort((a,b) => (b.idleD ?? -1) - (a.idleD ?? -1));
+  /* Patterns this foundry still owes castings for, but which are somewhere else. */
+  const hereIds = new Set(here.map(x => String(x.p.id)));
+  const needed = isF ? Object.entries(pend).map(([k,qty]) => {
+    const p = state.castingMasters.find(m => normKey(m.itemName) === k);
+    if(!p || hereIds.has(String(p.id))) return null;
+    const pos = ptPosition(p);
+    const conv = ptConvertibles(p).filter(c => ptPosition(c).loc === loc);
+    return {p, qty, pos, conv};
+  }).filter(Boolean) : [];
+  return `<section class="data-panel">
+    <div class="panel-heading">
+      <div><p class="eyebrow">${isF ? 'Foundry pattern register' : 'Location register'}</p><h2 class="panel-title">${esc(loc)}</h2>
+        <p style="margin:6px 0 0;font-size:13px;color:var(--ink-soft)">${here.length} pattern${here.length===1?'':'s'} here now${isF ? ' · sorted by days since the last casting came from this foundry' : ''}</p></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn" data-pt-foundry="">← All locations</button>
+        <button class="btn primary" data-pt-move="" data-pt-to="${esc(loc)}">＋ Send pattern here</button>
+      </div>
+    </div>
+    <div class="table-scroll"><table>
+      <thead><tr><th>Pattern</th><th>Type</th><th class="num">Sets</th><th>Here since</th><th>Record</th>${isF?'<th>Last casting from here</th><th class="num">Pcs cast here</th><th class="num">Idle days</th><th class="num">Open P/O pcs</th>':''}<th class="num">Action</th></tr></thead>
+      <tbody>${rows.map(r => `<tr>
+        <td><b>${esc(r.x.p.itemName)}</b>${ptConvertibles(r.x.p).length ? `<div style="font-size:11px;color:var(--orange);font-weight:600">⇄ ${ptConvertibles(r.x.p).length} convertible</div>` : ''}</td>
+        <td>${esc(r.x.p.itemType)}</td>
+        <td class="num">${num(r.x.p.totalSets ?? 1)}</td>
+        <td>${fmtDate(r.x.pos.since)}</td>
+        <td>${r.x.pos.source === 'inferred' ? '<span class="badge neutral">Inferred *</span>' : '<span class="badge ok">Recorded</span>'}</td>
+        ${isF ? `<td>${r.last ? fmtDate(r.last.date) + `<div style="font-size:11px;color:var(--ink-faint)">Challan ${esc(r.last.challan||'—')}</div>` : '<span class="thumb-none">None yet</span>'}</td>
+        <td class="num">${r.pcs || '—'}</td>
+        <td class="num">${r.idleD === null ? '—' : r.idleD > PT_IDLE_DAYS ? `<b style="color:var(--bad)">${r.idleD}</b>` : r.idleD}</td>
+        <td class="num">${r.pend ? `<b>${r.pend}</b>` : '—'}</td>` : ''}
+        <td class="num" style="white-space:nowrap"><button class="btn" data-pt-hist="${esc(r.x.p.id)}" style="padding:4px 12px;font-size:12px">History</button>
+          <button class="btn" data-pt-move="${esc(r.x.p.id)}" style="padding:4px 12px;font-size:12px">Move</button></td>
+      </tr>`).join('') || emptyRow(isF ? 10 : 6, 'No patterns recorded at this location.')}</tbody></table></div>
+    ${needed.length ? `<div style="padding:20px 26px;border-top:1px solid var(--line)">
+      <p class="eyebrow" style="margin-bottom:10px">Needed here — open P/O, but the pattern is elsewhere</p>
+      <div class="table-scroll"><table><thead><tr><th>Pattern</th><th class="num">Pcs due</th><th>Pattern is at</th><th>Convertible pattern already here</th><th class="num">Action</th></tr></thead>
+      <tbody>${needed.map(n => `<tr><td><b>${esc(n.p.itemName)}</b> <span style="color:var(--ink-faint)">${esc(n.p.itemType)}</span></td><td class="num">${n.qty}</td><td>${ptPosBadge(n.pos)}</td>
+        <td>${n.conv.length ? n.conv.map(c => `<span class="badge ok">⇄ ${esc(c.itemName)}</span>`).join(' ') : '<span class="thumb-none">None</span>'}</td>
+        <td class="num"><button class="btn" data-pt-move="${esc(n.p.id)}" data-pt-to="${esc(loc)}" style="padding:4px 12px;font-size:12px">Send here</button></td></tr>`).join('')}</tbody></table></div></div>` : ''}
+  </section>`;
+}
+
+function ptPatternTable(all){
+  const rows = all.filter(x => match(x.p.itemName, x.p.itemType, x.p.patternGroup, x.pos.loc))
+    .sort((a,b) => String(a.p.itemName||'').localeCompare(String(b.p.itemName||''), 'en', {numeric:true}));
+  return `<section class="data-panel">
+    <div class="panel-heading"><div><p class="eyebrow">Every pattern</p><h2 class="panel-title">Current position</h2></div></div>
+    <div class="table-scroll"><table>
+      <thead><tr><th>Pattern</th><th>Type</th><th>Group</th><th>Current position</th><th>Since</th><th class="num">Moves</th><th>Convertible with</th><th class="num">Action</th></tr></thead>
+      <tbody>${rows.map(x => { const conv = ptConvertibles(x.p); return `<tr>
+        <td><b>${esc(x.p.itemName)}</b></td><td>${esc(x.p.itemType)}</td><td>${esc(x.p.patternGroup)||'—'}</td>
+        <td>${ptPosBadge(x.pos)}</td><td>${fmtDate(x.pos.since)}</td><td class="num">${ptMovesOf(x.p.id).length}</td>
+        <td>${conv.length ? conv.slice(0,3).map(c=>`<span class="badge neutral">⇄ ${esc(c.itemName)}</span>`).join(' ') + (conv.length>3?` +${conv.length-3}`:'') : '<span class="thumb-none">—</span>'}</td>
+        <td class="num" style="white-space:nowrap"><button class="btn" data-pt-hist="${esc(x.p.id)}" style="padding:4px 12px;font-size:12px">History</button>
+          <button class="btn" data-pt-move="${esc(x.p.id)}" style="padding:4px 12px;font-size:12px">Move</button></td></tr>`; }).join('')
+        || emptyRow(8, state.castingMasters.length ? 'No patterns match the search.' : 'Pattern Master is blank.')}</tbody></table></div></section>`;
+}
+
+function ptMoveLog(){
+  const rows = [...state.patternMoves]
+    .sort((a,b) => String(b.date||'').localeCompare(String(a.date||'')) || String(b.createdAt||'').localeCompare(String(a.createdAt||'')))
+    .filter(m => match(m.patternName, m.kind, m.from, m.to, m.ref, m.note, m.by));
+  return `<section class="data-panel">
+    <div class="panel-heading"><div><p class="eyebrow">Gate register</p><h2 class="panel-title">Movement log</h2></div></div>
+    <div class="table-scroll"><table>
+      <thead><tr><th>Date</th><th>Pattern</th><th>Movement</th><th>From</th><th>To</th><th class="num">Sets</th><th>Ref. / challan</th><th>Note</th><th>By</th><th class="num"></th></tr></thead>
+      <tbody>${rows.map(m => `<tr>
+        <td>${fmtDate(m.date)}</td><td><b>${esc(m.patternName)}</b></td><td>${esc(m.kind)}</td>
+        <td>${esc(m.from)||'—'}</td><td><b>${esc(m.to)||'—'}</b></td><td class="num">${num(m.sets)||'—'}</td>
+        <td class="mono">${esc(m.ref)||'—'}</td><td style="color:var(--ink-soft)">${esc(m.note)||'—'}</td><td>${esc(m.by||m.changedBy)||'—'}</td>
+        <td class="num"><button class="btn icon danger" data-pt-del="${esc(m.id)}" title="Delete this movement">🗑</button></td></tr>`).join('')
+        || emptyRow(10, 'No pattern movements recorded yet. Use “Record pattern movement”.')}</tbody></table></div></section>`;
+}
+
+function modalPatternHistory(id){
+  const p = ptPattern(id); if(!p) return;
+  const pos = ptPosition(p);
+  const ev = [
+    ...ptMovesOf(p.id).map(m => ({date:m.date, t:'move', m})),
+    ...ptReceiptsOf(p).map(r => ({date:r.date, t:'cast', r}))
+  ].sort((a,b) => String(b.date||'').localeCompare(String(a.date||'')));
+  const conv = ptConvertibles(p);
+  const others = state.castingMasters.filter(m => String(m.id) !== String(p.id))
+    .sort((a,b) => String(a.itemName||'').localeCompare(String(b.itemName||''), 'en', {numeric:true}));
+  const mine = new Set((p.convertibleTo || []).map(String));
+  openModal(`<div class="modal-head"><h3>${esc(p.itemName)}</h3>
+    <p>${esc(p.itemType)} · ${esc(p.patternMaterial||'')} · ${esc(p.patternConstruction||'')} · ${num(p.totalSets ?? 1)} set${num(p.totalSets ?? 1)===1?'':'s'}${p.patternGroup ? ' · ' + esc(p.patternGroup) : ''}</p></div>
+    <div style="padding:0 1.25rem 1rem;overflow-y:auto;flex:1 1 auto;min-height:0">
+      <div class="pt-now">
+        <div><p class="eyebrow" style="margin:0">Current position</p><p class="pt-now-loc">${esc(pos.loc || 'Not recorded')}</p>
+          <p style="margin:2px 0 0;font-size:12.5px;color:var(--ink-soft)">${pos.since ? 'Since ' + fmtDate(pos.since) + ' · ' + ptDaysSince(pos.since) + ' days' : 'No movement or casting on record'}${pos.source==='inferred' ? ' · inferred from the last casting receipt' : ''}</p></div>
+        <button class="btn primary" data-pt-move="${esc(p.id)}">Move this pattern</button>
+      </div>
+
+      <p class="eyebrow" style="margin:18px 0 10px">Travel history</p>
+      <div class="pt-tl">${ev.map(e => e.t === 'move' ? `
+        <div class="pt-ev move"><span class="pt-dot"></span><div><b>${esc(e.m.kind)}</b> — ${esc(e.m.from||'?')} → <b>${esc(e.m.to||'?')}</b>
+          <div class="pt-meta">${fmtDate(e.m.date)}${num(e.m.sets)?' · '+num(e.m.sets)+' set(s)':''}${e.m.ref?' · Ref. '+esc(e.m.ref):''}${e.m.by||e.m.changedBy?' · '+esc(e.m.by||e.m.changedBy):''}${e.m.note?'<br>'+esc(e.m.note):''}</div></div></div>` : `
+        <div class="pt-ev cast"><span class="pt-dot"></span><div>Castings received from <b>${esc(e.r.foundry)}</b> — ${e.r.qty} pcs
+          <div class="pt-meta">${fmtDate(e.r.date)} · Challan ${esc(e.r.challan||'—')}</div></div></div>`).join('')
+        || '<p style="color:var(--ink-faint);font-size:13px">Nothing on record yet.</p>'}</div>
+
+      <p class="eyebrow" style="margin:18px 0 10px">Convertible with</p>
+      ${conv.length ? `<div class="table-scroll"><table><thead><tr><th>Pattern</th><th>Type</th><th>Is at</th></tr></thead><tbody>
+        ${conv.map(c => `<tr><td><b>${esc(c.itemName)}</b></td><td>${esc(c.itemType)}</td><td>${ptPosBadge(ptPosition(c))}</td></tr>`).join('')}</tbody></table></div>`
+        : '<p style="color:var(--ink-faint);font-size:13px;margin:0 0 8px">No convertible patterns linked yet.</p>'}
+      ${p.convertNote ? `<p style="font-size:13px;color:var(--ink-soft);margin:8px 0 0"><b>How to convert:</b> ${esc(p.convertNote)}</p>` : ''}
+
+      <details class="pt-edit" style="margin-top:14px"><summary>Edit convertible patterns</summary>
+        <form id="f-pt-conv" style="margin-top:10px">
+          <input type="text" id="pt-conv-q" placeholder="Filter patterns…" style="width:100%;margin-bottom:8px">
+          <div class="pt-conv-list">${others.map(o => `<label data-n="${esc(normKey(o.itemName+' '+o.itemType))}"><input type="checkbox" name="conv" value="${esc(o.id)}" ${mine.has(String(o.id))?'checked':''}> ${esc(o.itemName)} <span style="color:var(--ink-faint)">${esc(o.itemType)}</span></label>`).join('')}</div>
+          <label class="field" style="margin-top:10px">How to convert (optional)<textarea name="convertNote" maxlength="400" placeholder="e.g. Change the core box and cut the base by 10 mm">${esc(p.convertNote||'')}</textarea></label>
+          <button type="button" class="btn primary" data-pt-conv-save="${esc(p.id)}" style="margin-top:10px">Save convertible patterns</button>
+        </form></details>
+    </div>
+    <div class="modal-foot"><button type="button" class="btn" data-close>Close</button></div>`, true);
+  const qi = document.getElementById('pt-conv-q');
+  if(qi) qi.addEventListener('input', () => { const v = normKey(qi.value); document.querySelectorAll('.pt-conv-list label').forEach(l => l.style.display = !v || l.dataset.n.includes(v) ? '' : 'none'); });
+}
+
+function modalPatternMove(id, to){
+  const p = id ? ptPattern(id) : null;
+  const pos = p ? ptPosition(p) : {loc:''};
+  const locs = ptLocations();
+  const pats = [...state.castingMasters].sort((a,b) => String(a.itemName||'').localeCompare(String(b.itemName||''), 'en', {numeric:true}));
+  const defTo = to || (pos.loc && pos.loc !== PT_HOME ? PT_HOME : '');
+  openModal(`<form id="f-pt-move">
+    <div class="modal-head"><h3>Record Pattern Movement</h3><p>Every time a pattern leaves or comes back — foundry, transfer, repair, conversion or scrap.</p></div>
+    <div class="modal-body">
+      <label class="field full">Pattern *<select name="patternId" id="pt-mv-pat"><option value="">Select pattern…</option>
+        ${pats.map(m => `<option value="${esc(m.id)}" ${p && String(p.id)===String(m.id)?'selected':''}>${esc(ptLabel(m))}</option>`).join('')}</select></label>
+      <label class="field">Movement *<select name="kind" id="pt-mv-kind">${opt(PT_KINDS, defTo===PT_HOME?'Returned to JAYCO':defTo?'Sent to foundry':'Sent to foundry')}</select></label>
+      <label class="field">Date *<input type="date" name="date" value="${today()}"></label>
+      <label class="field">From<select name="from" id="pt-mv-from"><option value="">—</option>${opt(locs, pos.loc || PT_HOME)}</select></label>
+      <label class="field">To *<select name="to" id="pt-mv-to"><option value="">Select…</option>${opt(locs, defTo)}</select></label>
+      <label class="field">Sets moved<input type="number" min="0" max="999" name="sets" value="${p ? num(p.totalSets ?? 1) : 1}"></label>
+      <label class="field">Ref. / gate pass / challan no.<input type="text" maxlength="60" name="ref" placeholder="Optional"></label>
+      <label class="field full">Note<textarea name="note" maxlength="400" placeholder="Condition, who carried it, conversion done…"></textarea></label>
+      <p class="full" id="pt-mv-hint" style="margin:0;font-size:12px;color:var(--ink-faint)">${p ? 'Now at: ' + esc(pos.loc || 'not recorded') + (pos.source==='inferred'?' (inferred)':'') : ''}</p>
+    </div>
+    <div class="modal-foot"><button type="button" class="btn" data-close>Cancel</button>
+      <button type="button" class="btn primary" id="btn-pt-move-save">Save movement</button></div></form>`);
+  const sel = document.getElementById('pt-mv-pat'), from = document.getElementById('pt-mv-from'), kind = document.getElementById('pt-mv-kind'), toS = document.getElementById('pt-mv-to'), hint = document.getElementById('pt-mv-hint');
+  sel.addEventListener('change', () => { const q = ptPattern(sel.value); if(!q) return; const ps = ptPosition(q); from.value = ps.loc || PT_HOME; hint.textContent = 'Now at: ' + (ps.loc || 'not recorded') + (ps.source==='inferred' ? ' (inferred)' : ''); });
+  kind.addEventListener('change', () => {
+    const k = kind.value;
+    if(k === 'Returned to JAYCO' || k === 'Back from repair') toS.value = PT_HOME;
+    else if(k === 'Sent for repair') toS.value = PT_REPAIR;
+    else if(k === 'Scrapped') toS.value = PT_SCRAP;
+  });
+}
+
+async function savePatternMove(){
+  const fd = formData('f-pt-move'); if(!fd) return;
+  const {f, data} = fd;
+  const p = ptPattern(data.patternId);
+  if(!p) return fieldError(f, 'patternId', 'Pick the pattern that moved.');
+  if(!data.to) return fieldError(f, 'to', 'Where did the pattern go?');
+  if(data.from && data.from === data.to) return fieldError(f, 'to', 'From and To are the same place.');
+  const btn = document.getElementById('btn-pt-move-save'); btn.disabled = true; btn.textContent = 'Saving…';
+  try{
+    await DB.create('control_records', {module:'pattern_moves', patternId:String(p.id), patternName:p.itemName, patternType:p.itemType||'',
+      kind:data.kind, date:data.date || today(), from:data.from || '', to:data.to, sets:num(data.sets), ref:(data.ref||'').trim(), note:(data.note||'').trim(), by:authUser()});
+    toast(p.itemName + ' → ' + data.to, 'success');
+    closeModal(); await loadAll();
+  }catch(err){
+    btn.disabled = false; btn.textContent = 'Save movement';
+    toast('Could not save: ' + (err.code ? err.code + ' — ' : '') + (err.message || err), 'error');
+  }
+}
+
+async function savePatternConvertibles(id){
+  const f = document.getElementById('f-pt-conv'); if(!f) return;
+  const ids = [...f.querySelectorAll('input[name=conv]:checked')].map(i => i.value);
+  const note = (f.querySelector('[name=convertNote]').value || '').trim();
+  try{
+    await DB.update('casting_masters', id, {convertibleTo: ids, convertNote: note});
+    toast('Convertible patterns saved', 'success');
+    await loadAll(); modalPatternHistory(id);
+  }catch(err){ toast('Could not save: ' + (err.code ? err.code + ' — ' : '') + (err.message || err), 'error'); }
+}
+
+document.addEventListener('click', async (e) => {
+  const t = e.target.closest('[data-pt-tab],[data-pt-foundry],[data-pt-hist],[data-pt-move],[data-pt-del],[data-pt-conv-save],#btn-pt-move-save');
+  if(!t) return;
+  const d = t.dataset;
+  if(t.id === 'btn-pt-move-save'){ e.preventDefault(); savePatternMove(); return; }
+  if(d.ptTab !== undefined){ state.ptTab = d.ptTab; state.ptFoundry = ''; render(); return; }
+  if(d.ptFoundry !== undefined){ state.ptTab = 'foundry'; state.ptFoundry = d.ptFoundry; state.view = 'pattern-tracker'; render(); window.scrollTo(0,0); return; }
+  if(d.ptHist !== undefined){ modalPatternHistory(d.ptHist); return; }
+  if(d.ptMove !== undefined){ modalPatternMove(d.ptMove, d.ptTo || ''); return; }
+  if(d.ptConvSave !== undefined){ savePatternConvertibles(d.ptConvSave); return; }
+  if(d.ptDel !== undefined){
+    const m = state.patternMoves.find(x => String(x.id) === d.ptDel); if(!m) return;
+    if(!confirm('Delete this movement of ' + m.patternName + ' (' + m.kind + ', ' + fmtDate(m.date) + ')?')) return;
+    try{ await DB.remove('control_records', m.id); toast('Movement deleted', 'success'); await loadAll(); }
+    catch(err){ toast('Could not delete: ' + (err.code ? err.code + ' — ' : '') + (err.message || err), 'error'); }
+  }
+});
+
 
 /* ---- Type Master ---- */
 function viewTypeMaster(){
