@@ -31,7 +31,7 @@
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800&family=Play:wght@400;700&display=swap" rel="stylesheet">
 
 <!-- React (CDN, no build step) -->
 <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
@@ -132,9 +132,9 @@
     --text-dim: #6b6260;
     --text-faint: #a89f9c;
     --radius: 10px;
-    --font-body: 'Inter', 'Segoe UI', sans-serif;
-    --font-heading: 'Space Grotesk', 'Inter', sans-serif;
-    --font-mono: 'JetBrains Mono', monospace;
+    --font-body: 'Montserrat', 'Segoe UI', sans-serif;
+    --font-heading: 'Montserrat', 'Montserrat', sans-serif;
+    --font-mono: 'Play', monospace;
   }
   * { box-sizing: border-box; }
   html, body, #root { height: 100%; }
@@ -167,7 +167,8 @@
     * { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
   }
 </style>
-<link rel="stylesheet" href="jayco-theme.css?v=1">
+<script src="jayco-icons.js?v=1"></script>
+<link rel="stylesheet" href="jayco-theme.css?v=2">
 </head>
 <body>
 <a class="back-to-portals" href="index.html"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"></path><path d="M12 19l-7-7 7-7"></path></svg>Staff Portals</a>
@@ -823,46 +824,56 @@ const NAV_GROUPS = [{
   label: "OVERVIEW",
   items: [{
     id: "dashboard",
-    label: "📊 Dashboard"
+    label: "Dashboard",
+    ic: "dashboard"
   }]
 }, {
   label: "MASTERS",
   items: [{
     id: "vendors",
-    label: "👥 Vendors"
+    label: "Vendors",
+    ic: "vendor"
   }]
 }, {
   label: "TRANSACTIONS",
   items: [{
     id: "invoices",
-    label: "📄 Invoices"
+    label: "Invoices",
+    ic: "quote"
   }, {
     id: "payments",
-    label: "💰 Payments"
+    label: "Payments",
+    ic: "wallet"
   }]
 }, {
   label: "REPORTS",
   items: [{
     id: "outstanding",
-    label: "📋 Outstanding"
+    label: "Outstanding",
+    ic: "clock"
   }, {
     id: "cashflow",
-    label: "📉 Cash Outflow"
+    label: "Cash Outflow",
+    ic: "forecast"
   }, {
     id: "advance",
-    label: "⚡ Advance Report"
+    label: "Advance Report",
+    ic: "advance"
   }, {
     id: "ledger",
-    label: "📖 Vendor Ledger"
+    label: "Vendor Ledger",
+    ic: "ledger"
   }]
 }, {
   label: "TOOLS",
   items: [{
     id: "settings",
-    label: "⚙️ Settings"
+    label: "Settings",
+    ic: "settings"
   }, {
     id: "import",
-    label: "📥 Excel Import"
+    label: "Excel Import",
+    ic: "import"
   }]
 }];
 function Shell({
@@ -948,7 +959,10 @@ function Shell({
       cursor: "pointer",
       textAlign: "left"
     }
-  }, item.label)))))), React.createElement("div", {
+  }, React.createElement("span", {
+    style: { display: "inline-flex", flex: "none" },
+    dangerouslySetInnerHTML: { __html: window.JI ? window.JI(item.ic) : "" }
+  }), item.label)))))), React.createElement("div", {
     style: {
       flex: 1,
       minWidth: 0,
@@ -1149,28 +1163,28 @@ function Dashboard({
     linkText: vendorsWithBalance + " vendors with balance",
     onClick: () => onNavigate("outstanding"),
     color: "var(--accent-red)",
-    icon: "💰"
+    icon: "wallet"
   }), React.createElement(StatCardLinked, {
     label: "OVERDUE",
     value: fmtINR(overdueTotal),
     linkText: overdueInvoices.length + " bills past due date",
     onClick: () => onNavigate("outstanding"),
     color: "var(--accent-red)",
-    icon: "⚠️"
+    icon: "alert"
   }), React.createElement(StatCardLinked, {
     label: "NOT YET DUE",
     value: fmtINR(notDueTotal),
     linkText: "Expected in upcoming period",
     onClick: () => onNavigate("cashflow"),
     color: "var(--accent-blue)",
-    icon: "📅"
+    icon: "calendar"
   }), React.createElement(StatCardLinked, {
     label: "TOTAL VENDORS",
     value: vendors.length,
     linkText: vendorsWithBalance + " with outstanding",
     onClick: () => onNavigate("vendors"),
     color: "var(--accent-yellow)",
-    icon: "👥"
+    icon: "vendor"
   })), React.createElement("div", {
     style: {
       display: "grid",
@@ -1481,10 +1495,12 @@ function StatCardLinked({
     }
   }, label), React.createElement("span", {
     style: {
-      fontSize: "18px",
-      opacity: 0.5
-    }
-  }, icon)), React.createElement("div", {
+      display: "inline-flex",
+      color: "var(--brand-red)",
+      opacity: 0.9
+    },
+    dangerouslySetInnerHTML: { __html: window.JI ? window.JI(icon, 20) : "" }
+  })), React.createElement("div", {
     style: {
       fontFamily: "var(--font-mono)",
       fontSize: "26px",

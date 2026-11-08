@@ -7,7 +7,7 @@
 <title>Jayco Engineering — Production Management</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800&family=Play:wght@400;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <!-- Firebase SDK -->
@@ -75,8 +75,8 @@ document.addEventListener('DOMContentLoaded', function(){
     --text2:#4b4b4b; --text3:#9a9a9a;
   }
   *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-  body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;font-size:13px;-webkit-font-smoothing:antialiased}
-  h1,h2,h3,h4,h5{font-family:'Space Grotesk','Inter',sans-serif;font-weight:700}
+  body{font-family:'Montserrat',system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;font-size:13px;-webkit-font-smoothing:antialiased}
+  h1,h2,h3,h4,h5{font-family:'Montserrat','Montserrat',sans-serif;font-weight:700}
 
   /* SHELL / SIDEBAR LAYOUT */
   .shell{display:flex;min-height:100vh}
@@ -85,7 +85,7 @@ document.addEventListener('DOMContentLoaded', function(){
   .sidebar-head{display:flex;align-items:center;gap:9px;padding:18px 16px;border-bottom:1px solid rgba(255,255,255,.1)}
   .sidebar-head .brand-logo{height:32px;width:auto;flex:0 0 auto;display:block;border-radius:6px;object-fit:contain;background:#fff;padding:4px 7px}
   .sidebar-head p{margin:0;line-height:1.25}
-  .sidebar-head p:first-of-type{font-size:12px;font-weight:800;letter-spacing:0;font-family:'Space Grotesk','Inter',sans-serif;color:#fff}
+  .sidebar-head p:first-of-type{font-size:12px;font-weight:800;letter-spacing:0;font-family:'Montserrat','Montserrat',sans-serif;color:#fff}
   .sidebar-head p:last-of-type{font-size:8.5px;text-transform:uppercase;letter-spacing:1px;font-weight:600;color:var(--orange);margin-top:2px}
   .sidebar-body{flex:1;overflow-y:auto;padding:14px 12px}
   .sidebar .back-link{display:flex;align-items:center;gap:6px;color:rgba(255,255,255,.55);font-size:11px;font-weight:600;text-decoration:none;padding:6px 10px;border-radius:100px;border:1px solid rgba(255,255,255,.14);transition:background .2s,color .2s;white-space:nowrap;margin-bottom:14px;width:fit-content}
@@ -93,14 +93,14 @@ document.addEventListener('DOMContentLoaded', function(){
   .nav-label{font-size:9.5px;font-weight:700;letter-spacing:1.8px;text-transform:uppercase;color:rgba(255,255,255,.32);padding:8px 10px 7px}
   .nav-btn{width:100%;display:flex;align-items:center;gap:11px;background:none;border:0;
     color:rgba(255,255,255,.72);padding:10px 12px;cursor:pointer;text-align:left;font-size:13px;font-weight:600;
-    border-radius:10px;transition:background .2s,color .2s;font-family:'Inter',sans-serif;margin-bottom:2px}
+    border-radius:10px;transition:background .2s,color .2s;font-family:'Montserrat',sans-serif;margin-bottom:2px}
   .nav-btn:hover{background:rgba(255,255,255,.07);color:#fff}
   .nav-btn.active{background:var(--orange);color:#fff;box-shadow:0 10px 24px -12px rgba(229,50,45,.5)}
   .sidebar-foot{border-top:1px solid rgba(255,255,255,.1);padding:16px 18px;font-size:11px;color:rgba(255,255,255,.5)}
   .main{flex:1;min-width:0;display:flex;flex-direction:column}
   .topbar{position:sticky;top:0;z-index:40;display:flex;align-items:center;gap:12px;min-height:58px;
     background:var(--surface);border-bottom:1px solid var(--border);padding:0 20px}
-  .topbar .title b{display:block;font-size:14px;font-family:'Space Grotesk','Inter',sans-serif;letter-spacing:-.2px;color:var(--text)}
+  .topbar .title b{display:block;font-size:14px;font-family:'Montserrat','Montserrat',sans-serif;letter-spacing:-.2px;color:var(--text)}
   .topbar .title span{display:block;font-size:11px;color:var(--text3);margin-top:1px}
   .topbar .cfg-btn{
     background:var(--surface);border:1px solid var(--border);
@@ -132,7 +132,7 @@ document.addEventListener('DOMContentLoaded', function(){
     border:1px solid var(--border);border-radius:4px;padding:5px 8px;font-size:12px;color:var(--text);
   }
   #entry-info{color:var(--text3);font-size:12px;margin-left:4px}
-  .btn{padding:7px 16px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;border:1.5px solid var(--border);background:var(--surface);color:var(--text2);transition:all .15s;font-family:'Inter',sans-serif}
+  .btn{padding:7px 16px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;border:1.5px solid var(--border);background:var(--surface);color:var(--text2);transition:all .15s;font-family:'Montserrat',sans-serif}
   .btn:hover{background:var(--bg3);border-color:#b0bcd0}
   .btn-primary{background:var(--navy);color:#fff;border-color:var(--navy)}
   .btn-primary:hover{background:var(--navy-mid)}
@@ -406,11 +406,11 @@ document.addEventListener('DOMContentLoaded', function(){
   /* ── EMPLOYEE REGISTER ── */
   .er-toolbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:#fff;border-radius:var(--radius);padding:10px 14px;box-shadow:var(--shadow);margin-bottom:14px;border:1px solid var(--border)}
   .er-toolbar label{font-weight:600;font-size:12px;color:var(--text2)}
-  .er-toolbar input,.er-toolbar select{border:1px solid var(--border);border-radius:6px;padding:6px 9px;font-size:12px;color:var(--text);font-family:'Inter',sans-serif}
+  .er-toolbar input,.er-toolbar select{border:1px solid var(--border);border-radius:6px;padding:6px 9px;font-size:12px;color:var(--text);font-family:'Montserrat',sans-serif}
   .er-card{background:var(--surface);border-radius:var(--radius-lg);box-shadow:var(--shadow);border:1px solid var(--border)}
   .er-field-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:12px}
   .er-field label{display:block;font-size:11.5px;font-weight:700;color:var(--text2);margin-bottom:4px;text-transform:uppercase;letter-spacing:.3px}
-  .er-field input,.er-field select{width:100%;border:1px solid var(--border);border-radius:6px;padding:8px 10px;font-size:13px;color:var(--text);font-family:'Inter',sans-serif}
+  .er-field input,.er-field select{width:100%;border:1px solid var(--border);border-radius:6px;padding:8px 10px;font-size:13px;color:var(--text);font-family:'Montserrat',sans-serif}
   table.er-table{width:100%;border-collapse:collapse;min-width:640px}
   table.er-table th{background:var(--navy-dark);color:#fff;padding:8px 10px;text-align:left;font-size:10.5px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;white-space:nowrap;position:sticky;top:0;z-index:5}
   table.er-table td{padding:7px 10px;border-bottom:1px solid var(--border);font-size:12.5px;color:var(--text);vertical-align:middle}
@@ -453,7 +453,8 @@ document.addEventListener('DOMContentLoaded', function(){
     .tab-content:has(#er-slip-area){display:block!important}
   }
 </style>
-<link rel="stylesheet" href="jayco-theme.css?v=1">
+<script src="jayco-icons.js?v=1"></script>
+<link rel="stylesheet" href="jayco-theme.css?v=2">
 </head>
 <body>
 
@@ -489,15 +490,15 @@ document.addEventListener('DOMContentLoaded', function(){
     <div class="sidebar-body">
       <a class="back-link" href="index.html"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"></path><path d="M12 19l-7-7 7-7"></path></svg>Staff Portals</a>
       <div class="nav-label">Production</div>
-      <button class="nav-btn tab-btn active" onclick="switchTab('entry',this)"><span>📋</span><span class="nav-txt">&nbsp;Entry Form</span></button>
-      <button class="nav-btn tab-btn" onclick="switchTab('dash',this)"><span>📊</span><span class="nav-txt">&nbsp;Dashboard</span></button>
-      <button class="nav-btn tab-btn" onclick="switchTab('flow',this)"><span>🔍</span><span class="nav-txt">&nbsp;Flow Report</span></button>
-      <button class="nav-btn tab-btn" onclick="switchTab('rejrep',this)"><span>❌</span><span class="nav-txt">&nbsp;Rejection Report</span></button>
-      <button class="nav-btn tab-btn" onclick="switchTab('layout',this)"><span>⚙</span><span class="nav-txt">&nbsp;Edit Layout</span></button>
+      <button class="nav-btn tab-btn active" onclick="switchTab('entry',this)"><span data-ji="entry"></span><span class="nav-txt">&nbsp;Entry Form</span></button>
+      <button class="nav-btn tab-btn" onclick="switchTab('dash',this)"><span data-ji="dashboard"></span><span class="nav-txt">&nbsp;Dashboard</span></button>
+      <button class="nav-btn tab-btn" onclick="switchTab('flow',this)"><span data-ji="flow"></span><span class="nav-txt">&nbsp;Flow Report</span></button>
+      <button class="nav-btn tab-btn" onclick="switchTab('rejrep',this)"><span data-ji="reject"></span><span class="nav-txt">&nbsp;Rejection Report</span></button>
+      <button class="nav-btn tab-btn" onclick="switchTab('layout',this)"><span data-ji="layout"></span><span class="nav-txt">&nbsp;Edit Layout</span></button>
       <div class="nav-label">Employee Register</div>
-      <button class="nav-btn tab-btn" onclick="switchTab('employees',this)"><span>🧑‍💼</span><span class="nav-txt">&nbsp;Employees</span></button>
-      <button class="nav-btn tab-btn" onclick="switchTab('shifts',this)"><span>⏱</span><span class="nav-txt">&nbsp;Shift Setup</span></button>
-      <button class="nav-btn tab-btn" onclick="switchTab('payroll',this)"><span>💰</span><span class="nav-txt">&nbsp;Salary Slip</span></button>
+      <button class="nav-btn tab-btn" onclick="switchTab('employees',this)"><span data-ji="employees"></span><span class="nav-txt">&nbsp;Employees</span></button>
+      <button class="nav-btn tab-btn" onclick="switchTab('shifts',this)"><span data-ji="clock"></span><span class="nav-txt">&nbsp;Shift Setup</span></button>
+      <button class="nav-btn tab-btn" onclick="switchTab('payroll',this)"><span data-ji="salary"></span><span class="nav-txt">&nbsp;Salary Slip</span></button>
     </div>
   </aside>
 
@@ -564,26 +565,26 @@ document.addEventListener('DOMContentLoaded', function(){
     <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
       <span style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.8px">FILTER</span>
       <label style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:var(--text2)">Stage
-        <select id="flt-stage" onchange="renderProdDashboard()" style="border:1.5px solid var(--border);border-radius:6px;padding:5px 8px;font-size:12px;color:var(--text);font-family:Inter,sans-serif">
+        <select id="flt-stage" onchange="renderProdDashboard()" style="border:1.5px solid var(--border);border-radius:6px;padding:5px 8px;font-size:12px;color:var(--text);font-family:Montserrat,sans-serif">
           <option value="">All Stages</option>
         </select>
       </label>
       <label style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:var(--text2)">Person
-        <select id="flt-person" onchange="renderProdDashboard()" style="border:1.5px solid var(--border);border-radius:6px;padding:5px 8px;font-size:12px;color:var(--text);font-family:Inter,sans-serif">
+        <select id="flt-person" onchange="renderProdDashboard()" style="border:1.5px solid var(--border);border-radius:6px;padding:5px 8px;font-size:12px;color:var(--text);font-family:Montserrat,sans-serif">
           <option value="">All Persons</option>
         </select>
       </label>
       <label style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:var(--text2)">Item
         <input type="text" id="flt-item" placeholder="Search item…" oninput="renderProdDashboard()"
-          style="border:1.5px solid var(--border);border-radius:6px;padding:5px 9px;font-size:12px;width:140px;color:var(--text);font-family:Inter,sans-serif">
+          style="border:1.5px solid var(--border);border-radius:6px;padding:5px 9px;font-size:12px;width:140px;color:var(--text);font-family:Montserrat,sans-serif">
       </label>
       <!-- Custom date range (shown only on Custom tab) -->
       <div id="custom-filters" style="display:none;align-items:center;gap:10px">
         <label style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:var(--text2)">From
-          <input type="date" id="flt-from" onchange="renderProdDashboard()" style="border:1.5px solid var(--border);border-radius:6px;padding:5px 8px;font-size:12px;font-family:Inter,sans-serif">
+          <input type="date" id="flt-from" onchange="renderProdDashboard()" style="border:1.5px solid var(--border);border-radius:6px;padding:5px 8px;font-size:12px;font-family:Montserrat,sans-serif">
         </label>
         <label style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:var(--text2)">To
-          <input type="date" id="flt-to" onchange="renderProdDashboard()" style="border:1.5px solid var(--border);border-radius:6px;padding:5px 8px;font-size:12px;font-family:Inter,sans-serif">
+          <input type="date" id="flt-to" onchange="renderProdDashboard()" style="border:1.5px solid var(--border);border-radius:6px;padding:5px 8px;font-size:12px;font-family:Montserrat,sans-serif">
         </label>
       </div>
 
@@ -596,12 +597,12 @@ document.addEventListener('DOMContentLoaded', function(){
     <h3>Person Monthly Report <small style="font-weight:normal;text-transform:none;letter-spacing:0;color:var(--text3)">&nbsp;item-wise, downloadable</small></h3>
     <div style="display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap;margin-bottom:12px">
       <label style="display:flex;flex-direction:column;gap:5px;font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.6px">Person
-        <select id="pmr-person" style="border:1.5px solid var(--border);border-radius:6px;padding:6px 10px;font-size:12px;color:var(--text);font-family:Inter,sans-serif;font-weight:500;text-transform:none;letter-spacing:0;min-width:180px">
+        <select id="pmr-person" style="border:1.5px solid var(--border);border-radius:6px;padding:6px 10px;font-size:12px;color:var(--text);font-family:Montserrat,sans-serif;font-weight:500;text-transform:none;letter-spacing:0;min-width:180px">
           <option value="">Select person…</option>
         </select>
       </label>
       <label style="display:flex;flex-direction:column;gap:5px;font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.6px">Month
-        <input type="month" id="pmr-month" style="border:1.5px solid var(--border);border-radius:6px;padding:6px 10px;font-size:12px;color:var(--text);font-family:Inter,sans-serif;font-weight:500">
+        <input type="month" id="pmr-month" style="border:1.5px solid var(--border);border-radius:6px;padding:6px 10px;font-size:12px;color:var(--text);font-family:Montserrat,sans-serif;font-weight:500">
       </label>
       <button class="btn btn-primary" onclick="renderPersonMonthlyReport()">View Report</button>
       <button class="btn btn-success" id="pmr-download" onclick="downloadPersonMonthlyReport()" disabled>⭳ Download Excel</button>

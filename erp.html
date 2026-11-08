@@ -6,14 +6,15 @@
 <title>Jayco ERP — Order Tracker &amp; Costing</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800&family=Play:wght@400;700&display=swap" rel="stylesheet">
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-database-compat.js"></script>
 <link rel="stylesheet" href="erp.css?v=202611030556">
 <script>window.ERP_MODE = 'admin';</script>
-<link rel="stylesheet" href="jayco-theme.css?v=1">
+<script src="jayco-icons.js?v=1"></script>
+<link rel="stylesheet" href="jayco-theme.css?v=2">
 </head>
 <body>
 <div id="login"><div class="box">
@@ -27,7 +28,7 @@
 
 <div class="app" id="app" style="display:none">
   <aside>
-    <div class="logo"><i>J</i><span>Jayco <b>ERP</b></span></div><div class="sub">Plummer Block Works</div>
+    <div class="logo jl"><img src="assets/jayco-logo.png" alt="JAYCO"></div><div class="sub jsub">ERP · Plummer Block Works</div>
     <div class="grp">Track</div>
     <a data-nav="dashboard"><span class="ni" style="--ic:#1D1D1F"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg></span>Dashboard</a>
     <a data-nav="orders"><span class="ni" style="--ic:#FF6A2B"><svg viewBox="0 0 24 24"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4h6v3H9zM9 12h6M9 16h4"/></svg></span>Order Tracker<span class="n" id="nOrders"></span></a>

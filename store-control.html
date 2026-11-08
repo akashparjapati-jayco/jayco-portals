@@ -9,7 +9,7 @@
 <title>JAYCO Store Control</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800&family=Play:wght@400;700&display=swap">
 <style>
 /* ============ TOKENS : dark-first industrial ============ */
 :root{
@@ -55,10 +55,10 @@
 *{box-sizing:border-box}
 body{
   margin:0; background:var(--bg); color:var(--txt);
-  font-family:"IBM Plex Sans",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+  font-family:"Montserrat",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
   font-size:14px; line-height:1.45; -webkit-font-smoothing:antialiased;
 }
-h1,h2,h3,h4{font-family:"Barlow Condensed","IBM Plex Sans",sans-serif;margin:0;text-wrap:balance;letter-spacing:.01em}
+h1,h2,h3,h4{font-family:"Montserrat","Montserrat",sans-serif;margin:0;text-wrap:balance;letter-spacing:.01em}
 button,input,select,textarea{font-family:inherit;font-size:inherit;color:inherit}
 a{color:var(--brand2);text-decoration:none}
 :focus-visible{outline:2px solid var(--brand2);outline-offset:2px;border-radius:3px}
@@ -70,9 +70,9 @@ a{color:var(--brand2);text-decoration:none}
 .rail{background:var(--rail);border-right:1px solid var(--line);display:flex;flex-direction:column;position:sticky;top:0;height:100vh;overflow-y:auto}
 .rail-head{padding:18px 16px 14px;border-bottom:1px solid var(--line);display:flex;flex-direction:column;gap:9px}
 .logo{width:132px;height:29px;background-image:var(--logo);background-size:contain;background-repeat:no-repeat;background-position:left center}
-.rail-sub{font-family:"Barlow Condensed",sans-serif;font-size:11.5px;letter-spacing:.18em;text-transform:uppercase;color:var(--txt3);font-weight:600}
+.rail-sub{font-family:"Montserrat",sans-serif;font-size:11.5px;letter-spacing:.18em;text-transform:uppercase;color:var(--txt3);font-weight:600}
 .nav{padding:10px 8px 24px;display:flex;flex-direction:column;gap:2px}
-.nav-grp{font-family:"Barlow Condensed",sans-serif;font-size:10.5px;letter-spacing:.17em;text-transform:uppercase;color:var(--txt3);font-weight:700;padding:16px 10px 6px}
+.nav-grp{font-family:"Montserrat",sans-serif;font-size:10.5px;letter-spacing:.17em;text-transform:uppercase;color:var(--txt3);font-weight:700;padding:16px 10px 6px}
 .nav-grp:first-child{padding-top:6px}
 .nav-i{display:flex;align-items:center;gap:9px;padding:7px 10px;border-radius:6px;color:var(--txt2);cursor:pointer;border:0;background:none;width:100%;text-align:left;font-size:13.5px;font-weight:500;position:relative;transition:background .12s,color .12s}
 .nav-i svg{width:15px;height:15px;flex:none;opacity:.8}
@@ -80,7 +80,7 @@ a{color:var(--brand2);text-decoration:none}
 .nav-i.on{background:var(--brand-soft);color:var(--txt);font-weight:600}
 .nav-i.on::before{content:"";position:absolute;left:-8px;top:6px;bottom:6px;width:3px;border-radius:0 3px 3px 0;background:var(--brand)}
 .nav-i.on svg{opacity:1;color:var(--brand2)}
-.nav-i .badge{margin-left:auto;background:var(--crit-soft);color:var(--crit);font-size:10.5px;font-weight:700;padding:1px 6px;border-radius:20px;font-family:"IBM Plex Mono",monospace}
+.nav-i .badge{margin-left:auto;background:var(--crit-soft);color:var(--crit);font-size:10.5px;font-weight:700;padding:1px 6px;border-radius:20px;font-family:"Play",monospace}
 
 .main{min-width:0;display:flex;flex-direction:column}
 .top{position:sticky;top:0;z-index:20;background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(10px);border-bottom:1px solid var(--line);padding:12px 22px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
@@ -88,7 +88,7 @@ a{color:var(--brand2);text-decoration:none}
 .top .sub{color:var(--txt3);font-size:12px;margin-top:1px}
 .top-r{margin-left:auto;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .opsel{display:flex;align-items:center;gap:6px;background:var(--panel);border:1px solid var(--line);border-radius:7px;padding:4px 8px}
-.opsel label{font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--txt3);font-weight:600;font-family:"Barlow Condensed",sans-serif}
+.opsel label{font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--txt3);font-weight:600;font-family:"Montserrat",sans-serif}
 .opsel input{background:none;border:0;font-weight:600;font-size:13px;padding:2px 0;width:132px;border-radius:4px}
 .opsel input:focus{box-shadow:none;outline:1px solid var(--brand2)}
 .burger{display:none}
@@ -113,7 +113,7 @@ a{color:var(--brand2);text-decoration:none}
 .card-b{padding:16px}
 .card-b.flush{padding:0}
 
-.lbl{font-family:"Barlow Condensed",sans-serif;font-size:11px;letter-spacing:.15em;text-transform:uppercase;color:var(--txt3);font-weight:700}
+.lbl{font-family:"Montserrat",sans-serif;font-size:11px;letter-spacing:.15em;text-transform:uppercase;color:var(--txt3);font-weight:700}
 
 .pill{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;font-weight:600;padding:2px 8px;border-radius:20px;white-space:nowrap;line-height:1.55}
 .pill.ok{background:var(--ok-soft);color:var(--ok)}
@@ -123,13 +123,13 @@ a{color:var(--brand2);text-decoration:none}
 .pill.mute{background:var(--panel2);color:var(--txt3);border:1px solid var(--line)}
 .dot{width:6px;height:6px;border-radius:50%;background:currentColor;flex:none}
 
-.tag{font-family:"IBM Plex Mono",monospace;font-size:11.5px;color:var(--txt2);background:var(--panel2);border:1px solid var(--line-soft);padding:1px 6px;border-radius:4px}
+.tag{font-family:"Play",monospace;font-size:11.5px;color:var(--txt2);background:var(--panel2);border:1px solid var(--line-soft);padding:1px 6px;border-radius:4px}
 
 /* ============ STAT STRIP ============ */
 .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(168px,1fr));gap:12px}
 .stat{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:13px 15px;display:flex;flex-direction:column;gap:3px;position:relative;overflow:hidden}
-.stat .k{font-family:"Barlow Condensed",sans-serif;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--txt3);font-weight:700}
-.stat .v{font-size:27px;font-weight:700;font-family:"Barlow Condensed",sans-serif;font-variant-numeric:tabular-nums;line-height:1.05}
+.stat .k{font-family:"Montserrat",sans-serif;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--txt3);font-weight:700}
+.stat .v{font-size:27px;font-weight:700;font-family:"Montserrat",sans-serif;font-variant-numeric:tabular-nums;line-height:1.05}
 .stat .n{font-size:11.5px;color:var(--txt3)}
 .stat.alert{border-color:color-mix(in srgb,var(--crit) 42%,var(--line))}
 .stat.alert .v{color:var(--crit)}
@@ -139,14 +139,14 @@ a{color:var(--brand2);text-decoration:none}
 /* ============ TABLE ============ */
 .tw{overflow-x:auto;overflow-y:visible}
 table{border-collapse:collapse;width:100%;font-size:13px}
-thead th{position:sticky;top:0;background:var(--panel2);text-align:left;font-family:"Barlow Condensed",sans-serif;font-size:11px;letter-spacing:.13em;text-transform:uppercase;color:var(--txt3);font-weight:700;padding:9px 12px;border-bottom:1px solid var(--line);white-space:nowrap;z-index:2}
+thead th{position:sticky;top:0;background:var(--panel2);text-align:left;font-family:"Montserrat",sans-serif;font-size:11px;letter-spacing:.13em;text-transform:uppercase;color:var(--txt3);font-weight:700;padding:9px 12px;border-bottom:1px solid var(--line);white-space:nowrap;z-index:2}
 tbody td{padding:8px 12px;border-bottom:1px solid var(--line-soft);vertical-align:middle;white-space:nowrap}
 tbody td.wrap{white-space:normal;min-width:180px}
 tbody tr:nth-child(even){background:var(--stripe)}
 tbody tr:hover{background:var(--panel2)}
 tbody tr:last-child td{border-bottom:0}
-td.num,th.num{text-align:right;font-variant-numeric:tabular-nums;font-family:"IBM Plex Mono",monospace}
-td.mono{font-family:"IBM Plex Mono",monospace;font-size:12px}
+td.num,th.num{text-align:right;font-variant-numeric:tabular-nums;font-family:"Play",monospace}
+td.mono{font-family:"Play",monospace;font-size:12px}
 td.act{text-align:right;white-space:nowrap}
 tfoot td{padding:9px 12px;border-top:1px solid var(--line);font-weight:700;background:var(--panel2);font-variant-numeric:tabular-nums}
 .empty{padding:36px 16px;text-align:center;color:var(--txt3);font-size:13px}
@@ -157,11 +157,11 @@ tfoot td{padding:9px 12px;border-top:1px solid var(--line);font-weight:700;backg
 .fld{display:flex;flex-direction:column;gap:5px;min-width:0}
 .fld.w2{grid-column:span 2}
 .fld.full{grid-column:1/-1}
-.fld label{font-family:"Barlow Condensed",sans-serif;font-size:11px;letter-spacing:.13em;text-transform:uppercase;color:var(--txt2);font-weight:700;display:flex;gap:5px;align-items:baseline}
+.fld label{font-family:"Montserrat",sans-serif;font-size:11px;letter-spacing:.13em;text-transform:uppercase;color:var(--txt2);font-weight:700;display:flex;gap:5px;align-items:baseline}
 .fld label .req{color:var(--brand2)}
 input,select,textarea{background:var(--field);border:1px solid var(--field-line);border-radius:7px;padding:8px 10px;width:100%;transition:border-color .12s}
 input:focus,select:focus,textarea:focus{border-color:var(--brand2);outline:none;box-shadow:0 0 0 3px var(--brand-soft)}
-input[type=number]{font-family:"IBM Plex Mono",monospace;font-variant-numeric:tabular-nums}
+input[type=number]{font-family:"Play",monospace;font-variant-numeric:tabular-nums}
 textarea{resize:vertical;min-height:60px}
 input:disabled,select:disabled{opacity:.6}
 .frow{display:flex;gap:9px;flex-wrap:wrap;align-items:center;margin-top:14px;padding-top:14px;border-top:1px solid var(--line-soft)}
@@ -185,7 +185,7 @@ input:disabled,select:disabled{opacity:.6}
 .kv{display:flex;justify-content:space-between;gap:14px;padding:7px 0;border-bottom:1px dashed var(--line-soft);font-size:13px}
 .kv:last-child{border-bottom:0}
 .kv span:first-child{color:var(--txt2)}
-.kv span:last-child{font-weight:600;font-variant-numeric:tabular-nums;font-family:"IBM Plex Mono",monospace}
+.kv span:last-child{font-weight:600;font-variant-numeric:tabular-nums;font-family:"Play",monospace}
 
 /* modal */
 .ovl{position:fixed;inset:0;background:rgba(4,5,7,.62);backdrop-filter:blur(3px);z-index:100;display:flex;align-items:flex-start;justify-content:center;padding:34px 16px;overflow-y:auto}
@@ -210,7 +210,7 @@ input:disabled,select:disabled{opacity:.6}
 .bom-line{display:grid;grid-template-columns:minmax(0,1fr) 92px 74px 34px;gap:9px;align-items:center;padding:6px 0;border-bottom:1px solid var(--line-soft)}
 .bom-line:last-of-type{border-bottom:0}
 .bom-line .nm{font-size:13px;min-width:0}
-.bom-line .nm small{display:block;color:var(--txt3);font-family:"IBM Plex Mono",monospace;font-size:11px}
+.bom-line .nm small{display:block;color:var(--txt3);font-family:"Play",monospace;font-size:11px}
 
 @media (max-width:900px){
   .app{grid-template-columns:1fr}
@@ -225,8 +225,8 @@ input:disabled,select:disabled{opacity:.6}
 }
 /* print slip */
 #printarea{display:none}
-.slip{font-family:"IBM Plex Sans",sans-serif;color:#000;padding:14px 4px;max-width:760px}
-.slip h2{font-family:"Barlow Condensed",sans-serif;font-size:26px;margin:0}
+.slip{font-family:"Montserrat",sans-serif;color:#000;padding:14px 4px;max-width:760px}
+.slip h2{font-family:"Montserrat",sans-serif;font-size:26px;margin:0}
 .slip .sh{display:flex;align-items:flex-start;gap:16px;border-bottom:2px solid #E30016;padding-bottom:10px;margin-bottom:14px}
 .slip .sh .lg{width:150px;height:33px;background-image:var(--logo-light);background-size:contain;background-repeat:no-repeat}
 .slip .sh .co{font-size:11px;color:#444;line-height:1.5}
@@ -246,7 +246,8 @@ input:disabled,select:disabled{opacity:.6}
 }
 </style>
 
-<link rel="stylesheet" href="jayco-theme.css?v=1">
+<script src="jayco-icons.js?v=1"></script>
+<link rel="stylesheet" href="jayco-theme.css?v=2">
 </head>
 <body>
 <div class="app">
@@ -601,7 +602,8 @@ var I = {
   sys:'<path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M19.4 15a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-2.7 1.1v.3a2 2 0 1 1-4 0v-.2a1.6 1.6 0 0 0-2.8-1.1l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1A1.6 1.6 0 0 0 3.5 15a2 2 0 1 1 0-4h.2a1.6 1.6 0 0 0 1.1-2.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.6 1.6 0 0 0 2.8-1.1V4a2 2 0 1 1 4 0v.2a1.6 1.6 0 0 0 2.7 1.1l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.6 1.6 0 0 0 1.1 2.7h.3a2 2 0 1 1 0 4h-.2z" fill="none" stroke="currentColor" stroke-width="1.5"/>',
   stk:'<path d="M3 8h18v13H3zM3 3h18v5H3zM10 13h4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>'
 };
-function ic(k){ return '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">' + I[k] + '</svg>'; }
+var JIMAP = { dash:'dashboard', 'in':'download', out:'upload', back:'inout', stk:'stock', box:'store', paint:'paint', truck:'dispatch', bom:'costing', mast:'database', rpt:'report', sys:'settings' };
+function ic(k){ if (window.JI && JIMAP[k]) return window.JI(JIMAP[k]); return '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">' + I[k] + '</svg>'; }
 
 /* ---------- nav ---------- */
 var NAV = [
@@ -1866,7 +1868,7 @@ function exportModal(title, filename, blob, tsv){
     '<div class="frow" style="border-top:0;padding-top:4px;margin-top:8px">' +
       '<button class="btn pri" data-act="xl.copy">Copy to clipboard</button>' +
       '<button class="btn" data-act="modal.close">Close</button></div>' +
-    '<textarea id="xl_text" readonly style="margin-top:12px;min-height:180px;font-family:\'IBM Plex Mono\',monospace;font-size:11.5px">' +
+    '<textarea id="xl_text" readonly style="margin-top:12px;min-height:180px;font-family:\'Play\',monospace;font-size:11.5px">' +
       S.esc(tsv) + '</textarea>');
   deliver(filename, blob, 'dl_note');
 }
@@ -2100,7 +2102,7 @@ window.JA2 = {
   },
   'sys.paste': function(){
     modal('Restore From Text', '<div class="note w"><div>Paste the contents of a backup .json file and press Restore. This replaces everything.</div></div>' +
-      '<textarea id="rs_text" placeholder="{ ... }" style="margin-top:12px;min-height:200px;font-family:\'IBM Plex Mono\',monospace;font-size:11.5px"></textarea>' +
+      '<textarea id="rs_text" placeholder="{ ... }" style="margin-top:12px;min-height:200px;font-family:\'Play\',monospace;font-size:11.5px"></textarea>' +
       '<div class="frow"><button class="btn pri" data-act="sys.pasteGo">Restore</button><button class="btn" data-act="modal.close">Cancel</button></div>');
   },
   'sys.pasteGo': function(){ restore(v('rs_text')); },
@@ -2181,12 +2183,12 @@ st.textContent =
   '#gate .gbox{width:100%;max-width:470px;background:var(--panel);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);padding:26px 26px 22px}' +
   '#gate.wide .gbox{max-width:640px}' +
   '#gate .glogo{width:150px;height:33px;background-image:var(--logo);background-size:contain;background-repeat:no-repeat;margin-bottom:6px}' +
-  '#gate h2{font-family:"Barlow Condensed",sans-serif;font-size:24px;font-weight:700;margin:14px 0 4px}' +
+  '#gate h2{font-family:"Montserrat",sans-serif;font-size:24px;font-weight:700;margin:14px 0 4px}' +
   '#gate p{color:var(--txt2);font-size:13px;margin:0 0 18px;line-height:1.5}' +
   '#gate ol{color:var(--txt2);font-size:12.5px;line-height:1.7;padding-left:18px;margin:0 0 16px}' +
   '#gate ol b{color:var(--txt)}' +
   '#gate .err{color:var(--crit);font-size:12.5px;margin-top:10px;min-height:16px}' +
-  '#gate input[type=password]{font-size:19px;letter-spacing:.32em;text-align:center;padding:11px 10px;font-family:"IBM Plex Mono",monospace}' +
+  '#gate input[type=password]{font-size:19px;letter-spacing:.32em;text-align:center;padding:11px 10px;font-family:"Play",monospace}' +
   '.cloudchip{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;font-weight:600;padding:4px 10px;border-radius:20px;' +
     'background:var(--panel);border:1px solid var(--line);white-space:nowrap}' +
   '.cloudchip .dot{width:7px;height:7px;border-radius:50%;background:var(--txt3)}' +
@@ -2246,7 +2248,7 @@ function setupScreen(msg){
       '<li><b>Project settings → Your apps → Web app</b> → copy the <b>firebaseConfig</b> block and paste it below.</li>' +
     '</ol>' +
     '<textarea id="fb_cfg" placeholder=\'{ "apiKey": "AIza…", "authDomain": "jayco-store-control.firebaseapp.com", "projectId": "jayco-store-control", "storageBucket": "…", "messagingSenderId": "…", "appId": "…" }\' ' +
-      'style="min-height:145px;font-family:\'IBM Plex Mono\',monospace;font-size:11.5px"></textarea>' +
+      'style="min-height:145px;font-family:\'Play\',monospace;font-size:11.5px"></textarea>' +
     '<div class="err" id="fb_err">' + esc(msg || '') + '</div>' +
     '<div class="frow"><button class="btn pri" id="fb_go">Connect</button>' +
     '<span class="sp" style="font-size:12px;color:var(--txt3)">Saved in this browser only</span></div>', true);

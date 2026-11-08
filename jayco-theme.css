@@ -3,7 +3,7 @@
    Loaded LAST in each page's <head>; each page sets <html data-jp="…">.
    Colours, fonts and corners only — no layout or behaviour changes.
    ===================================================================== */
-@import url('https://fonts.googleapis.com/css2?family=Barlow:wght@500;600;700;800&family=Inter:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800&family=Play:wght@400;700&display=swap');
 
 :root{
   --j-red:#E5322D; --j-red-d:#B8211C; --j-red-soft:#FDECEB; --j-red-ring:rgba(229,50,45,.18);
@@ -11,15 +11,16 @@
   --j-bg:#F3F4F6; --j-panel:#FFFFFF; --j-panel2:#F7F8FA; --j-line:#E1E4E9; --j-line2:#EDEFF2;
   --j-ok:#188A4C; --j-warn:#B26A00; --j-info:#2F5FD0;
   --j-r:10px; --j-sh:0 1px 2px rgba(16,24,40,.05),0 2px 8px rgba(16,24,40,.05);
-  --j-body:'Inter',system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif;
-  --j-head:'Barlow','Inter',system-ui,sans-serif;
+  --j-body:'Montserrat',system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif;
+  --j-head:'Montserrat',system-ui,sans-serif; --j-num:'Play','Montserrat',system-ui,sans-serif;
 }
 
 /* ---- common to every portal ---------------------------------------- */
 html[data-jp] body{font-family:var(--j-body);-webkit-font-smoothing:antialiased}
 html[data-jp] body::before{content:"";position:fixed;left:0;right:0;top:0;height:3px;z-index:2147483000;pointer-events:none;
   background:linear-gradient(90deg,var(--j-red) 0 72%,var(--j-ink) 72% 100%)}
-html[data-jp] h1,html[data-jp] h2,html[data-jp] h3{font-family:var(--j-head);letter-spacing:-.005em}
+html[data-jp] h1,html[data-jp] h2,html[data-jp] h3,html[data-jp] h4{font-family:var(--j-head);letter-spacing:-.005em}
+html[data-jp] .ji{display:inline-block;vertical-align:middle;flex:none}
 html[data-jp] ::selection{background:var(--j-red-soft);color:var(--j-ink)}
 html[data-jp] input:focus,html[data-jp] select:focus,html[data-jp] textarea:focus{border-color:var(--j-red)!important;box-shadow:0 0 0 3px var(--j-red-ring)!important;outline:none!important}
 html[data-jp] input[type=checkbox],html[data-jp] input[type=radio]{accent-color:var(--j-red)}
@@ -27,10 +28,8 @@ html[data-jp] ::-webkit-scrollbar{width:10px;height:10px}
 html[data-jp] ::-webkit-scrollbar-thumb{background:#C9CDD4;border-radius:10px;border:2px solid transparent;background-clip:padding-box}
 html[data-jp] ::-webkit-scrollbar-thumb:hover{background:#9AA0A9;background-clip:padding-box;border:2px solid transparent}
 
-/* ---- Home page ------------------------------------------------------ */
-html[data-jp=home]{--bg:var(--j-bg);--tile:#fff;--ink:var(--j-ink);--soft:var(--j-steel);--faint:var(--j-faint);--line:var(--j-line);
-  --blue:var(--j-red);--blue2:var(--j-red-d);--red:var(--j-red);--r:16px;--font:var(--j-body)}
-html[data-jp=home] h1,html[data-jp=home] h2{font-family:var(--j-head);font-weight:800;letter-spacing:-.02em}
+/* ---- Home page: styled in index.html itself (brochure look) -------- */
+html[data-jp=home] body::before{display:none}
 
 /* ---- ERP / Entry Desk / Shop-Floor (erp.css) ------------------------ */
 html[data-jp=erp]{--bg:var(--j-bg);--panel:#fff;--ink:var(--j-ink);--soft:var(--j-steel);--faint:var(--j-faint);--line:var(--j-line);--line2:var(--j-line2);
@@ -112,3 +111,23 @@ html[data-jp=erp] aside a.on .ni,html[data-jp=cp] .sb-item.active .ni{background
 html[data-jp=erp] .nn{background:var(--j-panel2);color:var(--j-steel);border:1px solid var(--j-line)}
 html[data-jp=cp] .sb-item.active{background:var(--j-red);box-shadow:0 6px 16px -8px rgba(229,50,45,.7)}
 html[data-jp=erp] .ebar .logo{font-family:var(--j-head)}
+
+/* ---- JAYCO logo in ERP / Entry Desk / Shop-Floor headers ------------ */
+html[data-jp=erp] .logo.jl{padding:6px 10px 4px}
+html[data-jp=erp] .logo.jl img{height:26px;width:auto;display:block}
+html[data-jp=erp] aside .jsub{padding:6px 12px 14px;font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--j-red)}
+html[data-jp=erp] .ebar .logo.jl{gap:14px}
+html[data-jp=erp] .ebar .logo.jl img{height:22px}
+html[data-jp=erp] .ebar .logo.jl span{font-size:13px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--j-red);border-left:2px solid var(--j-line);padding-left:14px}
+/* KPI numbers in the brochure's tech font */
+html[data-jp=erp] .stat .v,html[data-jp=erp] .flow .st .v,html[data-jp=erp] .wtab b{font-family:var(--j-num)}
+
+/* ---- JAYCO line icons: always outline, in the text colour ----------- */
+html[data-jp] svg.ji{fill:none!important;stroke:currentColor!important}
+html[data-jp] svg.ji *{fill:none!important}
+html[data-jp=prod] .nav-btn [data-ji]{display:inline-flex;width:18px;justify-content:center}
+html[data-jp=po] #sidebar .nav-icon{display:inline-flex;align-items:center;justify-content:center;width:18px;opacity:1}
+html[data-jp=sales] .nav-i .ic{display:inline-flex;align-items:center;justify-content:center}
+html[data-jp=cp] .tile .tile-icon{opacity:.35;color:var(--j-red)}
+html[data-jp=cp] .tbl-empty .empty-icon{display:block;color:var(--j-faint);margin:0 auto 6px;width:30px}
+html[data-jp=vendor] .back-to-portals{top:auto;bottom:14px}
