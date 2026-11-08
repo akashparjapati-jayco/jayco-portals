@@ -1,0 +1,114 @@
+/* =====================================================================
+   JAYCO Industrial theme — one common red & white look for every portal.
+   Loaded LAST in each page's <head>; each page sets <html data-jp="…">.
+   Colours, fonts and corners only — no layout or behaviour changes.
+   ===================================================================== */
+@import url('https://fonts.googleapis.com/css2?family=Barlow:wght@500;600;700;800&family=Inter:wght@400;500;600;700&display=swap');
+
+:root{
+  --j-red:#E5322D; --j-red-d:#B8211C; --j-red-soft:#FDECEB; --j-red-ring:rgba(229,50,45,.18);
+  --j-ink:#16181D; --j-steel:#545B66; --j-faint:#8B919B;
+  --j-bg:#F3F4F6; --j-panel:#FFFFFF; --j-panel2:#F7F8FA; --j-line:#E1E4E9; --j-line2:#EDEFF2;
+  --j-ok:#188A4C; --j-warn:#B26A00; --j-info:#2F5FD0;
+  --j-r:10px; --j-sh:0 1px 2px rgba(16,24,40,.05),0 2px 8px rgba(16,24,40,.05);
+  --j-body:'Inter',system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif;
+  --j-head:'Barlow','Inter',system-ui,sans-serif;
+}
+
+/* ---- common to every portal ---------------------------------------- */
+html[data-jp] body{font-family:var(--j-body);-webkit-font-smoothing:antialiased}
+html[data-jp] body::before{content:"";position:fixed;left:0;right:0;top:0;height:3px;z-index:2147483000;pointer-events:none;
+  background:linear-gradient(90deg,var(--j-red) 0 72%,var(--j-ink) 72% 100%)}
+html[data-jp] h1,html[data-jp] h2,html[data-jp] h3{font-family:var(--j-head);letter-spacing:-.005em}
+html[data-jp] ::selection{background:var(--j-red-soft);color:var(--j-ink)}
+html[data-jp] input:focus,html[data-jp] select:focus,html[data-jp] textarea:focus{border-color:var(--j-red)!important;box-shadow:0 0 0 3px var(--j-red-ring)!important;outline:none!important}
+html[data-jp] input[type=checkbox],html[data-jp] input[type=radio]{accent-color:var(--j-red)}
+html[data-jp] ::-webkit-scrollbar{width:10px;height:10px}
+html[data-jp] ::-webkit-scrollbar-thumb{background:#C9CDD4;border-radius:10px;border:2px solid transparent;background-clip:padding-box}
+html[data-jp] ::-webkit-scrollbar-thumb:hover{background:#9AA0A9;background-clip:padding-box;border:2px solid transparent}
+
+/* ---- Home page ------------------------------------------------------ */
+html[data-jp=home]{--bg:var(--j-bg);--tile:#fff;--ink:var(--j-ink);--soft:var(--j-steel);--faint:var(--j-faint);--line:var(--j-line);
+  --blue:var(--j-red);--blue2:var(--j-red-d);--red:var(--j-red);--r:16px;--font:var(--j-body)}
+html[data-jp=home] h1,html[data-jp=home] h2{font-family:var(--j-head);font-weight:800;letter-spacing:-.02em}
+
+/* ---- ERP / Entry Desk / Shop-Floor (erp.css) ------------------------ */
+html[data-jp=erp]{--bg:var(--j-bg);--panel:#fff;--ink:var(--j-ink);--soft:var(--j-steel);--faint:var(--j-faint);--line:var(--j-line);--line2:var(--j-line2);
+  --brand:var(--j-red);--brand-d:var(--j-red-d);--blue:var(--j-red);--bluebg:var(--j-red-soft);--r:12px;--sh:var(--j-sh);--font:var(--j-body)}
+html[data-jp=erp] h1,html[data-jp=erp] h2,html[data-jp=erp] h3,html[data-jp=erp] .stat .v,html[data-jp=erp] .flow .st .v,html[data-jp=erp] .wtab b{font-family:var(--j-head);letter-spacing:-.01em}
+html[data-jp=erp] .top{background:linear-gradient(var(--bg) 78%,rgba(243,244,246,0))}
+html[data-jp=erp] aside{background:#fff;border-right:1px solid var(--j-line)}
+html[data-jp=erp] aside a.on{background:var(--j-red);box-shadow:0 6px 16px -8px rgba(229,50,45,.7)}
+html[data-jp=erp] aside .logo i,html[data-jp=erp] .ebar .logo i{background:var(--j-red)!important;box-shadow:none}
+html[data-jp=erp] .btn{border-radius:8px}
+html[data-jp=erp] .btn.pri{background:var(--j-red);border-color:var(--j-red)}
+html[data-jp=erp] .btn.pri:hover{background:var(--j-red-d);border-color:var(--j-red-d)}
+html[data-jp=erp] .card,html[data-jp=erp] .stat,html[data-jp=erp] .wtab{border:1px solid var(--j-line)}
+html[data-jp=erp] .ebar{background:#fff!important;backdrop-filter:none}
+html[data-jp=erp] #login{background:radial-gradient(900px 500px at 50% -10%,var(--j-red-soft),transparent),var(--bg)}
+html[data-jp=erp] .flow .st a{color:var(--j-red)}
+
+/* ---- Customer Portal ----------------------------------------------- */
+html[data-jp=cp]{--bg:var(--j-bg);--surface:#fff;--ink:var(--j-ink);--ink-soft:var(--j-steel);--muted:var(--j-faint);--line:var(--j-line);
+  --accent:var(--j-red);--accent2:var(--j-red);--radius:12px;--shadow:var(--j-sh);--font:var(--j-body)}
+html[data-jp=cp] .btn-primary{background:var(--j-red)!important;border-color:var(--j-red)!important}
+html[data-jp=cp] .btn-primary:hover{background:var(--j-red-d)!important}
+html[data-jp=cp] .btn{border-radius:8px}
+
+/* ---- PO Management -------------------------------------------------- */
+html[data-jp=po]{--royal:var(--j-red);--blue-600:var(--j-red);--blue-500:#F0504B;--blue-100:var(--j-red-ring);--bg:var(--j-bg);--panel:#fff;--panel2:var(--j-panel2);
+  --border:var(--j-line);--line-soft:var(--j-line2);--text:var(--j-ink);--text-dim:var(--j-steel);--red:var(--j-red);--radius:10px;--shadow:var(--j-sh)}
+
+/* ---- Sales CRM ------------------------------------------------------ */
+html[data-jp=sales]{--brand:var(--j-red);--brand2:#F0504B;--brand-soft:var(--j-red-ring);--bg:var(--j-bg);--panel:#fff;--panel2:var(--j-panel2);
+  --line:var(--j-line);--line-soft:var(--j-line2);--txt:var(--j-ink);--txt2:var(--j-steel);--txt3:var(--j-faint);--shadow:var(--j-sh)}
+
+/* ---- Store Control (light mode) ------------------------------------ */
+html[data-jp=store]{--brand:var(--j-red);--brand2:#F0504B}
+
+/* ---- Production ----------------------------------------------------- */
+html[data-jp=prod]{--bg:var(--j-bg);--bg3:var(--j-panel2);--border:var(--j-line);--text:var(--j-ink);--text2:var(--j-steel);--text3:var(--j-faint);
+  --orange:var(--j-red);--blue:var(--j-red);--radius:10px;--shadow:var(--j-sh)}
+html[data-jp=prod] .sidebar{background:#fff;color:var(--j-ink);border-right:1px solid var(--j-line)}
+html[data-jp=prod] .sidebar-head{border-bottom:1px solid var(--j-line)}
+html[data-jp=prod] .sidebar-head p:first-of-type{color:var(--j-ink)}
+html[data-jp=prod] .sidebar .back-link{color:var(--j-steel);border-color:var(--j-line)}
+html[data-jp=prod] .sidebar .back-link:hover{background:var(--j-panel2);color:var(--j-ink)}
+html[data-jp=prod] .nav-label{color:var(--j-faint)}
+html[data-jp=prod] .nav-btn{color:var(--j-steel)}
+html[data-jp=prod] .nav-btn:hover{background:var(--j-panel2);color:var(--j-ink)}
+html[data-jp=prod] .nav-btn.active{background:var(--j-red);color:#fff}
+html[data-jp=prod] .sidebar-foot{border-top:1px solid var(--j-line);color:var(--j-faint)}
+html[data-jp=prod] .topbar .title b{font-family:var(--j-head);font-size:15px}
+
+/* ---- Casting Control ----------------------------------------------- */
+html[data-jp=cast]{--bg:var(--j-bg);--ink:var(--j-ink);--ink-soft:var(--j-steel);--ink-faint:var(--j-faint);--line:var(--j-line);
+  --orange:var(--j-red);--orange-deep:var(--j-red-d);--display:var(--j-head);--font:var(--j-body);--r-lg:14px;--r-md:10px}
+
+/* ---- Dispatch Board ------------------------------------------------- */
+html[data-jp=disp]{--bg:var(--j-bg);--panel:#fff;--panel2:var(--j-panel2);--line:var(--j-line);--text:var(--j-ink);--text-dim:var(--j-steel);--red:var(--j-red);--shadow:var(--j-sh)}
+
+/* ---- Vendor Payments ------------------------------------------------ */
+html[data-jp=vendor]{--bg:var(--j-bg);--bg-panel:#fff;--bg-panel-2:var(--j-panel2);--border:var(--j-line);--text:var(--j-ink);--text-dim:var(--j-steel);--text-faint:var(--j-faint);
+  --brand-red:var(--j-red);--accent-orange:var(--j-red);--font-body:var(--j-body);--font-heading:var(--j-head)}
+
+/* ---- Casting Control: white sidebar + light sign-in screen ---------- */
+html[data-jp=cast] .sidebar{background:#fff;color:var(--j-ink);border-right:1px solid var(--j-line)}
+html[data-jp=cast] .sidebar-head{border-bottom:1px solid var(--j-line)}
+html[data-jp=cast] .sidebar-head .brand-logo{filter:none}
+html[data-jp=cast] .nav-label{color:var(--j-faint)}
+html[data-jp=cast] .nav-btn{color:var(--j-steel)}
+html[data-jp=cast] .nav-btn:hover{background:var(--j-panel2);color:var(--j-ink)}
+html[data-jp=cast] .nav-btn.active{background:var(--j-red);color:#fff}
+html[data-jp=cast] .nav-sep{background:var(--j-line)}
+html[data-jp=cast] .sidebar-foot{border-top:1px solid var(--j-line);color:var(--j-faint)}
+html[data-jp=cast] #gate{background:radial-gradient(900px 500px at 50% -10%,var(--j-red-soft),transparent),var(--j-bg);color:var(--j-ink)}
+html[data-jp=cast] #gate .box{box-shadow:0 30px 80px -24px rgba(16,24,40,.25);border:1px solid var(--j-line)}
+html[data-jp=cast] #gate .box-head{background:#fff;color:var(--j-ink);border-bottom:3px solid var(--j-red)}
+
+/* ---- One icon style for every sidebar (ERP + Customer Portal) ------- */
+html[data-jp=erp] .ni,html[data-jp=cp] .ni{background:#2A2E35!important;box-shadow:none}
+html[data-jp=erp] aside a.on .ni,html[data-jp=cp] .sb-item.active .ni{background:rgba(255,255,255,.22)!important;box-shadow:none}
+html[data-jp=erp] .nn{background:var(--j-panel2);color:var(--j-steel);border:1px solid var(--j-line)}
+html[data-jp=cp] .sb-item.active{background:var(--j-red);box-shadow:0 6px 16px -8px rgba(229,50,45,.7)}
+html[data-jp=erp] .ebar .logo{font-family:var(--j-head)}
