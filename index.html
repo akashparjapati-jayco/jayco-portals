@@ -247,6 +247,62 @@ html[data-wx=rain] #stars,html[data-wx=storm] #stars,html[data-wx=fog] #stars{op
 html[data-wx=rain]:not([data-sky=day]) .hero,html[data-wx=storm]:not([data-sky=day]) .hero{background:linear-gradient(180deg,#07090D 0%,#121821 60%,#1B222C 100%)}
 html[data-wx=fog] .fog{opacity:1}
 html[data-wx=fog][data-sky=day] .hero{background:linear-gradient(180deg,#B9C3CC 0%,#D5DCE2 50%,#EEF1F4 100%)}
+
+/* =====================================================================
+   COMPACT CONSOLE — small panels, glowing icons, minimum text
+   ===================================================================== */
+.hero{min-height:70vh}
+.hero .txt{padding-bottom:120px;padding-top:110px}
+.hero h1{font-size:clamp(42px,6.4vw,92px)}
+.blk{padding:64px 0 0}
+.mini{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px}
+.mini .hint{font-family:var(--tele);font-size:11px;letter-spacing:.14em;color:var(--faint);text-transform:uppercase}
+.apps{display:grid;grid-template-columns:repeat(auto-fill,minmax(176px,1fr));gap:14px}
+.app{position:relative;display:flex;flex-direction:column;gap:4px;padding:18px 16px 16px;border:1px solid var(--hair2);border-radius:18px;overflow:hidden;isolation:isolate;
+  background:linear-gradient(160deg,rgba(255,255,255,.06),rgba(255,255,255,.015));backdrop-filter:blur(6px);
+  transition:transform .35s cubic-bezier(.2,.8,.2,1),border-color .35s,box-shadow .35s}
+.app:before{content:"";position:absolute;width:160px;height:160px;left:-40px;top:-60px;border-radius:50%;background:radial-gradient(closest-side,color-mix(in srgb,var(--a) 30%,transparent),transparent);opacity:.35;transition:opacity .35s,transform .5s;z-index:-1}
+.app:hover{transform:translateY(-5px);border-color:color-mix(in srgb,var(--a) 55%,transparent);box-shadow:0 18px 40px -22px var(--a)}
+.app:hover:before{opacity:.9;transform:scale(1.25)}
+.orb{position:relative;width:50px;height:50px;border-radius:15px;display:grid;place-items:center;margin-bottom:12px;color:var(--a);
+  background:radial-gradient(circle at 30% 22%,color-mix(in srgb,var(--a) 34%,transparent),transparent 62%),linear-gradient(160deg,#16181D,#0B0C0F);
+  box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--a) 45%,transparent),inset 0 1px 0 rgba(255,255,255,.12),0 10px 24px -12px var(--a)}
+.orb:after{content:"";position:absolute;inset:-1px;border-radius:16px;padding:1px;background:conic-gradient(from 0deg,transparent 0 70%,var(--a),transparent);
+  -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude;opacity:0;transition:opacity .3s}
+.app:hover .orb:after{opacity:1;animation:ring 2.4s linear infinite}
+@keyframes ring{to{transform:rotate(360deg)}}
+.orb .ji{width:24px;height:24px;filter:drop-shadow(0 0 6px color-mix(in srgb,var(--a) 70%,transparent))}
+.app b{font-size:13.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase}
+.app small{font-size:11.5px;color:var(--dim);font-weight:500;letter-spacing:.02em}
+.app .arw{position:absolute;right:14px;top:14px;font-style:normal;font-size:14px;color:var(--a);opacity:0;transform:translate(-4px,4px);transition:opacity .3s,transform .3s}
+.app:hover .arw{opacity:1;transform:none}
+
+.flow2{position:relative;display:grid;grid-template-columns:repeat(8,1fr);gap:8px;padding-top:4px}
+.flow2:before{content:"";position:absolute;left:6%;right:6%;top:26px;height:1px;background:var(--hair)}
+.flow2 .bar{position:absolute;left:6%;top:25px;height:3px;width:0;background:linear-gradient(90deg,var(--red),#FFB547);box-shadow:0 0 12px var(--red);transition:width 2.4s cubic-bezier(.65,0,.35,1)}
+.flow2.in .bar{width:88%}
+.st2{position:relative;z-index:1;display:flex;flex-direction:column;align-items:center;gap:10px;text-align:center}
+.st2 .dot{width:44px;height:44px;border-radius:50%;display:grid;place-items:center;color:var(--ink);background:var(--bg);border:1px solid var(--hair);transition:all .3s}
+.st2 .dot .ji{width:20px;height:20px}
+.st2 b{font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--dim);transition:color .3s}
+.st2:hover .dot{border-color:var(--red);color:var(--red2);box-shadow:0 0 18px -2px var(--red);transform:translateY(-3px)}
+.st2:hover b{color:var(--ink)}
+
+footer{margin-top:70px;padding:28px 0 22px;border-top:1px solid var(--hair2)}
+.fz{display:flex;align-items:center;gap:26px;flex-wrap:wrap}
+.fz .lg img{height:24px}
+.fz .fi{display:inline-flex;align-items:center;gap:8px;font-size:12.5px;color:var(--dim);font-weight:500}
+.fz .fi .ji{width:15px;height:15px;color:var(--red2)}
+.fz a.fi:hover{color:var(--ink)}
+footer .bot{margin-top:18px;padding-top:14px;border-top:1px solid var(--hair2);font-size:10.5px}
+
+/* daylight versions */
+html[data-sky=day] .app{background:linear-gradient(160deg,#fff,rgba(255,255,255,.7));box-shadow:0 8px 24px -16px rgba(16,24,40,.25)}
+html[data-sky=day] .orb{background:radial-gradient(circle at 30% 22%,color-mix(in srgb,var(--a) 30%,transparent),transparent 62%),#fff;color:color-mix(in srgb,var(--a) 75%,#000)}
+html[data-sky=day] .orb .ji{filter:none}
+
+@media(max-width:760px){.apps{grid-template-columns:repeat(2,1fr);gap:10px}.app{padding:14px}.orb{width:44px;height:44px;border-radius:13px;margin-bottom:8px}
+  .flow2{grid-template-columns:repeat(4,1fr);row-gap:22px}.flow2:before,.flow2 .bar{display:none}.fz{gap:14px}.hero{min-height:0}.mini .hint{display:none}}
 </style>
 <link rel="stylesheet" href="jayco-theme.css?v=2">
 <script src="jayco-icons.js?v=1"></script>
@@ -275,9 +331,8 @@ html[data-wx=fog][data-sky=day] .hero{background:linear-gradient(180deg,#B9C3CC 
   <canvas id="wx" aria-hidden="true"></canvas><div class="fog" aria-hidden="true"></div><div class="flash" id="flash" aria-hidden="true"></div>
   <div class="wrap" style="width:100%">
     <div class="txt rv">
-      <div class="lbl"><i></i>JAYCO Engineering (India) · Mission Control</div>
+      <div class="lbl"><i></i>JAYCO Engineering (India)</div>
       <h1><span>Precision In</span><em>Motion</em></h1>
-      <p class="sub">From The First Enquiry To The Final Payment — Every Order, Every Piece And Every Rupee Of Every Plummer Block, Tracked In One Flow.</p>
       <div class="cta">
         <a class="gbtn red" href="erp.html"><span data-ji="dashboard"></span>Open The ERP</a>
         <a class="gbtn" href="entry-desk.html"><span data-ji="entry"></span>Enter A Document</a>
@@ -295,95 +350,47 @@ html[data-wx=fog][data-sky=day] .hero{background:linear-gradient(180deg,#B9C3CC 
   </div></div>
 </header>
 
-<section class="sec" id="sequence"><div class="wrap">
-  <div class="shead rv"><div><div class="lbl"><span class="n">01</span>Launch Sequence</div><h2>Order To Dispatch</h2></div>
-    <p>Every JAYCO order flies the same eight-stage mission. Select a stage to open its portal.</p></div>
-  <div class="seq rv" id="seq"><span class="bar"></span>
-    <a class="stg" href="sales-crm.html"><span class="t">STAGE 01</span><div class="ic" data-ji="inquiry"></div><b>Inquiry</b><small>Leads from email, IndiaMART and website</small></a>
-    <a class="stg" href="sales-crm.html#quotes"><span class="t">STAGE 02</span><div class="ic" data-ji="quote"></div><b>Quotation</b><small>Approved price, sent and followed up</small></a>
-    <a class="stg" href="po-management.html"><span class="t">STAGE 03</span><div class="ic" data-ji="order"></div><b>Customer PO</b><small>Confirmed order with delivery date</small></a>
-    <a class="stg" href="casting-control.html"><span class="t">STAGE 04</span><div class="ic" data-ji="casting"></div><b>Casting</b><small>Foundry order, pattern and weight</small></a>
-    <a class="stg" href="production.html"><span class="t">STAGE 05</span><div class="ic" data-ji="machining"></div><b>Machining</b><small>Boring, drilling and grinding</small></a>
-    <a class="stg" href="shop-floor.html"><span class="t">STAGE 06</span><div class="ic" data-ji="paint"></div><b>Paint &amp; QC</b><small>Inspection, paint and finish</small></a>
-    <a class="stg" href="dispatch-board.html"><span class="t">STAGE 07</span><div class="ic" data-ji="dispatch"></div><b>Dispatch</b><small>Packed, slipped and on the road</small></a>
-    <a class="stg" href="customer-portal.html"><span class="t">STAGE 08</span><div class="ic" data-ji="payment"></div><b>Payment</b><small>Collected, mission complete</small></a>
+<section class="blk" id="systems"><div class="wrap">
+  <div class="mini rv"><span class="lbl"><span class="n">01</span>Systems</span><span class="hint">Ctrl K to search</span></div>
+  <div class="apps">
+    <a class="app rv" href="erp.html" data-name="ERP" data-ic="dashboard" data-desc="Command centre" style="--a:#FF4A3D"><span class="orb"><span data-ji="dashboard"></span></span><b>ERP</b><small>Command centre</small><i class="arw" aria-hidden="true">↗</i></a>
+    <a class="app rv" href="entry-desk.html" data-name="Entry Desk" data-ic="entry" data-desc="Post once" style="--a:#FF8A3D"><span class="orb"><span data-ji="entry"></span></span><b>Entry Desk</b><small>Post once</small><i class="arw" aria-hidden="true">↗</i></a>
+    <a class="app rv" href="sales-crm.html" data-name="Sales" data-ic="inquiry" data-desc="Leads & quotes" style="--a:#FFB547"><span class="orb"><span data-ji="inquiry"></span></span><b>Sales</b><small>Leads & quotes</small><i class="arw" aria-hidden="true">↗</i></a>
+    <a class="app rv" href="po-management.html" data-name="Orders" data-ic="order" data-desc="Customer POs" style="--a:#F5D547"><span class="orb"><span data-ji="order"></span></span><b>Orders</b><small>Customer POs</small><i class="arw" aria-hidden="true">↗</i></a>
+    <a class="app rv" href="shop-floor.html" data-name="Shop-Floor" data-ic="board" data-desc="Live board" style="--a:#7CE38B"><span class="orb"><span data-ji="board"></span></span><b>Shop-Floor</b><small>Live board</small><i class="arw" aria-hidden="true">↗</i></a>
+    <a class="app rv" href="casting-control.html" data-name="Casting" data-ic="casting" data-desc="Foundry & patterns" style="--a:#33D1C6"><span class="orb"><span data-ji="casting"></span></span><b>Casting</b><small>Foundry & patterns</small><i class="arw" aria-hidden="true">↗</i></a>
+    <a class="app rv" href="production.html" data-name="Production" data-ic="machining" data-desc="Machining output" style="--a:#3DB8FF"><span class="orb"><span data-ji="machining"></span></span><b>Production</b><small>Machining output</small><i class="arw" aria-hidden="true">↗</i></a>
+    <a class="app rv" href="store-control.html" data-name="Store" data-ic="store" data-desc="Tools & stock" style="--a:#6E8BFF"><span class="orb"><span data-ji="store"></span></span><b>Store</b><small>Tools & stock</small><i class="arw" aria-hidden="true">↗</i></a>
+    <a class="app rv" href="dispatch-board.html" data-name="Dispatch" data-ic="dispatch" data-desc="Paint & slips" style="--a:#A779FF"><span class="orb"><span data-ji="dispatch"></span></span><b>Dispatch</b><small>Paint & slips</small><i class="arw" aria-hidden="true">↗</i></a>
+    <a class="app rv" href="customer-portal.html" data-name="Accounts" data-ic="customers" data-desc="Collect payments" style="--a:#E36BFF"><span class="orb"><span data-ji="customers"></span></span><b>Accounts</b><small>Collect payments</small><i class="arw" aria-hidden="true">↗</i></a>
+    <a class="app rv" href="vendor-payments.html" data-name="Vendors" data-ic="vendor" data-desc="Pay suppliers" style="--a:#FF6BB5"><span class="orb"><span data-ji="vendor"></span></span><b>Vendors</b><small>Pay suppliers</small><i class="arw" aria-hidden="true">↗</i></a>
+    <a class="app rv" href="https://hr.jaycoprt.com/#hr" data-name="HR" data-ic="employees" data-desc="Attendance & payroll" style="--a:#FF5C7A"><span class="orb"><span data-ji="employees"></span></span><b>HR</b><small>Attendance & payroll</small><i class="arw" aria-hidden="true">↗</i></a>
   </div>
 </div></section>
 
-<section class="sec" id="control"><div class="wrap">
-  <div class="shead rv"><div><div class="lbl"><span class="n">02</span>Mission Control</div><h2>Every System. One Console.</h2></div>
-    <p>Each portal signs in on its own. Enter a document once — it reaches every system that needs it.</p></div>
-  <div class="mc">
-    <a class="sys w6 rv" href="erp.html" data-name="ERP" data-ic="dashboard"><span class="corner a"></span><span class="corner b"></span>
-      <div class="top"><span class="num">SYS 01</span><span class="ic" data-ji="dashboard"></span></div>
-      <span class="k">Command Centre · Admins</span><h3>The Whole Factory. One Screen.</h3>
-      <p>Live order stages, money to collect and pay, and per-item costing — everything in one view.</p><span class="go">Launch<i></i></span></a>
-    <a class="sys w6 rv" href="entry-desk.html" data-name="Entry Desk" data-ic="entry"><span class="corner a"></span><span class="corner b"></span>
-      <div class="top"><span class="num">SYS 02</span><span class="ic" data-ji="entry"></span></div>
-      <span class="k">Entry Desk · Staff</span><h3>One Entry. Every Portal.</h3>
-      <p>Sales invoice, purchase bill or casting challan — with e-way number and scan copy. Post once.</p><span class="go">Launch<i></i></span></a>
-    <a class="sys rv" href="sales-crm.html" data-name="Sales" data-ic="inquiry"><span class="corner a"></span><span class="corner b"></span>
-      <div class="top"><span class="num">SYS 03</span><span class="ic" data-ji="inquiry"></span></div>
-      <span class="k">Sales · Leads &amp; Quotes</span><h3>Every Enquiry, Answered.</h3><p>Leads inbox, follow-ups, approved quotations and one-click POs.</p><span class="go">Launch<i></i></span></a>
-    <a class="sys rv" href="po-management.html" data-name="PO Management" data-ic="order"><span class="corner a"></span><span class="corner b"></span>
-      <div class="top"><span class="num">SYS 04</span><span class="ic" data-ji="order"></span></div>
-      <span class="k">PO Management</span><h3>Every Order, On Time.</h3><p>Customer POs, delivery dates, pending quantities and despatches.</p><span class="go">Launch<i></i></span></a>
-    <a class="sys rv" href="shop-floor.html" data-name="Shop-Floor Board" data-ic="board"><span class="corner a"></span><span class="corner b"></span>
-      <div class="top"><span class="num">SYS 05</span><span class="ic" data-ji="board"></span></div>
-      <span class="k">Shop-Floor Board</span><h3>Every Piece, Right Now.</h3><p>Casting to ready-to-dispatch — updated automatically from the floor.</p><span class="go">Launch<i></i></span></a>
-    <a class="sys w8 rv" href="casting-control.html" data-name="Casting Control" data-ic="casting"><span class="corner a"></span><span class="corner b"></span>
-      <div class="top"><span class="num">SYS 06</span><span class="ic" data-ji="casting"></span></div>
-      <span class="k">Casting Control · Pattern Tracker</span><h3>Every Casting Weighed. Every Pattern Located.</h3>
-      <p>Foundry challans, purchase orders, weight checks — and where every pattern is right now.</p><span class="go">Launch<i></i></span></a>
-    <a class="sys rv" href="production.html" data-name="Production" data-ic="machining"><span class="corner a"></span><span class="corner b"></span>
-      <div class="top"><span class="num">SYS 07</span><span class="ic" data-ji="machining"></span></div>
-      <span class="k">Production</span><h3>Every Operation, Counted.</h3><p>Machining output, rejections, attendance, shifts and salary slips.</p><span class="go">Launch<i></i></span></a>
-    <a class="sys rv" href="store-control.html" data-name="Store Control" data-ic="store"><span class="corner a"></span><span class="corner b"></span>
-      <div class="top"><span class="num">SYS 08</span><span class="ic" data-ji="store"></span></div>
-      <span class="k">Store Control</span><h3>Every Tool, Accounted For.</h3><p>GRN, issues, returns and finished-goods stock.</p><span class="go">Launch<i></i></span></a>
-    <a class="sys rv" href="dispatch-board.html" data-name="Dispatch Board" data-ic="dispatch"><span class="corner a"></span><span class="corner b"></span>
-      <div class="top"><span class="num">SYS 09</span><span class="ic" data-ji="dispatch"></span></div>
-      <span class="k">Dispatch Board</span><h3>Every Box, Out The Door.</h3><p>Paint challans, finish stock and dispatch slips with PDF.</p><span class="go">Launch<i></i></span></a>
-    <a class="sys rv" href="customer-portal.html" data-name="Customer Portal" data-ic="customers"><span class="corner a"></span><span class="corner b"></span>
-      <div class="top"><span class="num">SYS 10</span><span class="ic" data-ji="customers"></span></div>
-      <span class="k">Customer Accounts</span><h3>Every Rupee, Collected.</h3><p>Bills, receipts, ageing, statements and payment reminders.</p><span class="go">Launch<i></i></span></a>
-    <a class="sys rv" href="vendor-payments.html" data-name="Vendor Payments" data-ic="vendor"><span class="corner a"></span><span class="corner b"></span>
-      <div class="top"><span class="num">SYS 11</span><span class="ic" data-ji="vendor"></span></div>
-      <span class="k">Vendor Payments</span><h3>Every Supplier, Paid Right.</h3><p>Bills, advances, ageing and the MSME 45-day watch.</p><span class="go">Launch<i></i></span></a>
-    <a class="sys w8 rv" href="https://hr.jaycoprt.com/#hr" data-name="HR &amp; Attendance" data-ic="employees"><span class="corner a"></span><span class="corner b"></span>
-      <div class="top"><span class="num">SYS 12</span><span class="ic" data-ji="employees"></span></div>
-      <span class="k">HR &amp; Attendance</span><h3>Every Worker, On Time.</h3><p>Selfie check-in at the factory, shifts, late marks, overtime, daily work, PF/ESI, advances and payroll.</p><span class="go">Launch<i></i></span></a>
+<section class="blk" id="sequence"><div class="wrap">
+  <div class="mini rv"><span class="lbl"><span class="n">02</span>Order To Dispatch</span></div>
+  <div class="flow2 rv" id="seq"><span class="bar"></span>
+    <a class="st2" href="sales-crm.html"><span class="dot" data-ji="inquiry"></span><b>Inquiry</b></a>
+    <a class="st2" href="sales-crm.html#quotes"><span class="dot" data-ji="quote"></span><b>Quote</b></a>
+    <a class="st2" href="po-management.html"><span class="dot" data-ji="order"></span><b>PO</b></a>
+    <a class="st2" href="casting-control.html"><span class="dot" data-ji="casting"></span><b>Casting</b></a>
+    <a class="st2" href="production.html"><span class="dot" data-ji="machining"></span><b>Machining</b></a>
+    <a class="st2" href="shop-floor.html"><span class="dot" data-ji="paint"></span><b>Paint & QC</b></a>
+    <a class="st2" href="dispatch-board.html"><span class="dot" data-ji="dispatch"></span><b>Dispatch</b></a>
+    <a class="st2" href="customer-portal.html"><span class="dot" data-ji="payment"></span><b>Payment</b></a>
   </div>
 </div></section>
-
-<section class="facility" id="facility">
-  <div class="fac-grid" aria-hidden="true"></div>
-  <div class="wrap rv">
-    <div class="lbl"><span class="n" style="color:var(--red2);margin-right:14px">03</span>Infrastructure &amp; Technology</div>
-    <h2>Built At Mirjapur. Engineered For Excellence.</h2>
-    <p class="q">Where innovation meets manufacturing excellence — a CAD/CAM-designed facility on the Ahmedabad–Indore Highway, with cutting-edge machinery and a skilled workforce.</p>
-    <div class="caps">
-      <div><span data-ji="shield"></span><b>Quality Checks</b><span>Every housing inspected before dispatch.</span></div>
-      <div><span data-ji="machining"></span><b>Precision Machined</b><span>Bores, faces and seats held to drawing.</span></div>
-      <div><span data-ji="settings"></span><b>Advanced Technology</b><span>CAD/CAM design and modern machining.</span></div>
-      <div><span data-ji="trend"></span><b>Optimal Performance</b><span>Built for steel, cement, power and sugar.</span></div>
-    </div>
-  </div>
-</section>
 
 <footer><div class="wrap">
-  <div class="g">
-    <div class="lg"><img src="assets/jayco-logo-white.png" alt="JAYCO"><p>JAYCO Engineering (India) — Precision Engineered For Excellence. Plummer blocks, bearing housings, pillow blocks, adapter sleeves, lock nuts and customized bearing units.</p></div>
-    <div><h4>Office &amp; Works</h4>
-      <div class="row"><span data-ji="pin"></span><span>Plot No. 18-19-20, Dharti Industrial Park,<br>Ahmedabad–Indore Highway, P.O. Mirjapur,<br>Dist. Kheda – 387610, Gujarat, India</span></div>
-      <div class="row"><span data-ji="shield"></span><span>GSTIN 24AAJFJ3998D1Z5</span></div></div>
-    <div><h4>Contact</h4>
-      <div class="row"><span data-ji="phone"></span><span><a href="tel:+919512244473">+91 95122 44473</a><br><a href="tel:+919537254473">+91 95372 54473</a></span></div>
-      <div class="row"><span data-ji="mail"></span><span><a href="mailto:info@jaycohousing.com">info@jaycohousing.com</a><br><a href="mailto:office@jaycohousing.com">office@jaycohousing.com</a></span></div>
-      <div class="row"><span data-ji="globe"></span><a href="https://www.jaycohousing.com" target="_blank" rel="noopener">www.jaycohousing.com</a></div></div>
+  <div class="fz">
+    <a class="lg" href="index.html"><img src="assets/jayco-logo-white.png" alt="JAYCO"></a>
+    <span class="fi"><span data-ji="pin"></span>Mirjapur, Dist. Kheda, Gujarat</span>
+    <a class="fi" href="tel:+919512244473"><span data-ji="phone"></span>+91 95122 44473</a>
+    <a class="fi" href="mailto:info@jaycohousing.com"><span data-ji="mail"></span>info@jaycohousing.com</a>
+    <a class="fi" href="https://www.jaycohousing.com" target="_blank" rel="noopener"><span data-ji="globe"></span>jaycohousing.com</a>
   </div>
-  <div class="bot"><span>Each portal signs in separately. For authorised JAYCO Engineering staff only.</span>
-    <span>© 2026 JAYCO Engineering (India) · Concept &amp; Developed By CA Amit N. Lakhtariya, Designated Partner, Pradip B. Gandhi &amp; Co. LLP · Chartered Accountants · M. No. ICAI 117820</span></div>
+  <div class="bot"><span>Authorised JAYCO staff only · GSTIN 24AAJFJ3998D1Z5</span><span>© 2026 JAYCO Engineering (India) · Developed By CA Amit N. Lakhtariya</span></div>
 </div></footer>
 
 <div class="pal" id="pal" role="dialog" aria-label="Search Portals"><div class="pbox"><input id="pq" placeholder="Search Systems" autocomplete="off"><div class="plist" id="plist"></div></div></div>
@@ -404,7 +411,7 @@ addEventListener('scroll', () => nav.classList.toggle('solid', scrollY > 40), {p
 
 // reveal + launch-sequence bar
 const io = new IntersectionObserver(es => es.forEach(e => { if(e.isIntersecting){ e.target.classList.add('in'); io.unobserve(e.target); } }), {threshold: .12});
-document.querySelectorAll('.rv').forEach((el, i) => { if(el.classList.contains('sys')) el.style.transitionDelay = (i % 3) * 90 + 'ms'; io.observe(el); });
+document.querySelectorAll('.rv').forEach((el, i) => { if(el.classList.contains('app')) el.style.transitionDelay = (i % 6) * 60 + 'ms'; io.observe(el); });
 
 // star field
 (function(){
@@ -498,7 +505,7 @@ document.querySelectorAll('.rv').forEach((el, i) => { if(el.classList.contains('
 })();
 
 // Ctrl+K quick jump
-const items = [...document.querySelectorAll('a.sys[data-name]')].map(a => ({href: a.getAttribute('href'), name: a.dataset.name, desc: a.querySelector('h3').textContent, ic: a.dataset.ic}));
+const items = [...document.querySelectorAll('a.app[data-name]')].map(a => ({href: a.getAttribute('href'), name: a.dataset.name, desc: a.dataset.desc, ic: a.dataset.ic}));
 const pal = document.getElementById('pal'), pq = document.getElementById('pq'), pl = document.getElementById('plist'); let sel = 0, cur = [];
 function draw(){ const q = pq.value.toLowerCase().trim(); cur = items.filter(i => !q || (i.name + ' ' + i.desc).toLowerCase().includes(q)); sel = Math.min(sel, Math.max(0, cur.length - 1));
   pl.innerHTML = cur.map((i, n) => `<a class="pi ${n === sel ? 'sel' : ''}" href="${i.href}"><span class="gi">${JI(i.ic)}</span><div><b>${i.name}</b><span>${i.desc}</span></div>${n === sel ? '<kbd>ENTER ↵</kbd>' : ''}</a>`).join('') || '<div class="pi"><span>No system found.</span></div>'; }
