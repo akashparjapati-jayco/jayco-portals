@@ -36,7 +36,10 @@ function doLogin(){
   btn.disabled = true; btn.textContent = 'Signing in…';
   firebase.auth().signInWithEmailAndPassword(STAFF_EMAIL, pwd).catch(function(err){
     errEl.textContent = (err.code==='auth/wrong-password'||err.code==='auth/invalid-credential'||err.code==='auth/user-not-found')
-      ? 'Incorrect password.' : 'Sign-in error: ' + err.message;
+      ? 'Incorrect password.'
+      : err.code==='auth/too-many-requests'
+        ? 'Too many wrong passwords were tried, so Google has paused sign-in from this device for a while. Wait 15–30 minutes and try again with the correct password (or ask the admin to reset it).'
+        : err.code==='auth/network-request-failed' ? 'No internet connection.' : 'Sign-in error: ' + err.message;
     errEl.style.display = 'block';
   }).finally(function(){ btn.disabled = false; btn.textContent = 'Sign in'; });
 }
