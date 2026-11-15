@@ -42,13 +42,13 @@ const me = () => (USER && USER.email) || 'staff';
 function toast(m){ const t=$('#toast'); t.textContent=m; t.style.display='block'; clearTimeout(toast.t); toast.t=setTimeout(()=>t.style.display='none',2800); }
 
 /* ---------- login ---------- */
-$('#lgEmail').value = localStorage.getItem('crm_email') || STAFF_EMAIL;
+$('#lgEmail').value = STAFF_EMAIL;
 firebase.initializeApp(firebaseConfig); db = firebase.firestore();
 $('#lgBtn').onclick = () => {
   $('#lgErr').textContent = '';
   firebase.auth().signInWithEmailAndPassword($('#lgEmail').value.trim(), $('#lgPwd').value)
     .then(() => { localStorage.setItem('crm_email', $('#lgEmail').value.trim()); prodSignIn($('#lgPwd').value).catch(() => {}); })
-    .catch(e => $('#lgErr').textContent = /password|credential|user-not-found/.test(e.code || '') ? 'Incorrect email or password.' : e.message);
+    .catch(e => $('#lgErr').textContent = /password|credential|user-not-found/.test(e.code || '') ? 'Incorrect password.' : e.message);
 };
 $('#lgPwd').addEventListener('keydown', e => { if(e.key === 'Enter') $('#lgBtn').click(); });
 $('#lgOut').onclick = () => firebase.auth().signOut();
