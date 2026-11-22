@@ -10,6 +10,7 @@ const STAGES = [
   {k:'pattern',  n:'Pattern / Drawing',      c:'#7c5cff'},
   {k:'casting',  n:'Casting',                c:'#c27803'},
   {k:'machining',n:'Machining',              c:'#2F6FED'},
+  {k:'grinding', n:'Grinding',               c:'#e0601b'},
   {k:'inspection',n:'Inspection (QC)',       c:'#0e9aa7'},
   {k:'painting', n:'Painting',               c:'#c0201c'},
   {k:'packing',  n:'Assembly & Packing',     c:'#6b7a1f'},
@@ -79,10 +80,12 @@ async function start(){
 
 /* ---------- derived data ---------- */
 // Pieces of one PO line in each stage. Dispatched comes from PO Management's dispatch entry (single source of truth).
+// pieces despatched: PO Management despatch, or Production '7 (Dispatch)' entries (dispQty) — whichever is more, never both
+function despOf(it, d){ const sd = d || STG[it.id] || {}; return Math.max(num(it.despatchedQty), num(sd.dispQty)); }
 function itemState(it){
   ensureIdx(); if(_memo[it.id]) return _memo[it.id];
   const st = (STG[it.id] && STG[it.id].stageQty) || {};
-  const ordered = num(it.orderedQty), desp = num(it.despatchedQty), open = Math.max(0, ordered - desp);
+  const ordered = num(it.orderedQty), desp = despOf(it), open = Math.max(0, ordered - desp);
   const q = {}; STAGES.forEach(s => q[s.k] = Math.max(0, num(st[s.k])));
   // if PO Management dispatched pieces that were still sitting in a stage, trim from the most advanced stage backwards
   let excess = STAGES.reduce((a, s) => a + q[s.k], 0) - open;
@@ -982,8 +985,10 @@ function drawWip(){
 /* ---------- AUTO-SYNC: entries made in other portals move pieces on the Shop-floor Board ----------
    Casting Control challan line  → Casting           (every line's quantity, as pieces)
    Production "1 (Bottom)"       → Machining         (first machining operation; later operations stay inside Machining)
+   Production "4 (Grinding)"     → Grinding
    Production "5 (Inspection)"   → Inspection
    Production "6 (Paint)"        → Painting
+   Production "7 (Dispatch)"     → Dispatched        (pieces leave the board; counted with PO Management despatch, never twice)
    Dispatch Board paint challan  → Ready to Dispatch (painted stock-in; "Repaint" lines are rework and are skipped)
    PO Management dispatch        → Dispatched        (already counted directly)
    Pieces go to open PO lines of the same item, earliest delivery date first. Each source entry is applied exactly once
@@ -992,7 +997,7 @@ function drawWip(){
 const PROD_FB = {apiKey: "AIzaSyA-g_9GoUg3W1dfxjxFsvH-w130S6y_eAU", authDomain: "jayco-production.firebaseapp.com", databaseURL: "https://jayco-production-default-rtdb.asia-southeast1.firebasedatabase.app",
   projectId: "jayco-production", storageBucket: "jayco-production.firebasestorage.app", messagingSenderId: "1064982683384", appId: "1:1064982683384:web:00786a7d04ac6f6728650d"};
 const PROD_EMAIL = 'staff@jayco-production.local';
-const PROD_STAGE_MAP = {'1 (bottom)': 'machining', '5 (inspection)': 'inspection', '6 (paint)': 'painting'};
+const PROD_STAGE_MAP = {'1 (bottom)': 'machining', '4 (grinding)': 'grinding', '5 (inspection)': 'inspection', '6 (paint)': 'painting', '7 (dispatch)': '__dispatch'};
 let SYNC = {state: '', at: 0, applied: 0, unmatched: [], prod: '', cast: '', paint: '', running: false};
 function prodApp(){ return firebase.apps.find(a => a.name === 'production') || firebase.initializeApp(PROD_FB, 'production'); }
 async function prodSignIn(pwd){ const a = firebase.auth(prodApp()); if(a.currentUser) return; await a.signInWithEmailAndPassword(PROD_EMAIL, pwd); }
@@ -1040,7 +1045,7 @@ async function collectEvents(from){
 }
 async function applyEvent(e){
   const code = matchItemCode(e.text), ti = STAGES.findIndex(s => s.k === e.stage);
-  const lines = code ? ITEMS_PO.filter(i => i.itemCode === code && num(i.orderedQty) - num(i.despatchedQty) > 0)
+  const lines = code ? ITEMS_PO.filter(i => i.itemCode === code && num(i.orderedQty) - despOf(i) > 0)
     .sort((a, b) => (toDate(a.deliveryDate) || new Date(8.64e15)) - (toDate(b.deliveryDate) || new Date(8.64e15))).slice(0, 15) : [];
   const mark = db.collection('erp_sync').doc(syncKey(e.key));
   return db.runTransaction(async tx => {
@@ -1051,8 +1056,20 @@ async function applyEvent(e){
     lines.forEach((it, n) => {
       if(left <= 0) return;
       const d = snaps[n].exists ? snaps[n].data() : {stageQty: {}, history: []}, sq = foldStages({...(d.stageQty || {})});
-      const open = num(it.orderedQty) - num(it.despatchedQty), inSt = STAGES.reduce((a, s) => a + Math.max(0, num(sq[s.k])), 0);
+      const open = num(it.orderedQty) - despOf(it, d), inSt = STAGES.reduce((a, s) => a + Math.max(0, num(sq[s.k])), 0);
       let ns = Math.max(0, open - inSt), take = 0; const hist = [];
+      if(e.stage === '__dispatch'){                           // most advanced stage first, then "not started"
+        let m = Math.min(left, Math.max(0, open)); if(m <= 0) return;
+        const got = m;
+        for(let k = STAGES.length - 1; k >= -1 && m > 0; k--){
+          const have = k >= 0 ? Math.max(0, num(sq[STAGES[k].k])) : ns, t = Math.min(have, m); if(t <= 0) continue;
+          if(k >= 0) sq[STAGES[k].k] = have - t; else ns -= t;
+          m -= t; hist.push({at: now, by: 'auto-sync', from: k >= 0 ? STAGES[k].n : 'Not started', to: 'Dispatched', qty: t, note: e.note + ' · ' + e.day});
+        }
+        left -= got; used.push(got + ' on ' + it.poNo);
+        tx.set(refs[n], {poItemId: it.id, poNo: it.poNo, itemCode: it.itemCode, stageQty: sq, dispQty: num(d.dispQty) + got, history: [...(d.history || []), ...hist].slice(-200), updatedAt: now}, {merge: true});
+        return;
+      }
       for(let k = ti - 1; k >= -1 && left > 0; k--){          // nearest earlier stage first, then "not started"
         const have = k >= 0 ? Math.max(0, num(sq[STAGES[k].k])) : ns, m = Math.min(have, left); if(m <= 0) continue;
         if(k >= 0) sq[STAGES[k].k] = have - m; else ns -= m;
@@ -1076,7 +1093,7 @@ async function autoSync(force){
     for(const e of ev){
       if(done.has(syncKey(e.key))) continue;
       const r = await applyEvent(e); if(r.skip) continue;
-      applied += r.applied; if(r.left > 0) unmatched.push(`${e.text}: ${r.left} pcs ${STAGES.find(s => s.k === e.stage).n}${r.code ? ' (no open order left)' : ' (item not on any PO)'}`);
+      applied += r.applied; if(r.left > 0) unmatched.push(`${e.text}: ${r.left} pcs ${(STAGES.find(s => s.k === e.stage) || {n: 'Dispatched'}).n}${r.code ? ' (no open order left)' : ' (item not on any PO)'}`);
     }
     SYNC = {...SYNC, state: 'ok', at: Date.now(), applied: SYNC.applied + applied, unmatched: [...unmatched, ...SYNC.unmatched].slice(0, 20), from};
   }catch(e){ SYNC.state = 'error: ' + e.message; SYNC.at = Date.now(); }
