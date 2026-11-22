@@ -1046,6 +1046,7 @@ const DEFAULT_STAGES = [
   { stage: '4 (Grinding)', color: '#c0392b', persons: ['VANRAJ','DHAVAL'] },
   { stage: '5 (Inspection)', color: '#7d3c98', persons: ['DILIP'] },
   { stage: '6 (Paint)', color: '#ca6f1e', persons: ['PARESH','BHARAT','VANRAJ','CHIRAG'] },
+  { stage: '7 (Dispatch)', color: '#1a8f4c', persons: ['DISPATCH'] },
   { stage: 'Ring', color: '#a04000', persons: ['PRAKASH'] }
 ];
 
@@ -2188,6 +2189,13 @@ function loadLayout() {
       var data = snapshot.val();
       if (data && data.stages && data.stages.length > 0) {
         currentStages = data.stages;
+        // Dispatch row: daily dispatched pieces move items off the Shop-floor Board (added once to saved layouts)
+        if (!currentStages.some(function(s){ return /dispatch/i.test(s.stage || s.Stage || ''); })) {
+          var at = currentStages.findIndex(function(s){ return /^ring$/i.test(String(s.stage || s.Stage || '').trim()); });
+          var row = { stage: '7 (Dispatch)', color: '#1a8f4c', persons: ['DISPATCH'] };
+          if (at >= 0) currentStages.splice(at, 0, row); else currentStages.push(row);
+          DB.ref('layout').set({ stages: currentStages }).catch(function(){});
+        }
         buildForm();
       }
     })
