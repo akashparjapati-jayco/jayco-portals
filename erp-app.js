@@ -9,13 +9,14 @@ const STAFF_EMAIL = "staff@jayco-po-management.local";
 const STAGES = [
   {k:'pattern',  n:'Pattern / Drawing',      c:'#7c5cff'},
   {k:'casting',  n:'Casting',                c:'#c27803'},
-  {k:'fettling', n:'Fettling & Shot-blast',  c:'#d9622b'},
   {k:'machining',n:'Machining',              c:'#2F6FED'},
   {k:'inspection',n:'Inspection (QC)',       c:'#0e9aa7'},
   {k:'painting', n:'Painting',               c:'#c0201c'},
   {k:'packing',  n:'Assembly & Packing',     c:'#6b7a1f'},
   {k:'ready',    n:'Ready to Dispatch',      c:'#1a8f4c'}
 ];
+// Fettling & Shot-blast was dropped as a stage: any pieces still recorded there count as Casting.
+function foldStages(sq){ sq = sq || {}; if(num(sq.fettling) > 0){ sq.casting = num(sq.casting) + num(sq.fettling); sq.fettling = 0; } return sq; }
 const DEFAULT_OPS = ['Base — face & bottom milling','Cap — face milling','Bore boring','Seal groove / recess','Drilling & tapping','Assembly & trial'];
 const DEFAULT_MATS = [{n:'Cast Iron', rate:75}, {n:'FG 260', rate:85}, {n:'Cast Steel', rate:125}, {n:'SG Iron', rate:100}];
 const DEFAULT_SET = {admins: [], mats: DEFAULT_MATS, rejPct:5, ovhPct:10, marginPct:15, machLossPct:8, boughtMarginPct:15, freightPct:2, ops: DEFAULT_OPS};
@@ -65,7 +66,7 @@ async function start(){
   snap('purchaseOrders', r => PO = r);
   snap('poItems', r => ITEMS_PO = r);
   snap('despatches', r => DESP = r);
-  snap('erp_itemStages', r => { STG = {}; r.forEach(x => STG[x.id] = x); });
+  snap('erp_itemStages', r => { STG = {}; r.forEach(x => { x.stageQty = foldStages({...(x.stageQty || {})}); STG[x.id] = x; }); });
   snap('erp_costing', r => { COST = {}; r.forEach(x => COST[x.id] = x); });
   snap('customers', r => CUSTS = r);
   snap('erp_documents', r => DOCS = r);
@@ -604,7 +605,7 @@ async function castIntoStage(code, pcs, note){   // FIFO over open order lines o
     if(left <= 0) break;
     const n = Math.min(left, x.s.notStarted), ref = db.collection('erp_itemStages').doc(x.i.id);
     await db.runTransaction(async tx => {
-      const cur = await tx.get(ref), d = cur.exists ? cur.data() : {stageQty: {}, history: []}, sq = {...(d.stageQty || {})}, now = new Date().toISOString();
+      const cur = await tx.get(ref), d = cur.exists ? cur.data() : {stageQty: {}, history: []}, sq = foldStages({...(d.stageQty || {})}), now = new Date().toISOString();
       sq.casting = num(sq.casting) + n;
       tx.set(ref, {poItemId: x.i.id, poNo: x.i.poNo, itemCode: x.i.itemCode, stageQty: sq, history: [...(d.history || []), {at: now, by: me(), from: 'Not started', to: 'Casting', qty: n, note}].slice(-200), updatedAt: now}, {merge: true});
     });
@@ -922,7 +923,7 @@ async function saveMove(itemId){
   try{
     await db.runTransaction(async tx => {
       const cur = await tx.get(ref), d = cur.exists ? cur.data() : {stageQty:{}, history:[], scrapQty:0};
-      const sq = {...(d.stageQty || {})}, now = new Date().toISOString();
+      const sq = foldStages({...(d.stageQty || {})}), now = new Date().toISOString();
       if(from !== '__ns') sq[from] = Math.max(0, num(sq[from]) - qty);
       let scrapQ = num(d.scrapQty);
       if(to === '__scrap') scrapQ += qty; else sq[to] = num(sq[to]) + qty;
@@ -1049,7 +1050,7 @@ async function applyEvent(e){
     let left = e.qty; const now = new Date().toISOString(), used = [];
     lines.forEach((it, n) => {
       if(left <= 0) return;
-      const d = snaps[n].exists ? snaps[n].data() : {stageQty: {}, history: []}, sq = {...(d.stageQty || {})};
+      const d = snaps[n].exists ? snaps[n].data() : {stageQty: {}, history: []}, sq = foldStages({...(d.stageQty || {})});
       const open = num(it.orderedQty) - num(it.despatchedQty), inSt = STAGES.reduce((a, s) => a + Math.max(0, num(sq[s.k])), 0);
       let ns = Math.max(0, open - inSt), take = 0; const hist = [];
       for(let k = ti - 1; k >= -1 && left > 0; k--){          // nearest earlier stage first, then "not started"
