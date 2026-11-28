@@ -1,0 +1,12 @@
+{
+  "name": "jayco-portals",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "preview": "npx wrangler@3 pages dev dist"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
