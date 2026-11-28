@@ -6,3 +6,7 @@
   Referrer-Policy: strict-origin-when-cross-origin
   Permissions-Policy: geolocation=(), microphone=(), camera=()
   Strict-Transport-Security: max-age=31536000
+
+# Images and logos rarely change; let browsers cache them for a week.
+/assets/*
+  Cache-Control: public, max-age=604800
